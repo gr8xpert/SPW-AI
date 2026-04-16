@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Property Widget - Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f8fafc;
+      min-height: 100vh;
+    }
+
+    .demo-header {
+      background: #1e293b;
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .demo-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .demo-header p {
+      opacity: 0.8;
+      font-size: 0.875rem;
+    }
+
+    .demo-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    #property-widget {
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .demo-footer {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+
+    .demo-controls {
+      background: white;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .demo-controls label {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    .demo-controls select {
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-header">
+    <h1>Smart Property Widget</h1>
+    <p>Embeddable property search widget demo</p>
+  </div>
+
+  <div class="demo-container">
+    <div class="demo-controls">
+      <label>
+        Theme:
+        <select id="theme-toggle">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <label>
+        Layout:
+        <select id="layout-toggle">
+          <option value="grid">Grid</option>
+          <option value="list">List</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="property-widget"></div>
+  </div>
+
+  <div class="demo-footer">
+    <p>Smart Property Widget v1.0.0 &copy; 2026</p>
+  </div>
+
+  <!-- Widget Script -->
+  <script type="module">
+    // In development, import from source
+    // In production, use: <script src="https://widget.spw-ai.com/spw-widget.iife.js">
+
+    // For demo, we'll simulate the data
+    const demoConfig = {
+      apiUrl: 'https://api.spw-ai.com',
+      apiKey: 'demo-api-key',
+      container: '#property-widget',
+      dataPath: '/spw-data',
+      theme: 'light',
+      layout: 'grid',
+      resultsPerPage: 12,
+      enableFavorites: true,
+      enableInquiry: true,
+      enableTracking: false, // Disable for demo
+    };
+
+    // Note: In actual usage, the widget would be initialized like this:
+    // const widget = new SPW.Widget(demoConfig);
+    // widget.init();
+
+    // For demo purposes, show placeholder
+    document.getElementById('property-widget').innerHTML = `
+      <div style="padding: 3rem; text-align: center; color: #64748b;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <h3 style="margin-bottom: 0.5rem; color: #0f172a;">Widget Demo</h3>
+        <p style="max-width: 400px; margin: 0 auto;">
+          Connect to your SPW API to see the widget in action.
+          Make sure local JSON data files are available at /spw-data/
+        </p>
+        <div style="margin-top: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 0.5rem; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
+          <code style="font-size: 0.75rem; display: block; white-space: pre-wrap;">const widget = new SPW.Widget({
+  apiUrl: 'https://api.spw-ai.com',
+  apiKey: 'your-api-key',
+  container: '#property-widget',
+});
+widget.init();</code>
+        </div>
+      </div>
+    `;
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('change', (e) => {
+      const widget = document.getElementById('property-widget');
+      widget.classList.toggle('spw-theme-dark', e.target.value === 'dark');
+    });
+  </script>
+</body>
+</html>

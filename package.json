@@ -1,0 +1,44 @@
+{
+  "name": "spw",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Smart Property Widget v2 - Multi-tenant Property Management SaaS",
+  "scripts": {
+    "build": "turbo run build",
+    "build:api": "pnpm --filter api build",
+    "build:dashboard": "pnpm --filter dashboard build",
+    "build:widget": "pnpm --filter widget build",
+    "dev": "turbo run dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:dashboard": "pnpm --filter dashboard dev",
+    "dev:widget": "pnpm --filter widget dev",
+    "start": "turbo run start",
+    "start:api": "pnpm --filter api start:prod",
+    "start:dashboard": "pnpm --filter dashboard start",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:migrate": "pnpm --filter api migration:run",
+    "db:migrate:generate": "pnpm --filter api migration:generate",
+    "db:seed": "pnpm --filter api seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
+    "deploy:build": "pnpm build:api && pnpm build:dashboard && pnpm build:widget"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.4.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
