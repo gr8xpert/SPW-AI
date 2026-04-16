@@ -100,14 +100,15 @@ import { TeamModule } from './modules/team/team.module';
     }),
 
     // Global rate limiting. Individual controllers can tighten limits further with @Throttle().
+    // The 'default' tracker is required because controllers use @Throttle({ default: { ... } })
+    // to override per-endpoint. @nestjs/throttler v5+ treats tracker names literally — if
+    // 'default' isn't registered, those overrides silently do nothing.
     ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: 100 },
       { name: 'short', ttl: 1000, limit: 20 },
       { name: 'medium', ttl: 60_000, limit: 300 },
       { name: 'long', ttl: 3_600_000, limit: 5_000 },
     ]),
-
-    // Health probe queue — used by HealthController to verify Redis connectivity.
-    BullQueueModule.registerQueue({ name: 'health-probe' }),
 
     // ============ Phase 1: Foundation ============
     HealthModule,

@@ -51,18 +51,20 @@ describe('Smoke — golden path (e2e)', () => {
   });
 
   describe('Public endpoints', () => {
+    // A global ResponseInterceptor wraps all JSON responses as { data: ... },
+    // so reach through res.body.data to inspect the payload.
     it('GET /api/health reports ok when DB + Redis are up', async () => {
       const res = await request(app.getHttpServer()).get('/api/health').expect(200);
-      expect(res.body.status).toBe('ok');
-      expect(res.body.checks.database.status).toBe('ok');
-      expect(res.body.checks.redis.status).toBe('ok');
+      expect(res.body.data.status).toBe('ok');
+      expect(res.body.data.checks.database.status).toBe('ok');
+      expect(res.body.data.checks.redis.status).toBe('ok');
     });
 
     it('GET /api/v1/license/ping returns 200', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/license/ping')
         .expect(200);
-      expect(res.body.status).toBe('ok');
+      expect(res.body.data.status).toBe('ok');
     });
   });
 

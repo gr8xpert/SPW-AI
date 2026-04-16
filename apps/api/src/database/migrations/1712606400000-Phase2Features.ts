@@ -336,7 +336,7 @@ export class Phase2Features1712606400000 implements MigrationInterface {
         tenantId INT NOT NULL UNIQUE,
         isEnabled BOOLEAN DEFAULT FALSE,
         exportKey VARCHAR(64) NOT NULL UNIQUE,
-        allowedFormats JSON DEFAULT '["xml", "json"]',
+        allowedFormats JSON DEFAULT ('["xml", "json"]'),
         propertyFilter JSON,
         includeUnpublished BOOLEAN DEFAULT FALSE,
         includeSold BOOLEAN DEFAULT FALSE,

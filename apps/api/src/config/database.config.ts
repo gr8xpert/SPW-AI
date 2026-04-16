@@ -1,5 +1,11 @@
 import { registerAs } from '@nestjs/config';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load .env for standalone CLI invocations (typeorm migration:run, seed scripts).
+// Nest's ConfigModule handles this at runtime, but the TypeORM CLI bypasses it.
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // `synchronize: true` auto-alters the schema at boot and can destroy production data.
 // Allow it only outside of production; hard-refuse in production regardless of env flag.
