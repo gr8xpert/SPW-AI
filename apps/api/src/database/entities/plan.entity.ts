@@ -38,6 +38,12 @@ export class Plan {
   @Column({ default: 5 })
   maxUsers: number;
 
+  // Per-tenant public-API rate limit (requests per minute). Enforced by
+  // ApiKeyThrottlerGuard against the sha256(api-key) bucket. Plans without a
+  // row default to 60/min at the guard layer.
+  @Column({ default: 60 })
+  ratePerMinute: number;
+
   @Column({ type: 'json', nullable: true })
   features: PlanFeatures | null;
 

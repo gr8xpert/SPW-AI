@@ -54,6 +54,7 @@ import { ReorderModule } from './modules/reorder/reorder.module';
 import { TeamModule } from './modules/team/team.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -162,6 +163,7 @@ import { MaintenanceModule } from './modules/maintenance/maintenance.module';
     TeamModule,
     WebhookModule,
     MaintenanceModule,
+    MailModule,
   ],
   providers: [
     // Global exception filter

@@ -29,6 +29,7 @@ interface PlanSeed {
   priceYearly: number | null;
   maxProperties: number;
   maxUsers: number;
+  ratePerMinute: number;
   features: {
     feeds: boolean;
     campaigns: boolean;
@@ -46,6 +47,7 @@ const PLAN_SEEDS: PlanSeed[] = [
     priceYearly: 0,
     maxProperties: 25,
     maxUsers: 1,
+    ratePerMinute: 30,
     features: {
       feeds: false,
       campaigns: false,
@@ -61,6 +63,7 @@ const PLAN_SEEDS: PlanSeed[] = [
     priceYearly: 290,
     maxProperties: 250,
     maxUsers: 3,
+    ratePerMinute: 120,
     features: {
       feeds: true,
       campaigns: false,
@@ -76,6 +79,7 @@ const PLAN_SEEDS: PlanSeed[] = [
     priceYearly: 990,
     maxProperties: 2500,
     maxUsers: 10,
+    ratePerMinute: 600,
     features: {
       feeds: true,
       campaigns: true,
@@ -91,6 +95,7 @@ const PLAN_SEEDS: PlanSeed[] = [
     priceYearly: null,
     maxProperties: 100_000,
     maxUsers: 100,
+    ratePerMinute: 3000,
     features: {
       feeds: true,
       campaigns: true,

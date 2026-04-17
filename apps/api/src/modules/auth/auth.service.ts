@@ -15,6 +15,7 @@ import { User, Tenant, Plan } from '../../database/entities';
 import { LoginDto, LoginResponseDto, RegisterDto } from './dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
+import { SystemMailerService } from '../mail/system-mailer.service';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { JwtPayload, UserRole } from '@spw/shared';
 
@@ -34,6 +35,7 @@ export class AuthService {
     private dataSource: DataSource,
     private refreshTokenService: RefreshTokenService,
     private emailVerificationService: EmailVerificationService,
+    private systemMailer: SystemMailerService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
@@ -160,13 +162,8 @@ export class AuthService {
     // step. Login from a new device later will still require email verification.
     const tokens = await this.generateTokens(result);
 
-    // Issue the verification link. Actual email delivery is a follow-up
-    // (email-sender is in a separate module, SMTP config not wired here).
-    // For now we log the link so dev/staging can click through from the console.
     const verificationToken = await this.emailVerificationService.issue(result);
-    this.logger.log(
-      `email-verify link for ${result.email}: /verify?token=${verificationToken}`,
-    );
+    await this.sendVerificationEmail(result, verificationToken);
 
     return {
       ...tokens,
@@ -230,11 +227,50 @@ export class AuthService {
     });
     if (user && user.emailVerifiedAt === null && user.isActive) {
       const token = await this.emailVerificationService.issue(user);
-      this.logger.log(
-        `resend verify link for ${user.email}: /verify?token=${token}`,
-      );
+      await this.sendVerificationEmail(user, token);
     }
     return { sent: true };
+  }
+
+  // Builds and dispatches the verification email. Keeps the URL construction
+  // in one place so register + resend stay consistent. If the mailer is in
+  // log-only mode (no SMTP configured), send() still logs the link so devs
+  // can click through without reading source.
+  private async sendVerificationEmail(user: User, token: string): Promise<void> {
+    const baseUrl =
+      this.configService.get<string>('DASHBOARD_URL') ?? 'http://localhost:3000';
+    const link = `${baseUrl.replace(/\/$/, '')}/verify?token=${encodeURIComponent(token)}`;
+
+    const text = [
+      `Hi ${user.name || 'there'},`,
+      '',
+      'Please verify your email address by opening the link below:',
+      link,
+      '',
+      'This link expires in 24 hours. If you did not create an account, you can ignore this email.',
+    ].join('\n');
+
+    const html = [
+      `<p>Hi ${escapeHtml(user.name || 'there')},</p>`,
+      `<p>Please verify your email address by clicking the link below:</p>`,
+      `<p><a href="${link}">${link}</a></p>`,
+      `<p>This link expires in 24 hours. If you did not create an account, you can ignore this email.</p>`,
+    ].join('');
+
+    const result = await this.systemMailer.send({
+      to: user.email,
+      subject: 'Verify your email',
+      text,
+      html,
+    });
+
+    if (!result.delivered && result.skippedReason === 'error') {
+      // Delivery failure is non-fatal — the user can request a resend. But
+      // surface the error so an oncall dashboard can catch SMTP outages.
+      this.logger.warn(
+        `verification email send failed for user=${user.id}: ${result.error ?? 'unknown'}`,
+      );
+    }
   }
 
   // Used by /logout to drop a specific refresh + its chain.
@@ -286,4 +322,13 @@ export class AuthService {
   private generateWebhookSecret(): string {
     return randomBytes(32).toString('hex');
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

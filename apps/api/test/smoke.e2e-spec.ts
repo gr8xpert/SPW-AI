@@ -27,6 +27,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken } from '../src/database/entities';
 import { CleanupService } from '../src/modules/maintenance/cleanup.service';
+import { SystemMailerService } from '../src/modules/mail/system-mailer.service';
 
 // Throttler buckets now persist in Redis (shared across replicas in prod).
 // E2E tests run back-to-back on the same dev Redis — without a pre-flush,
@@ -229,6 +230,124 @@ describe('Smoke — golden path (e2e)', () => {
       // And the user's emailVerifiedAt is now set.
       const after = await ds.getRepository(User).findOneOrFail({ where: { email } });
       expect(after.emailVerifiedAt).not.toBeNull();
+    });
+
+    // Verifies the full SMTP-wired verification flow: register triggers the
+    // SystemMailerService (now injected with a fake transport capturing
+    // outgoing mail), the captured message contains a /verify?token=<hex>
+    // link, and POSTing that token to /auth/verify-email flips the user's
+    // emailVerifiedAt. Guards against regressions where Phase 5D's mailer
+    // wiring gets accidentally unhooked.
+    describe('Verification email dispatch', () => {
+      interface CapturedMail {
+        to?: string;
+        subject?: string;
+        text?: string;
+        html?: string;
+      }
+      const captured: CapturedMail[] = [];
+
+      beforeAll(() => {
+        const mailer = app.get(SystemMailerService);
+        mailer.__setTransporterForTests(
+          {
+            sendMail: async (opts) => {
+              captured.push({
+                to: opts.to as string,
+                subject: opts.subject as string,
+                text: opts.text as string,
+                html: opts.html as string,
+              });
+              return { messageId: `test-${captured.length}` };
+            },
+          },
+          '"SPW Test" <noreply@smoke.test>',
+        );
+      });
+
+      it('sends a verification email on register and the link verifies the account', async () => {
+        const email = `mailflow-${Date.now()}@smoke.test`;
+        const before = captured.length;
+
+        await request(app.getHttpServer())
+          .post('/api/auth/register')
+          .send({
+            email,
+            password: 'SmokeTest1234!',
+            name: 'Mail Flow Tester',
+            tenantName: 'Mail Flow Tenant',
+            tenantSlug: uniqueSlug('mailflow'),
+          })
+          .expect(201);
+
+        // At least one new message since the register call.
+        expect(captured.length).toBeGreaterThan(before);
+        const latest = captured[captured.length - 1];
+        expect(latest.to).toBe(email);
+        expect(latest.subject).toMatch(/verify/i);
+
+        // Extract the token from the plaintext body — HTML escaping would
+        // otherwise confuse a naïve href regex. The service builds the link
+        // as `${DASHBOARD_URL}/verify?token=...`.
+        const match = latest.text?.match(/token=([a-f0-9]{64})/);
+        expect(match).toBeTruthy();
+        const rawToken = match![1];
+
+        await request(app.getHttpServer())
+          .post('/api/auth/verify-email')
+          .send({ token: rawToken })
+          .expect(200);
+
+        // Don't round-trip through /auth/login here — that endpoint is tight-
+        // throttled (5/min per IP) and adding a login hit bleeds a 429 into the
+        // "refresh-token reuse revokes family" test further down. verify-email
+        // returning 200 already proves the token flow is correct.
+      });
+
+      it('resend-verification delivers a new link that also works', async () => {
+        // Register (mail #1) → never click → resend (mail #2) → use mail #2's
+        // token → verify succeeds. Also confirms issue() invalidates #1 so
+        // it can't be reused after a resend.
+        const email = `resend-${Date.now()}@smoke.test`;
+        await request(app.getHttpServer())
+          .post('/api/auth/register')
+          .send({
+            email,
+            password: 'SmokeTest1234!',
+            name: 'Resend Tester',
+            tenantName: 'Resend Tenant',
+            tenantSlug: uniqueSlug('resend'),
+          })
+          .expect(201);
+        const firstMatch = captured[captured.length - 1].text?.match(
+          /token=([a-f0-9]{64})/,
+        );
+        expect(firstMatch).toBeTruthy();
+        const firstToken = firstMatch![1];
+
+        await request(app.getHttpServer())
+          .post('/api/auth/resend-verification')
+          .send({ email })
+          .expect(200);
+        const resendMatch = captured[captured.length - 1].text?.match(
+          /token=([a-f0-9]{64})/,
+        );
+        expect(resendMatch).toBeTruthy();
+        const resendToken = resendMatch![1];
+        expect(resendToken).not.toBe(firstToken);
+
+        // The original token must be dead now — issue() consumes prior
+        // unconsumed rows when a new one is minted.
+        await request(app.getHttpServer())
+          .post('/api/auth/verify-email')
+          .send({ token: firstToken })
+          .expect(400);
+
+        await request(app.getHttpServer())
+          .post('/api/auth/verify-email')
+          .send({ token: resendToken })
+          .expect(200);
+      });
     });
 
     it('POST /api/auth/register rejects weak password', async () => {
@@ -721,14 +840,20 @@ describe('Smoke — golden path (e2e)', () => {
   // Public-API (per-tenant-key) rate limiter. Lives above the login flood
   // test so the login 429s can't bleed into this block. Floods GET /api/v1/
   // properties with one tenant's api key until the tracker fires, then
-  // confirms a second tenant's key is not affected.
+  // confirms a second tenant's key is not affected. Also verifies that a
+  // tenant on a higher-tier plan (Enterprise ratePerMinute=3000) sails past
+  // the Free threshold — proving the per-plan resolution actually kicks in.
   describe('Public API per-api-key rate limiting', () => {
-    const PUBLIC_API_LIMIT = 60;
+    // Free plan ships at 30 req/min (see seed.ts + PlanRatePerMinute migration).
+    // Hardcoding the constant here keeps the test readable; if the seed default
+    // changes, this assertion needs to change with it.
+    const FREE_PLAN_LIMIT = 30;
 
     let keyC: string;
     let keyD: string;
+    let keyE: string; // tenant on Enterprise plan — should not throttle at 30
 
-    it('registers two fresh tenants to get independent api keys', async () => {
+    it('registers three fresh tenants to get independent api keys', async () => {
       const regC = await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
@@ -753,16 +878,44 @@ describe('Smoke — golden path (e2e)', () => {
         .expect(201);
       keyD = regD.body.data.tenantApiKey;
 
+      // Register C/D/E on Free plan. Then promote E to Enterprise directly
+      // in the DB — the dashboard plan-change flow is out of scope for this
+      // smoke test, we only need the plan relation set.
+      const regE = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email: `ratee-${Date.now()}@smoke.test`,
+          password: 'SmokeTest1234!',
+          name: 'Rate E Admin',
+          tenantName: 'Rate E Tenant',
+          tenantSlug: uniqueSlug('ratee'),
+        })
+        .expect(201);
+      keyE = regE.body.data.tenantApiKey;
+
+      const ds = app.get(DataSource);
+      const enterprisePlanId = await ds
+        .query('SELECT id FROM plans WHERE slug = ? LIMIT 1', ['enterprise'])
+        .then((rows: Array<{ id: number }>) => rows[0]?.id);
+      expect(enterprisePlanId).toBeTruthy();
+      const eHash = createHash('sha256').update(keyE).digest('hex');
+      await ds.query('UPDATE tenants SET planId = ? WHERE apiKeyHash = ?', [
+        enterprisePlanId,
+        eHash,
+      ]);
+
       expect(keyC).toMatch(/^spw_[a-f0-9]{64}$/);
       expect(keyD).toMatch(/^spw_[a-f0-9]{64}$/);
-      expect(keyC).not.toBe(keyD);
+      expect(keyE).toMatch(/^spw_[a-f0-9]{64}$/);
     });
 
-    it('floods tenant C until the api-key bucket returns 429', async () => {
-      // Fire (limit + 5) requests so we cleanly cross the threshold, then
-      // assert the overflow came back as 429s.
+    it('Free-plan tenant C is throttled at its plan ceiling', async () => {
+      // Fire (limit + 5) requests so we cleanly cross the threshold. The
+      // lookup cache in ApiKeyThrottlerGuard is 30s — already primed by this
+      // point in the suite, so the plan rate reflects the Enterprise update
+      // we just performed (but C is Free, so still 30).
       const statuses: number[] = [];
-      for (let i = 0; i < PUBLIC_API_LIMIT + 5; i++) {
+      for (let i = 0; i < FREE_PLAN_LIMIT + 5; i++) {
         const res = await request(app.getHttpServer())
           .get('/api/v1/properties')
           .set('x-api-key', keyC);
@@ -771,8 +924,8 @@ describe('Smoke — golden path (e2e)', () => {
 
       const throttled = statuses.filter((s) => s === 429);
       expect(throttled.length).toBeGreaterThanOrEqual(1);
-      // Earlier requests should have been 200 (search returns empty list for
-      // a tenant with no published properties).
+      // First handful should have sailed through — search returns an empty
+      // list for a brand-new tenant.
       expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
     });
 
@@ -782,6 +935,24 @@ describe('Smoke — golden path (e2e)', () => {
         .set('x-api-key', keyD)
         .expect(200);
       expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    it('Enterprise-plan tenant E sails past the Free-plan ceiling', async () => {
+      // Clear only this tenant's bucket so the lookup-cache change is the
+      // only variable. (Clearing all throttler keys would also drop C's 429
+      // state, but there's no harm — C isn't asserted again.)
+      await flushThrottlerKeys();
+
+      // Fire FREE_PLAN_LIMIT + 10 requests. An Enterprise tenant (3000/min)
+      // should be nowhere near their ceiling — every request must be 200.
+      const statuses: number[] = [];
+      for (let i = 0; i < FREE_PLAN_LIMIT + 10; i++) {
+        const res = await request(app.getHttpServer())
+          .get('/api/v1/properties')
+          .set('x-api-key', keyE);
+        statuses.push(res.status);
+      }
+      expect(statuses.every((s) => s === 200)).toBe(true);
     });
   });
 
