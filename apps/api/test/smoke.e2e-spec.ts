@@ -1004,6 +1004,31 @@ describe('Smoke — golden path (e2e)', () => {
       // Housekeep the stale-alive row so we don't leak test fixtures.
       await ds.getRepository(RefreshToken).delete(staleAlive.id);
     });
+
+    // Distributed lock. Without this, every replica fires scheduledCleanup()
+    // at 03:30 and races the same DELETE queries. With the lock in place,
+    // only one replica should "execute"; the others observe executed=false.
+    it('scheduledCleanup is serialized by the Redis lock', async () => {
+      const cleanup = app.get(CleanupService);
+
+      // Fire two concurrent "replicas" — in a real horizontal deploy these
+      // would be on different processes, but same-process contention is a
+      // strict superset: both get into withLock() before either releases.
+      const [first, second] = await Promise.all([
+        cleanup.scheduledCleanup(),
+        cleanup.scheduledCleanup(),
+      ]);
+
+      const executed = [first, second].filter((r) => r.executed).length;
+      const skipped = [first, second].filter((r) => !r.executed).length;
+      expect(executed).toBe(1);
+      expect(skipped).toBe(1);
+
+      // Lock should be released by the time we get here — a subsequent call
+      // can re-acquire and execute.
+      const follow = await cleanup.scheduledCleanup();
+      expect(follow.executed).toBe(true);
+    });
   });
 
   // Public-API (per-tenant-key) rate limiter. Lives above the login flood

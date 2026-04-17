@@ -17,6 +17,7 @@ import { TransformInterceptor } from './common/interceptors';
 import { JwtAuthGuard } from './common/guards';
 import { ThrottlerStorageModule } from './common/throttler/throttler-storage.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
+import { RedisLockModule } from './common/redis/redis-lock.module';
 
 // Phase 1: Foundation Modules
 import { HealthModule } from './modules/health/health.module';
@@ -112,6 +113,11 @@ import { MailModule } from './modules/mail/mail.module';
     // Storage is Redis-backed (see RedisThrottlerStorage) so every API replica
     // reads and writes the same buckets — otherwise a 4-replica deploy would
     // give each client 4× the advertised limit.
+    // Shared Redis-backed distributed lock (SET NX PX) for cross-replica
+    // coordination — notably, preventing every api replica from firing the
+    // nightly CleanupService cron simultaneously.
+    RedisLockModule,
+
     ThrottlerStorageModule,
     ThrottlerModule.forRootAsync({
       imports: [ThrottlerStorageModule],
