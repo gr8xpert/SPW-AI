@@ -643,8 +643,21 @@ describe('Smoke — golden path (e2e)', () => {
         expect(parsed.data.id).toBe(propertyId);
         expect(parsed.data.reference).toBeTruthy();
 
-        // Delivery row is marked delivered with the 200 from the listener.
+        // Phase 5G: property.* bumps tenant.syncVersion so poll-only widgets
+        // see the change. The post-bump version is stamped into the payload
+        // so receivers can correlate + de-dupe across retries.
+        expect(typeof parsed.data.syncVersion).toBe('number');
+        expect(parsed.data.syncVersion).toBeGreaterThan(0);
         const ds = app.get(DataSource);
+        const admin = await ds.getRepository(User).findOneOrFail({
+          where: { email: adminA.email },
+        });
+        const tenant = await ds
+          .getRepository(Tenant)
+          .findOneOrFail({ where: { id: admin.tenantId } });
+        expect(tenant.syncVersion).toBe(parsed.data.syncVersion);
+
+        // Delivery row is marked delivered with the 200 from the listener.
         const row = await ds
           .getRepository(WebhookDelivery)
           .findOne({ where: { id: Number(hit.headers['x-spw-delivery-id']) } });

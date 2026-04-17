@@ -93,6 +93,18 @@ export class TenantService {
     await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
   }
 
+  // Same as incrementSyncVersion but re-reads the row so callers know the
+  // exact post-bump value. PropertyService uses this to stamp the new version
+  // into outbound webhook payloads so receivers can de-dupe / debug.
+  async incrementAndGetSyncVersion(tenantId: number): Promise<number> {
+    await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
+    const after = await this.tenantRepository.findOneOrFail({
+      where: { id: tenantId },
+      select: ['id', 'syncVersion'],
+    });
+    return after.syncVersion;
+  }
+
   // Bumps the tenant's syncVersion and fires a cache.invalidated webhook so
   // downstream consumers (WP plugin, widget poller) refresh immediately.
   // Webhook failures are non-fatal — the version bump is the canonical

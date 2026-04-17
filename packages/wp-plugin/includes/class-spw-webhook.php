@@ -232,13 +232,44 @@ class SPW_Webhook {
     }
 
     /**
+     * Extract a sync_version from either v2 envelope ($payload['data']
+     * ['sync_version']) or legacy v1 top-level ($payload['sync_version']).
+     *
+     * v2 senders wrap all event-specific data inside a `data` key, leaving
+     * top-level for envelope fields (event, deliveryId, createdAt). v1
+     * senders put everything at the top level. Supporting both keeps the
+     * plugin tolerant of rolling upgrades on the server side.
+     *
+     * @param array $payload Webhook payload.
+     * @return int 0 when neither envelope carries a sync_version.
+     */
+    private function extract_sync_version($payload) {
+        if (isset($payload['data']) && is_array($payload['data']) && isset($payload['data']['sync_version'])) {
+            return (int) $payload['data']['sync_version'];
+        }
+        // Also accept 'syncVersion' (camelCase) — v2 property.* webhooks send
+        // this form because NestJS payloads are camelCase across the wire.
+        if (isset($payload['data']) && is_array($payload['data']) && isset($payload['data']['syncVersion'])) {
+            return (int) $payload['data']['syncVersion'];
+        }
+        if (isset($payload['sync_version'])) {
+            return (int) $payload['sync_version'];
+        }
+        return 0;
+    }
+
+    /**
      * Handle sync.required event
+     *
+     * v2 envelope: { event, deliveryId, createdAt, data: { sync_version,
+     *   changed } }. v1 envelope keeps those fields at the top level. We
+     * support both.
      *
      * @param array $payload Webhook payload
      * @return WP_REST_Response
      */
     private function handle_sync_required($payload) {
-        $remote_version = isset($payload['sync_version']) ? (int) $payload['sync_version'] : 0;
+        $remote_version = $this->extract_sync_version($payload);
         $local_version = (int) get_option('spw_sync_version', 0);
 
         // Check if sync needed
@@ -251,8 +282,14 @@ class SPW_Webhook {
             ), 200);
         }
 
-        // Determine which types to sync
-        $types = isset($payload['changed']) ? $payload['changed'] : null;
+        // Determine which types to sync (v2 nests under data, v1 at top level)
+        $data = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
+        $types = null;
+        if (isset($data['changed'])) {
+            $types = $data['changed'];
+        } elseif (isset($payload['changed'])) {
+            $types = $payload['changed'];
+        }
 
         // Perform sync
         $sync = spw_sync()->sync;
@@ -267,31 +304,46 @@ class SPW_Webhook {
     }
 
     /**
-     * Handle property change events
+     * Handle property change events (property.created | property.updated |
+     * property.deleted).
+     *
+     * v2 behaviour: the arrival of a property.* webhook IS the signal that
+     * data changed — server-side, every property write also bumps
+     * tenant.syncVersion. We record the new version so a subsequent poll
+     * doesn't re-trigger, then schedule spw_async_sync unconditionally.
+     * The 5-second delay dedupes bursts (bulk import fires many in a row).
+     *
+     * v1 fallback: the old behaviour that gated scheduling on "remote
+     * version > local version" is preserved for legacy senders that still
+     * include sync_version at the top level.
      *
      * @param array $payload Webhook payload
      * @return WP_REST_Response
      */
     private function handle_property_change($payload) {
-        // For property changes, we don't sync the full data
-        // Just update the sync version to indicate data is stale
-        if (isset($payload['sync_version'])) {
-            // Trigger a full sync if version changed significantly
-            $remote_version = (int) $payload['sync_version'];
-            $local_version = (int) get_option('spw_sync_version', 0);
+        $remote_version = $this->extract_sync_version($payload);
+        $local_version  = (int) get_option('spw_sync_version', 0);
 
-            if ($remote_version > $local_version) {
-                // Schedule async sync
-                wp_schedule_single_event(time() + 5, 'spw_async_sync');
-            }
+        if ($remote_version > $local_version) {
+            update_option('spw_sync_version', $remote_version);
+        }
+
+        // v2: always schedule — the webhook itself is proof something
+        // changed. Debounced 5s so a bulk import doesn't fire a storm.
+        // v1 fallback: only schedule when the version actually advanced,
+        // matching the pre-v2 behaviour operators came to expect.
+        if ($remote_version === 0 || $remote_version > $local_version) {
+            wp_schedule_single_event(time() + 5, 'spw_async_sync');
         }
 
         // Fire action for custom handling
         do_action('spw_property_changed', $payload);
 
         return new WP_REST_Response(array(
-            'status' => 'ok',
-            'message' => 'Property change acknowledged',
+            'status'         => 'ok',
+            'message'        => 'Property change acknowledged',
+            'remote_version' => $remote_version,
+            'local_version'  => $local_version,
         ), 200);
     }
 
@@ -302,6 +354,14 @@ class SPW_Webhook {
      * @return WP_REST_Response
      */
     private function handle_settings_change($payload) {
+        // If the event carried a newer sync_version, persist it before the
+        // sync runs so duplicate deliveries are no-ops.
+        $remote_version = $this->extract_sync_version($payload);
+        $local_version  = (int) get_option('spw_sync_version', 0);
+        if ($remote_version > $local_version) {
+            update_option('spw_sync_version', $remote_version);
+        }
+
         // Sync labels and config
         $sync = spw_sync()->sync;
         $results = $sync->sync_types(array('labels', 'config'));

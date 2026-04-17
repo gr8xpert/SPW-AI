@@ -5,6 +5,7 @@ import { Property } from '../../database/entities';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto } from './dto';
 import { PropertySearchService, SearchResult } from './property-search.service';
 import { LocationService } from '../location/location.service';
+import { TenantService } from '../tenant/tenant.service';
 import { WebhookService } from '../webhook/webhook.service';
 
 @Injectable()
@@ -16,17 +17,36 @@ export class PropertyService {
     private propertyRepository: Repository<Property>,
     private searchService: PropertySearchService,
     private locationService: LocationService,
+    private tenantService: TenantService,
     private webhookService: WebhookService,
   ) {}
 
   // Webhook emits are best-effort: a failed emit must not roll back the
   // primary write. The service records a 'skipped'/'failed' row in either
   // case, so the outcome is still observable from the dashboard.
+  //
+  // Each property.* event also bumps tenant.syncVersion. Without this,
+  // polling-only widgets (/sync-meta tick) would never notice a property
+  // change until the operator clicked "Clear cache" — defeating the whole
+  // poll mechanism. The post-bump version is stamped into the payload so
+  // webhook receivers (WP plugin, others) can de-dupe retries and log a
+  // consistent version when investigating.
   private async emit(
     tenantId: number,
     event: 'property.created' | 'property.updated' | 'property.deleted',
     property: Property,
   ): Promise<void> {
+    let syncVersion: number | undefined;
+    try {
+      syncVersion = await this.tenantService.incrementAndGetSyncVersion(tenantId);
+    } catch (err) {
+      this.logger.warn(
+        `syncVersion bump failed for ${event} property=${property.id}: ${
+          (err as Error).message
+        }`,
+      );
+    }
+
     try {
       await this.webhookService.emit(tenantId, event, {
         id: property.id,
@@ -36,6 +56,9 @@ export class PropertyService {
         listingType: property.listingType,
         price: property.price,
         currency: property.currency,
+        // Omitted when the bump failed so the receiver doesn't get a stale
+        // version that would mistakenly mark it "up-to-date".
+        ...(syncVersion !== undefined ? { syncVersion } : {}),
       });
     } catch (err) {
       this.logger.warn(
