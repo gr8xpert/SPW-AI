@@ -35,9 +35,13 @@ pm2 save                    # Save for auto-restart
 sudo nginx -t               # Test config
 sudo systemctl reload nginx # Apply changes
 
-# Database Backup
+# Database Backup (one-off)
 mysqldump -u spw_user -p spw_v2 > backup_$(date +%Y%m%d).sql
 ```
+
+> For the full nightly backup + disaster-recovery runbook (S3 offload,
+> retention, quarterly restore dry-run, step-by-step recovery), see
+> [`BACKUP_RESTORE.md`](./BACKUP_RESTORE.md).
 
 ---
 
