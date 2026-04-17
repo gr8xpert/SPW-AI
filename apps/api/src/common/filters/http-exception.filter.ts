@@ -15,6 +15,10 @@ interface ErrorResponse {
   // Stable machine-readable code (e.g. 'EMAIL_NOT_VERIFIED') so clients can
   // branch on the error without parsing the human-readable message string.
   code?: string;
+  // Propagates the request ID attached by RequestIdMiddleware so operators
+  // can search logs by the same correlation ID the client sees in its
+  // X-Request-Id response header.
+  requestId?: string;
   timestamp: string;
   path: string;
 }
@@ -51,9 +55,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = 'Internal server error';
       error = 'Internal Server Error';
 
-      // Log unexpected errors
+      // Log unexpected errors. The request ID (if present) gives operators
+      // a direct search key in the access + app logs.
       this.logger.error(
-        `Unexpected error: ${exception}`,
+        `Unexpected error${request.requestId ? ` [req=${request.requestId}]` : ''}: ${exception}`,
         exception instanceof Error ? exception.stack : undefined,
       );
     }
@@ -63,6 +68,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       error,
       ...(code ? { code } : {}),
+      ...(request.requestId ? { requestId: request.requestId } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

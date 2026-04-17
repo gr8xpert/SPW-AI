@@ -4,8 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { runBootSecurityAudit } from './common/security/boot-audit';
+import { JsonLogger } from './common/logging/json-logger';
 
 async function bootstrap() {
+  // Switch to JSON-lines logging in production so log aggregators can index
+  // structured fields. Dev keeps Nest's ConsoleLogger (colors, easier read).
+  // Done via Logger.overrideLogger so the boot audit below, which runs
+  // before NestFactory.create(), also emits JSON in prod.
+  if (process.env.NODE_ENV === 'production') {
+    Logger.overrideLogger(new JsonLogger());
+  }
   const logger = new Logger('Bootstrap');
 
   // Fail fast on obviously-broken production configs (placeholder secrets,

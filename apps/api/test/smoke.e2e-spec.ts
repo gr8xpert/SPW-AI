@@ -126,6 +126,48 @@ describe('Smoke — golden path (e2e)', () => {
       expect(res.body.data.checks.redis.status).toBe('ok');
     });
 
+    // Request ID: every response carries X-Request-Id. When the client
+    // supplies one matching the safe-chars pattern, we echo it back; a
+    // missing / malformed header gets a server-generated UUID.
+    it('echoes a client-supplied X-Request-Id when well-formed', async () => {
+      const clientId = 'abc-123_test';
+      const res = await request(app.getHttpServer())
+        .get('/api/health/live')
+        .set('X-Request-Id', clientId)
+        .expect(200);
+      expect(res.headers['x-request-id']).toBe(clientId);
+    });
+
+    it('rejects a malformed X-Request-Id and generates its own UUID', async () => {
+      // Spaces are valid inside an HTTP header value (so node's client lets
+      // this go out on the wire), but our regex rejects them — this exercises
+      // the sanitize-then-regenerate branch without tripping the HTTP layer's
+      // control-char check client-side.
+      const res = await request(app.getHttpServer())
+        .get('/api/health/live')
+        .set('X-Request-Id', 'bad id with spaces')
+        .expect(200);
+      // UUID v4 shape — 8-4-4-4-12 lowercase hex.
+      expect(res.headers['x-request-id']).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+    });
+
+    // Error responses include the requestId so clients can quote it when
+    // filing a bug — same ID visible in the response header.
+    it('includes requestId in error responses', async () => {
+      const clientId = 'err-correlation-test-9';
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/sync-meta') // 401 without api-key
+        .set('X-Request-Id', clientId)
+        .expect(401);
+      expect(res.headers['x-request-id']).toBe(clientId);
+      // Error body is wrapped by the global ResponseInterceptor? No — only
+      // 2xx responses get wrapped. Errors pass through HttpExceptionFilter
+      // directly, so read off res.body, not res.body.data.
+      expect(res.body.requestId).toBe(clientId);
+    });
+
     it('GET /api/v1/license/ping returns 200', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/license/ping')

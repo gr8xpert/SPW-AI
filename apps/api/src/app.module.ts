@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
@@ -18,6 +18,7 @@ import { JwtAuthGuard } from './common/guards';
 import { ThrottlerStorageModule } from './common/throttler/throttler-storage.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
 import { RedisLockModule } from './common/redis/redis-lock.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 // Phase 1: Foundation Modules
 import { HealthModule } from './modules/health/health.module';
@@ -194,4 +195,11 @@ import { MailModule } from './modules/mail/mail.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // RequestIdMiddleware runs before any controller so req.requestId is
+  // available for the entire lifecycle — auth guards, throttlers, handlers,
+  // the exception filter, response interceptor. Applied globally ('*').
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
