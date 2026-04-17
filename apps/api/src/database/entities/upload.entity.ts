@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 import { Property } from './property.entity';
+import { encryptedColumn } from '../../common/crypto/secret-cipher';
 
 export type StorageType = 'local' | 's3';
 
@@ -96,11 +97,24 @@ export class TenantStorageConfig {
   @Column({ length: 50, nullable: true })
   s3Region: string;
 
-  @Column({ length: 255, nullable: true })
-  s3AccessKey: string; // Encrypted
+  // s3AccessKey / s3SecretKey are AES-256-GCM encrypted at rest via the
+  // encryptedColumn transformer. Callers interact with them as plaintext;
+  // the DB stores base64 of `[iv][ciphertext][tag]` prefixed with `enc:v1:`.
+  @Column({
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    transformer: encryptedColumn,
+  })
+  s3AccessKey: string;
 
-  @Column({ length: 255, nullable: true })
-  s3SecretKey: string; // Encrypted
+  @Column({
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    transformer: encryptedColumn,
+  })
+  s3SecretKey: string;
 
   @Column({ length: 255, nullable: true })
   s3Endpoint: string; // For S3-compatible services

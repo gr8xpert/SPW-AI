@@ -7,11 +7,13 @@ import { PropertySearchService } from './property-search.service';
 import { Property } from '../../database/entities';
 import { LocationModule } from '../location/location.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { WebhookModule } from '../webhook/webhook.module';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property]), LocationModule, TenantModule],
+  imports: [TypeOrmModule.forFeature([Property]), LocationModule, TenantModule, WebhookModule],
   controllers: [PropertyController, PublicPropertyController],
-  providers: [PropertyService, PropertySearchService],
+  providers: [PropertyService, PropertySearchService, ApiKeyThrottlerGuard],
   exports: [PropertyService, PropertySearchService],
 })
 export class PropertyModule {}

@@ -143,16 +143,21 @@ async function seedSuperAdmin(ds: DataSource): Promise<void> {
   }
 
   // Super-admin lives on a dedicated internal tenant so tenant-scoped queries
-  // don't accidentally leak platform-admin data.
+  // don't accidentally leak platform-admin data. The generated API key is
+  // discarded — the internal tenant isn't meant to call public API endpoints.
+  // Rotate via the super-admin UI if it ever needs one.
   let holdingTenant = await tenantRepo.findOne({ where: { slug: 'platform' } });
   if (!holdingTenant) {
+    const { generateApiKey } = await import('../common/crypto/api-key');
+    const platformKey = generateApiKey();
     holdingTenant = await tenantRepo.save(
       tenantRepo.create({
         name: 'Platform',
         slug: 'platform',
         planId: enterprisePlan.id,
         isInternal: true,
-        apiKey: `spw_${require('crypto').randomBytes(32).toString('hex')}`,
+        apiKeyHash: platformKey.hash,
+        apiKeyLast4: platformKey.last4,
         webhookSecret: require('crypto').randomBytes(32).toString('hex'),
       }),
     );
@@ -168,6 +173,10 @@ async function seedSuperAdmin(ds: DataSource): Promise<void> {
       name: 'Platform Admin',
       role: UserRole.SUPER_ADMIN,
       isActive: true,
+      // Seeded super-admin is considered verified — the email is provided out
+      // of band by the operator running the seed, not collected through the
+      // normal signup flow.
+      emailVerifiedAt: new Date(),
     }),
   );
   console.log(`[super-admin] ${email} created`);

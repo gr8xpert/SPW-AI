@@ -1,19 +1,48 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from '../../database/entities';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto } from './dto';
 import { PropertySearchService, SearchResult } from './property-search.service';
 import { LocationService } from '../location/location.service';
+import { WebhookService } from '../webhook/webhook.service';
 
 @Injectable()
 export class PropertyService {
+  private readonly logger = new Logger(PropertyService.name);
+
   constructor(
     @InjectRepository(Property)
     private propertyRepository: Repository<Property>,
     private searchService: PropertySearchService,
     private locationService: LocationService,
+    private webhookService: WebhookService,
   ) {}
+
+  // Webhook emits are best-effort: a failed emit must not roll back the
+  // primary write. The service records a 'skipped'/'failed' row in either
+  // case, so the outcome is still observable from the dashboard.
+  private async emit(
+    tenantId: number,
+    event: 'property.created' | 'property.updated' | 'property.deleted',
+    property: Property,
+  ): Promise<void> {
+    try {
+      await this.webhookService.emit(tenantId, event, {
+        id: property.id,
+        reference: property.reference,
+        status: property.status,
+        isPublished: property.isPublished,
+        listingType: property.listingType,
+        price: property.price,
+        currency: property.currency,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `webhook emit for ${event} property=${property.id} failed: ${(err as Error).message}`,
+      );
+    }
+  }
 
   async search(tenantId: number, dto: SearchPropertyDto): Promise<SearchResult> {
     return this.searchService.search(tenantId, dto);
@@ -91,6 +120,7 @@ export class PropertyService {
     if (saved.locationId) {
       await this.locationService.incrementPropertyCount(tenantId, saved.locationId);
     }
+    await this.emit(tenantId, 'property.created', saved);
     return saved;
   }
 
@@ -116,6 +146,7 @@ export class PropertyService {
       if (oldLocationId) await this.locationService.decrementPropertyCount(tenantId, oldLocationId);
       if (dto.locationId) await this.locationService.incrementPropertyCount(tenantId, dto.locationId);
     }
+    await this.emit(tenantId, 'property.updated', saved);
     return saved;
   }
 
@@ -124,7 +155,10 @@ export class PropertyService {
     if (property.locationId) {
       await this.locationService.decrementPropertyCount(tenantId, property.locationId);
     }
+    // Snapshot before removal so the webhook payload still carries identity.
+    const snapshot = { ...property } as Property;
     await this.propertyRepository.remove(property);
+    await this.emit(tenantId, 'property.deleted', snapshot);
   }
 
   async lockFields(tenantId: number, id: number, fields: string[]): Promise<Property> {

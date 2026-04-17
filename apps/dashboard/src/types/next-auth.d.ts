@@ -11,6 +11,7 @@ declare module 'next-auth' {
       tenantId: number;
     } & DefaultSession['user'];
     accessToken: string;
+    error?: 'RefreshAccessTokenError';
   }
 
   interface User {
@@ -20,6 +21,7 @@ declare module 'next-auth' {
     role: string;
     tenantId: number;
     accessToken: string;
+    refreshToken: string;
   }
 }
 
@@ -31,5 +33,9 @@ declare module 'next-auth/jwt' {
     role: string;
     tenantId: number;
     accessToken: string;
+    refreshToken: string;
+    // epoch millis — when the API's access token expires, not the NextAuth session
+    accessTokenExpires: number;
+    error?: 'RefreshAccessTokenError';
   }
 }

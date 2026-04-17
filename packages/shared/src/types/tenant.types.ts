@@ -76,7 +76,10 @@ export interface TenantPublic {
 }
 
 export interface TenantWithApiKey extends TenantPublic {
-  apiKey: string;
+  // Hint only — last 4 chars of the raw key. The raw key itself is returned
+  // exactly once at registration/rotation and then never retrievable from
+  // the server (we only store sha256).
+  apiKeyLast4: string;
   webhookUrl: string | null;
 }
 

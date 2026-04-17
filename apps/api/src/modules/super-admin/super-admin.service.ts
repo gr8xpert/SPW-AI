@@ -17,6 +17,7 @@ import {
   AuditLog,
 } from '../../database/entities';
 import { UserRole, DEFAULT_TENANT_SETTINGS, TenantFull } from '@spw/shared';
+import { generateApiKey } from '../../common/crypto/api-key';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
 
 export interface PaginatedResult<T> {
@@ -182,7 +183,7 @@ export class SuperAdminService {
       ownerEmail: tenant.ownerEmail,
       siteName: tenant.siteName,
       apiUrl: tenant.apiUrl,
-      apiKey: tenant.apiKey,
+      apiKeyLast4: tenant.apiKeyLast4,
       webhookUrl: tenant.webhookUrl,
       settings: tenant.settings,
       isActive: tenant.isActive,
@@ -223,8 +224,12 @@ export class SuperAdminService {
       throw new NotFoundException('Plan not found');
     }
 
-    // Generate API key and webhook secret
-    const apiKey = crypto.randomBytes(32).toString('hex');
+    // Generate tenant API key + webhook secret. apiKey.rawKey is discarded
+    // here because createClient returns the TenantFull shape only (no raw
+    // key). Admins who need the raw key call rotateApiKey.
+    // TODO: expose the raw key in the create-client response when the
+    // super-admin UI can consume it (one-time flash message).
+    const apiKey = generateApiKey();
     const webhookSecret = crypto.randomBytes(32).toString('hex');
 
     // Hash admin password
@@ -252,7 +257,8 @@ export class SuperAdminService {
         siteName: dto.siteName || dto.name,
         apiUrl: dto.apiUrl || null,
         planId: dto.planId,
-        apiKey,
+        apiKeyHash: apiKey.hash,
+        apiKeyLast4: apiKey.last4,
         webhookSecret,
         settings: { ...DEFAULT_TENANT_SETTINGS, ...dto.settings },
         subscriptionStatus: dto.subscriptionStatus || 'active',

@@ -1,13 +1,22 @@
-import { Controller, Get, Param, Query, Headers, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, Query, Headers, UnauthorizedException, NotFoundException, UseGuards } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PropertyService } from './property.service';
 import { SearchPropertyDto } from './dto';
 import { TenantService } from '../tenant/tenant.service';
 import { SetMetadata } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
+// Public widget/property API. Rate limits are scoped per tenant API key
+// (not per IP) so one tenant's hot widget can't consume another tenant's
+// budget when they share a CDN/proxy IP. The global IP-based throttlers
+// are skipped here — ApiKeyThrottlerGuard is authoritative.
 @Controller('api/v1/properties')
+@UseGuards(ApiKeyThrottlerGuard)
+@SkipThrottle({ default: true, short: true, medium: true, long: true })
+@Throttle({ 'api-key': { limit: 60, ttl: 60_000 } })
 export class PublicPropertyController {
   constructor(
     private readonly propertyService: PropertyService,

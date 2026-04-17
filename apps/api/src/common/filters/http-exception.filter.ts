@@ -12,6 +12,9 @@ interface ErrorResponse {
   statusCode: number;
   message: string | string[];
   error: string;
+  // Stable machine-readable code (e.g. 'EMAIL_NOT_VERIFIED') so clients can
+  // branch on the error without parsing the human-readable message string.
+  code?: string;
   timestamp: string;
   path: string;
 }
@@ -28,6 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status: number;
     let message: string | string[];
     let error: string;
+    let code: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -37,6 +41,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const responseObj = exceptionResponse as Record<string, any>;
         message = responseObj.message || exception.message;
         error = responseObj.error || 'Error';
+        code = typeof responseObj.code === 'string' ? responseObj.code : undefined;
       } else {
         message = exception.message;
         error = 'Error';
@@ -57,6 +62,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message,
       error,
+      ...(code ? { code } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

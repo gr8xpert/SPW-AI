@@ -16,7 +16,10 @@ export interface WidgetConfig {
   tenantSlug: string;
   siteName: string;
   domain: string | null;
-  apiKey: string;
+  // The raw API key is never returned from the server (we only store sha256).
+  // Admins paste it into the WP plugin at setup time; this hint is cosmetic
+  // so the plugin can verify it has the matching key configured.
+  apiKeyLast4: string;
 
   // Widget features
   widgetEnabled: boolean;
@@ -182,7 +185,7 @@ export class LicenseService {
       tenantSlug: tenant.slug,
       siteName: tenant.siteName || tenant.name,
       domain: tenant.domain,
-      apiKey: tenant.apiKey,
+      apiKeyLast4: tenant.apiKeyLast4,
 
       widgetEnabled: tenant.widgetEnabled,
       aiSearchEnabled: tenant.aiSearchEnabled,

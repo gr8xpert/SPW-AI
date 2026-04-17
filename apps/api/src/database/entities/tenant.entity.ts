@@ -50,9 +50,14 @@ export class Tenant {
   @JoinColumn({ name: 'planId' })
   plan: Plan;
 
-  @Column({ length: 64, unique: true })
+  // sha256(rawApiKey). Raw key is shown only at registration/rotation.
+  @Column({ type: 'char', length: 64, unique: true })
   @Index()
-  apiKey: string;
+  apiKeyHash: string;
+
+  // Cosmetic hint for the dashboard (e.g. "spw_****1a2b"). Last 4 of the raw key.
+  @Column({ type: 'char', length: 4 })
+  apiKeyLast4: string;
 
   @Column({ length: 64 })
   webhookSecret: string;

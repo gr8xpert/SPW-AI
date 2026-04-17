@@ -50,6 +50,7 @@ import { CreditModule } from './modules/credit/credit.module';
 import { WebmasterModule } from './modules/webmaster/webmaster.module';
 import { ReorderModule } from './modules/reorder/reorder.module';
 import { TeamModule } from './modules/team/team.module';
+import { WebhookModule } from './modules/webhook/webhook.module';
 
 @Module({
   imports: [
@@ -144,6 +145,7 @@ import { TeamModule } from './modules/team/team.module';
     WebmasterModule,
     ReorderModule,
     TeamModule,
+    WebhookModule,
   ],
   providers: [
     // Global exception filter

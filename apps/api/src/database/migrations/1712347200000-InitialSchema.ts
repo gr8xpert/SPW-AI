@@ -29,7 +29,8 @@ export class InitialSchema1712347200000 implements MigrationInterface {
         slug VARCHAR(100) UNIQUE NOT NULL,
         domain VARCHAR(255),
         planId INT NOT NULL,
-        apiKey VARCHAR(128) UNIQUE NOT NULL,
+        apiKeyHash CHAR(64) UNIQUE NOT NULL,
+        apiKeyLast4 CHAR(4) NOT NULL,
         webhookSecret VARCHAR(128) NOT NULL,
         webhookUrl VARCHAR(500),
         settings JSON DEFAULT ('{"theme":"light","languages":["en"],"defaultLanguage":"en","timezone":"UTC"}'),
@@ -38,7 +39,6 @@ export class InitialSchema1712347200000 implements MigrationInterface {
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_tenants_slug (slug),
-        INDEX idx_tenants_apiKey (apiKey),
         FOREIGN KEY (planId) REFERENCES plans(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
