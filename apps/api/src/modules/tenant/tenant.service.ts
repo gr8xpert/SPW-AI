@@ -121,11 +121,20 @@ export class TenantService {
     // Bump + re-read to avoid a race where two concurrent clears each see
     // the pre-bump value and return the same version.
     await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
+    // Persist the cleared-at timestamp alongside the version bump so the
+    // dashboard can show "last cleared N minutes ago" across reloads.
+    // Separate UPDATE (rather than folded into increment) because TypeORM's
+    // increment() doesn't accept arbitrary column sets.
+    const clearedAtDate = new Date();
+    const clearedAt = clearedAtDate.toISOString();
+    await this.tenantRepository.update(
+      { id: tenantId },
+      { lastCacheClearedAt: clearedAtDate },
+    );
     const after = await this.tenantRepository.findOneOrFail({
       where: { id: tenantId },
-      select: ['id', 'syncVersion'],
+      select: ['id', 'syncVersion', 'lastCacheClearedAt'],
     });
-    const clearedAt = new Date().toISOString();
 
     try {
       await this.webhookService.emit(tenantId, 'cache.invalidated', {

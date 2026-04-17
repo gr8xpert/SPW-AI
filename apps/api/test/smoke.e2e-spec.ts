@@ -979,6 +979,20 @@ describe('Smoke — golden path (e2e)', () => {
         });
         expect(delivery).toBeTruthy();
         expect((delivery!.payload as any).syncVersion).toBe(initialVersion + 1);
+
+        // 5P: clear action persists lastCacheClearedAt on the tenant row so
+        // the dashboard can surface "last cleared X minutes ago" across
+        // reloads. Verify the row was updated by reading it back directly.
+        const tenantRow = await ds.getRepository(Tenant).findOneOrFail({
+          where: { id: admin.tenantId },
+          select: ['id', 'lastCacheClearedAt'],
+        });
+        expect(tenantRow.lastCacheClearedAt).toBeInstanceOf(Date);
+        // Sanity: the persisted timestamp should be within a few seconds
+        // of the ISO string the endpoint returned.
+        const persistedMs = tenantRow.lastCacheClearedAt!.getTime();
+        const returnedMs = new Date(res.body.data.clearedAt).getTime();
+        expect(Math.abs(persistedMs - returnedMs)).toBeLessThan(5000);
       });
 
       it('GET /api/v1/sync-meta rejects missing or invalid api-key', async () => {

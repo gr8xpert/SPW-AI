@@ -200,6 +200,7 @@ export class SuperAdminService {
       aiSearchEnabled: tenant.aiSearchEnabled,
       widgetFeatures: tenant.widgetFeatures,
       planId: tenant.planId,
+      lastCacheClearedAt: tenant.lastCacheClearedAt,
       adminUser,
     };
   }

@@ -104,6 +104,11 @@ export interface TenantFull extends TenantWithApiKey {
   widgetFeatures: string[];
 
   planId: number;
+
+  // Set whenever a tenant admin or super-admin clicks "Clear widget
+  // cache". null on tenants that have never had one (or on rows that
+  // predate the 5P migration).
+  lastCacheClearedAt: Date | null;
 }
 
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {

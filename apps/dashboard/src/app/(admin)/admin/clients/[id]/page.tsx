@@ -62,6 +62,7 @@ interface ClientDetail {
   aiSearchEnabled: boolean;
   widgetFeatures: string[];
   planId: number;
+  lastCacheClearedAt: string | null;
   adminUser?: {
     id: number;
     email: string;
@@ -171,6 +172,17 @@ export default function ClientDetailPage() {
         `/api/super-admin/clients/${clientId}/clear-cache`,
       );
       const version = response.data?.syncVersion ?? '?';
+      // Re-fetch the client so lastCacheClearedAt (persisted server-side)
+      // updates the "Last cleared" hint below the button. The clear
+      // response itself only carries clearedAt + syncVersion — the full
+      // client payload is what the rest of the page renders off of.
+      try {
+        const fresh = await api.get(`/api/super-admin/clients/${clientId}`);
+        setClient(fresh.data);
+      } catch {
+        // Non-fatal: a failed refetch just means the hint won't update
+        // until the user reloads. The clear itself already succeeded.
+      }
       alert(`Cache cleared — new sync version: v${version}`);
     } catch (error) {
       console.error('Failed to clear client cache:', error);
@@ -529,16 +541,26 @@ export default function ClientDetailPage() {
                     <Calendar className="mr-2 h-4 w-4" />
                     Extend 1 Year
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleClearClientCache}
-                    disabled={actionLoading}
-                  >
-                    <RefreshCw
-                      className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`}
-                    />
-                    Clear widget cache
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="outline"
+                      onClick={handleClearClientCache}
+                      disabled={actionLoading}
+                    >
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`}
+                      />
+                      Clear widget cache
+                    </Button>
+                    {/* Persisted on the tenant row so this survives page
+                        reloads (and hands support a timestamp they can
+                        quote when a customer complains about stale data). */}
+                    <span className="text-xs text-muted-foreground px-1">
+                      {client?.lastCacheClearedAt
+                        ? `Last cleared ${format(new Date(client.lastCacheClearedAt), 'PPp')}`
+                        : 'Never cleared'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardContent>

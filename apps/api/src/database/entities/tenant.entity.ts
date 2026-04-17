@@ -76,6 +76,13 @@ export class Tenant {
   @Column({ default: 1 })
   syncVersion: number;
 
+  // Timestamp of the most recent "Clear widget cache" action (from the
+  // dashboard or a support override). Persisted so the UI can show "last
+  // cleared N minutes ago" across reloads — before 5P this was generated
+  // per-click and lost on page refresh.
+  @Column({ type: 'timestamp', nullable: true })
+  lastCacheClearedAt: Date | null;
+
   @Column({ default: true })
   isActive: boolean;
 
