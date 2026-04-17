@@ -6,6 +6,8 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -108,6 +110,36 @@ export class TenantController {
       tenantId,
       Number.isFinite(parsed) ? parsed : 50,
     );
+  }
+
+  // Single-delivery detail. Powers the dashboard drawer that shows the
+  // full payload + latest attempt error; the list endpoint already carries
+  // the row-level metadata so this is mostly here to match REST shape.
+  @Get('webhook/deliveries/:id')
+  async getWebhookDelivery(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.tenantService.getWebhookDelivery(tenantId, id);
+  }
+
+  // Creates a NEW delivery (not mutating the old one) carrying the same
+  // event + payload. Admin-only because an accidental redeliver of a
+  // property.deleted to an untrusted receiver could resurface a record
+  // the tenant previously removed.
+  @Post('webhook/deliveries/:id/redeliver')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async redeliverWebhook(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.tenantService.redeliverWebhook(tenantId, id, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 
   @Post('webhook/test')

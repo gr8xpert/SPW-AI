@@ -270,6 +270,41 @@ export class TenantService {
     });
   }
 
+  // Single-delivery detail for the dashboard drawer. Tenant-scoped so
+  // one tenant can't peek at another's payloads by guessing IDs.
+  async getWebhookDelivery(
+    tenantId: number,
+    deliveryId: number,
+  ): Promise<WebhookDelivery> {
+    const row = await this.webhookDeliveryRepo.findOne({
+      where: { id: deliveryId, tenantId },
+    });
+    if (!row) {
+      throw new NotFoundException('Webhook delivery not found');
+    }
+    return row;
+  }
+
+  // Operator-initiated retry: creates a NEW delivery row carrying the
+  // same event + payload and enqueues a fresh job. The original row is
+  // left untouched so the dashboard can still surface the original
+  // failure — audit trail stays intact. Using webhookService.emit means
+  // the current webhookUrl + SSRF rules are re-applied, so a redeliver
+  // against a URL that's since been removed records as 'skipped'
+  // instead of silently retrying a dead target.
+  async redeliverWebhook(
+    tenantId: number,
+    deliveryId: number,
+    _triggeredBy: { userId?: number; role?: string },
+  ): Promise<WebhookDelivery> {
+    const original = await this.getWebhookDelivery(tenantId, deliveryId);
+    return this.webhookService.emit(
+      tenantId,
+      original.event,
+      original.payload,
+    );
+  }
+
   async sendTestWebhook(
     tenantId: number,
     triggeredBy: { userId?: number; role?: string },

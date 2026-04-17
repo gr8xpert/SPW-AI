@@ -21,6 +21,14 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
@@ -69,9 +77,17 @@ interface WebhookDeliveryRow {
   lastError: string | null;
   deliveredAt: string | null;
   createdAt: string;
+  // Detail view also surfaces targetUrl + payload. Populated when the
+  // drawer opens via a separate GET /deliveries/:id fetch so the list
+  // response stays small.
+  targetUrl?: string;
+  payload?: Record<string, unknown>;
 }
 interface WebhookDeliveriesResponse {
   data: WebhookDeliveryRow[];
+}
+interface WebhookDeliveryDetailResponse {
+  data: WebhookDeliveryRow;
 }
 
 export default function SettingsPage() {
@@ -93,6 +109,15 @@ export default function SettingsPage() {
   const [sendingTest, setSendingTest] = useState(false);
   const [deliveries, setDeliveries] = useState<WebhookDeliveryRow[]>([]);
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+
+  // Delivery detail drawer state. When non-null, the Dialog renders with
+  // the full payload. We keep the detail fetched separately so clicking a
+  // row can load a fresh snapshot (attemptCount/status may have advanced
+  // since the list was pulled).
+  const [selectedDelivery, setSelectedDelivery] =
+    useState<WebhookDeliveryRow | null>(null);
+  const [loadingDeliveryDetail, setLoadingDeliveryDetail] = useState(false);
+  const [redelivering, setRedelivering] = useState(false);
 
   useEffect(() => {
     if (!session?.accessToken) return;
@@ -134,6 +159,54 @@ export default function SettingsPage() {
       });
     } finally {
       setLoadingDeliveries(false);
+    }
+  };
+
+  const openDeliveryDetail = async (row: WebhookDeliveryRow) => {
+    // Seed the dialog with what the list already knows so it renders
+    // instantly; the fetch fills in targetUrl + payload (the heavy bits
+    // kept off the list response for brevity).
+    setSelectedDelivery(row);
+    setLoadingDeliveryDetail(true);
+    try {
+      const res = await apiGet<WebhookDeliveryDetailResponse>(
+        `/api/dashboard/tenant/webhook/deliveries/${row.id}`,
+      );
+      setSelectedDelivery(res.data);
+    } catch (err) {
+      toast({
+        title: 'Failed to load delivery detail',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingDeliveryDetail(false);
+    }
+  };
+
+  const onRedeliver = async () => {
+    if (!selectedDelivery) return;
+    setRedelivering(true);
+    try {
+      await apiPost(
+        `/api/dashboard/tenant/webhook/deliveries/${selectedDelivery.id}/redeliver`,
+        {},
+      );
+      toast({
+        title: 'Redelivery queued',
+        description:
+          'A fresh delivery row was created. Refresh the list to see it.',
+      });
+      setSelectedDelivery(null);
+      await loadDeliveries();
+    } catch (err) {
+      toast({
+        title: 'Redelivery failed',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setRedelivering(false);
     }
   };
 
@@ -660,7 +733,11 @@ export default function SettingsPage() {
                     </thead>
                     <tbody>
                       {deliveries.map((d) => (
-                        <tr key={d.id} className="border-b last:border-0">
+                        <tr
+                          key={d.id}
+                          className="border-b last:border-0 cursor-pointer hover:bg-muted/50"
+                          onClick={() => void openDeliveryDetail(d)}
+                        >
                           <td className="py-2 pr-3 font-mono text-xs">{d.event}</td>
                           <td className="py-2 pr-3">
                             <span
@@ -695,6 +772,105 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Delivery detail drawer. Dialog is the closest fit in our
+              component kit — no Sheet primitive available. Opens on row
+              click, shows the full payload + the latest attempt outcome,
+              and offers Redeliver (admin-only server-side). */}
+          <Dialog
+            open={selectedDelivery !== null}
+            onOpenChange={(open) => !open && setSelectedDelivery(null)}
+          >
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>
+                  Delivery #{selectedDelivery?.id ?? '\u2026'}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedDelivery
+                    ? `${selectedDelivery.event} — ${selectedDelivery.status}`
+                    : 'Loading\u2026'}
+                </DialogDescription>
+              </DialogHeader>
+              {selectedDelivery && (
+                <div className="space-y-4 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="font-medium">Attempts:</span>{' '}
+                      {selectedDelivery.attemptCount}
+                    </div>
+                    <div>
+                      <span className="font-medium">HTTP:</span>{' '}
+                      {selectedDelivery.lastStatusCode ?? '\u2014'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span>{' '}
+                      {new Date(selectedDelivery.createdAt).toLocaleString()}
+                    </div>
+                    <div>
+                      <span className="font-medium">Delivered:</span>{' '}
+                      {selectedDelivery.deliveredAt
+                        ? new Date(
+                            selectedDelivery.deliveredAt,
+                          ).toLocaleString()
+                        : '\u2014'}
+                    </div>
+                  </div>
+
+                  {selectedDelivery.targetUrl !== undefined && (
+                    <div>
+                      <p className="font-medium mb-1">Target URL</p>
+                      <code className="block bg-muted rounded p-2 text-xs break-all">
+                        {selectedDelivery.targetUrl || '\u2014'}
+                      </code>
+                    </div>
+                  )}
+
+                  {selectedDelivery.lastError && (
+                    <div>
+                      <p className="font-medium mb-1 text-red-700 dark:text-red-400">
+                        Last error
+                      </p>
+                      <code className="block bg-muted rounded p-2 text-xs whitespace-pre-wrap break-words">
+                        {selectedDelivery.lastError}
+                      </code>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="font-medium mb-1">Payload</p>
+                    <pre className="bg-muted rounded p-2 text-xs overflow-x-auto max-h-80">
+                      {loadingDeliveryDetail && !selectedDelivery.payload
+                        ? 'Loading\u2026'
+                        : JSON.stringify(
+                            selectedDelivery.payload ?? {},
+                            null,
+                            2,
+                          )}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedDelivery(null)}
+                  disabled={redelivering}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => void onRedeliver()}
+                  disabled={redelivering || !selectedDelivery}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${redelivering ? 'animate-spin' : ''}`}
+                  />
+                  {redelivering ? 'Queuing\u2026' : 'Redeliver'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Widget Cache */}

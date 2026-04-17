@@ -903,6 +903,75 @@ describe('Smoke — golden path (e2e)', () => {
         expect(test.tenantId).toBe(list.body.data[0].tenantId);
       });
 
+      // 5Q: single-delivery detail + redeliver. Click-through in the
+      // dashboard drawer goes through GET /:id (payload + targetUrl),
+      // and the Redeliver button POSTs to /:id/redeliver which must
+      // create a brand-new row (audit trail intact).
+      it('GET /webhook/deliveries/:id returns payload + targetUrl', async () => {
+        const list = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=10')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        const first = list.body.data[0];
+        expect(first).toBeTruthy();
+
+        const detail = await request(app.getHttpServer())
+          .get(`/api/dashboard/tenant/webhook/deliveries/${first.id}`)
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        expect(detail.body.data.id).toBe(first.id);
+        expect(detail.body.data.payload).toBeTruthy();
+        // targetUrl is present (might be empty for skipped rows) — the
+        // field exists on the payload so the drawer can render it.
+        expect('targetUrl' in detail.body.data).toBe(true);
+      });
+
+      it('GET /webhook/deliveries/:id 404s for another tenant\u2019s row', async () => {
+        // Seed a fresh webhook.test on tenant A, then try to fetch its id
+        // as tenant B. ParseIntPipe accepts the path, service-level tenant
+        // scoping must return 404.
+        const list = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=5')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        const aDeliveryId = list.body.data[0].id;
+        await request(app.getHttpServer())
+          .get(`/api/dashboard/tenant/webhook/deliveries/${aDeliveryId}`)
+          .set('Authorization', `Bearer ${tokenB}`)
+          .expect(404);
+      });
+
+      it('POST /webhook/deliveries/:id/redeliver creates a new row', async () => {
+        const listBefore = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=50')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        const originalCount = listBefore.body.data.length;
+        const original = listBefore.body.data.find(
+          (d: { event: string }) => d.event === 'webhook.test',
+        );
+        expect(original).toBeTruthy();
+
+        const res = await request(app.getHttpServer())
+          .post(
+            `/api/dashboard/tenant/webhook/deliveries/${original.id}/redeliver`,
+          )
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        // Response is the new delivery row — fresh id, same event, same
+        // payload shape. Not the same id as the one we redelivered.
+        expect(res.body.data.id).not.toBe(original.id);
+        expect(res.body.data.event).toBe(original.event);
+
+        const listAfter = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=50')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        // Count went up — original row is still present (audit), and a
+        // new one was created.
+        expect(listAfter.body.data.length).toBe(originalCount + 1);
+      });
+
       it('GET /api/dashboard/tenant/webhook/deliveries is tenant-scoped', async () => {
         const listA = await request(app.getHttpServer())
           .get('/api/dashboard/tenant/webhook/deliveries?limit=50')
