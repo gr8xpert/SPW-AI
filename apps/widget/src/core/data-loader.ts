@@ -17,6 +17,11 @@ export interface DataLoaderConfig {
   dataPath: string;
 }
 
+export interface SyncMeta {
+  syncVersion: number;
+  tenantSlug: string;
+}
+
 /**
  * DataLoader handles fetching data from both local JSON files and the API
  * - Local JSON: Used for dropdown data (locations, types, features, labels)
@@ -26,6 +31,16 @@ export class DataLoader {
   private config: DataLoaderConfig;
   private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private cacheTTL = 5 * 60 * 1000; // 5 minutes
+
+  // Sync polling state. `knownSyncVersion` is the version the widget's
+  // current cache was built against. When a poll sees a newer number on
+  // the server we know the operator clicked "clear cache" and we need to
+  // drop our local maps + reload. Null until the first poll establishes
+  // the baseline.
+  private knownSyncVersion: number | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private visibilityHandler: (() => void) | null = null;
+  private onSyncChange: ((newVersion: number) => void) | null = null;
 
   constructor(config: DataLoaderConfig) {
     this.config = config;
@@ -147,10 +162,87 @@ export class DataLoader {
   }
 
   /**
-   * Check sync version with API
+   * Fetch the tenant's current sync metadata from the API. Widget polls
+   * this to detect when an operator has clicked "clear cache" — the
+   * syncVersion will have bumped and the local cache needs to drop.
+   *
+   * The server's global response interceptor wraps plain objects as
+   * `{ data: ... }`; listing endpoints already return `{ data, meta }`
+   * so they pass through unwrapped. Unwrap defensively here — handles
+   * either shape so this keeps working if the API stops wrapping later.
    */
-  async checkSyncVersion(): Promise<{ version: number; lastUpdated: string }> {
-    return this.apiRequest<{ version: number; lastUpdated: string }>('/v1/sync/version');
+  async fetchSyncMeta(): Promise<SyncMeta> {
+    const raw = await this.apiRequest<SyncMeta | { data: SyncMeta }>('/v1/sync-meta');
+    return 'syncVersion' in raw ? raw : raw.data;
+  }
+
+  /**
+   * Starts a background poll that drops the local cache whenever the
+   * server's syncVersion advances past what we last saw. `intervalMs <= 0`
+   * disables polling entirely.
+   *
+   * The callback fires AFTER the internal cache is cleared, so the widget
+   * can re-run loadLocalData() / search() to repopulate.
+   */
+  startSyncPolling(intervalMs: number, onChange: (newVersion: number) => void): void {
+    this.stopSyncPolling();
+    if (intervalMs <= 0) return;
+
+    this.onSyncChange = onChange;
+
+    // Seed the baseline so the very first tick isn't treated as a change.
+    void this.fetchSyncMeta()
+      .then((meta) => {
+        this.knownSyncVersion = meta.syncVersion;
+      })
+      .catch(() => {
+        // Baseline unavailable — leave null; the first successful poll
+        // sets it without firing onChange.
+      });
+
+    const tick = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const meta = await this.fetchSyncMeta();
+        if (this.knownSyncVersion === null) {
+          this.knownSyncVersion = meta.syncVersion;
+          return;
+        }
+        if (meta.syncVersion > this.knownSyncVersion) {
+          const newVersion = meta.syncVersion;
+          this.knownSyncVersion = newVersion;
+          this.clearCache();
+          this.onSyncChange?.(newVersion);
+        }
+      } catch {
+        // Transient failure — next tick will retry. Don't log noisily
+        // on every failure; offline widgets shouldn't spam the console.
+      }
+    };
+
+    this.pollTimer = setInterval(tick, intervalMs);
+
+    // Re-run a tick immediately when the tab becomes visible again — if
+    // the user clicked "clear cache" while the tab was in the background,
+    // don't make them wait for the next full interval.
+    if (typeof document !== 'undefined') {
+      this.visibilityHandler = () => {
+        if (!document.hidden) void tick();
+      };
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
+  }
+
+  stopSyncPolling(): void {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+    this.onSyncChange = null;
   }
 
   /**

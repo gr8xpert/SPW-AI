@@ -15,6 +15,11 @@ export interface SPWConfig {
   enableFavorites?: boolean;
   enableInquiry?: boolean;
   enableTracking?: boolean;
+  // How often (ms) to poll /api/v1/sync-meta to auto-invalidate the widget's
+  // local cache when the tenant admin clicks "clear cache". Default 60_000.
+  // Set to 0 to disable polling entirely — host page would need to handle
+  // invalidation itself (e.g. via a webhook → postMessage).
+  syncPollIntervalMs?: number;
   onPropertyClick?: (property: Property) => void;
   onSearch?: (filters: SearchFilters, results: SearchResults) => void;
   onInquiry?: (data: InquiryData) => void;
@@ -234,6 +239,7 @@ export interface SPWEvents {
   'inquiry:error': { data: InquiryData; error: Error };
   'favorite:add': Property;
   'favorite:remove': Property;
+  'sync:changed': { syncVersion: number };
   'error': Error;
 }
 

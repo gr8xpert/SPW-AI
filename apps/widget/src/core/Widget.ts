@@ -29,6 +29,10 @@ const DEFAULT_CONFIG: Partial<SPWConfig> = {
   enableFavorites: true,
   enableInquiry: true,
   enableTracking: true,
+  // Poll the API's /v1/sync-meta once a minute so "clear cache" clicks
+  // from the tenant dashboard propagate within ~60s even without a
+  // webhook-based notification channel.
+  syncPollIntervalMs: 60_000,
 };
 
 export class SPWWidget extends EventEmitter<SPWEvents> {
@@ -112,6 +116,25 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
 
       // Perform initial search
       await this.search();
+
+      // Start background sync poll — drops the local cache + reloads
+      // whenever an operator bumps syncVersion from the dashboard.
+      const interval = this.config.syncPollIntervalMs ?? 60_000;
+      if (interval > 0) {
+        this.dataLoader.startSyncPolling(interval, async (newVersion) => {
+          try {
+            this.localData = await this.dataLoader.loadLocalData();
+            this.labels = deepMerge(defaultLabels, this.localData.labels || {}) as Labels;
+            if (this.config.customLabels) {
+              this.labels = deepMerge(this.labels, this.config.customLabels) as Labels;
+            }
+            await this.search();
+            this.emit('sync:changed', { syncVersion: newVersion });
+          } catch (err) {
+            console.warn('SPW Widget: sync-change refresh failed', err);
+          }
+        });
+      }
 
       this.isInitialized = true;
       this.emit('ready', undefined);
@@ -366,6 +389,7 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
    * Destroy widget
    */
   public destroy(): void {
+    this.dataLoader.stopSyncPolling();
     this.searchForm?.destroy();
     this.resultsGrid?.destroy();
     this.propertyDetail?.close();
