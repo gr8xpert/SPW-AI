@@ -1,0 +1,64 @@
+# WP plugin staging harness — standalone WordPress + MySQL for end-to-end
+# testing of the SPW Sync plugin against a known-good webhook contract.
+#
+# Notes:
+# - This is deliberately its own compose file (not a profile on the prod
+#   one) so "bring staging up" never risks nudging prod containers.
+# - MySQL is the WP DB only. Our SPW API's DB is out of scope here; the
+#   harness simulates the API by POSTing signed webhooks directly.
+# - Plugin source is bind-mounted live so edits-then-retest loops don't
+#   need a rebuild. Good for iterating; for "is the zip shippable?" use
+#   `dist-install.sh` which instead copies a fresh clone.
+
+services:
+  wp-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: wproot
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-pwproot']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    tmpfs:
+      # Ephemeral — we tear down between runs and want a clean slate. Skips
+      # the filesystem dance + survives `docker compose down -v`-style mishaps.
+      - /var/lib/mysql
+
+  wordpress:
+    image: wordpress:6.5-php8.2-apache
+    depends_on:
+      wp-mysql:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: wp-mysql:3306
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: '1'
+    ports:
+      - '8088:80' # host:container — curl http://localhost:8088 to reach it
+    volumes:
+      # Mount the plugin source live. `packages/wp-plugin` is two dirs up.
+      - ../../:/var/www/html/wp-content/plugins/spw-sync:ro
+
+  # wp-cli runs as a one-shot for install + configure. Keeps WordPress
+  # credentials and plugin config out of this compose file.
+  wpcli:
+    image: wordpress:cli-php8.2
+    depends_on:
+      - wordpress
+    # wp-cli defaults to uid 33 (www-data) to match the WP image's file
+    # permissions. Override to root so bind-mount writes don't fail on
+    # permission errors when we touch wp-content/spw-data/.
+    user: '0:0'
+    volumes:
+      - ../../:/var/www/html/wp-content/plugins/spw-sync
+    working_dir: /var/www/html
+    # No command — `docker compose run wpcli <command>` is how we invoke it.
+    entrypoint: ['wp', '--allow-root']
+    profiles:
+      - tools # `docker compose --profile tools run wpcli …` so `up` doesn't start it
