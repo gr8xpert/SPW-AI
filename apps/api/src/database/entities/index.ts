@@ -62,3 +62,6 @@ export * from './license-key.entity';
 
 // Subscription payment entities
 export * from './subscription-payment.entity';
+
+// Per-tenant sender-domain verification (DKIM/SPF/DMARC)
+export * from './tenant-email-domain.entity';

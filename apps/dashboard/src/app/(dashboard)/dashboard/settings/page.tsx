@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
-import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 
 const generalSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -90,6 +90,35 @@ interface WebhookDeliveryDetailResponse {
   data: WebhookDeliveryRow;
 }
 
+// 5R — sender-domain verification. One row per tenant; if unset the GET
+// returns data:null so the UI can branch between "configure" and "verify"
+// modes off a single fetch.
+interface SenderDomainDetail {
+  id: number;
+  domain: string;
+  dkimSelector: string;
+  spfVerifiedAt: string | null;
+  dkimVerifiedAt: string | null;
+  dmarcVerifiedAt: string | null;
+  records: {
+    spf: { host: string; type: string; value: string };
+    dkim: { host: string; type: string; value: string };
+    dmarc: { host: string; type: string; value: string };
+  };
+  status: 'verified' | 'partial' | 'unverified';
+}
+interface SenderDomainResponse {
+  data: SenderDomainDetail | null;
+}
+interface SenderDomainVerifyResponse {
+  data: {
+    spf: { ok: boolean; found: string | null; expected: string };
+    dkim: { ok: boolean; found: string | null; expected: string };
+    dmarc: { ok: boolean; found: string | null; expected: string };
+    status: 'verified' | 'partial' | 'unverified';
+  };
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -119,6 +148,17 @@ export default function SettingsPage() {
   const [loadingDeliveryDetail, setLoadingDeliveryDetail] = useState(false);
   const [redelivering, setRedelivering] = useState(false);
 
+  // Sender domain state (5R). `senderDomain` is null both while loading
+  // and when the tenant hasn't configured one — UI branches on whether
+  // `senderDomainLoaded` flipped true.
+  const [senderDomain, setSenderDomain] = useState<SenderDomainDetail | null>(
+    null,
+  );
+  const [senderDomainLoaded, setSenderDomainLoaded] = useState(false);
+  const [senderDomainInput, setSenderDomainInput] = useState('');
+  const [savingSenderDomain, setSavingSenderDomain] = useState(false);
+  const [verifyingSenderDomain, setVerifyingSenderDomain] = useState(false);
+
   useEffect(() => {
     if (!session?.accessToken) return;
     apiGet<TenantCurrent>('/api/dashboard/tenant')
@@ -142,6 +182,16 @@ export default function SettingsPage() {
       .catch(() => {
         // Non-fatal — webhook tab renders with an empty form.
       });
+
+    apiGet<SenderDomainResponse>('/api/dashboard/tenant/email-domain')
+      .then((res) => {
+        setSenderDomain(res.data);
+        if (res.data) setSenderDomainInput(res.data.domain);
+      })
+      .catch(() => {
+        // Non-fatal — user gets the empty state.
+      })
+      .finally(() => setSenderDomainLoaded(true));
   }, [session?.accessToken]);
 
   const loadDeliveries = async () => {
@@ -290,6 +340,99 @@ export default function SettingsPage() {
       });
     } finally {
       setSendingTest(false);
+    }
+  };
+
+  const onSaveSenderDomain = async () => {
+    const domain = senderDomainInput.trim();
+    if (!domain) return;
+    setSavingSenderDomain(true);
+    try {
+      const res = await apiPut<SenderDomainResponse>(
+        '/api/dashboard/tenant/email-domain',
+        { domain },
+      );
+      setSenderDomain(res.data);
+      toast({
+        title: 'Sender domain saved',
+        description:
+          'Add the three DNS records below, then click Verify. DNS propagation can take up to a few hours.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to save sender domain',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingSenderDomain(false);
+    }
+  };
+
+  const onVerifySenderDomain = async () => {
+    setVerifyingSenderDomain(true);
+    try {
+      const res = await apiPost<SenderDomainVerifyResponse>(
+        '/api/dashboard/tenant/email-domain/verify',
+        {},
+      );
+      // Refetch the full detail so per-record verifiedAt timestamps shown
+      // in the UI reflect what the server just stamped.
+      const fresh = await apiGet<SenderDomainResponse>(
+        '/api/dashboard/tenant/email-domain',
+      );
+      setSenderDomain(fresh.data);
+      const { status, spf, dkim, dmarc } = res.data;
+      if (status === 'verified') {
+        toast({
+          title: 'All three records verified',
+          description: 'SPF, DKIM, and DMARC are live.',
+        });
+      } else {
+        const missing = [
+          spf.ok ? null : 'SPF',
+          dkim.ok ? null : 'DKIM',
+          dmarc.ok ? null : 'DMARC',
+        ]
+          .filter(Boolean)
+          .join(', ');
+        toast({
+          title: status === 'partial' ? 'Partially verified' : 'Not verified',
+          description: `Missing or mismatched: ${missing}. DNS updates can take a few hours to propagate.`,
+          variant: status === 'partial' ? 'default' : 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Verification check failed',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingSenderDomain(false);
+    }
+  };
+
+  const onRemoveSenderDomain = async () => {
+    if (!senderDomain) return;
+    const confirmed = window.confirm(
+      'Remove the sender domain? You will need to re-add it and republish DNS records to send signed mail from it again.',
+    );
+    if (!confirmed) return;
+    try {
+      await apiDelete('/api/dashboard/tenant/email-domain');
+      setSenderDomain(null);
+      setSenderDomainInput('');
+      toast({
+        title: 'Sender domain removed',
+        description: 'Mail will now send from the system default from-address.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to remove',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -545,6 +688,169 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* 5R — sender-domain verification. Lives in the same tab as
+              SMTP config because they're conceptually paired (provider
+              credentials + which domain we sign as). The card branches
+              between "configure" and "show records + verify" modes
+              off the single GET response. */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Sender Domain (SPF / DKIM / DMARC)</CardTitle>
+              <CardDescription>
+                Publish three DNS records on the domain you want mail to
+                come from. Until they verify, deliverability falls back to
+                the system default sender — and some receivers (Gmail)
+                will reject unsigned mail outright.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!senderDomainLoaded ? (
+                <p className="text-sm text-muted-foreground">Loading\u2026</p>
+              ) : (
+                <>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="senderDomain">Domain</Label>
+                      <Input
+                        id="senderDomain"
+                        placeholder="mail.yourdomain.com"
+                        value={senderDomainInput}
+                        onChange={(e) => setSenderDomainInput(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      onClick={onSaveSenderDomain}
+                      disabled={savingSenderDomain || !senderDomainInput.trim()}
+                    >
+                      {savingSenderDomain ? 'Saving\u2026' : 'Save'}
+                    </Button>
+                    {senderDomain && (
+                      <Button
+                        variant="outline"
+                        onClick={onRemoveSenderDomain}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+
+                  {senderDomain && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={
+                            'text-xs font-medium rounded px-2 py-1 ' +
+                            (senderDomain.status === 'verified'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                              : senderDomain.status === 'partial'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              : 'bg-muted text-muted-foreground')
+                          }
+                        >
+                          {senderDomain.status === 'verified'
+                            ? 'All records verified'
+                            : senderDomain.status === 'partial'
+                            ? 'Partially verified'
+                            : 'Not yet verified'}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={onVerifySenderDomain}
+                          disabled={verifyingSenderDomain}
+                        >
+                          <RefreshCw
+                            className={`mr-2 h-3 w-3 ${
+                              verifyingSenderDomain ? 'animate-spin' : ''
+                            }`}
+                          />
+                          {verifyingSenderDomain
+                            ? 'Checking\u2026'
+                            : 'Verify DNS'}
+                        </Button>
+                      </div>
+
+                      {/* One sub-card per record; tenant copies host +
+                          value into their DNS host. We show the latest
+                          verifiedAt so they can see when it last passed
+                          a check (null = never). */}
+                      <div className="space-y-3">
+                        {(
+                          [
+                            {
+                              key: 'spf' as const,
+                              label: 'SPF',
+                              verifiedAt: senderDomain.spfVerifiedAt,
+                            },
+                            {
+                              key: 'dkim' as const,
+                              label: 'DKIM',
+                              verifiedAt: senderDomain.dkimVerifiedAt,
+                            },
+                            {
+                              key: 'dmarc' as const,
+                              label: 'DMARC',
+                              verifiedAt: senderDomain.dmarcVerifiedAt,
+                            },
+                          ] as const
+                        ).map(({ key, label, verifiedAt }) => (
+                          <div
+                            key={key}
+                            className="rounded-lg border p-3 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{label}</span>
+                              <span
+                                className={
+                                  'text-xs ' +
+                                  (verifiedAt
+                                    ? 'text-green-700 dark:text-green-400'
+                                    : 'text-muted-foreground')
+                                }
+                              >
+                                {verifiedAt
+                                  ? `Verified ${new Date(
+                                      verifiedAt,
+                                    ).toLocaleString()}`
+                                  : 'Not verified yet'}
+                              </span>
+                            </div>
+                            <div className="text-xs space-y-1">
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Host:{' '}
+                                </span>
+                                <code className="bg-muted rounded px-1">
+                                  {senderDomain.records[key].host}
+                                </code>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Type:{' '}
+                                </span>
+                                <code className="bg-muted rounded px-1">
+                                  {senderDomain.records[key].type}
+                                </code>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">
+                                  Value:{' '}
+                                </span>
+                                <code className="bg-muted rounded px-1 break-all">
+                                  {senderDomain.records[key].value}
+                                </code>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

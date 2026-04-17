@@ -1298,6 +1298,165 @@ describe('Smoke — golden path (e2e)', () => {
     });
   });
 
+  // 5R — per-tenant sender-domain verification. The dashboard lets a
+  // tenant declare a From-address domain, hands them three DNS records
+  // (SPF/DKIM/DMARC) to add, and later verifies via dns.resolveTxt. We
+  // drive the API endpoints here; we don't assert a successful verify
+  // because the test DB doesn't control real DNS. Placed after the
+  // per-api-key rate-limit block so that block can claim its own quota
+  // of fresh /register calls — ordering discipline for a shared bucket.
+  describe('Email sender domain', () => {
+    let tokenA: string;
+    let tokenB: string;
+
+    beforeAll(async () => {
+      const ts = Date.now();
+      const slug = `email-dom-${ts}`;
+      const aEmail = `admin-${slug}@smoke.test`;
+      const regA = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email: aEmail,
+          password: 'SmokeTest1234!',
+          name: 'Tenant A Admin',
+          tenantName: 'Tenant Email Dom A',
+          tenantSlug: slug,
+        })
+        .expect(201);
+      tokenA = regA.body.data.accessToken;
+
+      const slugB = `email-dom-b-${ts}`;
+      const bEmail = `admin-${slugB}@smoke.test`;
+      const regB = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email: bEmail,
+          password: 'SmokeTest1234!',
+          name: 'Tenant B Admin',
+          tenantName: 'Tenant Email Dom B',
+          tenantSlug: slugB,
+        })
+        .expect(201);
+      tokenB = regB.body.data.accessToken;
+    });
+
+    it('GET returns null when no domain configured', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+      // data is wrapped by the global response interceptor; absence of a
+      // configured domain surfaces as data: null (not a 404) so the
+      // dashboard's initial load doesn't toast an error.
+      expect(res.body.data).toBeNull();
+    });
+
+    it('PUT creates a domain and returns DNS records', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ domain: 'mail.example-smoke-a.test' })
+        .expect(200);
+      expect(res.body.data.domain).toBe('mail.example-smoke-a.test');
+      expect(res.body.data.dkimSelector).toBe('spw1');
+      expect(res.body.data.status).toBe('unverified');
+      // SPF record lives at the domain apex; value always starts with v=spf1
+      expect(res.body.data.records.spf.host).toBe('mail.example-smoke-a.test');
+      expect(res.body.data.records.spf.value).toMatch(/^v=spf1 /);
+      // DKIM host is <selector>._domainkey.<domain>; value includes the
+      // public-key base64 body.
+      expect(res.body.data.records.dkim.host).toBe(
+        'spw1._domainkey.mail.example-smoke-a.test',
+      );
+      expect(res.body.data.records.dkim.value).toMatch(
+        /^v=DKIM1; k=rsa; p=[A-Za-z0-9+/=]+$/,
+      );
+      // DMARC at _dmarc.<domain>
+      expect(res.body.data.records.dmarc.host).toBe(
+        '_dmarc.mail.example-smoke-a.test',
+      );
+      expect(res.body.data.records.dmarc.value).toMatch(/^v=DMARC1; /);
+    });
+
+    it('PUT with the same domain is idempotent (same DKIM key)', async () => {
+      const first = await request(app.getHttpServer())
+        .get('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+      const firstKey = first.body.data.records.dkim.value;
+
+      const res = await request(app.getHttpServer())
+        .put('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ domain: 'mail.example-smoke-a.test' })
+        .expect(200);
+      expect(res.body.data.records.dkim.value).toBe(firstKey);
+    });
+
+    it('PUT with a new domain rotates the DKIM keypair', async () => {
+      const before = await request(app.getHttpServer())
+        .get('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+      const beforeKey = before.body.data.records.dkim.value;
+
+      const res = await request(app.getHttpServer())
+        .put('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ domain: 'mail.example-smoke-a-v2.test' })
+        .expect(200);
+      expect(res.body.data.domain).toBe('mail.example-smoke-a-v2.test');
+      expect(res.body.data.records.dkim.value).not.toBe(beforeKey);
+      // Verification stamps reset — pointing at a new domain means the
+      // old DNS records are moot.
+      expect(res.body.data.spfVerifiedAt).toBeNull();
+      expect(res.body.data.dkimVerifiedAt).toBeNull();
+      expect(res.body.data.dmarcVerifiedAt).toBeNull();
+    });
+
+    it('PUT rejects an invalid FQDN', async () => {
+      await request(app.getHttpServer())
+        .put('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ domain: 'not a domain' })
+        .expect(400);
+    });
+
+    it('POST verify reports unverified for a test-only domain', async () => {
+      // The test hostname doesn't resolve → each record fails, status
+      // stays 'unverified'. Catches regressions like swallowing DNS
+      // errors and accidentally stamping verifiedAt.
+      const res = await request(app.getHttpServer())
+        .post('/api/dashboard/tenant/email-domain/verify')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+      expect(res.body.data.status).toBe('unverified');
+      expect(res.body.data.spf.ok).toBe(false);
+      expect(res.body.data.dkim.ok).toBe(false);
+      expect(res.body.data.dmarc.ok).toBe(false);
+    });
+
+    it('is tenant-isolated — tenant B sees null while A has one configured', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(200);
+      expect(res.body.data).toBeNull();
+    });
+
+    it('DELETE removes the domain (204)', async () => {
+      await request(app.getHttpServer())
+        .delete('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(204);
+      const after = await request(app.getHttpServer())
+        .get('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+      expect(after.body.data).toBeNull();
+    });
+  });
+
   // Keep this block LAST: it deliberately floods the login endpoint to verify
   // the throttler, which poisons the IP's rate-limit bucket for the rest of the test run.
   describe('Rate limiting', () => {
