@@ -16,6 +16,7 @@ import {
   Mail,
   Clock,
   ChevronLeft,
+  Gauge,
 } from 'lucide-react';
 
 const navigation = [
@@ -38,6 +39,7 @@ const system = [
   { name: 'Audit Log', href: '/admin/audit-log', icon: FileText },
   { name: 'Email Suppressions', href: '/admin/suppressions', icon: Mail },
   { name: 'API Keys', href: '/admin/api-keys', icon: Key },
+  { name: 'Rate Limits', href: '/admin/rate-limits', icon: Gauge },
 ];
 
 function NavSection({

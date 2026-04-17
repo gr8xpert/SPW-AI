@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
+import { RateLimitHeadroomService } from './rate-limit-headroom.service';
 import {
   Tenant,
   User,
@@ -31,7 +32,7 @@ import { TenantModule } from '../tenant/tenant.module';
     TenantModule,
   ],
   controllers: [SuperAdminController],
-  providers: [SuperAdminService],
+  providers: [SuperAdminService, RateLimitHeadroomService],
   exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

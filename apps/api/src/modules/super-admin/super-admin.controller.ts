@@ -13,6 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { SuperAdminService } from './super-admin.service';
+import { RateLimitHeadroomService } from './rate-limit-headroom.service';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -23,7 +24,18 @@ import { UserRole, JwtPayload } from '@spw/shared';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.SUPER_ADMIN)
 export class SuperAdminController {
-  constructor(private readonly superAdminService: SuperAdminService) {}
+  constructor(
+    private readonly superAdminService: SuperAdminService,
+    private readonly rateLimitHeadroomService: RateLimitHeadroomService,
+  ) {}
+
+  // 5S — rate-limit headroom overview. Lists every active tenant with
+  // their current 60s usage vs plan ceiling, sorted busiest-first so ops
+  // can spot noisy tenants before they get 429'd.
+  @Get('rate-limit-headroom')
+  async getRateLimitHeadroom() {
+    return this.rateLimitHeadroomService.getHeadroom();
+  }
 
   // ============ DASHBOARD ============
 

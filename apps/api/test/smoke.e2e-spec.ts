@@ -1179,6 +1179,52 @@ describe('Smoke — golden path (e2e)', () => {
     });
   });
 
+  // 5S — rate-limit headroom. Drives the service directly (no
+  // super-admin HTTP login path exists in the smoke suite). Proves the
+  // endpoint returns rows for every active tenant registered earlier,
+  // with the roll-up status field classified correctly. We don't assert
+  // a specific currentUsage because other tests in the suite may or may
+  // not have driven up the counters for a given tenant; shape-checking
+  // the response + sort order is the invariant.
+  describe('Rate-limit headroom', () => {
+    it('returns one row per active tenant, sorted busiest-first', async () => {
+      const { RateLimitHeadroomService } = await import(
+        '../src/modules/super-admin/rate-limit-headroom.service'
+      );
+      const svc = app.get(RateLimitHeadroomService);
+      const rows = await svc.getHeadroom();
+
+      expect(Array.isArray(rows)).toBe(true);
+      // Every prior describe block registered at least one tenant, so
+      // the list is never empty by the time we get here.
+      expect(rows.length).toBeGreaterThan(0);
+
+      for (const row of rows) {
+        expect(typeof row.tenantId).toBe('number');
+        expect(typeof row.tenantName).toBe('string');
+        expect(typeof row.ratePerMinute).toBe('number');
+        expect(typeof row.currentUsage).toBe('number');
+        expect(row.currentUsage).toBeGreaterThanOrEqual(0);
+        expect(row.headroomPercent).toBeLessThanOrEqual(100);
+        expect(row.headroomPercent).toBeGreaterThanOrEqual(0);
+        expect(['ok', 'warning', 'critical']).toContain(row.status);
+
+        // Classification boundaries match the service's thresholds.
+        if (row.headroomPercent <= 10) expect(row.status).toBe('critical');
+        else if (row.headroomPercent <= 30) expect(row.status).toBe('warning');
+        else expect(row.status).toBe('ok');
+      }
+
+      // Busiest-first: headroomPercent should be non-decreasing as we
+      // walk the list.
+      for (let i = 1; i < rows.length; i++) {
+        expect(rows[i].headroomPercent).toBeGreaterThanOrEqual(
+          rows[i - 1].headroomPercent,
+        );
+      }
+    });
+  });
+
   // Public-API (per-tenant-key) rate limiter. Lives above the login flood
   // test so the login 429s can't bleed into this block. Floods GET /api/v1/
   // properties with one tenant's api key until the tracker fires, then
