@@ -44,9 +44,14 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Bind to loopback in production so the API is only reachable via the nginx reverse proxy.
-  // Outside production we bind to all interfaces to make local testing easier.
-  const host = isProduction ? '127.0.0.1' : '0.0.0.0';
+  // Bind to loopback in production so a bare-metal deploy only exposes the
+  // API via the nginx reverse proxy. Docker/containerized deploys must set
+  // API_BIND_HOST=0.0.0.0 so traffic on the container network can reach the
+  // port — container isolation replaces the loopback-binding safeguard.
+  // Outside production we always bind 0.0.0.0 to make local testing easier.
+  const host = isProduction
+    ? process.env.API_BIND_HOST || '127.0.0.1'
+    : '0.0.0.0';
   await app.listen(port, host);
   logger.log(`API listening on http://${host}:${port} (NODE_ENV=${process.env.NODE_ENV || 'development'})`);
 }

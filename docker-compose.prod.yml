@@ -1,0 +1,150 @@
+# Production docker-compose — `docker compose -f docker-compose.prod.yml up -d`.
+#
+# Required: a .env.production file at the repo root (copy from
+# .env.production.example and fill in every value). compose will refuse
+# to start if a required interpolation is missing.
+#
+# Notes on the topology:
+#  - api binds only on the internal `spw_net` network. Expose it publicly
+#    via a reverse proxy (nginx/Caddy/Traefik) terminating TLS.
+#  - dashboard is exposed on port 3000 for convenience; in a multi-host
+#    deploy front it with the same reverse proxy.
+#  - widget-static serves the built widget bundle on port 8080 so the WP
+#    plugin (or tenant sites) can include it without a separate CDN.
+#  - mysql + redis bind only on the internal network — they're not
+#    reachable from the host unless you add a `ports:` mapping.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: spw/api:latest
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      API_BIND_HOST: 0.0.0.0
+      # Application
+      API_URL: ${API_URL:?API_URL is required}
+      DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL is required}
+      # Database
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_NAME: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      DATABASE_USER: ${MYSQL_USER:?MYSQL_USER is required}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      DATABASE_LOGGING: "false"
+      DATABASE_SYNCHRONIZE: "false"
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD-}
+      # Secrets — compose refuses to start if any are missing.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (>=32 chars)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required (>=32 chars)}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required (32 chars)}
+      # System SMTP
+      SMTP_HOST: ${SMTP_HOST-}
+      SMTP_PORT: ${SMTP_PORT-587}
+      SMTP_USER: ${SMTP_USER-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD-}
+      SMTP_SECURE: ${SMTP_SECURE-false}
+      SMTP_FROM: ${SMTP_FROM-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME-}
+      # Webhook guards — NEVER set this to true in prod.
+      WEBHOOK_ALLOW_LOOPBACK: "false"
+    volumes:
+      - spw_uploads:/app/uploads
+    networks:
+      - spw_net
+    # No ports: — reach via dashboard proxy or an external reverse proxy.
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required (baked into client bundle)}
+    image: spw/dashboard:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+      NEXTAUTH_URL: ${DASHBOARD_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
+      API_URL: http://api:3001
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1:3000}:3000"
+    networks:
+      - spw_net
+
+  widget-static:
+    build:
+      context: .
+      dockerfile: apps/widget/Dockerfile
+    image: spw/widget:latest
+    restart: unless-stopped
+    ports:
+      - "${WIDGET_BIND:-127.0.0.1:8080}:80"
+    networks:
+      - spw_net
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+      # Smaller memory footprint on a single-tenant deploy. Tune up on
+      # dedicated DB hosts.
+      - --innodb-buffer-pool-size=256M
+    volumes:
+      - spw_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - spw_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "${REDIS_PASSWORD:+--requirepass}", "${REDIS_PASSWORD-}"]
+    volumes:
+      - spw_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - spw_net
+
+networks:
+  spw_net:
+    driver: bridge
+
+volumes:
+  spw_mysql_data:
+  spw_redis_data:
+  spw_uploads:

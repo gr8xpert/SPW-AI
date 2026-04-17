@@ -1,0 +1,42 @@
+# Keep build context lean — anything not needed for the build goes here.
+# Dockerfiles themselves are referenced via `-f`, so they're excluded via
+# include-everything-then-exclude below rather than being listed here.
+
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/.turbo
+**/.cache
+
+# Local env files — production envs come from docker-compose, never baked.
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+!**/.env.production.example
+
+# Editor / OS
+**/.DS_Store
+**/.idea
+**/.vscode
+**/Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docs / memory / graphify (not needed at runtime)
+memory/
+graphify-out/
+docs/
+*.md
+!README.md
+
+# Test output + logs
+**/logs
+**/*.log
+**/.npm
+**/.pnpm-debug.log*
+**/pnpm-debug.log*
