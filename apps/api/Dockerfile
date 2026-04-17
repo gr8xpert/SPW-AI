@@ -57,11 +57,11 @@ ENV NODE_ENV=production \
     API_BIND_HOST=0.0.0.0 \
     PORT=3001
 
-# /api/health is the existing public health endpoint (DB + Redis probe).
-# 5L will add /api/health/live + /api/health/ready; this directive can be
-# updated then without changing the image contract.
+# Liveness only — /live doesn't probe DB/Redis, so a transient dep outage
+# won't trigger a restart loop. For "should this replica receive traffic?",
+# an external load balancer should hit /api/health/ready instead.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:3001/api/health || exit 1
+  CMD curl -fsS http://127.0.0.1:3001/api/health/live || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "dist/main"]

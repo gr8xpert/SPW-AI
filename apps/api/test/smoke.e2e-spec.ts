@@ -103,6 +103,29 @@ describe('Smoke — golden path (e2e)', () => {
       expect(res.body.data.checks.redis.status).toBe('ok');
     });
 
+    // Liveness = "process is up". Must not touch deps so an orchestrator
+    // probing this endpoint doesn't hammer the DB every 30s per replica.
+    it('GET /api/health/live returns 200 with no external checks', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/health/live')
+        .expect(200);
+      expect(res.body.data.status).toBe('ok');
+      expect(res.body.data.uptimeSec).toBeGreaterThanOrEqual(0);
+      // Crucially: no .checks object — liveness never reports dep state.
+      expect(res.body.data.checks).toBeUndefined();
+    });
+
+    // Readiness = "ok to take traffic". Same semantics as the legacy
+    // /api/health alias — DB + Redis both probed.
+    it('GET /api/health/ready reports DB + Redis state', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/health/ready')
+        .expect(200);
+      expect(res.body.data.status).toBe('ok');
+      expect(res.body.data.checks.database.status).toBe('ok');
+      expect(res.body.data.checks.redis.status).toBe('ok');
+    });
+
     it('GET /api/v1/license/ping returns 200', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/license/ping')
