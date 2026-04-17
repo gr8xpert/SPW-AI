@@ -154,6 +154,32 @@ export default function ClientDetailPage() {
     }
   };
 
+  // Bumps the client's syncVersion and fires cache.invalidated — their
+  // widget + WP plugin pick up fresh data without the old manual script.
+  const handleClearClientCache = async () => {
+    if (!client) return;
+    if (
+      !window.confirm(
+        `Clear widget cache for ${client.name}? Their site will refetch listings on the next request.`,
+      )
+    ) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const response = await api.post(
+        `/api/super-admin/clients/${clientId}/clear-cache`,
+      );
+      const version = response.data?.syncVersion ?? '?';
+      alert(`Cache cleared — new sync version: v${version}`);
+    } catch (error) {
+      console.error('Failed to clear client cache:', error);
+      alert('Failed to clear client cache. Check server logs.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleGenerateLicenseKey = async () => {
     try {
       const response = await api.post(`/api/super-admin/clients/${clientId}/license-keys`, {
@@ -502,6 +528,16 @@ export default function ClientDetailPage() {
                   <Button variant="outline" onClick={() => handleExtend(365)} disabled={actionLoading}>
                     <Calendar className="mr-2 h-4 w-4" />
                     Extend 1 Year
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleClearClientCache}
+                    disabled={actionLoading}
+                  >
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`}
+                    />
+                    Clear widget cache
                   </Button>
                 </div>
               </div>

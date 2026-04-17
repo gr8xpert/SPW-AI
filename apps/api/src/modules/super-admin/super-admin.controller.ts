@@ -103,6 +103,18 @@ export class SuperAdminController {
     return this.superAdminService.extendSubscription(id, dto, user.sub);
   }
 
+  // Clears a specific client's widget/plugin cache on behalf of support —
+  // bumps syncVersion + emits cache.invalidated so their site stops
+  // serving stale listings without waiting for the widget's 5-min TTL.
+  @Post('clients/:id/clear-cache')
+  @HttpCode(HttpStatus.OK)
+  async clearClientCache(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.clearClientCache(id, user.sub);
+  }
+
   // ============ LICENSE KEY MANAGEMENT ============
 
   @Get('clients/:id/license-keys')

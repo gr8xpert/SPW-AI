@@ -16,7 +16,8 @@ export type WebhookDeliveryStatus =
 export type WebhookEvent =
   | 'property.created'
   | 'property.updated'
-  | 'property.deleted';
+  | 'property.deleted'
+  | 'cache.invalidated';
 
 // One row per attempt chain — BullMQ handles the retry scheduling; this table
 // records the outcome that the dashboard surfaces (replay/redeliver later

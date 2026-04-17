@@ -13,6 +13,7 @@ import {
   EmailSuppression,
   TimeEntry,
 } from '../../database/entities';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import {
       EmailSuppression,
       TimeEntry,
     ]),
+    TenantModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],

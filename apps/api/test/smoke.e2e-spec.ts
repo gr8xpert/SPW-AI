@@ -574,6 +574,68 @@ describe('Smoke — golden path (e2e)', () => {
         }
       });
     });
+
+    // Cache-clear: tenant admin can bump their syncVersion + triggers a
+    // cache.invalidated webhook, and the public sync-meta endpoint reflects
+    // the new version so polling widgets can invalidate their local cache.
+    describe('Cache clear', () => {
+      let tenantApiKey: string;
+      let initialVersion: number;
+
+      beforeAll(async () => {
+        // Rotate to grab a raw api-key we can use against public endpoints —
+        // the one from register was already rotated earlier in the suite.
+        const rot = await request(app.getHttpServer())
+          .post('/api/dashboard/tenant/api-key/rotate')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        tenantApiKey = rot.body.data.apiKey;
+
+        const meta = await request(app.getHttpServer())
+          .get('/api/v1/sync-meta')
+          .set('x-api-key', tenantApiKey)
+          .expect(200);
+        initialVersion = meta.body.data.syncVersion;
+        expect(typeof initialVersion).toBe('number');
+      });
+
+      it('POST /api/dashboard/cache/clear bumps syncVersion and emits webhook', async () => {
+        const res = await request(app.getHttpServer())
+          .post('/api/dashboard/tenant/cache/clear')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+
+        expect(res.body.data.syncVersion).toBe(initialVersion + 1);
+        expect(res.body.data.clearedAt).toBeTruthy();
+
+        // Public sync-meta reflects the bump.
+        const after = await request(app.getHttpServer())
+          .get('/api/v1/sync-meta')
+          .set('x-api-key', tenantApiKey)
+          .expect(200);
+        expect(after.body.data.syncVersion).toBe(initialVersion + 1);
+
+        // cache.invalidated webhook row exists for tenant A.
+        const ds = app.get(DataSource);
+        const admin = await ds.getRepository(User).findOneOrFail({
+          where: { email: adminA.email },
+        });
+        const delivery = await ds.getRepository(WebhookDelivery).findOne({
+          where: { tenantId: admin.tenantId, event: 'cache.invalidated' },
+          order: { id: 'DESC' },
+        });
+        expect(delivery).toBeTruthy();
+        expect((delivery!.payload as any).syncVersion).toBe(initialVersion + 1);
+      });
+
+      it('GET /api/v1/sync-meta rejects missing or invalid api-key', async () => {
+        await request(app.getHttpServer()).get('/api/v1/sync-meta').expect(401);
+        await request(app.getHttpServer())
+          .get('/api/v1/sync-meta')
+          .set('x-api-key', 'spw_not-a-real-key')
+          .expect(401);
+      });
+    });
   });
 
   // Scheduled DB cleanup: prunes expired-and-revoked refresh tokens (>7d
@@ -592,8 +654,9 @@ describe('Smoke — golden path (e2e)', () => {
 
       // Seed one stale-and-revoked refresh row (should be deleted) and one
       // stale-but-alive row (should be kept — reuse-detection audits may
-      // still want it).
-      const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      // still want it). 40 days past both retention windows so the boundary
+      // comparison (< cutoff) is unambiguous.
+      const stale = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
       const staleRevoked = await ds.getRepository(RefreshToken).save({
         userId,
         tenantId,
@@ -624,11 +687,12 @@ describe('Smoke — golden path (e2e)', () => {
         status: 'skipped' as const,
         lastError: 'retention test',
       });
-      // Backdate createdAt past the 30-day window manually — TypeORM won't
-      // let us set CreateDateColumn on save().
-      await ds
-        .getRepository(WebhookDelivery)
-        .update(staleDelivery.id, { createdAt: stale } as any);
+      // Backdate createdAt past the 30-day window manually — TypeORM's
+      // update() strips CreateDateColumn fields, so go raw.
+      await ds.query('UPDATE webhook_deliveries SET createdAt = ? WHERE id = ?', [
+        stale,
+        staleDelivery.id,
+      ]);
 
       const cleanup = app.get(CleanupService);
       const counts = await cleanup.runCleanup();

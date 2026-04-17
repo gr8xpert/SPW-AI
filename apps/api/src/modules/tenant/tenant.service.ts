@@ -1,15 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from '../../database/entities';
 import { TenantPublic, TenantSettings } from '@spw/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
+import { WebhookService } from '../webhook/webhook.service';
+
+export interface CacheClearResult {
+  tenantId: number;
+  syncVersion: number;
+  clearedAt: string; // ISO string
+}
 
 @Injectable()
 export class TenantService {
+  private readonly logger = new Logger(TenantService.name);
+
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
+    private readonly webhookService: WebhookService,
   ) {}
 
   async findById(id: number): Promise<TenantPublic> {
@@ -77,6 +87,62 @@ export class TenantService {
 
   async incrementSyncVersion(tenantId: number): Promise<void> {
     await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
+  }
+
+  // Bumps the tenant's syncVersion and fires a cache.invalidated webhook so
+  // downstream consumers (WP plugin, widget poller) refresh immediately.
+  // Webhook failures are non-fatal — the version bump is the canonical
+  // signal; webhooks are an optimization to shorten propagation delay.
+  async clearCache(
+    tenantId: number,
+    triggeredBy: { userId?: number; role?: string; reason?: string } = {},
+  ): Promise<CacheClearResult> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Bump + re-read to avoid a race where two concurrent clears each see
+    // the pre-bump value and return the same version.
+    await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
+    const after = await this.tenantRepository.findOneOrFail({
+      where: { id: tenantId },
+      select: ['id', 'syncVersion'],
+    });
+    const clearedAt = new Date().toISOString();
+
+    try {
+      await this.webhookService.emit(tenantId, 'cache.invalidated', {
+        tenantId,
+        syncVersion: after.syncVersion,
+        clearedAt,
+        triggeredBy,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `cache.invalidated webhook emit failed for tenant=${tenantId}: ${(err as Error).message}`,
+      );
+    }
+
+    return {
+      tenantId,
+      syncVersion: after.syncVersion,
+      clearedAt,
+    };
+  }
+
+  // Public sync-meta payload — the widget/WP plugin polls this to detect
+  // stale local caches. Intentionally minimal: only the signals a client
+  // needs to decide whether to drop its cache.
+  async getSyncMeta(tenantId: number): Promise<{ syncVersion: number; tenantSlug: string }> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'syncVersion', 'slug'],
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    return { syncVersion: tenant.syncVersion, tenantSlug: tenant.slug };
   }
 
   // Returns non-secret API-key metadata. The raw key itself is never

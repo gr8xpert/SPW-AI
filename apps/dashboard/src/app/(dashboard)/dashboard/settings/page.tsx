@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +22,8 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Mail, Globe, Webhook, Key } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
+import { apiGet, apiPost } from '@/lib/api';
 
 const generalSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -39,10 +40,66 @@ const emailSchema = z.object({
   fromName: z.string().optional(),
 });
 
+// Public widget + WP plugin read from tenant.syncVersion to decide when to
+// drop their local cache. Bumping it on demand replaces the old PHP "clear
+// cache" script operators used to run by hand.
+interface CacheClearResponse {
+  data: { tenantId: number; syncVersion: number; clearedAt: string };
+}
+interface TenantCurrent {
+  data: { id: number; syncVersion?: number } & Record<string, unknown>;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [syncVersion, setSyncVersion] = useState<number | null>(null);
+  const [lastClearedAt, setLastClearedAt] = useState<string | null>(null);
+  const [clearingCache, setClearingCache] = useState(false);
+
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    apiGet<TenantCurrent>('/api/dashboard/tenant')
+      .then((res) => {
+        // API wraps responses as { data: ... } via global interceptor; our
+        // apiGet returns the raw axios response.data, so res.data is the
+        // payload.
+        if (typeof res.data?.syncVersion === 'number') {
+          setSyncVersion(res.data.syncVersion);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — cache panel just won't show a version number.
+      });
+  }, [session?.accessToken]);
+
+  const onClearCache = async () => {
+    if (clearingCache) return;
+    const confirmed = window.confirm(
+      'Clear widget cache now? Your site will refetch listings on the next request. This cannot be undone.',
+    );
+    if (!confirmed) return;
+
+    setClearingCache(true);
+    try {
+      const res = await apiPost<CacheClearResponse>('/api/dashboard/tenant/cache/clear');
+      setSyncVersion(res.data.syncVersion);
+      setLastClearedAt(res.data.clearedAt);
+      toast({
+        title: 'Widget cache cleared',
+        description: `New sync version: ${res.data.syncVersion}. Downstream widgets pick this up on their next poll.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to clear cache',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setClearingCache(false);
+    }
+  };
 
   const generalForm = useForm({
     resolver: zodResolver(generalSchema),
@@ -130,6 +187,10 @@ export default function SettingsPage() {
           <TabsTrigger value="webhooks">
             <Webhook className="h-4 w-4 mr-2" />
             Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="cache">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Cache
           </TabsTrigger>
         </TabsList>
 
@@ -364,6 +425,55 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Widget Cache */}
+        <TabsContent value="cache">
+          <Card>
+            <CardHeader>
+              <CardTitle>Widget Cache</CardTitle>
+              <CardDescription>
+                Clear the cache on your live widget and WordPress plugin. Run
+                this after updating properties or settings if the changes
+                haven&apos;t reached your site yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">Current sync version</p>
+                    <p className="text-sm text-muted-foreground">
+                      {syncVersion === null
+                        ? 'Loading…'
+                        : `v${syncVersion} — downstream widgets invalidate their local cache when this number changes`}
+                    </p>
+                    {lastClearedAt && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Last cleared: {new Date(lastClearedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={onClearCache}
+                    disabled={clearingCache}
+                    variant="default"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${clearingCache ? 'animate-spin' : ''}`}
+                    />
+                    {clearingCache ? 'Clearing…' : 'Clear widget cache'}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Replaces the old manual cache-clear PHP script. Widgets that
+                poll <code>/api/v1/sync-meta</code> refresh on their next tick
+                (within ~1 minute); webhook-subscribed integrations refresh
+                immediately.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

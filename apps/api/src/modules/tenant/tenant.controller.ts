@@ -49,4 +49,22 @@ export class TenantController {
   ) {
     return this.tenantService.rotateApiKey(tenantId);
   }
+
+  // Bumps the tenant's cache version so widget and WP plugin drop their
+  // local caches on the next poll/webhook tick. Admin-only — a stale
+  // cache can hide listings, so this is a privileged operation.
+  @Post('cache/clear')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async clearCache(
+    @CurrentTenant() tenantId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.tenantService.clearCache(tenantId, {
+      userId: user.sub,
+      role: user.role,
+      reason: 'dashboard_manual',
+    });
+  }
 }

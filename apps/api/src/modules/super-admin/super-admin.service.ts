@@ -19,6 +19,7 @@ import {
 import { UserRole, DEFAULT_TENANT_SETTINGS, TenantFull } from '@spw/shared';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
+import { TenantService, CacheClearResult } from '../tenant/tenant.service';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -62,6 +63,7 @@ export class SuperAdminService {
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
     private dataSource: DataSource,
+    private readonly tenantService: TenantService,
   ) {}
 
   /**
@@ -576,6 +578,37 @@ export class SuperAdminService {
     await this.auditLogRepository.save(auditLog);
 
     return this.getClient(clientId);
+  }
+
+  /**
+   * Bump a specific client's widget cache version + emit cache.invalidated.
+   * Used by super-admin support to unblock a stale widget without waiting
+   * for its 5-minute TTL.
+   */
+  async clearClientCache(clientId: number, userId: number): Promise<CacheClearResult> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: clientId } });
+    if (!tenant) {
+      throw new NotFoundException('Client not found');
+    }
+
+    const result = await this.tenantService.clearCache(clientId, {
+      userId,
+      role: 'super_admin',
+      reason: 'super_admin_support',
+    });
+
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: clientId,
+        userId,
+        action: 'update',
+        entityType: 'tenant',
+        entityId: clientId,
+        metadata: { action: 'clear_cache', syncVersion: result.syncVersion },
+      }),
+    );
+
+    return result;
   }
 
   /**
