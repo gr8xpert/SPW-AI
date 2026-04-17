@@ -70,14 +70,20 @@ class SPW_Webhook {
             );
         }
 
-        $signature = $request->get_header('X-SPW-Signature');
-        if (empty($signature)) {
+        $signature_header = $request->get_header('X-SPW-Signature');
+        if (empty($signature_header)) {
             return new WP_Error(
                 'missing_signature',
                 __('Missing webhook signature', 'spw-sync'),
                 array('status' => 401)
             );
         }
+
+        // v2 senders use a Stripe-style header: `t=<unix>,v1=<hex>`. Extract the
+        // `v1=` scheme. Legacy senders send the raw hex string on its own.
+        // Supporting both so an older sender can still talk to a new plugin
+        // during rolling upgrades.
+        $signature = $this->extract_v1_signature($signature_header);
 
         $timestamp = $request->get_header('X-SPW-Timestamp');
         // Replay protection: require a recent timestamp. Allow ±5 minutes of clock skew.
@@ -108,6 +114,31 @@ class SPW_Webhook {
         }
 
         return true;
+    }
+
+    /**
+     * Parse the X-SPW-Signature header. Returns the hex-digest portion.
+     *
+     * Accepts:
+     *   - `t=<unix>,v1=<hex>` (v2 format, what the current server sends)
+     *   - `<hex>` (legacy raw format)
+     *
+     * @param string $header Raw header value.
+     * @return string Hex digest (or empty string if not parseable).
+     */
+    private function extract_v1_signature($header) {
+        if (strpos($header, 'v1=') === false) {
+            // Legacy: assume the whole header is the hex digest.
+            return trim($header);
+        }
+        $parts = explode(',', $header);
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if (strpos($part, 'v1=') === 0) {
+                return substr($part, 3);
+            }
+        }
+        return '';
     }
 
     /**
@@ -143,6 +174,9 @@ class SPW_Webhook {
             case 'settings.changed':
                 return $this->handle_settings_change($payload);
 
+            case 'cache.invalidated':
+                return $this->handle_cache_invalidated($payload);
+
             case 'test':
                 return $this->handle_test_webhook($payload);
 
@@ -152,6 +186,49 @@ class SPW_Webhook {
                     'message' => 'Unknown event type',
                 ), 200);
         }
+    }
+
+    /**
+     * Handle cache.invalidated event.
+     *
+     * Fired when a tenant admin (or super-admin) clicks "Clear widget cache"
+     * in the SPW dashboard. The server bumps its syncVersion and sends this
+     * webhook so the plugin can refresh local JSON immediately — otherwise
+     * the widget would only pick up fresh data after its next 60s poll.
+     *
+     * v2 envelope: { event, deliveryId, createdAt, data: { tenantId,
+     *   syncVersion, clearedAt, triggeredBy } }
+     *
+     * @param array $payload Webhook payload.
+     * @return WP_REST_Response
+     */
+    private function handle_cache_invalidated($payload) {
+        $data = isset($payload['data']) && is_array($payload['data']) ? $payload['data'] : array();
+        $remote_version = isset($data['syncVersion']) ? (int) $data['syncVersion'] : 0;
+        $local_version  = (int) get_option('spw_sync_version', 0);
+
+        // Record the incoming version up-front so a subsequent duplicate
+        // delivery (retry) is treated as a no-op by handle_sync_required.
+        if ($remote_version > $local_version) {
+            update_option('spw_sync_version', $remote_version);
+        }
+
+        // Defer the heavy lift so the webhook responds under 10s (our
+        // server times out at that mark). spw_async_sync is the same hook
+        // property.* uses.
+        wp_schedule_single_event(time() + 1, 'spw_async_sync');
+
+        // Let integrations hook in — e.g. a site that wants to purge a
+        // page-cache plugin (WP Rocket, W3TC) when SPW data changes.
+        do_action('spw_cache_invalidated', $payload);
+
+        return new WP_REST_Response(array(
+            'status'         => 'ok',
+            'message'        => 'Cache invalidation queued',
+            'remote_version' => $remote_version,
+            'local_version'  => $local_version,
+            'cleared_at'     => isset($data['clearedAt']) ? $data['clearedAt'] : null,
+        ), 200);
     }
 
     /**
@@ -260,11 +337,16 @@ class SPW_Webhook {
      * @return WP_REST_Response
      */
     public function handle_ping($request) {
+        // sync_version + last_sync_at surfaced here so the SPW dashboard
+        // (or an operator poking by hand) can see how far behind the plugin
+        // is without grepping through log files.
         return new WP_REST_Response(array(
-            'status' => 'ok',
-            'plugin' => 'spw-sync',
-            'version' => SPW_SYNC_VERSION,
-            'timestamp' => current_time('mysql'),
+            'status'       => 'ok',
+            'plugin'       => 'spw-sync',
+            'version'      => SPW_SYNC_VERSION,
+            'timestamp'    => current_time('mysql'),
+            'sync_version' => (int) get_option('spw_sync_version', 0),
+            'last_sync_at' => get_option('spw_last_sync', null),
         ), 200);
     }
 
