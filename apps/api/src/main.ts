@@ -3,9 +3,17 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { runBootSecurityAudit } from './common/security/boot-audit';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // Fail fast on obviously-broken production configs (placeholder secrets,
+  // dangerous dev flags left on, etc.) before we even instantiate Nest.
+  // Throwing here crashes the process with a clear banner — better than
+  // silently running with a development-grade secret.
+  runBootSecurityAudit();
+
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
