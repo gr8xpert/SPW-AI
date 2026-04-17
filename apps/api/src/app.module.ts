@@ -15,6 +15,8 @@ import { databaseConfig, redisConfig, jwtConfig } from './config';
 import { HttpExceptionFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
 import { JwtAuthGuard } from './common/guards';
+import { ThrottlerStorageModule } from './common/throttler/throttler-storage.module';
+import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
 
 // Phase 1: Foundation Modules
 import { HealthModule } from './modules/health/health.module';
@@ -51,6 +53,7 @@ import { WebmasterModule } from './modules/webmaster/webmaster.module';
 import { ReorderModule } from './modules/reorder/reorder.module';
 import { TeamModule } from './modules/team/team.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -104,12 +107,24 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // The 'default' tracker is required because controllers use @Throttle({ default: { ... } })
     // to override per-endpoint. @nestjs/throttler v5+ treats tracker names literally — if
     // 'default' isn't registered, those overrides silently do nothing.
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 100 },
-      { name: 'short', ttl: 1000, limit: 20 },
-      { name: 'medium', ttl: 60_000, limit: 300 },
-      { name: 'long', ttl: 3_600_000, limit: 5_000 },
-    ]),
+    //
+    // Storage is Redis-backed (see RedisThrottlerStorage) so every API replica
+    // reads and writes the same buckets — otherwise a 4-replica deploy would
+    // give each client 4× the advertised limit.
+    ThrottlerStorageModule,
+    ThrottlerModule.forRootAsync({
+      imports: [ThrottlerStorageModule],
+      inject: [RedisThrottlerStorage],
+      useFactory: (storage: RedisThrottlerStorage) => ({
+        storage,
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: 100 },
+          { name: 'short', ttl: 1000, limit: 20 },
+          { name: 'medium', ttl: 60_000, limit: 300 },
+          { name: 'long', ttl: 3_600_000, limit: 5_000 },
+        ],
+      }),
+    }),
 
     // ============ Phase 1: Foundation ============
     HealthModule,
@@ -146,6 +161,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     ReorderModule,
     TeamModule,
     WebhookModule,
+    MaintenanceModule,
   ],
   providers: [
     // Global exception filter

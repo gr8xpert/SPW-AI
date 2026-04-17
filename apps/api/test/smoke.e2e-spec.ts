@@ -22,9 +22,30 @@ import helmet from 'helmet';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
 import { DataSource } from 'typeorm';
-import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
-import { User, EmailVerificationToken, Tenant, WebhookDelivery } from '../src/database/entities';
+import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken } from '../src/database/entities';
+import { CleanupService } from '../src/modules/maintenance/cleanup.service';
+
+// Throttler buckets now persist in Redis (shared across replicas in prod).
+// E2E tests run back-to-back on the same dev Redis — without a pre-flush,
+// the "login 7× until 429" block from a prior run poisons every login in
+// the next run.
+async function flushThrottlerKeys(): Promise<void> {
+  const client = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    maxRetriesPerRequest: 2,
+  });
+  try {
+    const keys = await client.keys('throttler:*');
+    if (keys.length > 0) await client.del(...keys);
+  } finally {
+    await client.quit().catch(() => {});
+  }
+}
 
 const uniqueSlug = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -40,6 +61,8 @@ async function forceVerifyEmail(app: INestApplication, email: string): Promise<v
 }
 
 async function boot(): Promise<INestApplication> {
+  await flushThrottlerKeys();
+
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
@@ -550,6 +573,84 @@ describe('Smoke — golden path (e2e)', () => {
           process.env.WEBHOOK_ALLOW_LOOPBACK = prev;
         }
       });
+    });
+  });
+
+  // Scheduled DB cleanup: prunes expired-and-revoked refresh tokens (>7d
+  // old) and webhook_deliveries (>30d old). The cron itself fires at 03:30
+  // so we drive the service method directly — cron firing is a NestJS
+  // concern not ours to retest.
+  describe('Maintenance cleanup', () => {
+    it('prunes stale refresh_tokens + webhook_deliveries beyond retention', async () => {
+      const ds = app.get(DataSource);
+      // Any user works — we're testing the purge SQL, not tenant semantics.
+      // By the time this block runs, the Auth block has seeded at least one.
+      const user = await ds.getRepository(User).find({ take: 1 }).then((r) => r[0]);
+      expect(user).toBeTruthy();
+      const tenantId = user.tenantId;
+      const userId = user.id;
+
+      // Seed one stale-and-revoked refresh row (should be deleted) and one
+      // stale-but-alive row (should be kept — reuse-detection audits may
+      // still want it).
+      const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      const staleRevoked = await ds.getRepository(RefreshToken).save({
+        userId,
+        tenantId,
+        familyId: randomBytes(16).toString('hex'), // CHAR(32)
+        tokenHash: createHash('sha256').update('cleanup-stale-revoked-' + Date.now()).digest('hex'),
+        expiresAt: stale,
+        revokedAt: stale,
+        revokedReason: 'logout',
+        replacedByHash: null,
+      });
+      const staleAlive = await ds.getRepository(RefreshToken).save({
+        userId,
+        tenantId,
+        familyId: randomBytes(16).toString('hex'),
+        tokenHash: createHash('sha256').update('cleanup-stale-alive-' + Date.now()).digest('hex'),
+        expiresAt: stale,
+        revokedAt: null,
+        revokedReason: null,
+        replacedByHash: null,
+      });
+
+      // Stale webhook delivery row (skipped status so we don't poke BullMQ).
+      const staleDelivery = await ds.getRepository(WebhookDelivery).save({
+        tenantId,
+        event: 'property.created',
+        targetUrl: '',
+        payload: { note: 'cleanup test' },
+        status: 'skipped' as const,
+        lastError: 'retention test',
+      });
+      // Backdate createdAt past the 30-day window manually — TypeORM won't
+      // let us set CreateDateColumn on save().
+      await ds
+        .getRepository(WebhookDelivery)
+        .update(staleDelivery.id, { createdAt: stale } as any);
+
+      const cleanup = app.get(CleanupService);
+      const counts = await cleanup.runCleanup();
+
+      expect(counts.refreshTokens).toBeGreaterThanOrEqual(1);
+      expect(counts.webhookDeliveries).toBeGreaterThanOrEqual(1);
+
+      // Revoked-and-stale row gone; expired-but-not-revoked still present.
+      expect(
+        await ds.getRepository(RefreshToken).findOne({ where: { id: staleRevoked.id } }),
+      ).toBeNull();
+      expect(
+        await ds.getRepository(RefreshToken).findOne({ where: { id: staleAlive.id } }),
+      ).not.toBeNull();
+
+      // Webhook delivery row purged.
+      expect(
+        await ds.getRepository(WebhookDelivery).findOne({ where: { id: staleDelivery.id } }),
+      ).toBeNull();
+
+      // Housekeep the stale-alive row so we don't leak test fixtures.
+      await ds.getRepository(RefreshToken).delete(staleAlive.id);
     });
   });
 
