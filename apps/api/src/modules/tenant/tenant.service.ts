@@ -1,10 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Tenant } from '../../database/entities';
+import { randomBytes } from 'crypto';
+import { Tenant, WebhookDelivery } from '../../database/entities';
 import { TenantPublic, TenantSettings } from '@spw/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { WebhookService } from '../webhook/webhook.service';
+import { validateWebhookTarget } from '../webhook/webhook-target';
 
 export interface CacheClearResult {
   tenantId: number;
@@ -19,6 +21,8 @@ export class TenantService {
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
+    @InjectRepository(WebhookDelivery)
+    private readonly webhookDeliveryRepo: Repository<WebhookDelivery>,
     private readonly webhookService: WebhookService,
   ) {}
 
@@ -161,6 +165,102 @@ export class TenantService {
       apiKeyLast4: tenant.apiKeyLast4,
       webhookSecret: tenant.webhookSecret,
     };
+  }
+
+  // Webhook management — replaces the previous "only-by-DB-edit" workflow.
+  // Tenants can now configure their receiver URL, see deliveries, and fire a
+  // round-trip test without the super-admin having to touch the DB directly.
+
+  async getWebhookConfig(tenantId: number): Promise<{
+    webhookUrl: string | null;
+    webhookSecretLast4: string;
+  }> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['webhookUrl', 'webhookSecret'],
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    return {
+      webhookUrl: tenant.webhookUrl,
+      // Show only the last 4 chars so the dashboard can remind the user
+      // which secret is active without leaking enough to forge signatures.
+      webhookSecretLast4: tenant.webhookSecret.slice(-4),
+    };
+  }
+
+  async updateWebhookUrl(
+    tenantId: number,
+    rawUrl: string | null | undefined,
+  ): Promise<{ webhookUrl: string | null; webhookSecretLast4: string }> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const trimmed =
+      typeof rawUrl === 'string' ? rawUrl.trim() : rawUrl === undefined ? null : rawUrl;
+    const normalized = trimmed === '' ? null : trimmed;
+
+    if (normalized !== null) {
+      const check = validateWebhookTarget(normalized);
+      if (!check.ok) {
+        // Surface the SSRF guard's reason so the user knows why
+        // http://10.0.0.1/hook got rejected without having to guess.
+        throw new BadRequestException({
+          message: 'webhookUrl rejected',
+          code: 'WEBHOOK_URL_INVALID',
+          reason: check.reason,
+        });
+      }
+    }
+
+    tenant.webhookUrl = normalized;
+    await this.tenantRepository.save(tenant);
+
+    return {
+      webhookUrl: tenant.webhookUrl,
+      webhookSecretLast4: tenant.webhookSecret.slice(-4),
+    };
+  }
+
+  async rotateWebhookSecret(tenantId: number): Promise<{ webhookSecret: string }> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    // 64-char hex = 32 raw bytes; matches the original register-time format.
+    const next = randomBytes(32).toString('hex');
+    tenant.webhookSecret = next;
+    await this.tenantRepository.save(tenant);
+    return { webhookSecret: next };
+  }
+
+  async listWebhookDeliveries(
+    tenantId: number,
+    limit = 50,
+  ): Promise<WebhookDelivery[]> {
+    const safeLimit = Math.min(Math.max(limit, 1), 200);
+    return this.webhookDeliveryRepo.find({
+      where: { tenantId },
+      order: { id: 'DESC' },
+      take: safeLimit,
+    });
+  }
+
+  async sendTestWebhook(
+    tenantId: number,
+    triggeredBy: { userId?: number; role?: string },
+  ): Promise<WebhookDelivery> {
+    // Reuses the same dispatch path as any real event, so a passing test
+    // proves the delivery+signing pipeline works — not just a DB insert.
+    return this.webhookService.emit(tenantId, 'webhook.test', {
+      tenantId,
+      triggeredAt: new Date().toISOString(),
+      triggeredBy,
+      note: 'This is a test webhook. Receivers may respond with 200 and ignore it.',
+    });
   }
 
   private toPublic(tenant: Tenant): TenantPublic {

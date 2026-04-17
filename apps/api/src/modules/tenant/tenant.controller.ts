@@ -6,12 +6,14 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, Roles } from '../../common/decorators';
 import { TenantSettings, UserRole, JwtPayload } from '@spw/shared';
+import { UpdateWebhookDto } from './dto/update-webhook.dto';
 
 @Controller('api/dashboard/tenant')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -65,6 +67,60 @@ export class TenantController {
       userId: user.sub,
       role: user.role,
       reason: 'dashboard_manual',
+    });
+  }
+
+  // Webhook configuration — admin-only because misconfiguring the URL (or
+  // rotating the secret) breaks every downstream receiver until the new
+  // secret is propagated. The full webhookSecret is never returned from GET
+  // or PUT; only rotate returns the fresh raw value exactly once.
+
+  @Get('webhook')
+  async getWebhook(@CurrentTenant() tenantId: number) {
+    return this.tenantService.getWebhookConfig(tenantId);
+  }
+
+  @Put('webhook')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async updateWebhook(
+    @CurrentTenant() tenantId: number,
+    @Body() dto: UpdateWebhookDto,
+  ) {
+    return this.tenantService.updateWebhookUrl(tenantId, dto.webhookUrl ?? null);
+  }
+
+  @Post('webhook/rotate-secret')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async rotateWebhookSecret(@CurrentTenant() tenantId: number) {
+    return this.tenantService.rotateWebhookSecret(tenantId);
+  }
+
+  @Get('webhook/deliveries')
+  async listWebhookDeliveries(
+    @CurrentTenant() tenantId: number,
+    @Query('limit') limit?: string,
+  ) {
+    const parsed = limit ? Number.parseInt(limit, 10) : 50;
+    return this.tenantService.listWebhookDeliveries(
+      tenantId,
+      Number.isFinite(parsed) ? parsed : 50,
+    );
+  }
+
+  @Post('webhook/test')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async sendTestWebhook(
+    @CurrentTenant() tenantId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.tenantService.sendTestWebhook(tenantId, {
+      userId: user.sub,
+      role: user.role,
     });
   }
 }

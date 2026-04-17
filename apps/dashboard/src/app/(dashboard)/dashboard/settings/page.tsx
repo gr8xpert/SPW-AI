@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
 
 const generalSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -50,6 +50,30 @@ interface TenantCurrent {
   data: { id: number; syncVersion?: number } & Record<string, unknown>;
 }
 
+// Webhook management (5E). The dashboard fetches the current URL + last4 of
+// the signing secret on mount, surfaces a deliveries table so operators can
+// diagnose "why isn't my site receiving updates?" without DB access, and
+// exposes rotate + test buttons.
+interface WebhookConfigResponse {
+  data: { webhookUrl: string | null; webhookSecretLast4: string };
+}
+interface WebhookRotateResponse {
+  data: { webhookSecret: string };
+}
+interface WebhookDeliveryRow {
+  id: number;
+  event: string;
+  status: 'pending' | 'delivered' | 'failed' | 'skipped';
+  attemptCount: number;
+  lastStatusCode: number | null;
+  lastError: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+}
+interface WebhookDeliveriesResponse {
+  data: WebhookDeliveryRow[];
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -57,6 +81,18 @@ export default function SettingsPage() {
   const [syncVersion, setSyncVersion] = useState<number | null>(null);
   const [lastClearedAt, setLastClearedAt] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
+
+  // Webhook state. `revealedSecret` holds the rotation result exactly long
+  // enough for the user to copy it — the API never returns it again. It's
+  // cleared when the user dismisses the reveal box or navigates away.
+  const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const [webhookSecretLast4, setWebhookSecretLast4] = useState<string | null>(null);
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [rotatingSecret, setRotatingSecret] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [deliveries, setDeliveries] = useState<WebhookDeliveryRow[]>([]);
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
 
   useEffect(() => {
     if (!session?.accessToken) return;
@@ -72,7 +108,117 @@ export default function SettingsPage() {
       .catch(() => {
         // Non-fatal — cache panel just won't show a version number.
       });
+
+    apiGet<WebhookConfigResponse>('/api/dashboard/tenant/webhook')
+      .then((res) => {
+        setWebhookUrl(res.data.webhookUrl ?? '');
+        setWebhookSecretLast4(res.data.webhookSecretLast4);
+      })
+      .catch(() => {
+        // Non-fatal — webhook tab renders with an empty form.
+      });
   }, [session?.accessToken]);
+
+  const loadDeliveries = async () => {
+    setLoadingDeliveries(true);
+    try {
+      const res = await apiGet<WebhookDeliveriesResponse>(
+        '/api/dashboard/tenant/webhook/deliveries?limit=25',
+      );
+      setDeliveries(res.data);
+    } catch (err) {
+      toast({
+        title: 'Failed to load deliveries',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
+  // Pull deliveries on mount too — the panel is empty-by-default otherwise,
+  // which makes it look broken. Deferred to its own effect so refreshing
+  // the list after an action (Test / Rotate) can reuse loadDeliveries
+  // without re-running the webhook config fetch.
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    void loadDeliveries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.accessToken]);
+
+  const onSaveWebhook = async () => {
+    setSavingWebhook(true);
+    try {
+      const res = await apiPut<WebhookConfigResponse>(
+        '/api/dashboard/tenant/webhook',
+        { webhookUrl: webhookUrl.trim() || null },
+      );
+      setWebhookUrl(res.data.webhookUrl ?? '');
+      setWebhookSecretLast4(res.data.webhookSecretLast4);
+      toast({
+        title: 'Webhook URL saved',
+        description: res.data.webhookUrl
+          ? 'We\u2019ll deliver events to this URL going forward.'
+          : 'Webhook delivery is now disabled.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to save webhook URL',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingWebhook(false);
+    }
+  };
+
+  const onRotateSecret = async () => {
+    const confirmed = window.confirm(
+      'Rotate webhook signing secret? Any receiver that has not been updated with the new secret will reject subsequent webhooks.',
+    );
+    if (!confirmed) return;
+    setRotatingSecret(true);
+    try {
+      const res = await apiPost<WebhookRotateResponse>(
+        '/api/dashboard/tenant/webhook/rotate-secret',
+      );
+      setRevealedSecret(res.data.webhookSecret);
+      setWebhookSecretLast4(res.data.webhookSecret.slice(-4));
+      toast({
+        title: 'Webhook secret rotated',
+        description: 'Copy the new secret now \u2014 it will not be shown again.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Rotate failed',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setRotatingSecret(false);
+    }
+  };
+
+  const onSendTest = async () => {
+    setSendingTest(true);
+    try {
+      await apiPost('/api/dashboard/tenant/webhook/test');
+      toast({
+        title: 'Test webhook queued',
+        description: 'A webhook.test event was enqueued. Refresh deliveries below to see the outcome.',
+      });
+      await loadDeliveries();
+    } catch (err) {
+      toast({
+        title: 'Test send failed',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const onClearCache = async () => {
     if (clearingCache) return;
@@ -384,12 +530,15 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Webhooks */}
-        <TabsContent value="webhooks">
+        <TabsContent value="webhooks" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Webhook Configuration</CardTitle>
               <CardDescription>
-                Configure webhooks to sync data with your website
+                SPW delivers signed POST requests to your URL when properties
+                change, cache is cleared, or you click &quot;Send test&quot;
+                below. Signatures use HMAC-SHA256 over <code>`${'{'}timestamp{'}'}.${'{'}body{'}'}`</code>
+                with the secret shown below. Private IPs and non-HTTP schemes are rejected.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -398,33 +547,152 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Input
                     id="webhookUrl"
-                    placeholder="https://yoursite.com/api/spw-webhook"
+                    placeholder="https://yoursite.com/wp-json/spw/v1/sync"
                     className="flex-1"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
                   />
-                  <Button>Save</Button>
+                  <Button onClick={onSaveWebhook} disabled={savingWebhook}>
+                    {savingWebhook ? 'Saving\u2026' : 'Save'}
+                  </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We&apos;ll send POST requests to this URL when data changes
+                  Leave empty to disable webhook delivery.
                 </p>
               </div>
+
               <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="font-medium">Webhook Secret</p>
                     <p className="text-sm text-muted-foreground">
-                      Used to verify webhook signatures
+                      {webhookSecretLast4
+                        ? `Ends in \u2026${webhookSecretLast4}. Rotate if it has been leaked \u2014 receivers must be updated with the new secret before the next event.`
+                        : 'Loading\u2026'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <code className="px-2 py-1 bg-muted rounded text-sm">
-                      whsec_••••••••••••
-                    </code>
-                    <Button variant="outline" size="sm">
-                      Reveal
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRotateSecret}
+                    disabled={rotatingSecret}
+                  >
+                    {rotatingSecret ? 'Rotating\u2026' : 'Rotate secret'}
+                  </Button>
                 </div>
+                {revealedSecret && (
+                  <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-3">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      New webhook secret \u2014 copy it now. It will not be shown again.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <code className="flex-1 px-2 py-1 bg-muted rounded text-xs break-all">
+                        {revealedSecret}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(revealedSecret);
+                          toast({ title: 'Copied to clipboard' });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRevealedSecret(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={onSendTest}
+                  disabled={sendingTest || !webhookUrl.trim()}
+                >
+                  {sendingTest ? 'Sending\u2026' : 'Send test webhook'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => void loadDeliveries()}
+                  disabled={loadingDeliveries}
+                >
+                  {loadingDeliveries ? 'Refreshing\u2026' : 'Refresh deliveries'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Deliveries</CardTitle>
+              <CardDescription>
+                Last 25 webhook attempts. Failures keep a row so you can see
+                why a delivery was dropped.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {deliveries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {loadingDeliveries
+                    ? 'Loading\u2026'
+                    : 'No deliveries yet. Trigger an event (create a property, click Send test, or clear the cache) to see one here.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="py-2 pr-3 font-medium">Event</th>
+                        <th className="py-2 pr-3 font-medium">Status</th>
+                        <th className="py-2 pr-3 font-medium">Attempts</th>
+                        <th className="py-2 pr-3 font-medium">HTTP</th>
+                        <th className="py-2 pr-3 font-medium">When</th>
+                        <th className="py-2 pr-3 font-medium">Last error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deliveries.map((d) => (
+                        <tr key={d.id} className="border-b last:border-0">
+                          <td className="py-2 pr-3 font-mono text-xs">{d.event}</td>
+                          <td className="py-2 pr-3">
+                            <span
+                              className={
+                                d.status === 'delivered'
+                                  ? 'text-green-700 dark:text-green-400'
+                                  : d.status === 'failed'
+                                  ? 'text-red-700 dark:text-red-400'
+                                  : d.status === 'skipped'
+                                  ? 'text-amber-700 dark:text-amber-400'
+                                  : 'text-muted-foreground'
+                              }
+                            >
+                              {d.status}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3">{d.attemptCount}</td>
+                          <td className="py-2 pr-3">
+                            {d.lastStatusCode ?? '\u2014'}
+                          </td>
+                          <td className="py-2 pr-3 text-xs text-muted-foreground">
+                            {new Date(d.createdAt).toLocaleString()}
+                          </td>
+                          <td className="py-2 pr-3 text-xs text-muted-foreground max-w-xs truncate">
+                            {d.lastError ?? '\u2014'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

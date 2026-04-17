@@ -17,7 +17,12 @@ export type WebhookEvent =
   | 'property.created'
   | 'property.updated'
   | 'property.deleted'
-  | 'cache.invalidated';
+  | 'cache.invalidated'
+  // Operator-triggered from the dashboard "Send test" button. Receivers may
+  // ignore it; the server-side purpose is to round-trip a signed request
+  // through the live URL so a misconfigured endpoint surfaces before a real
+  // event fires.
+  | 'webhook.test';
 
 // One row per attempt chain — BullMQ handles the retry scheduling; this table
 // records the outcome that the dashboard surfaces (replay/redeliver later

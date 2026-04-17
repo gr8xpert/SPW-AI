@@ -694,6 +694,162 @@ describe('Smoke — golden path (e2e)', () => {
       });
     });
 
+    // Phase 5F — webhookSecret is AES-GCM encrypted at rest. Reaches past
+    // TypeORM's auto-decrypt transformer with a raw query to prove the cell
+    // contains `enc:v1:` ciphertext, not plaintext. The dispatcher read path
+    // is already exercised by "Outbound webhook dispatch" earlier — that
+    // test's HMAC verification would fail if decryption broke.
+    describe('Encrypted secrets at rest (5F)', () => {
+      it('tenant.webhookSecret stores enc:v1: ciphertext in the DB column', async () => {
+        const ds = app.get(DataSource);
+        const admin = await ds.getRepository(User).findOneOrFail({
+          where: { email: adminA.email },
+        });
+        const rows: Array<{ webhookSecret: string }> = await ds.query(
+          'SELECT webhookSecret FROM tenants WHERE id = ?',
+          [admin.tenantId],
+        );
+        expect(rows.length).toBe(1);
+        // Raw column value — no transformer in play because we went through
+        // ds.query() not the TypeORM repository.
+        expect(rows[0].webhookSecret.startsWith('enc:v1:')).toBe(true);
+
+        // And reading via the repository auto-decrypts to a 64-char hex secret.
+        const tenant = await ds
+          .getRepository(Tenant)
+          .findOneOrFail({ where: { id: admin.tenantId } });
+        expect(tenant.webhookSecret).toMatch(/^[a-f0-9]{64}$/);
+      });
+    });
+
+    // Webhook self-service (Phase 5E): tenants can read/update their
+    // webhookUrl, rotate the signing secret, list recent deliveries, and
+    // fire a test event — all from the dashboard without a super-admin
+    // having to touch the DB.
+    describe('Webhook management', () => {
+      it('GET /api/dashboard/tenant/webhook returns webhookSecretLast4', async () => {
+        const res = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        expect(typeof res.body.data.webhookSecretLast4).toBe('string');
+        expect(res.body.data.webhookSecretLast4).toMatch(/^[a-f0-9]{4}$/);
+        // webhookUrl was set by the dispatch block earlier; either null or a
+        // URL string is acceptable depending on run order. Type check is
+        // enough to prove the endpoint shapes the response correctly.
+        expect(['object', 'string']).toContain(typeof res.body.data.webhookUrl);
+      });
+
+      it('PUT /api/dashboard/tenant/webhook rejects private IP with a stable code', async () => {
+        // Temporarily disable the loopback allow list so the SSRF guard sees
+        // 10.x as private. Without this, WEBHOOK_ALLOW_LOOPBACK only covers
+        // 127.0.0.1 — 10.x is always considered private.
+        const res = await request(app.getHttpServer())
+          .put('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .send({ webhookUrl: 'http://10.0.0.5/hook' })
+          .expect(400);
+        // HttpExceptionFilter wraps error payloads as { statusCode, error: { ... } }
+        // — `code` is inside that envelope.
+        expect(JSON.stringify(res.body)).toContain('WEBHOOK_URL_INVALID');
+      });
+
+      it('PUT /api/dashboard/tenant/webhook accepts a valid URL and normalizes empty string to null', async () => {
+        await request(app.getHttpServer())
+          .put('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .send({ webhookUrl: 'https://example.com/hook' })
+          .expect(200);
+
+        const cleared = await request(app.getHttpServer())
+          .put('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .send({ webhookUrl: '' })
+          .expect(200);
+        expect(cleared.body.data.webhookUrl).toBeNull();
+      });
+
+      it('POST /api/dashboard/tenant/webhook/rotate-secret returns a fresh 64-char hex secret', async () => {
+        const before = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        const beforeLast4 = before.body.data.webhookSecretLast4;
+
+        const res = await request(app.getHttpServer())
+          .post('/api/dashboard/tenant/webhook/rotate-secret')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        expect(res.body.data.webhookSecret).toMatch(/^[a-f0-9]{64}$/);
+
+        // Confirm the DB actually took the new value — the secret's last4
+        // changes, so a fresh GET returns different digits than before.
+        const after = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        expect(after.body.data.webhookSecretLast4).toBe(
+          res.body.data.webhookSecret.slice(-4),
+        );
+        // Chance collision on random hex is 1/65_536 — if this flakes, the
+        // test should rotate again rather than be weakened. Very rare in
+        // practice.
+        expect(after.body.data.webhookSecretLast4).not.toBe(beforeLast4);
+      });
+
+      it('POST /api/dashboard/tenant/webhook/test creates a webhook.test delivery', async () => {
+        // Need a valid URL set first so the delivery isn't skipped with
+        // "no webhookUrl configured". Point it somewhere that'll refuse the
+        // connection — the row lands regardless, which is what we're
+        // asserting here.
+        await request(app.getHttpServer())
+          .put('/api/dashboard/tenant/webhook')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .send({ webhookUrl: 'https://example.com/spw-test-hook' })
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .post('/api/dashboard/tenant/webhook/test')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+
+        const list = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=10')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        expect(Array.isArray(list.body.data)).toBe(true);
+        const test = list.body.data.find(
+          (d: { event: string }) => d.event === 'webhook.test',
+        );
+        expect(test).toBeTruthy();
+        expect(test.tenantId).toBe(list.body.data[0].tenantId);
+      });
+
+      it('GET /api/dashboard/tenant/webhook/deliveries is tenant-scoped', async () => {
+        const listA = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=50')
+          .set('Authorization', `Bearer ${tokenA}`)
+          .expect(200);
+        const listB = await request(app.getHttpServer())
+          .get('/api/dashboard/tenant/webhook/deliveries?limit=50')
+          .set('Authorization', `Bearer ${tokenB}`)
+          .expect(200);
+
+        const aTenantIds = new Set(
+          listA.body.data.map((d: { tenantId: number }) => d.tenantId),
+        );
+        const bTenantIds = new Set(
+          listB.body.data.map((d: { tenantId: number }) => d.tenantId),
+        );
+        // Each tenant only sees their own rows — never the other's.
+        expect(aTenantIds.size).toBeLessThanOrEqual(1);
+        expect(bTenantIds.size).toBeLessThanOrEqual(1);
+        if (aTenantIds.size === 1 && bTenantIds.size === 1) {
+          expect([...aTenantIds][0]).not.toBe([...bTenantIds][0]);
+        }
+      });
+    });
+
     // Cache-clear: tenant admin can bump their syncVersion + triggers a
     // cache.invalidated webhook, and the public sync-meta endpoint reflects
     // the new version so polling widgets can invalidate their local cache.

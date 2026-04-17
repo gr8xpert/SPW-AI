@@ -10,6 +10,7 @@ import {
   Index,
 } from 'typeorm';
 import { Plan } from './plan.entity';
+import { encryptedColumn } from '../../common/crypto/secret-cipher';
 import {
   TenantSettings,
   DEFAULT_TENANT_SETTINGS,
@@ -59,7 +60,11 @@ export class Tenant {
   @Column({ type: 'char', length: 4 })
   apiKeyLast4: string;
 
-  @Column({ length: 64 })
+  // Encrypted at rest via AES-256-GCM transformer (enc:v1: prefix). Legacy
+  // plaintext rows decrypt to themselves via the cipher's passthrough so a
+  // rolling migration is safe. Column widened from 64 → 255 in
+  // SecretEncryptionWidening migration so encoded ciphertext fits.
+  @Column({ length: 255, transformer: encryptedColumn })
   webhookSecret: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })

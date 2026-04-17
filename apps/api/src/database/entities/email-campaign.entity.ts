@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 import { Contact } from './contact.entity';
+import { encryptedColumn } from '../../common/crypto/secret-cipher';
 
 export type EmailProvider = 'smtp' | 'mailgun' | 'sendgrid' | 'ses';
 export type EmailEncryption = 'tls' | 'ssl' | 'none';
@@ -43,8 +44,11 @@ export class TenantEmailConfig {
   @Column({ length: 255, nullable: true })
   smtpUser: string;
 
-  @Column({ length: 255, nullable: true })
-  smtpPassword: string; // Encrypted
+  // Encrypted at rest via AES-256-GCM transformer. Column widened from
+  // VARCHAR(255) → TEXT in SecretEncryptionWidening so long passwords +
+  // ciphertext overhead still fit.
+  @Column({ type: 'text', nullable: true, transformer: encryptedColumn })
+  smtpPassword: string;
 
   @Column({
     type: 'enum',
@@ -53,9 +57,9 @@ export class TenantEmailConfig {
   })
   smtpEncryption: EmailEncryption;
 
-  // API settings (for Mailgun, SendGrid, SES)
-  @Column({ length: 255, nullable: true })
-  apiKey: string; // Encrypted
+  // API settings (for Mailgun, SendGrid, SES). Encrypted at rest.
+  @Column({ type: 'text', nullable: true, transformer: encryptedColumn })
+  apiKey: string;
 
   @Column({ length: 255, nullable: true })
   apiDomain: string; // For Mailgun
