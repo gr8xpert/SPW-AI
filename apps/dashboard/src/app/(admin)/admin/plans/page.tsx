@@ -51,6 +51,8 @@ interface Plan {
   slug: string;
   priceMonthly: number | null;
   priceYearly: number | null;
+  paddlePriceIdMonthly: string | null;
+  paddlePriceIdYearly: string | null;
   maxProperties: number;
   maxUsers: number;
   features: PlanFeatures | null;
@@ -91,6 +93,8 @@ export default function PlansPage() {
     slug: '',
     priceMonthly: '',
     priceYearly: '',
+    paddlePriceIdMonthly: '',
+    paddlePriceIdYearly: '',
     maxProperties: '100',
     maxUsers: '5',
     features: { ...defaultFeatures },
@@ -124,6 +128,8 @@ export default function PlansPage() {
       slug: '',
       priceMonthly: '',
       priceYearly: '',
+      paddlePriceIdMonthly: '',
+      paddlePriceIdYearly: '',
       maxProperties: '100',
       maxUsers: '5',
       features: { ...defaultFeatures },
@@ -147,6 +153,8 @@ export default function PlansPage() {
         slug: formData.slug,
         priceMonthly: formData.priceMonthly ? parseFloat(formData.priceMonthly) : null,
         priceYearly: formData.priceYearly ? parseFloat(formData.priceYearly) : null,
+        paddlePriceIdMonthly: formData.paddlePriceIdMonthly.trim() || null,
+        paddlePriceIdYearly: formData.paddlePriceIdYearly.trim() || null,
         maxProperties: parseInt(formData.maxProperties),
         maxUsers: parseInt(formData.maxUsers),
         features: formData.features,
@@ -170,6 +178,8 @@ export default function PlansPage() {
       slug: plan.slug,
       priceMonthly: plan.priceMonthly?.toString() || '',
       priceYearly: plan.priceYearly?.toString() || '',
+      paddlePriceIdMonthly: plan.paddlePriceIdMonthly || '',
+      paddlePriceIdYearly: plan.paddlePriceIdYearly || '',
       maxProperties: plan.maxProperties.toString(),
       maxUsers: plan.maxUsers.toString(),
       features: plan.features || { ...defaultFeatures },
@@ -186,6 +196,8 @@ export default function PlansPage() {
         name: formData.name,
         priceMonthly: formData.priceMonthly ? parseFloat(formData.priceMonthly) : null,
         priceYearly: formData.priceYearly ? parseFloat(formData.priceYearly) : null,
+        paddlePriceIdMonthly: formData.paddlePriceIdMonthly.trim() || null,
+        paddlePriceIdYearly: formData.paddlePriceIdYearly.trim() || null,
         maxProperties: parseInt(formData.maxProperties),
         maxUsers: parseInt(formData.maxUsers),
         features: formData.features,
@@ -265,6 +277,31 @@ export default function PlansPage() {
             value={formData.priceYearly}
             onChange={(e) => setFormData({ ...formData, priceYearly: e.target.value })}
             placeholder="290.00"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="paddlePriceIdMonthly">Paddle Price ID (monthly)</Label>
+          <Input
+            id="paddlePriceIdMonthly"
+            value={formData.paddlePriceIdMonthly}
+            onChange={(e) =>
+              setFormData({ ...formData, paddlePriceIdMonthly: e.target.value })
+            }
+            placeholder="pri_01h9ae..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="paddlePriceIdYearly">Paddle Price ID (yearly)</Label>
+          <Input
+            id="paddlePriceIdYearly"
+            value={formData.paddlePriceIdYearly}
+            onChange={(e) =>
+              setFormData({ ...formData, paddlePriceIdYearly: e.target.value })
+            }
+            placeholder="pri_01h9ae..."
           />
         </div>
       </div>

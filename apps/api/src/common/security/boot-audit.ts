@@ -82,6 +82,70 @@ export function auditEnvironment(
     problems.push('JWT_REFRESH_SECRET looks like a placeholder/example value');
   }
 
+  // 6A — Paddle inbound webhook secret. Only enforced in prod because dev
+  // runs don't exercise Paddle. Empty is treated as "Paddle disabled" and
+  // skipped; a placeholder, however, is a strong signal someone copied
+  // .env.production.example without filling the real value.
+  if (isProduction && env.PADDLE_WEBHOOK_SECRET) {
+    if (looksLikePlaceholder(env.PADDLE_WEBHOOK_SECRET)) {
+      problems.push(
+        'PADDLE_WEBHOOK_SECRET looks like a placeholder/example value',
+      );
+    }
+  }
+
+  // 6E — Paddle outbound API key. Symmetric check to the inbound secret.
+  // A placeholder value here means checkout calls will 401 from Paddle the
+  // first time a tenant clicks Upgrade — catching it at boot is better.
+  // Additionally, inbound-set + outbound-missing is a half-config (webhooks
+  // work but the dashboard can't start a checkout) — warn so the operator
+  // finishes the loop.
+  if (isProduction && env.PADDLE_API_KEY) {
+    if (looksLikePlaceholder(env.PADDLE_API_KEY)) {
+      problems.push('PADDLE_API_KEY looks like a placeholder/example value');
+    }
+  }
+  if (
+    isProduction &&
+    env.PADDLE_WEBHOOK_SECRET &&
+    !looksLikePlaceholder(env.PADDLE_WEBHOOK_SECRET) &&
+    !env.PADDLE_API_KEY
+  ) {
+    warnings.push(
+      'PADDLE_WEBHOOK_SECRET is set but PADDLE_API_KEY is not — tenants cannot start a Paddle checkout',
+    );
+  }
+
+  // 6D — operator DKIM private key sanity. Signing with a junk PEM is
+  // worse than not signing: every receiver hard-fails the signature and
+  // our mail reputation tanks. Require either all three MAIL_DKIM_* vars
+  // together, or none at all.
+  if (isProduction) {
+    const hasDomain = !!env.MAIL_DKIM_DOMAIN;
+    const hasSelector = !!env.MAIL_DKIM_SELECTOR;
+    const hasKey = !!env.MAIL_DKIM_PRIVATE_KEY;
+    const someSet = hasDomain || hasSelector || hasKey;
+    const allSet = hasDomain && hasSelector && hasKey;
+    if (someSet && !allSet) {
+      problems.push(
+        'MAIL_DKIM_* partially configured — set DOMAIN, SELECTOR, and PRIVATE_KEY together or leave all three empty',
+      );
+    }
+    if (hasKey) {
+      // Tolerant check: after unescaping \n back to real newlines, the
+      // value should look like a PEM. Catches "your-private-key-here"
+      // placeholders and stray strings that couldn't possibly decode.
+      const keyText = (env.MAIL_DKIM_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+      const looksPem =
+        keyText.includes('BEGIN') && keyText.includes('PRIVATE KEY');
+      if (!looksPem || looksLikePlaceholder(env.MAIL_DKIM_PRIVATE_KEY)) {
+        problems.push(
+          'MAIL_DKIM_PRIVATE_KEY does not look like a real PEM private key',
+        );
+      }
+    }
+  }
+
   // Production-only invariants. These are either dev conveniences that are
   // outright dangerous in prod (WEBHOOK_ALLOW_LOOPBACK opens SSRF) or
   // TypeORM flags that silently reshape the schema.

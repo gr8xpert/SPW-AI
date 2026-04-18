@@ -59,6 +59,21 @@ services:
       SMTP_SECURE: ${SMTP_SECURE-false}
       SMTP_FROM: ${SMTP_FROM-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME-}
+      # Operator DKIM (6B). Optional — leave empty for unsigned system
+      # mail. Boot-audit rejects a partial/placeholder key in prod.
+      MAIL_DKIM_DOMAIN: ${MAIL_DKIM_DOMAIN-}
+      MAIL_DKIM_SELECTOR: ${MAIL_DKIM_SELECTOR-}
+      MAIL_DKIM_PRIVATE_KEY: ${MAIL_DKIM_PRIVATE_KEY-}
+      # Paddle inbound webhook (6A). Optional — empty disables. Boot-audit
+      # rejects a placeholder secret in prod.
+      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET-}
+      PADDLE_GRACE_DAYS: ${PADDLE_GRACE_DAYS-7}
+      # Paddle outbound checkout (6E). Optional — empty disables the
+      # /api/billing/checkout endpoint with a 503. Boot-audit rejects
+      # placeholder values in prod, and warns if the inbound secret is
+      # set but the API key is missing (half-configured).
+      PADDLE_API_KEY: ${PADDLE_API_KEY-}
+      PADDLE_API_URL: ${PADDLE_API_URL-https://api.paddle.com}
       # Webhook guards — NEVER set this to true in prod.
       WEBHOOK_ALLOW_LOOPBACK: "false"
     volumes:

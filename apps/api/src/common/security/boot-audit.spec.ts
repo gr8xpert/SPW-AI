@@ -83,6 +83,89 @@ describe('auditEnvironment', () => {
     );
   });
 
+  it('flags PADDLE_WEBHOOK_SECRET that looks like a placeholder (6A)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      PADDLE_WEBHOOK_SECRET: 'your-paddle-webhook-secret-goes-here',
+    } as any);
+    expect(problems).toContainEqual(
+      expect.stringContaining('PADDLE_WEBHOOK_SECRET'),
+    );
+  });
+
+  it('allows a real-looking PADDLE_WEBHOOK_SECRET in production (6A)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      PADDLE_WEBHOOK_SECRET: 'pdl_ntfset_01h9ae4c1bcb67e43a0df0b2',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
+  it('flags PADDLE_API_KEY that looks like a placeholder (6E)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      PADDLE_API_KEY: 'your-paddle-api-key-here',
+    } as any);
+    expect(problems).toContainEqual(
+      expect.stringContaining('PADDLE_API_KEY'),
+    );
+  });
+
+  it('allows a real-looking PADDLE_API_KEY in production (6E)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      PADDLE_API_KEY: 'pdl_live_apikey_01h9ae4c1bcb67e43a0df0b2',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
+  it('warns when PADDLE_WEBHOOK_SECRET is set but PADDLE_API_KEY is missing (6E)', () => {
+    const { problems, warnings } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      PADDLE_WEBHOOK_SECRET: 'pdl_ntfset_01h9ae4c1bcb67e43a0df0b2',
+      // PADDLE_API_KEY intentionally omitted
+    } as any);
+    expect(problems).toEqual([]);
+    expect(warnings).toContainEqual(
+      expect.stringContaining('PADDLE_API_KEY'),
+    );
+  });
+
+  it('flags partial MAIL_DKIM_* configuration (6D)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      MAIL_DKIM_DOMAIN: 'mail.example.com',
+      MAIL_DKIM_SELECTOR: 'spw1',
+      // Missing MAIL_DKIM_PRIVATE_KEY → partial config
+    } as any);
+    expect(problems).toContainEqual(
+      expect.stringContaining('MAIL_DKIM_* partially configured'),
+    );
+  });
+
+  it('flags a non-PEM MAIL_DKIM_PRIVATE_KEY (6D)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      MAIL_DKIM_DOMAIN: 'mail.example.com',
+      MAIL_DKIM_SELECTOR: 'spw1',
+      MAIL_DKIM_PRIVATE_KEY: 'your-private-key-here',
+    } as any);
+    expect(problems).toContainEqual(
+      expect.stringContaining('MAIL_DKIM_PRIVATE_KEY does not look like'),
+    );
+  });
+
+  it('allows a real-looking MAIL_DKIM_PRIVATE_KEY with all three vars (6D)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      MAIL_DKIM_DOMAIN: 'mail.example.com',
+      MAIL_DKIM_SELECTOR: 'spw1',
+      MAIL_DKIM_PRIVATE_KEY:
+        '-----BEGIN PRIVATE KEY-----\\nMIIE...snip...==\\n-----END PRIVATE KEY-----',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
   it('tolerates dev-style env without problems', () => {
     const { problems } = auditEnvironment({
       NODE_ENV: 'development',

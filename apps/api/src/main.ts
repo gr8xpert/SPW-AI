@@ -22,7 +22,11 @@ async function bootstrap() {
   // silently running with a development-grade secret.
   runBootSecurityAudit();
 
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true makes req.rawBody available on incoming requests. The
+  // Paddle webhook controller (6A) needs the unmodified bytes to recompute
+  // the HMAC signature — any re-serialization through the JSON parser would
+  // change whitespace/escaping and invalidate the signature.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3001;

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { SuperAdminService } from './super-admin.service';
 import { RateLimitHeadroomService } from './rate-limit-headroom.service';
+import { QueueDepthService } from './queue-depth.service';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -27,6 +28,7 @@ export class SuperAdminController {
   constructor(
     private readonly superAdminService: SuperAdminService,
     private readonly rateLimitHeadroomService: RateLimitHeadroomService,
+    private readonly queueDepthService: QueueDepthService,
   ) {}
 
   // 5S — rate-limit headroom overview. Lists every active tenant with
@@ -35,6 +37,15 @@ export class SuperAdminController {
   @Get('rate-limit-headroom')
   async getRateLimitHeadroom() {
     return this.rateLimitHeadroomService.getHeadroom();
+  }
+
+  // 6C — BullMQ queue-depth snapshot. One row per tracked queue
+  // (webhook-dispatch, email-campaign, feed-import, migration) with
+  // waiting/active/delayed/failed counts and a banded status. Worst-first
+  // so ops see the broken queue before the healthy ones.
+  @Get('queue-depth')
+  async getQueueDepth() {
+    return this.queueDepthService.getSnapshot();
   }
 
   // ============ DASHBOARD ============

@@ -20,6 +20,7 @@ import {
   UserCircle,
   ChevronDown,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 
 const navigation = [
@@ -45,6 +46,7 @@ const integrations = [
 const other = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
+  { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

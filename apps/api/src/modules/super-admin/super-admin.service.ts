@@ -902,6 +902,8 @@ export class SuperAdminService {
       slug: dto.slug,
       priceMonthly: dto.priceMonthly ?? null,
       priceYearly: dto.priceYearly ?? null,
+      paddlePriceIdMonthly: dto.paddlePriceIdMonthly ?? null,
+      paddlePriceIdYearly: dto.paddlePriceIdYearly ?? null,
       maxProperties: dto.maxProperties,
       maxUsers: dto.maxUsers,
       features: dto.features ?? {
@@ -946,7 +948,16 @@ export class SuperAdminService {
     // Track changes for audit
     const changes: Record<string, { before: any; after: any }> = {};
 
-    const updateFields = ['name', 'priceMonthly', 'priceYearly', 'maxProperties', 'maxUsers', 'isActive'];
+    const updateFields = [
+      'name',
+      'priceMonthly',
+      'priceYearly',
+      'paddlePriceIdMonthly',
+      'paddlePriceIdYearly',
+      'maxProperties',
+      'maxUsers',
+      'isActive',
+    ];
 
     for (const field of updateFields) {
       const dtoValue = (dto as any)[field];

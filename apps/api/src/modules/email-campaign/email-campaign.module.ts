@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import {
   TenantEmailConfig,
+  TenantEmailDomain,
   EmailTemplate,
   EmailCampaign,
   EmailSend,
@@ -22,6 +23,7 @@ import {
   imports: [
     TypeOrmModule.forFeature([
       TenantEmailConfig,
+      TenantEmailDomain,
       EmailTemplate,
       EmailCampaign,
       EmailSend,

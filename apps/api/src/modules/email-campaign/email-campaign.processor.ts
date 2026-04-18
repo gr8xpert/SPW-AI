@@ -142,12 +142,18 @@ export class EmailCampaignProcessor extends WorkerHost {
       // Add tracking pixel and unsubscribe link
       const trackedHtml = this.addTracking(html, send.id);
 
-      const result = await this.senderService.sendEmail(config, {
-        to: send.contact.email,
-        subject,
-        html: trackedHtml,
-        text: template.bodyText,
-      });
+      // 6B — pass tenantId so the sender can attach the tenant's verified
+      // DKIM key to the transport; unverified tenants fall through unsigned.
+      const result = await this.senderService.sendEmail(
+        config,
+        {
+          to: send.contact.email,
+          subject,
+          html: trackedHtml,
+          text: template.bodyText,
+        },
+        tenantId,
+      );
 
       if (result.success) {
         send.status = 'sent';

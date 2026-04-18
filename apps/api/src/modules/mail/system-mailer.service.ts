@@ -43,6 +43,16 @@ export interface MailerSendResult {
   error?: string;
 }
 
+// 6B — operator DKIM options, for signing platform mail from the SMTP_FROM
+// domain. Separate from the per-tenant keys on tenant_email_domains: those
+// sign campaign mail in EmailSenderService, these sign verification /
+// password-reset mail. Both can be active simultaneously.
+export interface OperatorDkimOptions {
+  domainName: string;
+  keySelector: string;
+  privateKey: string;
+}
+
 @Injectable()
 export class SystemMailerService {
   private readonly logger = new Logger(SystemMailerService.name);
@@ -73,14 +83,20 @@ export class SystemMailerService {
       const fromName = this.config.get<string>('SMTP_FROM_NAME');
       this.from = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail;
 
+      const dkim = this.getOperatorDkimOptions();
       this.transporter = nodemailer.createTransport({
         host: this.host,
         port,
         secure,
         auth: user ? { user, pass } : undefined,
+        ...(dkim ? { dkim } : {}),
       }) as Transporter;
 
-      this.logger.log(`System mailer configured: ${user ?? '-'}@${this.host}:${port}`);
+      this.logger.log(
+        `System mailer configured: ${user ?? '-'}@${this.host}:${port}${
+          dkim ? ` (DKIM d=${dkim.domainName} s=${dkim.keySelector})` : ''
+        }`,
+      );
     } else {
       this.logger.log('SMTP_HOST not set — system emails will be log-only (dev mode)');
     }
@@ -122,6 +138,29 @@ export class SystemMailerService {
   __setTransporterForTests(transport: MailTransport, from: string): void {
     this.transporter = transport;
     this.from = from;
+  }
+
+  // Returns the DKIM options we'd pass to nodemailer.createTransport for
+  // system-mail signing, or null if the operator hasn't configured any.
+  // Evaluated lazily against current env so tests can toggle MAIL_DKIM_*
+  // without reconstructing the service.
+  //
+  // MAIL_DKIM_PRIVATE_KEY supports "\n" escape sequences, so operators
+  // can paste a PEM onto a single env line (Docker compose / systemd
+  // Environment= etc.) and still get the newlines OpenSSL expects.
+  getOperatorDkimOptions(): OperatorDkimOptions | null {
+    const domain = this.config.get<string>('MAIL_DKIM_DOMAIN')?.trim();
+    const selector = this.config.get<string>('MAIL_DKIM_SELECTOR')?.trim();
+    const raw = this.config.get<string>('MAIL_DKIM_PRIVATE_KEY');
+    if (!domain || !selector || !raw) return null;
+    const privateKey = raw.replace(/\\n/g, '\n');
+    if (!privateKey.includes('BEGIN') || !privateKey.includes('PRIVATE KEY')) {
+      this.logger.warn(
+        'MAIL_DKIM_PRIVATE_KEY is set but does not look like a PEM private key — ignoring',
+      );
+      return null;
+    }
+    return { domainName: domain, keySelector: selector, privateKey };
   }
 }
 

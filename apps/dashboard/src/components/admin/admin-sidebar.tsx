@@ -17,6 +17,7 @@ import {
   Clock,
   ChevronLeft,
   Gauge,
+  Layers,
 } from 'lucide-react';
 
 const navigation = [
@@ -40,6 +41,7 @@ const system = [
   { name: 'Email Suppressions', href: '/admin/suppressions', icon: Mail },
   { name: 'API Keys', href: '/admin/api-keys', icon: Key },
   { name: 'Rate Limits', href: '/admin/rate-limits', icon: Gauge },
+  { name: 'Queue Depth', href: '/admin/queue-depth', icon: Layers },
 ];
 
 function NavSection({

@@ -14,6 +14,16 @@
 // Let the webhook-target SSRF guard accept 127.0.0.1 so we can point a
 // local listener at the dispatcher inside the smoke test.
 process.env.WEBHOOK_ALLOW_LOOPBACK = 'true';
+// 6A — Paddle webhook tests need a configured secret so signature
+// verification can actually run. Fixed value so we can reproduce the hex
+// digests in the tests without reading process.env back.
+process.env.PADDLE_WEBHOOK_SECRET = 'pdl_whtest_integration_secret_v6a';
+process.env.PADDLE_GRACE_DAYS = '7';
+// 6E — Paddle outbound checkout. Real-looking value so boot-audit
+// doesn't flag it and the service treats checkout as enabled. The
+// fetchImpl is swapped per-test so no real HTTP call ever lands.
+process.env.PADDLE_API_KEY = 'pdl_live_apikeytest_v6e_integration';
+process.env.PADDLE_API_URL = 'https://api.paddle.test';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -25,7 +35,10 @@ import { DataSource } from 'typeorm';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
-import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken } from '../src/database/entities';
+import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken, SubscriptionPayment, ProcessedPaddleEvent, TenantEmailDomain, Plan } from '../src/database/entities';
+import { signPaddlePayload } from '../src/modules/payment/paddle-signature';
+import { PaddleCheckoutService } from '../src/modules/payment/paddle-checkout.service';
+import { EmailSenderService } from '../src/modules/email-campaign/email-sender.service';
 import { CleanupService } from '../src/modules/maintenance/cleanup.service';
 import { SystemMailerService } from '../src/modules/mail/system-mailer.service';
 
@@ -68,7 +81,9 @@ async function boot(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  const app = moduleFixture.createNestApplication();
+  // rawBody: true mirrors main.ts so the Paddle webhook controller can read
+  // req.rawBody for signature verification.
+  const app = moduleFixture.createNestApplication({ rawBody: true });
   app.use(helmet());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -1500,6 +1515,596 @@ describe('Smoke — golden path (e2e)', () => {
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
       expect(after.body.data).toBeNull();
+    });
+  });
+
+  // 6C — BullMQ queue-depth observability. Driven service-level (same
+  // pattern as 5S) since the super-admin HTTP auth path isn't set up in
+  // smoke. Asserts the snapshot shape and the paused-queue critical band.
+  describe('Queue depth (6C)', () => {
+    it('returns one row per tracked queue with full shape', async () => {
+      const { QueueDepthService } = await import(
+        '../src/modules/super-admin/queue-depth.service'
+      );
+      const svc = app.get(QueueDepthService);
+      const rows = await svc.getSnapshot();
+
+      expect(Array.isArray(rows)).toBe(true);
+      expect(rows.length).toBe(4);
+
+      const names = rows.map((r) => r.name).sort();
+      expect(names).toEqual([
+        'email-campaign',
+        'feed-import',
+        'migration',
+        'webhook-dispatch',
+      ]);
+
+      for (const row of rows) {
+        expect(typeof row.waiting).toBe('number');
+        expect(typeof row.active).toBe('number');
+        expect(typeof row.delayed).toBe('number');
+        expect(typeof row.failed).toBe('number');
+        expect(typeof row.paused).toBe('boolean');
+        expect(['ok', 'warning', 'critical']).toContain(row.status);
+      }
+    });
+
+    it('classifies a paused queue as critical and recovers on resume', async () => {
+      const { QueueDepthService } = await import(
+        '../src/modules/super-admin/queue-depth.service'
+      );
+      const { getQueueToken } = await import('@nestjs/bullmq');
+      // Pick migration — lowest traffic, so pausing it doesn't fight any
+      // in-flight job from a prior describe block.
+      const migrationQueue = app.get(getQueueToken('migration'));
+      const svc = app.get(QueueDepthService);
+
+      await migrationQueue.pause();
+      try {
+        const rows = await svc.getSnapshot();
+        const migration = rows.find((r) => r.name === 'migration');
+        expect(migration).toBeDefined();
+        expect(migration!.paused).toBe(true);
+        expect(migration!.status).toBe('critical');
+      } finally {
+        await migrationQueue.resume();
+      }
+
+      // After resume, classification should drop back to 'ok' (counts are
+      // all zero, queue no longer paused).
+      const rowsAfter = await svc.getSnapshot();
+      const migration = rowsAfter.find((r) => r.name === 'migration');
+      expect(migration!.paused).toBe(false);
+      expect(migration!.status).toBe('ok');
+    });
+  });
+
+  // 6B — DKIM signing. Two independent surfaces: tenant campaign mail
+  // (EmailSenderService) and system/operator mail (SystemMailerService).
+  // We verify the resolution logic directly rather than asserting on a
+  // synthesized DKIM-Signature header — nodemailer does the actual signing
+  // inside its transport and we've already covered that it receives the
+  // right options.
+  describe('DKIM signing (6B)', () => {
+    let dkimTenantId: number;
+    let dkimTenantToken: string;
+
+    beforeAll(async () => {
+      const slug = uniqueSlug('tenant-dkim');
+      const email = `admin-${slug}@smoke.test`;
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email,
+          password: 'SmokeTest1234!',
+          name: 'DKIM Tenant Admin',
+          tenantName: 'DKIM Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+      await forceVerifyEmail(app, email);
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'SmokeTest1234!' })
+        .expect(200);
+      dkimTenantToken = login.body.data.accessToken;
+      const ds = app.get(DataSource);
+      const tenant = await ds
+        .getRepository(Tenant)
+        .findOneOrFail({ where: { slug } });
+      dkimTenantId = tenant.id;
+    });
+
+    it('tenant with unverified domain → getDkimOptions returns null', async () => {
+      // Configure a domain but don't stamp dkimVerifiedAt. The sender
+      // must decline to sign — publishing unverified signatures would
+      // make every receiver hard-fail the message.
+      await request(app.getHttpServer())
+        .put('/api/dashboard/tenant/email-domain')
+        .set('Authorization', `Bearer ${dkimTenantToken}`)
+        .send({ domain: 'mail.dkim-smoke-test.example' })
+        .expect(200);
+
+      const sender = app.get(EmailSenderService);
+      const opts = await sender.getDkimOptions(dkimTenantId);
+      expect(opts).toBeNull();
+    });
+
+    it('tenant with verified domain → getDkimOptions returns populated DKIM opts', async () => {
+      // Stamp dkimVerifiedAt directly — the public verify endpoint would
+      // require real DNS, which we don't control in the smoke env.
+      const ds = app.get(DataSource);
+      await ds
+        .getRepository(TenantEmailDomain)
+        .update({ tenantId: dkimTenantId }, { dkimVerifiedAt: new Date() });
+
+      const sender = app.get(EmailSenderService);
+      const opts = await sender.getDkimOptions(dkimTenantId);
+      expect(opts).not.toBeNull();
+      expect(opts!.domainName).toBe('mail.dkim-smoke-test.example');
+      expect(opts!.keySelector).toBe('spw1');
+      // Decrypted PEM — transformer on TenantEmailDomain.dkimPrivateKey
+      // round-trips through enc:v1: ciphertext. If it came back as the
+      // encrypted blob, nodemailer would reject it on the first send.
+      expect(opts!.privateKey).toContain('BEGIN PRIVATE KEY');
+    });
+
+    it('operator DKIM env unset → getOperatorDkimOptions returns null', async () => {
+      const original = {
+        d: process.env.MAIL_DKIM_DOMAIN,
+        s: process.env.MAIL_DKIM_SELECTOR,
+        k: process.env.MAIL_DKIM_PRIVATE_KEY,
+      };
+      delete process.env.MAIL_DKIM_DOMAIN;
+      delete process.env.MAIL_DKIM_SELECTOR;
+      delete process.env.MAIL_DKIM_PRIVATE_KEY;
+      try {
+        const mailer = app.get(SystemMailerService);
+        expect(mailer.getOperatorDkimOptions()).toBeNull();
+      } finally {
+        if (original.d !== undefined) process.env.MAIL_DKIM_DOMAIN = original.d;
+        if (original.s !== undefined) process.env.MAIL_DKIM_SELECTOR = original.s;
+        if (original.k !== undefined) process.env.MAIL_DKIM_PRIVATE_KEY = original.k;
+      }
+    });
+
+    it('operator DKIM env set → getOperatorDkimOptions returns opts with unescaped PEM', async () => {
+      // Fake PEM — content doesn't need to be a real key for this assertion;
+      // we just verify (a) the three env vars flow through, (b) the "\n"
+      // literal gets converted back to actual newlines so OpenSSL/nodemailer
+      // can parse the PEM when mail actually flies.
+      const escapedPem =
+        '-----BEGIN PRIVATE KEY-----\\nMIIE...fake-body...==\\n-----END PRIVATE KEY-----';
+      process.env.MAIL_DKIM_DOMAIN = 'platform.smartpropertywidget.com';
+      process.env.MAIL_DKIM_SELECTOR = 'spwsys1';
+      process.env.MAIL_DKIM_PRIVATE_KEY = escapedPem;
+      try {
+        const mailer = app.get(SystemMailerService);
+        const opts = mailer.getOperatorDkimOptions();
+        expect(opts).not.toBeNull();
+        expect(opts!.domainName).toBe('platform.smartpropertywidget.com');
+        expect(opts!.keySelector).toBe('spwsys1');
+        // Unescaped: actual newlines present instead of literal \n.
+        expect(opts!.privateKey.split('\n').length).toBeGreaterThan(1);
+        expect(opts!.privateKey).toContain('BEGIN PRIVATE KEY');
+      } finally {
+        delete process.env.MAIL_DKIM_DOMAIN;
+        delete process.env.MAIL_DKIM_SELECTOR;
+        delete process.env.MAIL_DKIM_PRIVATE_KEY;
+      }
+    });
+  });
+
+  // 6A — Paddle inbound webhook. Exercises signature verification, replay
+  // idempotency, and the end-to-end tenant/payment sync for the two events
+  // that drive subscription state in production: subscription.created and
+  // transaction.payment_failed.
+  describe('Paddle inbound webhook (6A)', () => {
+    const paddleSecret = 'pdl_whtest_integration_secret_v6a';
+    let paddleTenantId: number;
+
+    const buildSigned = (body: object, timestamp?: number) => {
+      const raw = JSON.stringify(body);
+      const header = signPaddlePayload(raw, paddleSecret, timestamp);
+      return { raw, header };
+    };
+
+    beforeAll(async () => {
+      // Register a dedicated tenant for the Paddle block so these tests
+      // don't contend with other describe blocks mutating tenant state.
+      const slug = uniqueSlug('tenant-paddle');
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email: `admin-${slug}@smoke.test`,
+          password: 'SmokeTest1234!',
+          name: 'Paddle Tenant Admin',
+          tenantName: 'Paddle Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+
+      const ds = app.get(DataSource);
+      const tenant = await ds
+        .getRepository(Tenant)
+        .findOneOrFail({ where: { slug } });
+      paddleTenantId = tenant.id;
+    });
+
+    it('rejects a missing/malformed signature header with 401', async () => {
+      const { raw } = buildSigned({ event_id: 'evt_badsig_1', event_type: 'subscription.created', data: {} });
+      await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', 'not-a-real-header')
+        .send(raw)
+        .expect(401);
+    });
+
+    it('rejects a stale timestamp outside the 5-minute window', async () => {
+      const staleTs = Math.floor(Date.now() / 1000) - 3600; // 1h old
+      const { raw, header } = buildSigned(
+        { event_id: 'evt_stale_1', event_type: 'subscription.created', data: {} },
+        staleTs,
+      );
+      await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(401);
+    });
+
+    it('applies subscription.created — syncs tenant + writes payment row', async () => {
+      const eventId = `evt_created_${Date.now()}`;
+      const body = {
+        event_id: eventId,
+        event_type: 'subscription.created',
+        occurred_at: new Date().toISOString(),
+        data: {
+          id: 'sub_paddle_test_1',
+          customer_id: 'ctm_paddle_test_1',
+          status: 'active',
+          billing_cycle: { interval: 'month', frequency: 1 },
+          next_billed_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+          currency_code: 'EUR',
+          custom_data: { tenantId: paddleTenantId },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.outcome).toBe('applied');
+      expect(res.body.data.tenantId).toBe(paddleTenantId);
+
+      const ds = app.get(DataSource);
+      const tenant = await ds.getRepository(Tenant).findOneOrFail({ where: { id: paddleTenantId } });
+      expect(tenant.billingSource).toBe('paddle');
+      expect(tenant.billingCycle).toBe('monthly');
+      expect(tenant.subscriptionStatus).toBe('active');
+
+      const payments = await ds.getRepository(SubscriptionPayment).find({
+        where: { tenantId: paddleTenantId, paddleSubscriptionId: 'sub_paddle_test_1' },
+      });
+      expect(payments.length).toBeGreaterThanOrEqual(1);
+      expect(payments[0].type).toBe('new');
+      expect(payments[0].paddleCustomerId).toBe('ctm_paddle_test_1');
+    });
+
+    it('is idempotent — replaying the same event_id is a 200 no-op', async () => {
+      const eventId = `evt_replay_${Date.now()}`;
+      const body = {
+        event_id: eventId,
+        event_type: 'subscription.created',
+        data: {
+          id: 'sub_paddle_replay_1',
+          customer_id: 'ctm_paddle_replay_1',
+          status: 'active',
+          billing_cycle: { interval: 'month', frequency: 1 },
+          custom_data: { tenantId: paddleTenantId },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const first = await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(200);
+      expect(first.body.data.outcome).toBe('applied');
+
+      // Second delivery of the exact same payload — Paddle retried because
+      // the original ack was "lost". No new payment row, outcome=replay.
+      const ds = app.get(DataSource);
+      const countBefore = await ds
+        .getRepository(SubscriptionPayment)
+        .countBy({ paddleSubscriptionId: 'sub_paddle_replay_1' });
+
+      const second = await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(200);
+      expect(second.body.data.outcome).toBe('replay');
+
+      const countAfter = await ds
+        .getRepository(SubscriptionPayment)
+        .countBy({ paddleSubscriptionId: 'sub_paddle_replay_1' });
+      expect(countAfter).toBe(countBefore);
+
+      // Dedup row exists.
+      const dedup = await ds
+        .getRepository(ProcessedPaddleEvent)
+        .findOneBy({ eventId });
+      expect(dedup).not.toBeNull();
+    });
+
+    it('transaction.payment_failed flips the tenant into grace', async () => {
+      const eventId = `evt_failed_${Date.now()}`;
+      const body = {
+        event_id: eventId,
+        event_type: 'transaction.payment_failed',
+        data: {
+          id: 'txn_paddle_failed_1',
+          subscription_id: 'sub_paddle_test_1',
+          customer_id: 'ctm_paddle_test_1',
+          currency_code: 'EUR',
+          custom_data: { tenantId: paddleTenantId },
+          payments: [{ error_code: 'declined', error_message: 'card declined' }],
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      const ds = app.get(DataSource);
+      const tenant = await ds.getRepository(Tenant).findOneOrFail({ where: { id: paddleTenantId } });
+      expect(tenant.subscriptionStatus).toBe('grace');
+      expect(tenant.graceEndsAt).not.toBeNull();
+
+      const failed = await ds.getRepository(SubscriptionPayment).findOneOrFail({
+        where: { paddleTransactionId: 'txn_paddle_failed_1' },
+      });
+      expect(failed.status).toBe('failed');
+      expect(failed.failureReason).toContain('card declined');
+    });
+
+    it('acks unhandled event types with outcome=unhandled', async () => {
+      const eventId = `evt_unhandled_${Date.now()}`;
+      const body = {
+        event_id: eventId,
+        event_type: 'address.created',
+        data: { id: 'addr_1' },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/paddle')
+        .set('Content-Type', 'application/json')
+        .set('Paddle-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.outcome).toBe('unhandled');
+    });
+  });
+
+  // 6E — Paddle outbound checkout. Exercises the happy path and four
+  // guard rails that prevent us from handing tenants a useless URL:
+  // unconfigured server, plan missing price_id, unknown plan, and a
+  // duplicate upgrade to the same active plan.
+  describe('Paddle checkout (6E)', () => {
+    let checkoutTenantId: number;
+    let checkoutToken: string;
+    let configuredPlanId: number;
+    let unconfiguredPlanId: number;
+    let originalFetch: typeof fetch;
+    let originalApiKey: string | undefined;
+
+    beforeAll(async () => {
+      const slug = uniqueSlug('tenant-checkout');
+      const email = `admin-${slug}@smoke.test`;
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email,
+          password: 'SmokeTest1234!',
+          name: 'Checkout Admin',
+          tenantName: 'Checkout Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+      await forceVerifyEmail(app, email);
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'SmokeTest1234!' })
+        .expect(200);
+      checkoutToken = login.body.data.accessToken;
+
+      const ds = app.get(DataSource);
+      const tenant = await ds
+        .getRepository(Tenant)
+        .findOneOrFail({ where: { slug } });
+      checkoutTenantId = tenant.id;
+
+      // Seed two plans the smoke run controls: one wired to Paddle, one
+      // deliberately not — so the "missing price_id" assertion has a real
+      // target. Created per-run to avoid colliding with whatever dev-seed
+      // plans the developer's local MySQL happens to have.
+      const planRepo = ds.getRepository(Plan);
+      const configured = await planRepo.save(
+        planRepo.create({
+          name: 'Checkout Test Pro',
+          slug: uniqueSlug('chk-pro'),
+          priceMonthly: 49 as any,
+          priceYearly: 490 as any,
+          paddlePriceIdMonthly: 'pri_chk_pro_monthly',
+          paddlePriceIdYearly: 'pri_chk_pro_yearly',
+          maxProperties: 500,
+          maxUsers: 10,
+          ratePerMinute: 120,
+          isActive: true,
+        }),
+      );
+      configuredPlanId = configured.id;
+      const unconfigured = await planRepo.save(
+        planRepo.create({
+          name: 'Checkout Test Starter',
+          slug: uniqueSlug('chk-starter'),
+          priceMonthly: 9 as any,
+          priceYearly: null,
+          paddlePriceIdMonthly: null,
+          paddlePriceIdYearly: null,
+          maxProperties: 50,
+          maxUsers: 2,
+          ratePerMinute: 30,
+          isActive: true,
+        }),
+      );
+      unconfiguredPlanId = unconfigured.id;
+
+      // Swap the service's fetchImpl so the tests never hit the network.
+      // Each test re-assigns this to match whatever response shape it
+      // wants to observe; beforeAll just captures the original for cleanup.
+      const svc = app.get(PaddleCheckoutService);
+      originalFetch = svc.fetchImpl;
+      originalApiKey = process.env.PADDLE_API_KEY;
+    });
+
+    afterAll(() => {
+      const svc = app.get(PaddleCheckoutService);
+      svc.fetchImpl = originalFetch;
+      if (originalApiKey === undefined) delete process.env.PADDLE_API_KEY;
+      else process.env.PADDLE_API_KEY = originalApiKey;
+    });
+
+    it('returns a Paddle checkout URL on success + forwards tenant custom_data', async () => {
+      let captured: { url: string; init?: RequestInit } | null = null;
+      const svc = app.get(PaddleCheckoutService);
+      svc.fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        captured = { url: String(input), init };
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: 'txn_smoke_pro_monthly',
+              checkout: { url: 'https://pay.paddle.test/checkout/txn_smoke_pro_monthly' },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }) as typeof fetch;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/billing/checkout')
+        .set('Authorization', `Bearer ${checkoutToken}`)
+        .send({ planId: configuredPlanId, billingCycle: 'monthly' })
+        .expect(200);
+
+      expect(res.body.data.url).toContain('pay.paddle.test');
+      expect(res.body.data.transactionId).toBe('txn_smoke_pro_monthly');
+      expect(captured).not.toBeNull();
+      expect(captured!.url).toBe('https://api.paddle.test/transactions');
+      const body = JSON.parse(String(captured!.init?.body ?? '{}'));
+      expect(body.items[0].price_id).toBe('pri_chk_pro_monthly');
+      // custom_data must include tenantId so the 6A webhook can route
+      // downstream subscription.* events back to this tenant.
+      expect(body.custom_data.tenantId).toBe(String(checkoutTenantId));
+      expect(body.custom_data.planId).toBe(String(configuredPlanId));
+      expect(body.custom_data.billingCycle).toBe('monthly');
+      const auth = (captured!.init?.headers as Record<string, string>)?.Authorization;
+      expect(auth).toBe(`Bearer ${process.env.PADDLE_API_KEY}`);
+    });
+
+    it('rejects a plan with no price_id for the requested cycle with 400', async () => {
+      // fetchImpl should NOT be called — guard happens before the HTTP call.
+      const svc = app.get(PaddleCheckoutService);
+      let called = false;
+      svc.fetchImpl = (async () => {
+        called = true;
+        return new Response('{}', { status: 200 });
+      }) as typeof fetch;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/billing/checkout')
+        .set('Authorization', `Bearer ${checkoutToken}`)
+        .send({ planId: unconfiguredPlanId, billingCycle: 'monthly' })
+        .expect(400);
+      expect(JSON.stringify(res.body)).toContain('no Paddle price configured');
+      expect(called).toBe(false);
+    });
+
+    it('rejects an unknown planId with 404', async () => {
+      await request(app.getHttpServer())
+        .post('/api/billing/checkout')
+        .set('Authorization', `Bearer ${checkoutToken}`)
+        .send({ planId: 999_999, billingCycle: 'monthly' })
+        .expect(404);
+    });
+
+    it('returns 503 when PADDLE_API_KEY is not configured', async () => {
+      delete process.env.PADDLE_API_KEY;
+      try {
+        await request(app.getHttpServer())
+          .post('/api/billing/checkout')
+          .set('Authorization', `Bearer ${checkoutToken}`)
+          .send({ planId: configuredPlanId, billingCycle: 'yearly' })
+          .expect(503);
+      } finally {
+        process.env.PADDLE_API_KEY = originalApiKey ?? 'pdl_live_apikeytest_v6e_integration';
+      }
+    });
+
+    it('returns 409 when the tenant is already on the same active Paddle plan', async () => {
+      // Put the tenant into the exact state the guard checks for: same
+      // plan, active, paddle-sourced, same cycle.
+      const ds = app.get(DataSource);
+      await ds.getRepository(Tenant).update(
+        { id: checkoutTenantId },
+        {
+          planId: configuredPlanId,
+          subscriptionStatus: 'active',
+          billingSource: 'paddle',
+          billingCycle: 'monthly',
+        },
+      );
+
+      await request(app.getHttpServer())
+        .post('/api/billing/checkout')
+        .set('Authorization', `Bearer ${checkoutToken}`)
+        .send({ planId: configuredPlanId, billingCycle: 'monthly' })
+        .expect(409);
+
+      // Switching cycle should still be allowed — different SKU.
+      const svc = app.get(PaddleCheckoutService);
+      svc.fetchImpl = (async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              id: 'txn_smoke_pro_yearly',
+              checkout: { url: 'https://pay.paddle.test/checkout/txn_smoke_pro_yearly' },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )) as typeof fetch;
+      await request(app.getHttpServer())
+        .post('/api/billing/checkout')
+        .set('Authorization', `Bearer ${checkoutToken}`)
+        .send({ planId: configuredPlanId, billingCycle: 'yearly' })
+        .expect(200);
     });
   });
 

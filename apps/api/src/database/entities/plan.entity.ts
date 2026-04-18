@@ -32,6 +32,16 @@ export class Plan {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   priceYearly: number | null;
 
+  // Paddle price IDs per billing cycle. Set in super-admin → Plans.
+  // Null means "no Paddle checkout available for this cycle" and the
+  // checkout endpoint returns 400 rather than calling Paddle with a
+  // placeholder.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  paddlePriceIdMonthly: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  paddlePriceIdYearly: string | null;
+
   @Column({ default: 100 })
   maxProperties: number;
 

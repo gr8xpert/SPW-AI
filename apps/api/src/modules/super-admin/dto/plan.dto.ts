@@ -49,6 +49,16 @@ export class CreatePlanDto {
   @Min(0)
   priceYearly?: number;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  paddlePriceIdMonthly?: string | null;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  paddlePriceIdYearly?: string | null;
+
   @IsNumber()
   @Min(1)
   maxProperties: number;
@@ -83,6 +93,16 @@ export class UpdatePlanDto {
   @IsOptional()
   @Min(0)
   priceYearly?: number | null;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  paddlePriceIdMonthly?: string | null;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  paddlePriceIdYearly?: string | null;
 
   @IsNumber()
   @Min(1)
