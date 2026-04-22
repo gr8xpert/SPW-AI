@@ -15,6 +15,7 @@ import {
   LicenseKey,
   CreditBalance,
   AuditLog,
+  EmailSuppression,
 } from '../../database/entities';
 import { UserRole, DEFAULT_TENANT_SETTINGS, TenantFull } from '@spw/shared';
 import { generateApiKey } from '../../common/crypto/api-key';
@@ -62,6 +63,8 @@ export class SuperAdminService {
     private creditBalanceRepository: Repository<CreditBalance>,
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(EmailSuppression)
+    private emailSuppressionRepository: Repository<EmailSuppression>,
     private dataSource: DataSource,
     private readonly tenantService: TenantService,
   ) {}
@@ -1049,5 +1052,108 @@ export class SuperAdminService {
       planName: planMap.get(s.planId) || 'Unknown',
       tenantCount: parseInt(s.tenantCount),
     }));
+  }
+
+  // ============ AUDIT LOG ============
+
+  async getAuditLogs(query: {
+    page?: number;
+    limit?: number;
+    action?: string;
+    entityType?: string;
+    tenantId?: number;
+    userId?: number;
+  }): Promise<PaginatedResult<any>> {
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 50, 100);
+
+    const where: FindOptionsWhere<AuditLog> = {};
+    if (query.action) where.action = query.action as any;
+    if (query.entityType) where.entityType = query.entityType;
+    if (query.tenantId) where.tenantId = query.tenantId;
+    if (query.userId) where.userId = query.userId;
+
+    const [data, total] = await this.auditLogRepository.findAndCount({
+      where,
+      relations: ['user', 'tenant'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: data.map((log) => ({
+        id: log.id,
+        tenantId: log.tenantId,
+        tenantName: log.tenant?.name || null,
+        userId: log.userId,
+        userName: log.user?.name || log.user?.email || null,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        changes: log.changes,
+        metadata: log.metadata,
+        ipAddress: log.ipAddress,
+        createdAt: log.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // ============ EMAIL SUPPRESSIONS ============
+
+  async getSuppressions(query: {
+    page?: number;
+    limit?: number;
+    tenantId?: number;
+    search?: string;
+  }): Promise<PaginatedResult<any>> {
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 50, 100);
+
+    const qb = this.emailSuppressionRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.tenant', 'tenant')
+      .leftJoinAndSelect('s.createdByUser', 'user')
+      .orderBy('s.createdAt', 'DESC');
+
+    if (query.tenantId) {
+      qb.andWhere('s.tenantId = :tenantId', { tenantId: query.tenantId });
+    }
+    if (query.search) {
+      qb.andWhere('s.email LIKE :search', { search: `%${query.search}%` });
+    }
+
+    const total = await qb.getCount();
+    const data = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      data: data.map((s) => ({
+        id: s.id,
+        tenantId: s.tenantId,
+        tenantName: s.tenant?.name || null,
+        email: s.email,
+        reason: s.reason,
+        createdBy: s.createdBy,
+        createdByName: s.createdByUser?.name || s.createdByUser?.email || null,
+        createdAt: s.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async deleteSuppression(id: number): Promise<void> {
+    const suppression = await this.emailSuppressionRepository.findOneBy({ id });
+    if (!suppression) throw new NotFoundException('Suppression not found');
+    await this.emailSuppressionRepository.delete(id);
   }
 }

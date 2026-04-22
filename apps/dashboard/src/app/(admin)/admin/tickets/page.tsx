@@ -1,33 +1,387 @@
 'use client';
 
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Construction } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useApi } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Search,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Ticket,
+  Clock,
+  MessageSquare,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+/* ---------- Types ---------- */
+
+interface TicketItem {
+  id: number;
+  ticketNumber: string;
+  subject: string;
+  status: string;
+  priority: string;
+  tenantId: number;
+  tenantName?: string;
+  clientName?: string;
+  assignedTo: number | null;
+  assignedToName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TicketStats {
+  open: number;
+  in_progress: number;
+  awaiting_reply: number;
+  resolved: number;
+  closed: number;
+}
+
+/* ---------- Colour maps ---------- */
+
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }> = {
+  open:            { label: 'Open',            variant: 'default',     className: 'bg-blue-600 hover:bg-blue-600 text-white' },
+  in_progress:     { label: 'In Progress',     variant: 'default',     className: 'bg-amber-500 hover:bg-amber-500 text-white' },
+  awaiting_reply:  { label: 'Awaiting Reply',  variant: 'default',     className: 'bg-purple-500 hover:bg-purple-500 text-white' },
+  resolved:        { label: 'Resolved',        variant: 'default',     className: 'bg-green-600 hover:bg-green-600 text-white' },
+  closed:          { label: 'Closed',          variant: 'secondary' },
+};
+
+const priorityConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  low:      { label: 'Low',      variant: 'outline' },
+  medium:   { label: 'Medium',   variant: 'secondary' },
+  high:     { label: 'High',     variant: 'default' },
+  critical: { label: 'Critical', variant: 'destructive' },
+};
+
+const statIcons: Record<string, React.ReactNode> = {
+  open:            <AlertCircle className="h-4 w-4 text-blue-600" />,
+  in_progress:     <Clock className="h-4 w-4 text-amber-500" />,
+  awaiting_reply:  <MessageSquare className="h-4 w-4 text-purple-500" />,
+  resolved:        <CheckCircle2 className="h-4 w-4 text-green-600" />,
+  closed:          <XCircle className="h-4 w-4 text-muted-foreground" />,
+};
+
+/* ---------- Helpers ---------- */
+
+function unwrap<T>(response: any): T {
+  const body = response?.data ?? response;
+  return body as T;
+}
+
+function unwrapArray<T>(response: any): T[] {
+  const body = response?.data ?? response;
+  return Array.isArray(body) ? body : (body?.data ?? []);
+}
+
+/* ---------- Component ---------- */
 
 export default function AdminTicketsPage() {
+  const api = useApi();
+  const { toast } = useToast();
+
+  /* State */
+  const [tickets, setTickets] = useState<TicketItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  /* Filters */
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const limit = 20;
+
+  /* Fetch stats */
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const response = await api.get('/api/super-admin/tickets/stats');
+      const body = unwrap<TicketStats>(response);
+      setStats(body);
+    } catch (err: any) {
+      toast({
+        title: 'Failed to load ticket stats',
+        description: err?.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Fetch tickets */
+  const fetchTickets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+
+      const response = await api.get(`/api/super-admin/tickets?${params.toString()}`);
+      const body = response?.data ?? response;
+
+      if (Array.isArray(body)) {
+        setTickets(body);
+        setTotal(body.length);
+      } else {
+        setTickets(body?.data ?? []);
+        setTotal(body?.total ?? 0);
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Failed to load tickets',
+        description: err?.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+      setTickets([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, page]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  /* Client-side search filter */
+  const filteredTickets = useMemo(() => {
+    if (!searchQuery.trim()) return tickets;
+    const q = searchQuery.toLowerCase();
+    return tickets.filter(
+      (t) =>
+        t.subject.toLowerCase().includes(q) ||
+        t.ticketNumber.toLowerCase().includes(q)
+    );
+  }, [tickets, searchQuery]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  /* Event handlers */
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    fetchStats();
+    fetchTickets();
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
-        <p className="text-muted-foreground">
-          Manage customer support tickets
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
+          <p className="text-muted-foreground">
+            Manage customer support tickets across all tenants
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-5">
+        {(['open', 'in_progress', 'awaiting_reply', 'resolved', 'closed'] as const).map((key) => (
+          <Card key={key}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {statusConfig[key]?.label ?? key}
+              </CardTitle>
+              {statIcons[key]}
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <div className="text-2xl font-bold">{stats?.[key] ?? 0}</div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters */}
       <Card>
-        <CardHeader className="text-center">
-          <Construction className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <CardTitle>Coming Soon</CardTitle>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by subject or ticket number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="awaiting_reply">Awaiting Reply</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ticket Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {statusFilter === 'all' ? 'All Tickets' : statusConfig[statusFilter]?.label + ' Tickets'}{' '}
+            ({total})
+          </CardTitle>
           <CardDescription>
-            This feature is currently under development. Check back soon!
+            Viewing page {page} of {Math.max(totalPages, 1)}
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center text-sm text-muted-foreground">
-          <p>You will be able to:</p>
-          <ul className="mt-2 space-y-1">
-            <li>View all customer support tickets</li>
-            <li>Assign tickets to team members</li>
-            <li>Track resolution status</li>
-          </ul>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+              <Ticket className="h-8 w-8 mb-2" />
+              <p className="text-sm">
+                {searchQuery
+                  ? 'No tickets match your search.'
+                  : 'No tickets found.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ticket #</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Client / Tenant</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTickets.map((ticket) => {
+                    const sc = statusConfig[ticket.status] ?? { label: ticket.status, variant: 'outline' as const };
+                    const pc = priorityConfig[ticket.priority] ?? { label: ticket.priority, variant: 'outline' as const };
+
+                    return (
+                      <TableRow key={ticket.id}>
+                        <TableCell className="font-mono text-sm">
+                          {ticket.ticketNumber}
+                        </TableCell>
+                        <TableCell className="font-medium max-w-[300px] truncate">
+                          {ticket.subject}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="text-sm">
+                              {ticket.clientName || ticket.tenantName || `Tenant ${ticket.tenantId}`}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={sc.variant} className={sc.className}>
+                            {sc.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={pc.variant}>
+                            {pc.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                          {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {ticket.assignedToName || (ticket.assignedTo ? `User ${ticket.assignedTo}` : <span className="text-muted-foreground">Unassigned</span>)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} tickets
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

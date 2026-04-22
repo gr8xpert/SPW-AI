@@ -76,11 +76,12 @@ services:
       PADDLE_API_URL: ${PADDLE_API_URL-https://api.paddle.com}
       # Webhook guards — NEVER set this to true in prod.
       WEBHOOK_ALLOW_LOOPBACK: "false"
+    ports:
+      - "3001:3001"
     volumes:
       - spw_uploads:/app/uploads
     networks:
       - spw_net
-    # No ports: — reach via dashboard proxy or an external reverse proxy.
 
   dashboard:
     build:

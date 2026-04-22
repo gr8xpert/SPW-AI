@@ -214,4 +214,48 @@ export class SuperAdminController {
   ) {
     await this.superAdminService.deletePlan(id, user.sub);
   }
+
+  // ============ AUDIT LOG ============
+
+  @Get('audit-logs')
+  async getAuditLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('action') action?: string,
+    @Query('entityType') entityType?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.superAdminService.getAuditLogs({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 50,
+      action,
+      entityType,
+      tenantId: tenantId ? parseInt(tenantId) : undefined,
+      userId: userId ? parseInt(userId) : undefined,
+    });
+  }
+
+  // ============ EMAIL SUPPRESSIONS ============
+
+  @Get('suppressions')
+  async getSuppressions(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.superAdminService.getSuppressions({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 50,
+      tenantId: tenantId ? parseInt(tenantId) : undefined,
+      search,
+    });
+  }
+
+  @Delete('suppressions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteSuppression(@Param('id', ParseIntPipe) id: number) {
+    await this.superAdminService.deleteSuppression(id);
+  }
 }

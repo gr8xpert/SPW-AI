@@ -10,12 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { apiGet } from '@/lib/api';
-
-// 5S — rate-limit headroom. Lists every active tenant with their current
-// 60s window usage against their plan-derived ceiling. No auto-polling:
-// a human on this page clicks Refresh when they want a fresh view, so a
-// crashed session can't accidentally hammer Redis SCAN on a loop.
+import { useApi } from '@/hooks/use-api';
 
 interface HeadroomRow {
   tenantId: number;
@@ -27,11 +22,9 @@ interface HeadroomRow {
   headroomPercent: number;
   status: 'ok' | 'warning' | 'critical';
 }
-interface HeadroomResponse {
-  data: HeadroomRow[];
-}
 
 export default function RateLimitsPage() {
+  const api = useApi();
   const [rows, setRows] = useState<HeadroomRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +34,9 @@ export default function RateLimitsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<HeadroomResponse>(
-        '/api/super-admin/rate-limit-headroom',
-      );
-      setRows(res.data);
+      const res = await api.get('/api/super-admin/rate-limit-headroom');
+      const body = res?.data || res;
+      setRows(Array.isArray(body) ? body : body?.data || []);
       setRefreshedAt(new Date());
     } catch (err) {
       setError((err as Error).message || 'Failed to load headroom');
@@ -55,7 +47,7 @@ export default function RateLimitsPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusClass = (s: HeadroomRow['status']) =>
     s === 'critical'

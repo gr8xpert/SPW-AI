@@ -3,7 +3,10 @@ import type { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Server-side calls (NextAuth authorize, refresh) use API_URL which resolves
+// inside the Docker network (http://api:3001). Falls back to the public URL
+// for local dev where both processes run on the same host.
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // Refresh a minute before the API access token actually expires so a request
 // never races the clock.

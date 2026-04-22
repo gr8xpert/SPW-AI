@@ -11,17 +11,27 @@ import {
 } from '@nestjs/common';
 import { PropertyTypeService } from './property-type.service';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
+import { ReorderDto } from '../reorder/dto';
+import { ReorderService } from '../reorder/reorder.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
 
 @Controller('api/dashboard/property-types')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class PropertyTypeController {
-  constructor(private readonly propertyTypeService: PropertyTypeService) {}
+  constructor(
+    private readonly propertyTypeService: PropertyTypeService,
+    private readonly reorderService: ReorderService,
+  ) {}
 
   @Get()
   async findAll(@CurrentTenant() tenantId: number) {
     return this.propertyTypeService.findAll(tenantId);
+  }
+
+  @Put('reorder')
+  async reorder(@CurrentTenant() tenantId: number, @Body() dto: ReorderDto) {
+    return this.reorderService.reorderPropertyTypes(tenantId, dto);
   }
 
   @Get(':id')

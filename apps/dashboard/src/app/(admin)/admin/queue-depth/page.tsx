@@ -10,12 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { apiGet } from '@/lib/api';
-
-// 6C — BullMQ queue-depth observability. Mirrors the 5S rate-limits
-// page UX (manual Refresh, banded status, worst-first order). No
-// auto-poll: a stuck tab must not hammer Redis on a 30s loop in
-// production.
+import { useApi } from '@/hooks/use-api';
 
 interface QueueRow {
   name: string;
@@ -26,11 +21,9 @@ interface QueueRow {
   paused: boolean;
   status: 'ok' | 'warning' | 'critical';
 }
-interface QueueResponse {
-  data: QueueRow[];
-}
 
 export default function QueueDepthPage() {
+  const api = useApi();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +33,9 @@ export default function QueueDepthPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<QueueResponse>('/api/super-admin/queue-depth');
-      setRows(res.data);
+      const res = await api.get('/api/super-admin/queue-depth');
+      const body = res?.data || res;
+      setRows(Array.isArray(body) ? body : body?.data || []);
       setRefreshedAt(new Date());
     } catch (err) {
       setError((err as Error).message || 'Failed to load queue depth');
@@ -52,7 +46,7 @@ export default function QueueDepthPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusClass = (s: QueueRow['status']) =>
     s === 'critical'

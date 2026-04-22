@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { LocationService } from './location.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
+import { ReorderDto } from '../reorder/dto';
+import { ReorderService } from '../reorder/reorder.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
 import { LocationLevel } from '../../database/entities';
@@ -8,7 +10,10 @@ import { LocationLevel } from '../../database/entities';
 @Controller('api/dashboard/locations')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class LocationController {
-  constructor(private readonly locationService: LocationService) {}
+  constructor(
+    private readonly locationService: LocationService,
+    private readonly reorderService: ReorderService,
+  ) {}
 
   @Get()
   async findAll(@CurrentTenant() tenantId: number, @Query('level') level?: LocationLevel) {
@@ -18,6 +23,11 @@ export class LocationController {
   @Get('tree')
   async findTree(@CurrentTenant() tenantId: number) {
     return this.locationService.findTree(tenantId);
+  }
+
+  @Put('reorder')
+  async reorder(@CurrentTenant() tenantId: number, @Body() dto: ReorderDto) {
+    return this.reorderService.reorderLocations(tenantId, dto);
   }
 
   @Get(':id')
