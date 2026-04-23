@@ -55,7 +55,6 @@ import {
   FolderTree,
   Loader2,
   GripVertical,
-  Languages,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -95,9 +94,7 @@ export default function LocationsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isAddLangOpen, setIsAddLangOpen] = useState(false);
-  const [newLang, setNewLang] = useState('');
-  const [languages, setLanguages] = useState<string[]>(['en', 'es']);
+  const [languages, setLanguages] = useState<string[]>(['en']);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [deletingLocation, setDeletingLocation] = useState<Location | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -110,21 +107,19 @@ export default function LocationsPage() {
       const res = await api.get('/api/dashboard/locations/tree');
       const data: Location[] = res?.data || [];
       setLocations(data);
-      const allLangs = new Set(languages);
-      const walkLangs = (list: Location[]) => {
-        for (const loc of list) {
-          Object.keys(loc.name).forEach((k) => allLangs.add(k));
-          if (loc.children) walkLangs(loc.children);
-        }
-      };
-      walkLangs(data);
-      setLanguages(Array.from(allLangs));
     } catch {
       toast({ title: 'Failed to load locations', variant: 'destructive' });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchLocations(); }, [fetchLocations]);
+  useEffect(() => {
+    if (!api.isReady) return;
+    fetchLocations();
+    api.get('/api/dashboard/tenant').then((res: any) => {
+      const langs = res?.data?.settings?.languages;
+      if (langs?.length) setLanguages(langs);
+    }).catch(() => {});
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildName = () => {
     const name: Record<string, string> = {};
@@ -197,18 +192,6 @@ export default function LocationsPage() {
     languages.forEach((lang) => { names[lang] = location.name[lang] || ''; });
     setForm({ names, slug: location.slug, level: location.level, parentId: location.parentId });
     setIsEditOpen(true);
-  };
-
-  const handleAddLanguage = () => {
-    const code = newLang.toLowerCase().trim();
-    if (!code || languages.includes(code)) {
-      toast({ title: 'Language already exists or is empty', variant: 'destructive' });
-      return;
-    }
-    setLanguages([...languages, code]);
-    setIsAddLangOpen(false);
-    setNewLang('');
-    toast({ title: `Added ${defaultLanguageNames[code] || code} column` });
   };
 
   const handleReorderSiblings = async (siblings: Location[], fromIndex: number, toIndex: number, parentArray: Location[], setParentArray: (arr: Location[]) => void) => {
@@ -380,16 +363,10 @@ export default function LocationsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Locations</h1>
           <p className="text-muted-foreground">Manage your location hierarchy for property filtering</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsAddLangOpen(true)}>
-            <Languages className="h-4 w-4 mr-2" />
-            Add Language
-          </Button>
-          <Button onClick={() => openAdd()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Location
-          </Button>
-        </div>
+        <Button onClick={() => openAdd()}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Location
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-5">
@@ -477,32 +454,6 @@ export default function LocationsPage() {
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Language Dialog */}
-      <Dialog open={isAddLangOpen} onOpenChange={setIsAddLangOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Language</DialogTitle>
-            <DialogDescription>Add a new language for translations</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Language Code</Label>
-              <Input placeholder="de, fr, nl, pt, it..." value={newLang} onChange={(e) => setNewLang(e.target.value)} />
-              <p className="text-xs text-muted-foreground">
-                Available: {Object.entries(defaultLanguageNames)
-                  .filter(([code]) => !languages.includes(code))
-                  .map(([code, name]) => `${name} (${code})`)
-                  .join(', ')}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddLangOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddLanguage} disabled={!newLang.trim()}>Add Language</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
