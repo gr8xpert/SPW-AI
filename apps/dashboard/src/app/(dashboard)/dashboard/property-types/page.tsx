@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -50,7 +51,8 @@ import {
   Building,
   Castle,
   Loader2,
-  Languages,
+  Sparkles,
+  Check,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -64,9 +66,10 @@ interface PropertyType {
   sortOrder?: number;
 }
 
-const defaultLanguageNames: Record<string, string> = {
+const LANG_NAMES: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
-  pt: 'Portuguese', it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
+  it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
+  da: 'Danish', pl: 'Polish', cs: 'Czech', fi: 'Finnish',
 };
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -76,40 +79,45 @@ const iconMap: Record<string, React.ReactNode> = {
   map: <div className="h-4 w-4 bg-muted rounded" />,
 };
 
-const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', icon: '' };
-
 export default function PropertyTypesPage() {
   const [search, setSearch] = useState('');
   const [types, setTypes] = useState<PropertyType[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isAddLangOpen, setIsAddLangOpen] = useState(false);
-  const [newLang, setNewLang] = useState('');
-  const [languages, setLanguages] = useState<string[]>(['en', 'es']);
+  const [isBulkTranslateOpen, setIsBulkTranslateOpen] = useState(false);
+  const [languages, setLanguages] = useState<string[]>(['en']);
   const [editingType, setEditingType] = useState<PropertyType | null>(null);
   const [deletingType, setDeletingType] = useState<PropertyType | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState({ names: {} as Record<string, string>, slug: '', icon: '' });
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatingId, setTranslatingId] = useState<number | null>(null);
+  const [isBulkTranslating, setIsBulkTranslating] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!api.isReady) return;
+    api.get('/api/dashboard/tenant')
+      .then((res: any) => {
+        const langs = res?.data?.settings?.languages;
+        if (langs?.length) setLanguages(langs);
+      })
+      .catch(() => {});
+    fetchTypes();
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchTypes = async () => {
     try {
       const res = await api.get('/api/dashboard/property-types');
-      const data: PropertyType[] = res?.data || [];
-      setTypes(data);
-      const allLangs = new Set(languages);
-      data.forEach((t) => Object.keys(t.name).forEach((k) => allLangs.add(k)));
-      setLanguages(Array.from(allLangs));
+      setTypes(res?.data || []);
     } catch {
       toast({ title: 'Failed to load property types', variant: 'destructive' });
     }
   };
-
-  useEffect(() => { fetchTypes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildName = () => {
     const name: Record<string, string> = {};
@@ -128,7 +136,7 @@ export default function PropertyTypesPage() {
       });
       toast({ title: 'Property type created' });
       setIsAddOpen(false);
-      setForm(emptyForm);
+      setForm({ names: {}, slug: '', icon: '' });
       fetchTypes();
     } catch (e: any) {
       toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
@@ -146,7 +154,7 @@ export default function PropertyTypesPage() {
       toast({ title: 'Property type updated' });
       setIsEditOpen(false);
       setEditingType(null);
-      setForm(emptyForm);
+      setForm({ names: {}, slug: '', icon: '' });
       fetchTypes();
     } catch (e: any) {
       toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
@@ -174,21 +182,106 @@ export default function PropertyTypesPage() {
     setIsEditOpen(true);
   };
 
-  const openDelete = (type: PropertyType) => {
-    setDeletingType(type);
-    setIsDeleteOpen(true);
+  const handleAiTranslate = async () => {
+    if (!editingType) return;
+    setIsTranslating(true);
+    try {
+      await api.put(`/api/dashboard/property-types/${editingType.id}`, {
+        name: buildName(),
+        slug: form.slug,
+        ...(form.icon ? { icon: form.icon } : {}),
+      });
+      const missingLangs = languages.filter(l => l !== 'en' && !form.names[l]?.trim());
+      if (missingLangs.length === 0) {
+        toast({ title: 'All translations are already complete' });
+        setIsTranslating(false);
+        return;
+      }
+      const res = await api.post(`/api/dashboard/translate/property-type/${editingType.id}`, {
+        targetLanguages: missingLangs,
+        sourceLanguage: 'en',
+      });
+      const updated = res?.data;
+      if (updated?.name) {
+        const newNames = { ...form.names };
+        for (const [lang, val] of Object.entries(updated.name as Record<string, string>)) {
+          newNames[lang] = val;
+        }
+        setForm(prev => ({ ...prev, names: newNames }));
+      }
+      toast({ title: `Translated to ${missingLangs.length} languages` });
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
-  const handleAddLanguage = () => {
-    const code = newLang.toLowerCase().trim();
-    if (!code || languages.includes(code)) {
-      toast({ title: 'Language already exists or is empty', variant: 'destructive' });
-      return;
+  const handleQuickTranslate = async (type: PropertyType) => {
+    setTranslatingId(type.id);
+    try {
+      const missingLangs = languages.filter(l => l !== 'en' && !type.name[l]?.trim());
+      if (missingLangs.length === 0) {
+        toast({ title: 'All translations are already complete' });
+        setTranslatingId(null);
+        return;
+      }
+      await api.post(`/api/dashboard/translate/property-type/${type.id}`, {
+        targetLanguages: missingLangs,
+        sourceLanguage: 'en',
+      });
+      toast({ title: `Translated "${type.name.en}"` });
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setTranslatingId(null);
     }
-    setLanguages([...languages, code]);
-    setIsAddLangOpen(false);
-    setNewLang('');
-    toast({ title: `Added ${defaultLanguageNames[code] || code} column` });
+  };
+
+  const handleBulkTranslate = async () => {
+    setIsBulkTranslating(true);
+    try {
+      const targetLangs = languages.filter(l => l !== 'en');
+      if (targetLangs.length === 0) {
+        toast({ title: 'No target languages configured. Add languages in Settings.' });
+        return;
+      }
+      const res = await api.post('/api/dashboard/translate/property-types/bulk', {
+        targetLanguages: targetLangs,
+        sourceLanguage: 'en',
+      });
+      const jobId = res?.data?.jobId;
+      toast({ title: 'Bulk translation started' });
+      setIsBulkTranslateOpen(false);
+      if (jobId) {
+        const poll = () => {
+          setTimeout(async () => {
+            try {
+              const s = await api.get(`/api/dashboard/translate/job/${jobId}`);
+              const st = s?.data;
+              if (st?.status === 'completed') {
+                toast({ title: 'Bulk translation complete', description: `${st.completed} items translated` });
+                fetchTypes();
+                return;
+              }
+              if (st?.status === 'failed') {
+                toast({ title: 'Bulk translation had errors', variant: 'destructive' });
+                fetchTypes();
+                return;
+              }
+              poll();
+            } catch { poll(); }
+          }, 3000);
+        };
+        poll();
+      }
+    } catch (e: any) {
+      toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsBulkTranslating(false);
+    }
   };
 
   const filteredTypes = types.filter((type) =>
@@ -207,7 +300,6 @@ export default function PropertyTypesPage() {
     const items = reordered.map((t, i) => ({ id: t.id, sortOrder: i }));
     setDragIndex(null);
     setDragOverIndex(null);
-    // Optimistic update
     setTypes((prev) => {
       const updated = [...prev];
       items.forEach(({ id, sortOrder }) => {
@@ -225,57 +317,57 @@ export default function PropertyTypesPage() {
     }
   };
 
+  const translationCount = (names: Record<string, string>) => {
+    const filled = languages.filter(l => names[l]?.trim()).length;
+    return { filled, total: languages.length };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Property Types</h1>
-          <p className="text-muted-foreground">
-            Manage property type classifications
-          </p>
+          <p className="text-muted-foreground">Manage property type classifications</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsAddLangOpen(true)}>
-            <Languages className="h-4 w-4 mr-2" />
-            Add Language
-          </Button>
-        <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Type
+          {languages.length > 1 && (
+            <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              AI Translate All
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Property Type</DialogTitle>
-              <DialogDescription>Create a new property type classification</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {languages.map((lang) => (
-                <div key={lang} className="space-y-2">
-                  <Label>Name ({defaultLanguageNames[lang] || lang.toUpperCase()})</Label>
-                  <Input placeholder={lang === 'en' ? 'Villa' : ''} value={form.names[lang] || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })} />
+          )}
+          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '' }); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" />Add Type</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Property Type</DialogTitle>
+                <DialogDescription>Create a new property type classification</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Name (English)</Label>
+                  <Input placeholder="Villa" value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
                 </div>
-              ))}
-              <div className="space-y-2">
-                <Label htmlFor="add-slug">Slug</Label>
-                <Input id="add-slug" placeholder="villa" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+                <div className="space-y-2">
+                  <Label>Slug</Label>
+                  <Input placeholder="villa" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Icon</Label>
+                  <Input placeholder="home, building, castle" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-icon">Icon</Label>
-                <Input id="add-icon" placeholder="home" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={!form.names.en || !form.slug || api.isLoading}>
-                {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Create
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} disabled={!form.names.en || !form.slug || api.isLoading}>
+                  {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -306,67 +398,79 @@ export default function PropertyTypesPage() {
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Slug</TableHead>
+                  {languages.length > 1 && <TableHead>Translations</TableHead>}
                   <TableHead>Properties</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTypes.map((type, i) => (
-                  <TableRow
-                    key={type.id}
-                    draggable
-                    onDragStart={() => setDragIndex(i)}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
-                    onDragLeave={() => setDragOverIndex(null)}
-                    onDrop={() => handleDrop(i)}
-                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                    className={dragOverIndex === i ? 'border-t-2 border-primary' : ''}
-                  >
-                    <TableCell>
-                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
-                          {iconMap[type.icon || ''] || <Home className="h-4 w-4" />}
+                {filteredTypes.map((type, i) => {
+                  const { filled, total } = translationCount(type.name);
+                  return (
+                    <TableRow
+                      key={type.id}
+                      draggable
+                      onDragStart={() => setDragIndex(i)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
+                      onDragLeave={() => setDragOverIndex(null)}
+                      onDrop={() => handleDrop(i)}
+                      onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                      className={dragOverIndex === i ? 'border-t-2 border-primary' : ''}
+                    >
+                      <TableCell>
+                        <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+                            {iconMap[type.icon || ''] || <Home className="h-4 w-4" />}
+                          </div>
+                          <span className="font-medium">{type.name.en || Object.values(type.name)[0]}</span>
                         </div>
-                        <div>
-                          <p className="font-medium">{type.name.en}</p>
-                          {languages.filter((l) => l !== 'en' && type.name[l]).map((l) => (
-                            <p key={l} className="text-xs text-muted-foreground">
-                              <span className="uppercase font-medium">{l}</span>: {type.name[l]}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <code className="text-sm bg-muted px-2 py-1 rounded">{type.slug}</code>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{type.propertyCount ?? 0}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(type)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => openDelete(type)}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-sm bg-muted px-2 py-1 rounded">{type.slug}</code>
+                      </TableCell>
+                      {languages.length > 1 && (
+                        <TableCell>
+                          {translatingId === type.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Badge variant={filled === total ? 'default' : 'secondary'}>
+                              {filled}/{total}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Badge variant="outline">{type.propertyCount ?? 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(type)}>
+                              <Edit className="h-4 w-4 mr-2" />Edit
+                            </DropdownMenuItem>
+                            {languages.length > 1 && (
+                              <DropdownMenuItem onClick={() => handleQuickTranslate(type)}>
+                                <Sparkles className="h-4 w-4 mr-2" />AI Translate
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingType(type); setIsDeleteOpen(true); }}>
+                              <Trash2 className="h-4 w-4 mr-2" />Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -374,27 +478,58 @@ export default function PropertyTypesPage() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm(emptyForm); } }}>
-        <DialogContent>
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm({ names: {}, slug: '', icon: '' }); } }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Property Type</DialogTitle>
-            <DialogDescription>Update the property type details</DialogDescription>
+            <DialogDescription>Update details and translations</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {languages.map((lang) => (
-              <div key={lang} className="space-y-2">
-                <Label>Name ({defaultLanguageNames[lang] || lang.toUpperCase()})</Label>
-                <Input value={form.names[lang] || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })} />
+            <div className="space-y-2">
+              <Label>Name (English)</Label>
+              <Input value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Slug</Label>
+                <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
               </div>
-            ))}
-            <div className="space-y-2">
-              <Label htmlFor="edit-slug">Slug</Label>
-              <Input id="edit-slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-icon">Icon</Label>
-              <Input id="edit-icon" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-            </div>
+            {languages.filter(l => l !== 'en').length > 0 && (
+              <div className="border rounded-md">
+                <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
+                  <span className="text-sm font-medium">
+                    Translations ({languages.filter(l => l !== 'en' && form.names[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()}>
+                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                    AI Translate
+                  </Button>
+                </div>
+                <div className="max-h-[280px] overflow-y-auto p-3 space-y-2">
+                  {languages.filter(l => l !== 'en').map(lang => (
+                    <div key={lang} className="flex items-center gap-2">
+                      <span className="text-xs font-medium uppercase w-8 text-muted-foreground shrink-0">{lang}</span>
+                      <Input
+                        className="h-8 text-sm"
+                        placeholder={LANG_NAMES[lang] || lang}
+                        value={form.names[lang] || ''}
+                        onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })}
+                      />
+                      {form.names[lang]?.trim() ? (
+                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      ) : (
+                        <span className="w-3.5 shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
@@ -406,31 +541,24 @@ export default function PropertyTypesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Language Dialog */}
-      <Dialog open={isAddLangOpen} onOpenChange={setIsAddLangOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Language</DialogTitle>
-            <DialogDescription>Add a new language for translations</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Language Code</Label>
-              <Input placeholder="de, fr, nl, pt, it..." value={newLang} onChange={(e) => setNewLang(e.target.value)} />
-              <p className="text-xs text-muted-foreground">
-                Available: {Object.entries(defaultLanguageNames)
-                  .filter(([code]) => !languages.includes(code))
-                  .map(([code, name]) => `${name} (${code})`)
-                  .join(', ')}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddLangOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddLanguage} disabled={!newLang.trim()}>Add Language</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Bulk Translate Confirmation */}
+      <AlertDialog open={isBulkTranslateOpen} onOpenChange={setIsBulkTranslateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>AI Translate All Property Types</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will translate all {types.length} property types to {languages.filter(l => l !== 'en').length} languages using AI.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
+              {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              Start Translation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

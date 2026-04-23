@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus } from 'lucide-react';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 
 type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
@@ -49,6 +49,12 @@ const SLUG_FORMAT_OPTIONS: { value: SlugFormat; label: string; example: string }
   { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa-REF-1234' },
   { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234-villa-marbella' },
 ];
+
+const ALL_LANGUAGES: Record<string, string> = {
+  en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
+  it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
+  da: 'Danish', pl: 'Polish', cs: 'Czech', fi: 'Finnish',
+};
 
 const generalSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -185,6 +191,10 @@ export default function SettingsPage() {
   const [testingAi, setTestingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; error?: string } | null>(null);
 
+  // Tenant-level languages
+  const [enabledLanguages, setEnabledLanguages] = useState<string[]>(['en']);
+  const [savingLangs, setSavingLangs] = useState(false);
+
   const AI_MODELS = [
     { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
     { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
@@ -212,6 +222,9 @@ export default function SettingsPage() {
         }
         if (settings?.defaultLanguage) {
           generalForm.setValue('defaultLanguage', settings.defaultLanguage);
+        }
+        if (settings?.languages?.length) {
+          setEnabledLanguages(settings.languages);
         }
         if (settings?.openRouterApiKey) {
           setAiApiKeyMasked(settings.openRouterApiKey);
@@ -578,6 +591,7 @@ export default function SettingsPage() {
         companyName: data.companyName,
         defaultLanguage: data.defaultLanguage,
         slugFormat,
+        languages: enabledLanguages,
       });
       toast({
         title: 'Settings saved',
@@ -695,11 +709,9 @@ export default function SettingsPage() {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       {...generalForm.register('defaultLanguage')}
                     >
-                      <option value="en">English</option>
-                      <option value="es">Spanish</option>
-                      <option value="de">German</option>
-                      <option value="fr">French</option>
-                      <option value="nl">Dutch</option>
+                      {enabledLanguages.map(code => (
+                        <option key={code} value={code}>{ALL_LANGUAGES[code] || code.toUpperCase()}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -728,6 +740,84 @@ export default function SettingsPage() {
                   {isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Languages className="h-5 w-5" />
+                Languages
+              </CardTitle>
+              <CardDescription>
+                Languages enabled here apply across property types, features, labels, and property translations.
+                English is always enabled as the base language.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {enabledLanguages.map(code => (
+                  <span key={code} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-medium">
+                    {ALL_LANGUAGES[code] || code.toUpperCase()}
+                    {code !== 'en' && (
+                      <button
+                        type="button"
+                        className="ml-1 rounded-sm hover:bg-muted p-0.5"
+                        disabled={savingLangs}
+                        onClick={async () => {
+                          const updated = enabledLanguages.filter(l => l !== code);
+                          setEnabledLanguages(updated);
+                          setSavingLangs(true);
+                          try {
+                            await apiPut('/api/dashboard/tenant/settings', { languages: updated });
+                            toast({ title: `Removed ${ALL_LANGUAGES[code] || code}` });
+                          } catch {
+                            setEnabledLanguages(enabledLanguages);
+                            toast({ title: 'Failed to remove language', variant: 'destructive' });
+                          } finally {
+                            setSavingLangs(false);
+                          }
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+              {Object.keys(ALL_LANGUAGES).filter(c => !enabledLanguages.includes(c)).length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Select
+                    onValueChange={async (code) => {
+                      if (!code || enabledLanguages.includes(code)) return;
+                      const updated = [...enabledLanguages, code];
+                      setEnabledLanguages(updated);
+                      setSavingLangs(true);
+                      try {
+                        await apiPut('/api/dashboard/tenant/settings', { languages: updated });
+                        toast({ title: `Added ${ALL_LANGUAGES[code] || code}` });
+                      } catch {
+                        setEnabledLanguages(enabledLanguages);
+                        toast({ title: 'Failed to add language', variant: 'destructive' });
+                      } finally {
+                        setSavingLangs(false);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="Add a language..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ALL_LANGUAGES)
+                        .filter(([code]) => !enabledLanguages.includes(code))
+                        .map(([code, name]) => (
+                          <SelectItem key={code} value={code}>{name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {savingLangs && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
