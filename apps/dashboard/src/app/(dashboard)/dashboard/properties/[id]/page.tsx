@@ -67,8 +67,6 @@ const LANGUAGES = [
   { code: 'da', label: 'Danish' },
   { code: 'fi', label: 'Finnish' },
   { code: 'ru', label: 'Russian' },
-  { code: 'pt', label: 'Portuguese' },
-  { code: 'ar', label: 'Arabic' },
 ];
 
 interface Property {

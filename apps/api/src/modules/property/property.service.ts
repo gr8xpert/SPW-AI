@@ -83,7 +83,7 @@ export class PropertyService {
 
   async findAllPaginated(tenantId: number, dto: ListPropertyDto): Promise<SearchResult> {
     const page = dto.page || 1;
-    const limit = dto.limit || 20;
+    const limit = dto.limit || 50;
     const sortBy = dto.sortBy || 'createdAt';
     const sortOrder = dto.sortOrder || 'DESC';
 
@@ -109,6 +109,26 @@ export class PropertyService {
 
     if (dto.source) {
       query.andWhere('p.source = :source', { source: dto.source });
+    }
+
+    if (dto.listingType) {
+      query.andWhere('p.listingType = :listingType', { listingType: dto.listingType });
+    }
+
+    if (dto.propertyTypeId !== undefined) {
+      query.andWhere('p.propertyTypeId = :propertyTypeId', { propertyTypeId: dto.propertyTypeId });
+    }
+
+    if (dto.isFeatured !== undefined) {
+      query.andWhere('p.isFeatured = :isFeatured', { isFeatured: dto.isFeatured });
+    }
+
+    if (dto.isOwnProperty !== undefined) {
+      query.andWhere('p.isOwnProperty = :isOwnProperty', { isOwnProperty: dto.isOwnProperty });
+    }
+
+    if (dto.isPublished !== undefined) {
+      query.andWhere('p.isPublished = :isPublished', { isPublished: dto.isPublished });
     }
 
     if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });

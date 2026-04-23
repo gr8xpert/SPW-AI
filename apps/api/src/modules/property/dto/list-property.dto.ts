@@ -1,6 +1,6 @@
-import { IsOptional, IsNumber, IsString, IsIn, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
-import { PropertyStatus } from '../../../database/entities/property.entity';
+import { IsOptional, IsNumber, IsString, IsIn, IsBoolean, Min, Max } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { PropertyStatus, ListingType } from '../../../database/entities/property.entity';
 
 export class ListPropertyDto {
   @IsOptional()
@@ -12,8 +12,32 @@ export class ListPropertyDto {
   status?: PropertyStatus;
 
   @IsOptional()
-  @IsIn(['manual', 'feed', 'import'])
+  @IsIn(['sale', 'rent', 'holiday_rent', 'development'])
+  listingType?: ListingType;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  propertyTypeId?: number;
+
+  @IsOptional()
+  @IsIn(['manual', 'resales', 'inmoba', 'infocasa', 'redsp'])
   source?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isFeatured?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isOwnProperty?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isPublished?: boolean;
 
   @IsOptional()
   @Type(() => Number)
@@ -106,5 +130,5 @@ export class ListPropertyDto {
   @IsNumber()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  limit?: number = 50;
 }

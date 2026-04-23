@@ -82,6 +82,10 @@ export interface TenantSettings {
     longRental?: PriceRangeConfig;
     shortRental?: PriceRangeConfig;
   };
+
+  // AI / OpenRouter
+  openRouterApiKey?: string;
+  openRouterModel?: string;
 }
 
 export interface TenantPublic {
@@ -154,3 +158,12 @@ export const SUPPORTED_CURRENCIES = [
 ] as const;
 
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
+// OpenRouter model options for the AI settings dropdown
+export const OPENROUTER_MODEL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
+  { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+  { value: 'openai/gpt-4o', label: 'GPT-4o' },
+  { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+];

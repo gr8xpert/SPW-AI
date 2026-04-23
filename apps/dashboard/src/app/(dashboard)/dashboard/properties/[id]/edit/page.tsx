@@ -61,8 +61,6 @@ const LANGUAGES = [
   { code: 'da', label: 'Danish' },
   { code: 'fi', label: 'Finnish' },
   { code: 'ru', label: 'Russian' },
-  { code: 'pt', label: 'Portuguese' },
-  { code: 'ar', label: 'Arabic' },
 ];
 
 interface PropertyType { id: number; name: Record<string, string> | string; }
@@ -239,6 +237,8 @@ export default function EditPropertyPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [tenantLanguages, setTenantLanguages] = useState<string[]>([]);
   const [propertySource, setPropertySource] = useState<string>('manual');
   const [activeTab, setActiveTab] = useState('basic');
   const [contentLang, setContentLang] = useState('en');
@@ -277,7 +277,7 @@ export default function EditPropertyPage() {
     if (!api.isReady) return;
     async function fetchData() {
       try {
-        const [propertyRes, locationsRes, typesRes, featuresRes, teamRes, filesRes] =
+        const [propertyRes, locationsRes, typesRes, featuresRes, teamRes, filesRes, tenantRes] =
           await Promise.all([
             api.get(`/api/dashboard/properties/${id}`),
             api.get('/api/dashboard/locations'),
@@ -285,6 +285,7 @@ export default function EditPropertyPage() {
             api.get('/api/dashboard/features'),
             api.get('/api/dashboard/team'),
             api.get(`/api/dashboard/upload/property/${id}`),
+            api.get('/api/dashboard/tenant'),
           ].map(p => p.catch(() => null)));
 
         const property = propertyRes?.data || propertyRes;
@@ -293,6 +294,11 @@ export default function EditPropertyPage() {
         const feats = featuresRes?.data || featuresRes;
         const team = teamRes?.data || teamRes;
         const files = filesRes?.data || filesRes;
+        const tenant = tenantRes?.data || tenantRes;
+
+        if (tenant?.settings?.languages?.length > 1) {
+          setTenantLanguages(tenant.settings.languages);
+        }
 
         if (Array.isArray(locs)) setLocations(locs);
         if (Array.isArray(types)) setPropertyTypes(types);
@@ -473,6 +479,35 @@ export default function EditPropertyPage() {
     });
   }, [api, propertyId, toast]);
 
+  const handleTranslate = async () => {
+    if (tenantLanguages.length < 2) {
+      toast({ title: 'Multiple languages required', description: 'Enable at least 2 languages in Settings → General to use AI translation.', variant: 'destructive' });
+      return;
+    }
+    setIsTranslating(true);
+    try {
+      const res = await api.post(`/api/dashboard/translate/property/${propertyId}`, {
+        targetLanguages: tenantLanguages,
+      });
+      const translated = (res as any)?.data || res;
+      if (translated) {
+        const multiFields: MultilingualField[] = ['title', 'description', 'metaTitle', 'metaDescription', 'metaKeywords', 'pageTitle'];
+        const updates: Partial<FormData> = {};
+        for (const field of multiFields) {
+          if (translated[field]) {
+            updates[field] = translated[field];
+          }
+        }
+        setFormData((prev) => ({ ...prev, ...updates }));
+      }
+      toast({ title: 'Translation complete', description: `Translated to ${tenantLanguages.length - 1} language(s). Review and save to keep changes.` });
+    } catch (err) {
+      toast({ title: 'Translation failed', description: (err as any)?.response?.data?.message || (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -589,6 +624,12 @@ export default function EditPropertyPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href={detailUrl}><Button variant="outline"><X className="h-4 w-4 mr-2" /> Cancel</Button></Link>
+          {tenantLanguages.length > 1 && (
+            <Button variant="outline" onClick={handleTranslate} disabled={isTranslating || isLoading}>
+              {isTranslating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
+              {isTranslating ? 'Translating…' : 'AI Translate'}
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Changes

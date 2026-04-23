@@ -58,6 +58,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { AiModule } from './modules/ai/ai.module';
+import { TranslationModule } from './modules/translation/translation.module';
 
 @Module({
   imports: [
@@ -173,6 +175,10 @@ import { PaymentModule } from './modules/payment/payment.module';
     MaintenanceModule,
     MailModule,
     PaymentModule,
+
+    // ============ Phase 6: AI & Translation ============
+    AiModule,
+    TranslationModule,
   ],
   providers: [
     // Global exception filter

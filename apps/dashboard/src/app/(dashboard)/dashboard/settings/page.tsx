@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot } from 'lucide-react';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 
 type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
@@ -177,6 +177,22 @@ export default function SettingsPage() {
   const [verifyingSenderDomain, setVerifyingSenderDomain] = useState(false);
   const [slugFormat, setSlugFormat] = useState<SlugFormat>('ref-title');
 
+  // AI / OpenRouter state
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiApiKeyMasked, setAiApiKeyMasked] = useState('');
+  const [aiModel, setAiModel] = useState('anthropic/claude-sonnet-4-20250514');
+  const [savingAi, setSavingAi] = useState(false);
+  const [testingAi, setTestingAi] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; error?: string } | null>(null);
+
+  const AI_MODELS = [
+    { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
+    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+    { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+    { value: 'openai/gpt-4o', label: 'GPT-4o' },
+    { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+  ];
+
   useEffect(() => {
     if (!session?.accessToken) return;
     apiGet<TenantCurrent>('/api/dashboard/tenant')
@@ -196,6 +212,12 @@ export default function SettingsPage() {
         }
         if (settings?.defaultLanguage) {
           generalForm.setValue('defaultLanguage', settings.defaultLanguage);
+        }
+        if (settings?.openRouterApiKey) {
+          setAiApiKeyMasked(settings.openRouterApiKey);
+        }
+        if (settings?.openRouterModel) {
+          setAiModel(settings.openRouterModel);
         }
       })
       .catch(() => {});
@@ -489,6 +511,45 @@ export default function SettingsPage() {
     }
   };
 
+  const onSaveAi = async () => {
+    setSavingAi(true);
+    try {
+      const payload: Record<string, string> = { openRouterModel: aiModel };
+      if (aiApiKey.trim()) {
+        payload.openRouterApiKey = aiApiKey.trim();
+      }
+      await apiPut('/api/dashboard/tenant/settings', payload);
+      if (aiApiKey.trim()) {
+        const masked = aiApiKey.length > 8
+          ? aiApiKey.slice(0, 5) + '••••' + aiApiKey.slice(-4)
+          : '••••••••';
+        setAiApiKeyMasked(masked);
+        setAiApiKey('');
+      }
+      setAiTestResult(null);
+      toast({ title: 'AI settings saved', description: 'Your OpenRouter configuration has been updated.' });
+    } catch (err) {
+      toast({ title: 'Failed to save AI settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  const onTestAi = async () => {
+    setTestingAi(true);
+    setAiTestResult(null);
+    try {
+      const res = await apiPost<{ data: { ok: boolean; model: string; error?: string } }>(
+        '/api/dashboard/translate/test',
+      );
+      setAiTestResult(res.data);
+    } catch (err) {
+      setAiTestResult({ ok: false, error: (err as Error).message || 'Connection failed' });
+    } finally {
+      setTestingAi(false);
+    }
+  };
+
   const generalForm = useForm({
     resolver: zodResolver(generalSchema),
     defaultValues: {
@@ -579,6 +640,10 @@ export default function SettingsPage() {
           <TabsTrigger value="webhooks">
             <Webhook className="h-4 w-4 mr-2" />
             Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="ai">
+            <Bot className="h-4 w-4 mr-2" />
+            AI
           </TabsTrigger>
           <TabsTrigger value="cache">
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -1230,6 +1295,127 @@ export default function SettingsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* AI / OpenRouter */}
+        <TabsContent value="ai">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI &amp; Translation</CardTitle>
+              <CardDescription>
+                Connect your OpenRouter account to enable AI-powered translations
+                for properties, features, labels, and more. Each tenant uses their
+                own API key &mdash; usage is billed directly to your OpenRouter account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="aiApiKey">OpenRouter API Key</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="aiApiKey"
+                    type="password"
+                    placeholder={aiApiKeyMasked || 'sk-or-v1-...'}
+                    value={aiApiKey}
+                    onChange={(e) => setAiApiKey(e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                  />
+                </div>
+                {aiApiKeyMasked && !aiApiKey && (
+                  <p className="text-xs text-muted-foreground">
+                    Current key: <code className="bg-muted rounded px-1">{aiApiKeyMasked}</code>.
+                    Enter a new key to replace it.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Get your API key from{' '}
+                  <a
+                    href="https://openrouter.ai/keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    openrouter.ai/keys
+                  </a>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>AI Model</Label>
+                <Select value={aiModel} onValueChange={setAiModel}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AI_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Recommended: Claude Sonnet 4 for best quality real estate translations.
+                  GPT-4o Mini is the cheapest option for high-volume bulk translations.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={onSaveAi} disabled={savingAi}>
+                  {savingAi ? 'Saving…' : 'Save AI Settings'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onTestAi}
+                  disabled={testingAi || !aiApiKeyMasked}
+                >
+                  <Bot className={`h-4 w-4 mr-2 ${testingAi ? 'animate-pulse' : ''}`} />
+                  {testingAi ? 'Testing…' : 'Test Connection'}
+                </Button>
+              </div>
+
+              {aiTestResult && (
+                <div
+                  className={
+                    'rounded-lg border p-4 ' +
+                    (aiTestResult.ok
+                      ? 'border-green-500/40 bg-green-50 dark:bg-green-950/30'
+                      : 'border-red-500/40 bg-red-50 dark:bg-red-950/30')
+                  }
+                >
+                  {aiTestResult.ok ? (
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                      Connection successful! Model: <code className="bg-green-100 dark:bg-green-900 rounded px-1">{aiTestResult.model}</code>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-red-800 dark:text-red-200">
+                      Connection failed: {aiTestResult.error}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>How It Works</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Once configured, AI translation buttons appear throughout the dashboard:
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Property Edit page</strong> &mdash; Translate all multilingual fields (title, description, SEO) for a single property</li>
+                <li><strong>Properties List page</strong> &mdash; Bulk translate all properties at once (runs in background)</li>
+                <li><strong>Property Types, Features, Labels</strong> &mdash; Translate names and labels via their management pages</li>
+              </ul>
+              <p>
+                Translations use your tenant&apos;s configured languages. The AI detects the source
+                language automatically and translates to all other languages you&apos;ve enabled.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Widget Cache */}

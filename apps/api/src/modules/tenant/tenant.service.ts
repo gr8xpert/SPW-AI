@@ -83,6 +83,9 @@ export class TenantService {
       throw new NotFoundException('Tenant not found');
     }
 
+    if (settings.openRouterApiKey && settings.openRouterApiKey.includes('••••')) {
+      delete settings.openRouterApiKey;
+    }
     tenant.settings = { ...tenant.settings, ...settings };
     await this.tenantRepository.save(tenant);
 
@@ -320,12 +323,19 @@ export class TenantService {
   }
 
   private toPublic(tenant: Tenant): TenantPublic {
+    const settings = { ...tenant.settings };
+    if (settings.openRouterApiKey) {
+      const key = settings.openRouterApiKey;
+      settings.openRouterApiKey = key.length > 8
+        ? key.slice(0, 5) + '••••' + key.slice(-4)
+        : '••••••••';
+    }
     return {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
       domain: tenant.domain,
-      settings: tenant.settings,
+      settings,
       isActive: tenant.isActive,
     };
   }
