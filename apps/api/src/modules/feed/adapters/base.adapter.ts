@@ -21,7 +21,7 @@ export interface FeedProperty {
   agentReference?: string;
   title: Record<string, string>;
   description: Record<string, string>;
-  listingType: 'sale' | 'rent' | 'development';
+  listingType: 'sale' | 'rent' | 'holiday_rent' | 'development';
   propertyType: string;
   price: number | null;
   priceOnRequest?: boolean;
@@ -93,8 +93,12 @@ export abstract class BaseFeedAdapter {
   /**
    * Normalizes listing type from provider-specific values
    */
-  protected normalizeListingType(value: string): 'sale' | 'rent' | 'development' {
+  protected normalizeListingType(value: string): 'sale' | 'rent' | 'holiday_rent' | 'development' {
     const normalized = value.toLowerCase();
+
+    if (normalized.includes('holiday') || normalized.includes('vacation') || normalized.includes('vacacional') || normalized.includes('temporada')) {
+      return 'holiday_rent';
+    }
 
     if (normalized.includes('rent') || normalized.includes('alquiler')) {
       return 'rent';

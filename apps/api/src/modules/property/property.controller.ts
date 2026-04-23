@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, U
 import { PropertyService } from './property.service';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto, LockFieldsDto, UnlockFieldsDto } from './dto';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
-import { CurrentTenant } from '../../common/decorators';
+import { CurrentTenant, CurrentUser } from '../../common/decorators';
 
 @Controller('api/dashboard/properties')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -30,8 +30,8 @@ export class PropertyController {
   }
 
   @Put(':id')
-  async update(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePropertyDto) {
-    return this.propertyService.update(tenantId, id, dto);
+  async update(@CurrentTenant() tenantId: number, @CurrentUser('id') userId: number, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePropertyDto) {
+    return this.propertyService.update(tenantId, id, dto, userId);
   }
 
   @Delete(':id')

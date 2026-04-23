@@ -74,10 +74,17 @@ services:
       # set but the API key is missing (half-configured).
       PADDLE_API_KEY: ${PADDLE_API_KEY-}
       PADDLE_API_URL: ${PADDLE_API_URL-https://api.paddle.com}
+      # Seed (used by `node dist/database/seed.js` — optional).
+      SEED_SUPER_ADMIN_EMAIL: ${SEED_SUPER_ADMIN_EMAIL-}
+      SEED_SUPER_ADMIN_PASSWORD: ${SEED_SUPER_ADMIN_PASSWORD-}
       # Webhook guards — NEVER set this to true in prod.
       WEBHOOK_ALLOW_LOOPBACK: "false"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     ports:
-      - "3001:3001"
+      - "${API_BIND:-127.0.0.1:3001}:3001"
     volumes:
       - spw_uploads:/app/uploads
     networks:
@@ -101,6 +108,10 @@ services:
       NEXTAUTH_URL: ${DASHBOARD_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       API_URL: http://api:3001
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     ports:
       - "${DASHBOARD_BIND:-127.0.0.1:3000}:3000"
     networks:
@@ -112,6 +123,10 @@ services:
       dockerfile: apps/widget/Dockerfile
     image: spw/widget:latest
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
     ports:
       - "${WIDGET_BIND:-127.0.0.1:8080}:80"
     networks:
@@ -134,6 +149,10 @@ services:
       - --innodb-buffer-pool-size=256M
     volumes:
       - spw_mysql_data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -145,7 +164,21 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "${REDIS_PASSWORD:+--requirepass}", "${REDIS_PASSWORD-}"]
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        else
+          redis-server --appendonly yes
+        fi
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD-}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     volumes:
       - spw_redis_data:/data
     healthcheck:

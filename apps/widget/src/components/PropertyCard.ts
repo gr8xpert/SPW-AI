@@ -42,6 +42,8 @@ export class PropertyCard {
     }
     if (property.listingType === 'sale') {
       badges.push(`<span class="spw-badge spw-badge-sale">${escapeHtml(labels['search.forSale'])}</span>`);
+    } else if (property.listingType === 'holiday_rent') {
+      badges.push(`<span class="spw-badge spw-badge-rent">${escapeHtml(labels['search.holidayRent'])}</span>`);
     } else if (property.listingType === 'rent') {
       badges.push(`<span class="spw-badge spw-badge-rent">${escapeHtml(labels['search.forRent'])}</span>`);
     }

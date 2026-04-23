@@ -4,6 +4,21 @@ export type BillingCycle = 'monthly' | 'yearly';
 export type BillingSource = 'manual' | 'paddle' | 'internal';
 export type WishlistIcon = 'heart' | 'star' | 'bookmark' | 'save';
 
+export type SlugFormat =
+  | 'ref'
+  | 'ref-title'
+  | 'title-ref'
+  | 'location-type-ref'
+  | 'ref-type-location';
+
+export const SLUG_FORMAT_OPTIONS: { value: SlugFormat; label: string; example: string }[] = [
+  { value: 'ref', label: 'Reference Only', example: '/property/REF-1234' },
+  { value: 'ref-title', label: 'Reference + Title', example: '/property/REF-1234-luxury-villa-marbella' },
+  { value: 'title-ref', label: 'Title + Reference', example: '/property/luxury-villa-marbella-REF-1234' },
+  { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa-REF-1234' },
+  { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234-villa-marbella' },
+];
+
 // Listing type configuration
 export interface ListingTypeConfig {
   enabled: boolean;
@@ -56,6 +71,9 @@ export interface TenantSettings {
     shortRentals?: ListingTypeConfig;
     longRentals?: ListingTypeConfig;
   };
+
+  // Property Slug Format
+  slugFormat?: SlugFormat;
 
   // Custom Price Ranges
   priceRanges?: {

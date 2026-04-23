@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Produce a self-contained runtime bundle so the Docker image only needs
-  // node + .next/standalone + .next/static + public/. Roughly 10x smaller
-  // than shipping all of node_modules.
   output: 'standalone',
   images: {
     remotePatterns: [

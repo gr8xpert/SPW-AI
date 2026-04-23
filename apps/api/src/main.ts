@@ -58,6 +58,17 @@ async function bootstrap() {
     ? [dashboardUrl!]
     : [dashboardUrl!, 'http://localhost:3000', 'http://127.0.0.1:3000'];
 
+  // When DASHBOARD_URL is a loopback address, also allow the other loopback
+  // form so local Docker testing works regardless of whether the browser
+  // navigates to localhost or 127.0.0.1.
+  if (dashboardUrl?.includes('://127.0.0.1')) {
+    const alt = dashboardUrl.replace('://127.0.0.1', '://localhost');
+    if (!corsOrigins.includes(alt)) corsOrigins.push(alt);
+  } else if (dashboardUrl?.includes('://localhost')) {
+    const alt = dashboardUrl.replace('://localhost', '://127.0.0.1');
+    if (!corsOrigins.includes(alt)) corsOrigins.push(alt);
+  }
+
   app.enableCors({
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -46,8 +46,15 @@ export class PropertySearchService {
     if (dto.minBedrooms !== undefined) query.andWhere('p.bedrooms >= :minBeds', { minBeds: dto.minBedrooms });
     if (dto.maxBedrooms !== undefined) query.andWhere('p.bedrooms <= :maxBeds', { maxBeds: dto.maxBedrooms });
     if (dto.minBathrooms !== undefined) query.andWhere('p.bathrooms >= :minBaths', { minBaths: dto.minBathrooms });
+    if (dto.maxBathrooms !== undefined) query.andWhere('p.bathrooms <= :maxBaths', { maxBaths: dto.maxBathrooms });
     if (dto.minBuildSize !== undefined) query.andWhere('p.buildSize >= :minBuild', { minBuild: dto.minBuildSize });
     if (dto.maxBuildSize !== undefined) query.andWhere('p.buildSize <= :maxBuild', { maxBuild: dto.maxBuildSize });
+    if (dto.minPlotSize !== undefined) query.andWhere('p.plotSize >= :minPlot', { minPlot: dto.minPlotSize });
+    if (dto.maxPlotSize !== undefined) query.andWhere('p.plotSize <= :maxPlot', { maxPlot: dto.maxPlotSize });
+    if (dto.minTerraceSize !== undefined) query.andWhere('p.terraceSize >= :minTerrace', { minTerrace: dto.minTerraceSize });
+    if (dto.maxTerraceSize !== undefined) query.andWhere('p.terraceSize <= :maxTerrace', { maxTerrace: dto.maxTerraceSize });
+    if (dto.minSolariumSize !== undefined) query.andWhere('p.solariumSize >= :minSol', { minSol: dto.minSolariumSize });
+    if (dto.maxSolariumSize !== undefined) query.andWhere('p.solariumSize <= :maxSol', { maxSol: dto.maxSolariumSize });
     if (dto.features?.length) {
       dto.features.forEach((featureId, index) => {
         query.andWhere(`JSON_CONTAINS(p.features, :feature${index})`, { [`feature${index}`]: JSON.stringify(featureId) });

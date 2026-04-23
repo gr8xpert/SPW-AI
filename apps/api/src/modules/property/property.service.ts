@@ -71,10 +71,12 @@ export class PropertyService {
     return this.searchService.search(tenantId, dto);
   }
 
+  private readonly defaultRelations = ['location', 'propertyType', 'agent', 'salesAgent', 'lastUpdatedByUser'];
+
   async findAll(tenantId: number): Promise<Property[]> {
     return this.propertyRepository.find({
       where: { tenantId },
-      relations: ['location', 'propertyType'],
+      relations: this.defaultRelations,
       order: { createdAt: 'DESC' },
     });
   }
@@ -89,6 +91,9 @@ export class PropertyService {
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.location', 'location')
       .leftJoinAndSelect('p.propertyType', 'propertyType')
+      .leftJoinAndSelect('p.agent', 'agent')
+      .leftJoinAndSelect('p.salesAgent', 'salesAgent')
+      .leftJoinAndSelect('p.lastUpdatedByUser', 'lastUpdatedByUser')
       .where('p.tenantId = :tenantId', { tenantId });
 
     if (dto.search) {
@@ -106,6 +111,19 @@ export class PropertyService {
       query.andWhere('p.source = :source', { source: dto.source });
     }
 
+    if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });
+    if (dto.maxPrice !== undefined) query.andWhere('p.price <= :maxPrice', { maxPrice: dto.maxPrice });
+    if (dto.minBedrooms !== undefined) query.andWhere('p.bedrooms >= :minBeds', { minBeds: dto.minBedrooms });
+    if (dto.maxBedrooms !== undefined) query.andWhere('p.bedrooms <= :maxBeds', { maxBeds: dto.maxBedrooms });
+    if (dto.minBathrooms !== undefined) query.andWhere('p.bathrooms >= :minBaths', { minBaths: dto.minBathrooms });
+    if (dto.maxBathrooms !== undefined) query.andWhere('p.bathrooms <= :maxBaths', { maxBaths: dto.maxBathrooms });
+    if (dto.minBuildSize !== undefined) query.andWhere('p.buildSize >= :minBuild', { minBuild: dto.minBuildSize });
+    if (dto.maxBuildSize !== undefined) query.andWhere('p.buildSize <= :maxBuild', { maxBuild: dto.maxBuildSize });
+    if (dto.minPlotSize !== undefined) query.andWhere('p.plotSize >= :minPlot', { minPlot: dto.minPlotSize });
+    if (dto.maxPlotSize !== undefined) query.andWhere('p.plotSize <= :maxPlot', { maxPlot: dto.maxPlotSize });
+    if (dto.minTerraceSize !== undefined) query.andWhere('p.terraceSize >= :minTerrace', { minTerrace: dto.minTerraceSize });
+    if (dto.maxTerraceSize !== undefined) query.andWhere('p.terraceSize <= :maxTerrace', { maxTerrace: dto.maxTerraceSize });
+
     query.orderBy(`p.${sortBy}`, sortOrder);
 
     const total = await query.getCount();
@@ -120,7 +138,7 @@ export class PropertyService {
   async findOne(tenantId: number, id: number): Promise<Property> {
     const property = await this.propertyRepository.findOne({
       where: { id, tenantId },
-      relations: ['location', 'propertyType'],
+      relations: this.defaultRelations,
     });
     if (!property) throw new NotFoundException('Property not found');
     return property;
@@ -129,7 +147,7 @@ export class PropertyService {
   async findByReference(tenantId: number, reference: string): Promise<Property | null> {
     return this.propertyRepository.findOne({
       where: { tenantId, reference },
-      relations: ['location', 'propertyType'],
+      relations: this.defaultRelations,
     });
   }
 
@@ -147,7 +165,7 @@ export class PropertyService {
     return saved;
   }
 
-  async update(tenantId: number, id: number, dto: UpdatePropertyDto): Promise<Property> {
+  async update(tenantId: number, id: number, dto: UpdatePropertyDto, userId?: number): Promise<Property> {
     const property = await this.findOne(tenantId, id);
     const oldLocationId = property.locationId;
 
@@ -158,6 +176,10 @@ export class PropertyService {
 
     const updateData = this.filterLockedFields(property, dto);
     Object.assign(property, updateData);
+
+    if (userId) {
+      property.lastUpdatedById = userId;
+    }
 
     if (dto.isPublished && !property.publishedAt) {
       property.publishedAt = new Date();

@@ -1,6 +1,5 @@
 # Local-development infrastructure only. Production uses the host's installed
 # MySQL and Redis — do not use these images in prod.
-version: "3.9"
 
 services:
   mysql:

@@ -43,6 +43,7 @@ export class SearchForm {
               <option value="">${escapeHtml(labels['search.any'])}</option>
               <option value="sale">${escapeHtml(labels['search.forSale'])}</option>
               <option value="rent">${escapeHtml(labels['search.forRent'])}</option>
+              <option value="holiday_rent">${escapeHtml(labels['search.holidayRent'])}</option>
               <option value="development">${escapeHtml(labels['search.development'])}</option>
             </select>
           </div>

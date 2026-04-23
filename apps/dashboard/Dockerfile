@@ -43,7 +43,11 @@ ENV NODE_ENV=production \
 
 COPY --from=build --chown=spw:spw /workspace/apps/dashboard/public ./public
 COPY --from=build --chown=spw:spw /workspace/apps/dashboard/.next/standalone ./
-COPY --from=build --chown=spw:spw /workspace/apps/dashboard/.next/static ./apps/dashboard/.next/static
+COPY --from=build --chown=spw:spw /workspace/apps/dashboard/.next/static ./.next/static
+
+# pnpm standalone output uses symlinks that break in multi-stage copies.
+# Install the minimal runtime deps Next.js needs with npm instead.
+RUN npm install --no-save next@14.1.4 2>/dev/null && chown -R spw:spw node_modules
 
 USER spw
 EXPOSE 3000
@@ -52,6 +56,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3000/api/health || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
-# Standalone build emits the server at apps/dashboard/server.js (mirrors
-# the monorepo path inside the image).
-CMD ["node", "apps/dashboard/server.js"]
+CMD ["node", "server.js"]

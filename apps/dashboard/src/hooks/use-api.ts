@@ -38,8 +38,9 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
+        const isFormData = requestOptions.body instanceof FormData;
         const headers: HeadersInit = {
-          'Content-Type': 'application/json',
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
           ...requestOptions.headers,
         };
 
@@ -91,7 +92,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     (endpoint: string, body?: any) =>
       request(endpoint, {
         method: 'POST',
-        body: body ? JSON.stringify(body) : undefined,
+        body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
       }),
     [request]
   );
@@ -127,6 +128,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     put,
     patch,
     delete: del,
+    isReady: !!session?.accessToken,
   };
 }
 

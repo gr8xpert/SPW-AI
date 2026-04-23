@@ -43,6 +43,10 @@ const integrations = [
   { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput },
 ];
 
+const management = [
+  { name: 'Team', href: '/dashboard/team', icon: Users },
+];
+
 const other = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
@@ -106,6 +110,7 @@ export function Sidebar() {
         <NavSection title="Main" items={navigation} pathname={pathname} />
         <NavSection title="Marketing" items={marketing} pathname={pathname} />
         <NavSection title="Integrations" items={integrations} pathname={pathname} />
+        <NavSection title="Management" items={management} pathname={pathname} />
         <NavSection title="Other" items={other} pathname={pathname} />
       </nav>
 

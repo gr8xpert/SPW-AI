@@ -30,8 +30,25 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Building2, Mail, Globe, Webhook, Key, RefreshCw } from 'lucide-react';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
+
+type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
+
+const SLUG_FORMAT_OPTIONS: { value: SlugFormat; label: string; example: string }[] = [
+  { value: 'ref', label: 'Reference Only', example: '/property/REF-1234' },
+  { value: 'ref-title', label: 'Reference + Title', example: '/property/REF-1234-luxury-villa-marbella' },
+  { value: 'title-ref', label: 'Title + Reference', example: '/property/luxury-villa-marbella-REF-1234' },
+  { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa-REF-1234' },
+  { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234-villa-marbella' },
+];
 
 const generalSchema = z.object({
   companyName: z.string().min(1, 'Company name is required'),
@@ -158,21 +175,30 @@ export default function SettingsPage() {
   const [senderDomainInput, setSenderDomainInput] = useState('');
   const [savingSenderDomain, setSavingSenderDomain] = useState(false);
   const [verifyingSenderDomain, setVerifyingSenderDomain] = useState(false);
+  const [slugFormat, setSlugFormat] = useState<SlugFormat>('ref-title');
 
   useEffect(() => {
     if (!session?.accessToken) return;
     apiGet<TenantCurrent>('/api/dashboard/tenant')
       .then((res) => {
-        // API wraps responses as { data: ... } via global interceptor; our
-        // apiGet returns the raw axios response.data, so res.data is the
-        // payload.
         if (typeof res.data?.syncVersion === 'number') {
           setSyncVersion(res.data.syncVersion);
         }
+        const settings = (res.data as any)?.settings;
+        if (settings?.slugFormat) {
+          setSlugFormat(settings.slugFormat);
+        }
+        if (settings?.companyName) {
+          generalForm.setValue('companyName', settings.companyName);
+        }
+        if ((res.data as any)?.domain) {
+          generalForm.setValue('domain', (res.data as any).domain);
+        }
+        if (settings?.defaultLanguage) {
+          generalForm.setValue('defaultLanguage', settings.defaultLanguage);
+        }
       })
-      .catch(() => {
-        // Non-fatal — cache panel just won't show a version number.
-      });
+      .catch(() => {});
 
     apiGet<WebhookConfigResponse>('/api/dashboard/tenant/webhook')
       .then((res) => {
@@ -487,7 +513,11 @@ export default function SettingsPage() {
   const onGeneralSubmit = async (data: z.infer<typeof generalSchema>) => {
     setIsLoading(true);
     try {
-      // API call would go here
+      await apiPut('/api/dashboard/tenant/settings', {
+        companyName: data.companyName,
+        defaultLanguage: data.defaultLanguage,
+        slugFormat,
+      });
       toast({
         title: 'Settings saved',
         description: 'Your general settings have been updated.',
@@ -592,19 +622,42 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="defaultLanguage">Default Language</Label>
-                  <select
-                    id="defaultLanguage"
-                    className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    {...generalForm.register('defaultLanguage')}
-                  >
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="de">German</option>
-                    <option value="fr">French</option>
-                    <option value="nl">Dutch</option>
-                  </select>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="defaultLanguage">Default Language</Label>
+                    <select
+                      id="defaultLanguage"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      {...generalForm.register('defaultLanguage')}
+                    >
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="de">German</option>
+                      <option value="fr">French</option>
+                      <option value="nl">Dutch</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Property Slug Format</Label>
+                    <Select value={slugFormat} onValueChange={(v) => setSlugFormat(v as SlugFormat)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SLUG_FORMAT_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Default URL format for property detail pages. Individual properties can override this with a custom slug.
+                    </p>
+                    {SLUG_FORMAT_OPTIONS.find((o) => o.value === slugFormat) && (
+                      <p className="text-xs text-muted-foreground">
+                        Example: <code className="bg-muted rounded px-1">{SLUG_FORMAT_OPTIONS.find((o) => o.value === slugFormat)!.example}</code>
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? 'Saving...' : 'Save Changes'}

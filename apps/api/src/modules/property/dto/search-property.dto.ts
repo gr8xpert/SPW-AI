@@ -14,7 +14,7 @@ export class SearchPropertyDto {
   propertyTypeId?: number;
 
   @IsOptional()
-  @IsIn(['sale', 'rent', 'development'])
+  @IsIn(['sale', 'rent', 'holiday_rent', 'development'])
   listingType?: ListingType;
 
   @IsOptional()
@@ -53,12 +53,52 @@ export class SearchPropertyDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(20)
+  maxBathrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   minBuildSize?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   maxBuildSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minPlotSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxPlotSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minTerraceSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxTerraceSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minSolariumSize?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxSolariumSize?: number;
 
   @IsOptional()
   @IsArray()

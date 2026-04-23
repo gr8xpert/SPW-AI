@@ -33,7 +33,7 @@ export interface Property {
   reference: string;
   title: string;
   description: string;
-  listingType: 'sale' | 'rent' | 'development';
+  listingType: 'sale' | 'rent' | 'holiday_rent' | 'development';
   propertyType: PropertyType;
   location: Location;
   price: number;
@@ -84,7 +84,7 @@ export interface Feature {
 // Search Types
 export interface SearchFilters {
   query?: string;
-  listingType?: 'sale' | 'rent' | 'development';
+  listingType?: 'sale' | 'rent' | 'holiday_rent' | 'development';
   locationId?: number;
   propertyTypeId?: number;
   minPrice?: number;
@@ -138,6 +138,7 @@ export interface Labels {
   'search.reset': string;
   'search.forSale': string;
   'search.forRent': string;
+  'search.holidayRent': string;
   'search.development': string;
   'search.anyLocation': string;
   'search.anyType': string;

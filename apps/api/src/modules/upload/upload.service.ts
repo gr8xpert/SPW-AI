@@ -74,7 +74,24 @@ export class UploadService {
 
   // ============ Storage Config ============
   async getStorageConfig(tenantId: number): Promise<TenantStorageConfig | null> {
-    return this.storageConfigRepository.findOne({ where: { tenantId } });
+    const tenantConfig = await this.storageConfigRepository.findOne({ where: { tenantId } });
+    if (tenantConfig) return tenantConfig;
+
+    const bucket = this.configService.get<string>('DEFAULT_S3_BUCKET');
+    if (!bucket) return null;
+
+    const fallback = new TenantStorageConfig();
+    fallback.tenantId = tenantId;
+    fallback.storageType = 's3';
+    fallback.s3Bucket = bucket;
+    fallback.s3Region = this.configService.get<string>('DEFAULT_S3_REGION') || 'eu-west-1';
+    fallback.s3AccessKey = this.configService.get<string>('DEFAULT_S3_ACCESS_KEY') || '';
+    fallback.s3SecretKey = this.configService.get<string>('DEFAULT_S3_SECRET_KEY') || '';
+    fallback.s3Endpoint = this.configService.get<string>('DEFAULT_S3_ENDPOINT') || '';
+    fallback.cdnUrl = this.configService.get<string>('DEFAULT_CDN_URL') || '';
+    fallback.maxFileSize = 10;
+    fallback.isActive = true;
+    return fallback;
   }
 
   async createOrUpdateStorageConfig(

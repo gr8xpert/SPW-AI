@@ -14,7 +14,7 @@
 #
 # Run migrations after the API starts:
 #   docker compose -f docker-compose.prod.yml -f docker-compose.local-test.yml \
-#     --env-file .env.docker-local exec api node dist/database/run-migrations.js
+#     --env-file .env.docker-local exec api npx typeorm migration:run -d dist/config/database.config.js
 #
 # Seed default data (plans, super-admin):
 #   docker compose -f docker-compose.prod.yml -f docker-compose.local-test.yml \
@@ -26,12 +26,13 @@
 
 services:
   api:
-    ports:
-      - "0.0.0.0:3001:3001"
     environment:
       # Keep WEBHOOK_ALLOW_LOOPBACK=false (production-safe). The only
       # difference from real prod is that we expose port 3001 directly
       # instead of going through a reverse proxy.
+      REDIS_PASSWORD: ""
+      SEED_SUPER_ADMIN_EMAIL: ${SEED_SUPER_ADMIN_EMAIL-}
+      SEED_SUPER_ADMIN_PASSWORD: ${SEED_SUPER_ADMIN_PASSWORD-}
 
   redis:
     # Override the prod command: when REDIS_PASSWORD is empty the shell

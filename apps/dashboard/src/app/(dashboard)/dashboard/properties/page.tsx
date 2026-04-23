@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -28,8 +29,11 @@ import {
   Eye,
   Edit,
   Trash2,
-  ExternalLink,
   AlertCircle,
+  SlidersHorizontal,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { apiGet } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -61,6 +65,11 @@ interface PropertiesResponse {
   };
 }
 
+interface RangeFilter {
+  min: string;
+  max: string;
+}
+
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
   draft: 'default',
   active: 'success',
@@ -68,23 +77,103 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'destruct
   archived: 'destructive',
 };
 
+const emptyRange = (): RangeFilter => ({ min: '', max: '' });
+
+function RangeInputs({
+  label,
+  value,
+  onChange,
+  onPageReset,
+}: {
+  label: string;
+  value: RangeFilter;
+  onChange: (v: RangeFilter) => void;
+  onPageReset: () => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          placeholder="Min"
+          className="h-8 text-sm"
+          value={value.min}
+          onChange={(e) => { onChange({ ...value, min: e.target.value }); onPageReset(); }}
+        />
+        <span className="text-xs text-muted-foreground shrink-0">to</span>
+        <Input
+          type="number"
+          placeholder="Max"
+          className="h-8 text-sm"
+          value={value.max}
+          onChange={(e) => { onChange({ ...value, max: e.target.value }); onPageReset(); }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PropertiesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [price, setPrice] = useState<RangeFilter>(emptyRange());
+  const [bedrooms, setBedrooms] = useState<RangeFilter>(emptyRange());
+  const [bathrooms, setBathrooms] = useState<RangeFilter>(emptyRange());
+  const [buildSize, setBuildSize] = useState<RangeFilter>(emptyRange());
+  const [plotSize, setPlotSize] = useState<RangeFilter>(emptyRange());
+  const [terraceSize, setTerraceSize] = useState<RangeFilter>(emptyRange());
+
+  const hasActiveFilters =
+    [price, bedrooms, bathrooms, buildSize, plotSize, terraceSize].some(
+      (r) => r.min !== '' || r.max !== ''
+    );
+
+  const clearFilters = () => {
+    setPrice(emptyRange());
+    setBedrooms(emptyRange());
+    setBathrooms(emptyRange());
+    setBuildSize(emptyRange());
+    setPlotSize(emptyRange());
+    setTerraceSize(emptyRange());
+    setPage(1);
+  };
+
+  const resetPage = () => setPage(1);
+
+  const buildParams = () => {
+    const params: Record<string, any> = { page, limit: 20 };
+    if (search) params.search = search;
+    if (price.min) params.minPrice = price.min;
+    if (price.max) params.maxPrice = price.max;
+    if (bedrooms.min) params.minBedrooms = bedrooms.min;
+    if (bedrooms.max) params.maxBedrooms = bedrooms.max;
+    if (bathrooms.min) params.minBathrooms = bathrooms.min;
+    if (bathrooms.max) params.maxBathrooms = bathrooms.max;
+    if (buildSize.min) params.minBuildSize = buildSize.min;
+    if (buildSize.max) params.maxBuildSize = buildSize.max;
+    if (plotSize.min) params.minPlotSize = plotSize.min;
+    if (plotSize.max) params.maxPlotSize = plotSize.max;
+    if (terraceSize.min) params.minTerraceSize = terraceSize.min;
+    if (terraceSize.max) params.maxTerraceSize = terraceSize.max;
+    return params;
+  };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['properties', page, search],
+    queryKey: [
+      'properties', page, search,
+      price, bedrooms, bathrooms, buildSize, plotSize, terraceSize,
+    ],
     queryFn: () =>
       apiGet<PropertiesResponse>('/api/dashboard/properties', {
-        params: { page, limit: 20, search },
+        params: buildParams(),
       }),
   });
 
   const properties = data?.data || [];
   const meta = data?.meta;
-
-  // Debug: log response
-  console.log('Properties API response:', { data, isLoading, isError, error });
 
   return (
     <div className="space-y-6">
@@ -92,9 +181,7 @@ export default function PropertiesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Properties</h1>
-          <p className="text-muted-foreground">
-            Manage your property listings
-          </p>
+          <p className="text-muted-foreground">Manage your property listings</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/properties/create">
@@ -104,7 +191,7 @@ export default function PropertiesPage() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Search & Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-4">
@@ -114,13 +201,43 @@ export default function PropertiesPage() {
                 placeholder="Search by reference, title..."
                 className="pl-10"
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">!</Badge>
+              )}
+              {filtersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
           </div>
+
+          {filtersOpen && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium">Range Filters</p>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
+                    <X className="h-3 w-3 mr-1" /> Clear all
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                <RangeInputs label="Price" value={price} onChange={setPrice} onPageReset={resetPage} />
+                <RangeInputs label="Bedrooms" value={bedrooms} onChange={setBedrooms} onPageReset={resetPage} />
+                <RangeInputs label="Bathrooms" value={bathrooms} onChange={setBathrooms} onPageReset={resetPage} />
+                <RangeInputs label="Build Size (m²)" value={buildSize} onChange={setBuildSize} onPageReset={resetPage} />
+                <RangeInputs label="Plot Size (m²)" value={plotSize} onChange={setPlotSize} onPageReset={resetPage} />
+                <RangeInputs label="Terrace (m²)" value={terraceSize} onChange={setTerraceSize} onPageReset={resetPage} />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -174,69 +291,32 @@ export default function PropertiesPage() {
                       <TableCell>
                         <div className="h-12 w-16 rounded-md bg-muted overflow-hidden">
                           {property.images?.[0]?.url ? (
-                            <img
-                              src={property.images[0].url}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
+                            <img src={property.images[0].url} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                              No image
-                            </div>
+                            <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">No image</div>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {property.reference}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {property.title?.en || property.title?.es || '-'}
-                      </TableCell>
-                      <TableCell>
-                        {property.location?.name?.en || '-'}
-                      </TableCell>
-                      <TableCell>
-                        {property.price
-                          ? formatCurrency(property.price, property.currency)
-                          : 'POA'}
-                      </TableCell>
-                      <TableCell>
-                        {property.bedrooms || '-'} / {property.bathrooms || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusColors[property.status]}>
-                          {property.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {property.source}
-                        </Badge>
-                      </TableCell>
+                      <TableCell className="font-mono text-sm">{property.reference}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{property.title?.en || property.title?.es || '-'}</TableCell>
+                      <TableCell>{property.location?.name?.en || '-'}</TableCell>
+                      <TableCell>{property.price ? formatCurrency(property.price, property.currency) : 'POA'}</TableCell>
+                      <TableCell>{property.bedrooms || '-'} / {property.bathrooms || '-'}</TableCell>
+                      <TableCell><Badge variant={statusColors[property.status]}>{property.status}</Badge></TableCell>
+                      <TableCell><Badge variant="outline" className="capitalize">{property.source}</Badge></TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
+                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/properties/${property.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View
-                              </Link>
+                              <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> View</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/properties/${property.id}/edit`}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </Link>
+                              <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -245,7 +325,6 @@ export default function PropertiesPage() {
                 </TableBody>
               </Table>
 
-              {/* Pagination */}
               {meta && meta.pages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <p className="text-sm text-muted-foreground">
@@ -253,22 +332,8 @@ export default function PropertiesPage() {
                     {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} results
                   </p>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
-                      disabled={page === meta.pages}
-                    >
-                      Next
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(meta.pages, p + 1))} disabled={page === meta.pages}>Next</Button>
                   </div>
                 </div>
               )}
