@@ -15,6 +15,7 @@ import {
   PropertyType,
   Feature,
 } from '../../database/entities';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import {
       name: 'feed-import',
     }),
     ScheduleModule.forRoot(),
+    TenantModule,
   ],
   controllers: [FeedController],
   providers: [

@@ -12,6 +12,7 @@ import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities'
 import { Property, Location, PropertyType, Feature } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, BaseFeedAdapter, FeedProperty } from './adapters';
+import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
 export class FeedService {
@@ -35,6 +36,7 @@ export class FeedService {
     private feedImportQueue: Queue,
     private resalesAdapter: ResalesAdapter,
     private inmobaAdapter: InmobaAdapter,
+    private readonly tenantService: TenantService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -199,6 +201,18 @@ export class FeedService {
       config.lastError = null;
 
       await this.feedConfigRepository.save(config);
+
+      if (createdCount > 0 || updatedCount > 0) {
+        try {
+          await this.tenantService.clearCache(config.tenantId, {
+            reason: `feed_import:${config.provider}`,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Cache invalidation failed after feed import for tenant=${config.tenantId}: ${(err as Error).message}`,
+          );
+        }
+      }
     } catch (error) {
       this.logger.error(`Feed import failed for config ${configId}`, error);
 

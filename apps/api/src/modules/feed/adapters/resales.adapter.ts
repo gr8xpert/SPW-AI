@@ -29,8 +29,8 @@ export class ResalesAdapter extends BaseFeedAdapter {
           p_agency_filterid: credentials.clientId,
           p1: 1,
           p2: 1,
+          ...this.getAuthParams(credentials),
         },
-        headers: this.getHeaders(credentials),
         timeout: 10000,
       });
 
@@ -49,12 +49,13 @@ export class ResalesAdapter extends BaseFeedAdapter {
       this.logger.error('Resales credential validation failed', error);
 
       if (error.response?.data) {
-        const body = typeof error.response.data === 'string'
-          ? (() => { try { return JSON.parse(error.response.data); } catch { return null; } })()
-          : error.response.data;
+        const raw = error.response.data;
+        const body = typeof raw === 'string'
+          ? (() => { try { return this.parser.parse(raw); } catch { try { return JSON.parse(raw); } catch { return null; } } })()
+          : raw;
 
-        if (body?.transaction?.errordescription) {
-          const desc = body.transaction.errordescription;
+        const desc = body?.root?.transaction?.errordescription || body?.transaction?.errordescription;
+        if (desc) {
           const messages = Object.values(desc).filter(Boolean).join('; ');
           return { valid: false, error: messages };
         }
@@ -77,8 +78,8 @@ export class ResalesAdapter extends BaseFeedAdapter {
         p_agency_filterid: credentials.clientId,
         p1: startIndex,
         p2: endIndex,
+        ...this.getAuthParams(credentials),
       },
-      headers: this.getHeaders(credentials),
       timeout: 60000,
     });
 
@@ -103,16 +104,12 @@ export class ResalesAdapter extends BaseFeedAdapter {
     };
   }
 
-  private getHeaders(credentials: FeedCredentials): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/xml',
-    };
-
+  private getAuthParams(credentials: FeedCredentials): Record<string, string> {
+    const params: Record<string, string> = {};
     if (credentials.apiKey) {
-      headers['Authorization'] = `Bearer ${credentials.apiKey}`;
+      params['p_apikey'] = credentials.apiKey;
     }
-
-    return headers;
+    return params;
   }
 
   private mapProperty(raw: any): FeedProperty {
