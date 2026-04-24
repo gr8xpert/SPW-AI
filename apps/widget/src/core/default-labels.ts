@@ -70,6 +70,17 @@ export const defaultLabels: Labels = {
   'pagination.next': 'Next',
   'pagination.page': 'Page',
 
+  // Favorites / Wishlist
+  'favorites.title': 'My Wishlist',
+  'favorites.properties': 'properties',
+  'favorites.shareTitle': 'Email this wishlist',
+  'favorites.friendEmail': "Friend's email (optional)",
+  'favorites.messagePlaceholder': 'Check out these properties!',
+  'favorites.send': 'Send Wishlist',
+  'favorites.success': 'Wishlist sent successfully!',
+  'favorites.error': 'Failed to send. Please try again.',
+  'favorites.empty': 'No properties in your wishlist yet.',
+
   // General
   'general.loading': 'Loading...',
   'general.error': 'An error occurred. Please try again.',
@@ -136,6 +147,16 @@ export const spanishLabels: Partial<Labels> = {
   'inquiry.success': '¡Gracias! Su consulta ha sido enviada.',
   'inquiry.error': 'Lo sentimos, hubo un error al enviar su consulta. Por favor, inténtelo de nuevo.',
 
+  'favorites.title': 'Mi Lista de Deseos',
+  'favorites.properties': 'propiedades',
+  'favorites.shareTitle': 'Enviar esta lista por email',
+  'favorites.friendEmail': 'Email de un amigo (opcional)',
+  'favorites.messagePlaceholder': '¡Mira estas propiedades!',
+  'favorites.send': 'Enviar Lista',
+  'favorites.success': '¡Lista enviada con éxito!',
+  'favorites.error': 'Error al enviar. Por favor, inténtelo de nuevo.',
+  'favorites.empty': 'No hay propiedades en su lista de deseos.',
+
   'pagination.previous': 'Anterior',
   'pagination.next': 'Siguiente',
   'pagination.page': 'Página',
@@ -185,6 +206,16 @@ export const germanLabels: Partial<Labels> = {
   'inquiry.phone': 'Telefonnummer',
   'inquiry.message': 'Nachricht',
   'inquiry.submit': 'Anfrage Senden',
+
+  'favorites.title': 'Meine Merkliste',
+  'favorites.properties': 'Immobilien',
+  'favorites.shareTitle': 'Merkliste per E-Mail senden',
+  'favorites.friendEmail': 'E-Mail eines Freundes (optional)',
+  'favorites.messagePlaceholder': 'Schauen Sie sich diese Immobilien an!',
+  'favorites.send': 'Merkliste Senden',
+  'favorites.success': 'Merkliste erfolgreich gesendet!',
+  'favorites.error': 'Senden fehlgeschlagen. Bitte versuchen Sie es erneut.',
+  'favorites.empty': 'Keine Immobilien in Ihrer Merkliste.',
 
   'general.loading': 'Laden...',
   'general.close': 'Schließen',

@@ -13,6 +13,8 @@ import { defaultLabels } from './default-labels';
 import { SearchForm } from '../components/SearchForm';
 import { ResultsGrid } from '../components/ResultsGrid';
 import { PropertyDetail } from '../components/PropertyDetail';
+import { ChatBubble } from '../components/ChatBubble';
+import { FavoritesPanel } from '../components/FavoritesPanel';
 import { EventEmitter, deepMerge, generateSessionId, storage } from '../utils/helpers';
 import '../styles/widget.css';
 
@@ -45,6 +47,7 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
   private searchForm: SearchForm | null = null;
   private resultsGrid: ResultsGrid | null = null;
   private propertyDetail: PropertyDetail | null = null;
+  private chatBubble: ChatBubble | null = null;
 
   private currentFilters: SearchFilters = {};
   private favorites: Set<number> = new Set();
@@ -136,6 +139,20 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
         });
       }
 
+      if (this.config.enableAiChat) {
+        this.chatBubble = new ChatBubble({
+          apiUrl: this.config.apiUrl,
+          apiKey: this.config.apiKey,
+          language: this.config.language,
+          getFavorites: () => Array.from(this.favorites),
+          onPropertyClick: (reference) => {
+            this.dataLoader.getProperty(reference).then((prop) => {
+              if (prop) this.handlePropertyClick(prop);
+            }).catch(() => {});
+          },
+        });
+      }
+
       this.isInitialized = true;
       this.emit('ready', undefined);
     } catch (error) {
@@ -190,6 +207,7 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
       onFavoriteToggle: (property) => this.handleFavoriteToggle(property),
       onSortChange: (sortBy) => this.handleSortChange(sortBy),
       onPageChange: (page) => this.handlePageChange(page),
+      onOpenFavorites: () => this.handleOpenFavorites(),
     });
   }
 
@@ -315,6 +333,38 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
   }
 
   /**
+   * Handle opening the favorites panel
+   */
+  private handleOpenFavorites(): void {
+    const panel = new FavoritesPanel({
+      labels: this.labels,
+      currency: this.config.currency,
+      getFavoriteIds: () => Array.from(this.favorites),
+      getFavoriteProperties: async () => {
+        const ids = Array.from(this.favorites);
+        const results = await this.dataLoader.searchProperties({
+          page: 1,
+          limit: ids.length || 1,
+        });
+        return results.data.filter((p) => ids.includes(p.id));
+      },
+      onPropertyClick: (property) => this.handlePropertyClick(property),
+      onRemoveFavorite: (property) => this.handleFavoriteToggle(property),
+      onShareSubmit: async (data) => {
+        const result = await this.dataLoader.shareFavorites(data);
+        this.emit('inquiry:success', {
+          name: data.name,
+          email: data.email,
+          message: data.message || '',
+        } as any);
+        return result;
+      },
+      onClose: () => {},
+    });
+    panel.show();
+  }
+
+  /**
    * Handle inquiry submission
    */
   private async handleInquiry(data: InquiryData): Promise<void> {
@@ -393,6 +443,7 @@ export class SPWWidget extends EventEmitter<SPWEvents> {
     this.searchForm?.destroy();
     this.resultsGrid?.destroy();
     this.propertyDetail?.close();
+    this.chatBubble?.destroy();
     this.container.innerHTML = '';
     this.container.classList.remove('spw-widget', 'spw-theme-dark');
     this.isInitialized = false;

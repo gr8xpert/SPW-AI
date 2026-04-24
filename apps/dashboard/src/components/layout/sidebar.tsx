@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Shield,
   CreditCard,
+  MessageSquare,
 } from 'lucide-react';
 
 const navigation = [
@@ -49,6 +50,7 @@ const management = [
 
 const other = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },

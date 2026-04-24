@@ -631,6 +631,176 @@
   color: var(--spw-primary);
 }
 
+/* Results Actions (sort + favorites button) */
+.spw-results-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Favorites Button in Header */
+.spw-favorites-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--spw-background);
+  border: 1px solid var(--spw-border);
+  border-radius: var(--spw-radius);
+  cursor: pointer;
+  color: var(--spw-primary);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.spw-favorites-btn:hover {
+  background: var(--spw-muted);
+  border-color: var(--spw-primary);
+}
+
+.spw-favorites-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--spw-primary);
+  color: #fff;
+  border-radius: 9999px;
+}
+
+/* Favorites Panel */
+.spw-favorites-modal {
+  max-width: 700px;
+}
+
+.spw-favorites-count {
+  font-size: 0.8rem;
+  color: var(--spw-muted-foreground);
+}
+
+.spw-favorites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.spw-fav-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--spw-border);
+  border-radius: var(--spw-radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.spw-fav-card:hover {
+  background: var(--spw-muted);
+}
+
+.spw-fav-card-img {
+  flex-shrink: 0;
+  width: 80px;
+  height: 60px;
+  border-radius: calc(var(--spw-radius) / 2);
+  overflow: hidden;
+  background: var(--spw-muted);
+}
+
+.spw-fav-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.spw-fav-card-noimg {
+  width: 100%;
+  height: 100%;
+  background: var(--spw-muted);
+}
+
+.spw-fav-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.spw-fav-card-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spw-fav-card-location {
+  font-size: 0.75rem;
+  color: var(--spw-muted-foreground);
+}
+
+.spw-fav-card-price {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--spw-primary);
+  margin-top: 0.125rem;
+}
+
+.spw-fav-card-specs {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--spw-muted-foreground);
+  margin-top: 0.125rem;
+}
+
+.spw-fav-card-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--spw-muted-foreground);
+  transition: background 0.15s, color 0.15s;
+}
+
+.spw-fav-card-remove:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.spw-favorites-share {
+  border-top: 1px solid var(--spw-border);
+  padding-top: 1.25rem;
+}
+
+.spw-favorites-share h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.spw-favorites-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.spw-favorites-form .spw-btn {
+  margin-top: 0.25rem;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .spw-search-grid {

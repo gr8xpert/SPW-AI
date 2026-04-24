@@ -68,3 +68,7 @@ export * from './tenant-email-domain.entity';
 
 // Inbound Paddle webhook idempotency
 export * from './processed-paddle-event.entity';
+
+// AI Chat entities
+export * from './chat-conversation.entity';
+export * from './chat-message.entity';

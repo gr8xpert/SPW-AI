@@ -146,6 +146,22 @@ export class DataLoader {
   }
 
   /**
+   * Share favorites via email
+   */
+  async shareFavorites(data: {
+    name: string;
+    email: string;
+    friendEmail?: string;
+    message?: string;
+    propertyIds: number[];
+  }): Promise<{ success: boolean; message: string }> {
+    return this.apiRequest<{ success: boolean; message: string }>('/v1/share-favorites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
    * Track event (view, search, etc.)
    */
   async trackEvent(event: TrackingEvent): Promise<void> {

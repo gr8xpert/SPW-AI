@@ -60,6 +60,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { AiModule } from './modules/ai/ai.module';
 import { TranslationModule } from './modules/translation/translation.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 
 @Module({
   imports: [
@@ -179,6 +180,7 @@ import { TranslationModule } from './modules/translation/translation.module';
     // ============ Phase 6: AI & Translation ============
     AiModule,
     TranslationModule,
+    AiChatModule,
   ],
   providers: [
     // Global exception filter

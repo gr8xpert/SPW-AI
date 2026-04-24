@@ -37,7 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus, MessageSquare } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 
 type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
@@ -191,6 +193,20 @@ export default function SettingsPage() {
   const [testingAi, setTestingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; error?: string } | null>(null);
 
+  // AI Chat settings state
+  const [aiChatEnabled, setAiChatEnabled] = useState(false);
+  const [aiChatNLSearch, setAiChatNLSearch] = useState(true);
+  const [aiChatConversational, setAiChatConversational] = useState(true);
+  const [aiChatPropertyQA, setAiChatPropertyQA] = useState(true);
+  const [aiChatComparison, setAiChatComparison] = useState(true);
+  const [aiChatRecommendations, setAiChatRecommendations] = useState(true);
+  const [aiChatMultilingual, setAiChatMultilingual] = useState(true);
+  const [aiChatWelcomeMessage, setAiChatWelcomeMessage] = useState('');
+  const [aiChatMaxMessages, setAiChatMaxMessages] = useState(50);
+  const [aiChatTTLDays, setAiChatTTLDays] = useState(7);
+  const [aiChatAutoEmailAdmin, setAiChatAutoEmailAdmin] = useState(true);
+  const [savingAiChat, setSavingAiChat] = useState(false);
+
   // Tenant-level languages
   const [enabledLanguages, setEnabledLanguages] = useState<string[]>(['en']);
   const [savingLangs, setSavingLangs] = useState(false);
@@ -232,6 +248,17 @@ export default function SettingsPage() {
         if (settings?.openRouterModel) {
           setAiModel(settings.openRouterModel);
         }
+        if (typeof settings?.aiChatEnabled === 'boolean') setAiChatEnabled(settings.aiChatEnabled);
+        if (typeof settings?.aiChatNLSearch === 'boolean') setAiChatNLSearch(settings.aiChatNLSearch);
+        if (typeof settings?.aiChatConversational === 'boolean') setAiChatConversational(settings.aiChatConversational);
+        if (typeof settings?.aiChatPropertyQA === 'boolean') setAiChatPropertyQA(settings.aiChatPropertyQA);
+        if (typeof settings?.aiChatComparison === 'boolean') setAiChatComparison(settings.aiChatComparison);
+        if (typeof settings?.aiChatRecommendations === 'boolean') setAiChatRecommendations(settings.aiChatRecommendations);
+        if (typeof settings?.aiChatMultilingual === 'boolean') setAiChatMultilingual(settings.aiChatMultilingual);
+        if (settings?.aiChatWelcomeMessage) setAiChatWelcomeMessage(settings.aiChatWelcomeMessage);
+        if (typeof settings?.aiChatMaxMessagesPerConversation === 'number') setAiChatMaxMessages(settings.aiChatMaxMessagesPerConversation);
+        if (typeof settings?.aiChatConversationTTLDays === 'number') setAiChatTTLDays(settings.aiChatConversationTTLDays);
+        if (typeof settings?.aiChatAutoEmailAdmin === 'boolean') setAiChatAutoEmailAdmin(settings.aiChatAutoEmailAdmin);
       })
       .catch(() => {});
 
@@ -563,6 +590,30 @@ export default function SettingsPage() {
     }
   };
 
+  const onSaveAiChat = async () => {
+    setSavingAiChat(true);
+    try {
+      await apiPut('/api/dashboard/tenant/settings', {
+        aiChatEnabled,
+        aiChatNLSearch,
+        aiChatConversational,
+        aiChatPropertyQA,
+        aiChatComparison,
+        aiChatRecommendations,
+        aiChatMultilingual,
+        aiChatWelcomeMessage: aiChatWelcomeMessage || undefined,
+        aiChatMaxMessagesPerConversation: aiChatMaxMessages,
+        aiChatConversationTTLDays: aiChatTTLDays,
+        aiChatAutoEmailAdmin,
+      });
+      toast({ title: 'AI Chat settings saved', description: 'Your chat configuration has been updated.' });
+    } catch (err) {
+      toast({ title: 'Failed to save AI Chat settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSavingAiChat(false);
+    }
+  };
+
   const generalForm = useForm({
     resolver: zodResolver(generalSchema),
     defaultValues: {
@@ -658,6 +709,10 @@ export default function SettingsPage() {
           <TabsTrigger value="ai">
             <Bot className="h-4 w-4 mr-2" />
             AI
+          </TabsTrigger>
+          <TabsTrigger value="ai-chat">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            AI Chat
           </TabsTrigger>
           <TabsTrigger value="cache">
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -1504,6 +1559,157 @@ export default function SettingsPage() {
                 Translations use your tenant&apos;s configured languages. The AI detects the source
                 language automatically and translates to all other languages you&apos;ve enabled.
               </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI Chat */}
+        <TabsContent value="ai-chat" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Chat Widget</CardTitle>
+              <CardDescription>
+                Enable an AI-powered chat assistant on your website widget. Visitors can search properties,
+                ask questions, compare listings, and get recommendations through natural conversation.
+                Requires an OpenRouter API key configured in the AI tab.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">Enable AI Chat</p>
+                  <p className="text-sm text-muted-foreground">
+                    Show the chat bubble on your website widget
+                  </p>
+                </div>
+                <Switch checked={aiChatEnabled} onCheckedChange={setAiChatEnabled} />
+              </div>
+
+              {aiChatEnabled && (
+                <>
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Feature Toggles</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Enable or disable individual AI capabilities. Disabling a feature removes the
+                      corresponding tools from the AI, so it won&apos;t attempt those actions.
+                    </p>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Natural Language Search</p>
+                          <p className="text-xs text-muted-foreground">&ldquo;3 bedroom villa under 400k&rdquo; → property results</p>
+                        </div>
+                        <Switch checked={aiChatNLSearch} onCheckedChange={setAiChatNLSearch} />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Conversational Memory</p>
+                          <p className="text-xs text-muted-foreground">Multi-turn context — &ldquo;show apartments&rdquo; then &ldquo;any with pool?&rdquo;</p>
+                        </div>
+                        <Switch checked={aiChatConversational} onCheckedChange={setAiChatConversational} />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Property Q&amp;A</p>
+                          <p className="text-xs text-muted-foreground">Answer questions about a specific property&apos;s details</p>
+                        </div>
+                        <Switch checked={aiChatPropertyQA} onCheckedChange={setAiChatPropertyQA} />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Property Comparison</p>
+                          <p className="text-xs text-muted-foreground">Side-by-side comparison of two or more properties</p>
+                        </div>
+                        <Switch checked={aiChatComparison} onCheckedChange={setAiChatComparison} />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Recommendations</p>
+                          <p className="text-xs text-muted-foreground">&ldquo;Find something like this but cheaper&rdquo;</p>
+                        </div>
+                        <Switch checked={aiChatRecommendations} onCheckedChange={setAiChatRecommendations} />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Multilingual</p>
+                          <p className="text-xs text-muted-foreground">Respond in the visitor&apos;s language automatically</p>
+                        </div>
+                        <Switch checked={aiChatMultilingual} onCheckedChange={setAiChatMultilingual} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="text-sm font-medium">Configuration</h4>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="aiChatWelcome">Welcome Message</Label>
+                      <Textarea
+                        id="aiChatWelcome"
+                        placeholder="Hello! I can help you find your perfect property. What are you looking for?"
+                        value={aiChatWelcomeMessage}
+                        onChange={(e) => setAiChatWelcomeMessage(e.target.value)}
+                        rows={2}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Greeting shown when a visitor opens the chat. Leave blank for no greeting.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="aiChatMaxMsg">Max Messages per Conversation</Label>
+                        <Input
+                          id="aiChatMaxMsg"
+                          type="number"
+                          min={5}
+                          max={200}
+                          value={aiChatMaxMessages}
+                          onChange={(e) => setAiChatMaxMessages(Number(e.target.value))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          After this limit, the visitor must start a new chat.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="aiChatTTL">Conversation Expiry (days)</Label>
+                        <Input
+                          id="aiChatTTL"
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={aiChatTTLDays}
+                          onChange={(e) => setAiChatTTLDays(Number(e.target.value))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Returning visitors get a new chat after this many days.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div>
+                        <p className="font-medium">Auto-email Admin</p>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically email you the chat transcript when a visitor sends 3+ messages
+                        </p>
+                      </div>
+                      <Switch checked={aiChatAutoEmailAdmin} onCheckedChange={setAiChatAutoEmailAdmin} />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <Button onClick={onSaveAiChat} disabled={savingAiChat}>
+                {savingAiChat ? 'Saving…' : 'Save AI Chat Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

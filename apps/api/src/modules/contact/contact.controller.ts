@@ -7,8 +7,10 @@ import {
   Body,
   Param,
   Query,
+  Res,
   ParseIntPipe,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ContactService } from './contact.service';
 import { CreateContactDto, UpdateContactDto } from './dto';
 import { CurrentTenant } from '../../common/decorators';
@@ -41,6 +43,38 @@ export class ContactController {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });
+  }
+
+  @Get('export')
+  async exportCsv(
+    @CurrentTenant() tenantId: number,
+    @Res() res: Response,
+  ) {
+    const { data } = await this.contactService.findAll(tenantId, { limit: 10000 });
+    const header = 'name,email,phone,source,tags,subscribed,createdAt';
+    const rows = data.map((c) => {
+      const tags = Array.isArray(c.tags) ? c.tags.join(';') : '';
+      return [
+        this.csvEscape(c.name || ''),
+        this.csvEscape(c.email),
+        this.csvEscape(c.phone || ''),
+        c.source || '',
+        this.csvEscape(tags),
+        c.subscribed ? 'yes' : 'no',
+        c.createdAt ? new Date(c.createdAt).toISOString() : '',
+      ].join(',');
+    });
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=contacts.csv');
+    res.send(csv);
+  }
+
+  private csvEscape(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
   }
 
   @Get(':id')

@@ -86,6 +86,23 @@ export interface TenantSettings {
   // AI / OpenRouter
   openRouterApiKey?: string;
   openRouterModel?: string;
+
+  // AI Chat — master toggle
+  aiChatEnabled?: boolean;
+
+  // AI Chat — individual feature toggles
+  aiChatNLSearch?: boolean;
+  aiChatConversational?: boolean;
+  aiChatPropertyQA?: boolean;
+  aiChatComparison?: boolean;
+  aiChatRecommendations?: boolean;
+  aiChatMultilingual?: boolean;
+
+  // AI Chat — configuration
+  aiChatWelcomeMessage?: string;
+  aiChatMaxMessagesPerConversation?: number;
+  aiChatConversationTTLDays?: number;
+  aiChatAutoEmailAdmin?: boolean;
 }
 
 export interface TenantPublic {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -45,9 +45,13 @@ import {
   Mail,
   Phone,
   Upload,
+  Download,
+  FileUp,
   UserMinus,
   Trash2,
   Edit,
+  CheckCircle2,
+  AlertCircle,
   Loader2,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
@@ -86,11 +90,19 @@ export default function ContactsPage() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: string[] } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const api = useApi();
   const { toast } = useToast();
 
   const fetchContacts = async () => {
+    if (!api.isReady) return;
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
       if (search) params.set('search', search);
@@ -104,7 +116,7 @@ export default function ContactsPage() {
     }
   };
 
-  useEffect(() => { fetchContacts(); }, [page, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchContacts(); }, [page, search, api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     try {
@@ -183,6 +195,147 @@ export default function ContactsPage() {
     try { return new Date(d).toLocaleDateString(); } catch { return d; }
   };
 
+  const parseCsv = (text: string): { headers: string[]; rows: Record<string, string>[] } => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return { headers: [], rows: [] };
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQuotes) {
+          if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+          else if (ch === '"') { inQuotes = false; }
+          else { current += ch; }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',' || ch === ';') { result.push(current.trim()); current = ''; }
+          else { current += ch; }
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+    const headers = parseRow(lines[0]);
+    const rows = lines.slice(1).map((line) => {
+      const values = parseRow(line);
+      const obj: Record<string, string> = {};
+      headers.forEach((h, i) => { obj[h] = values[i] || ''; });
+      return obj;
+    });
+    return { headers, rows };
+  };
+
+  const FIELD_OPTIONS = [
+    { value: '', label: '-- Skip --' },
+    { value: 'email', label: 'Email' },
+    { value: 'name', label: 'Name' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'tags', label: 'Tags' },
+  ];
+
+  const autoMapColumns = (headers: string[]) => {
+    const map: Record<string, string> = {};
+    for (const h of headers) {
+      const lower = h.toLowerCase().trim();
+      if (lower.includes('email') || lower.includes('e-mail')) map[h] = 'email';
+      else if (lower.includes('name') || lower.includes('nombre')) map[h] = 'name';
+      else if (lower.includes('phone') || lower.includes('tel') || lower.includes('mobile')) map[h] = 'phone';
+      else if (lower.includes('tag')) map[h] = 'tags';
+      else map[h] = '';
+    }
+    return map;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      const { headers, rows } = parseCsv(text);
+      if (headers.length === 0) {
+        toast({ title: 'Invalid CSV file', description: 'No headers found', variant: 'destructive' });
+        return;
+      }
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+      setColumnMap(autoMapColumns(headers));
+      setImportResult(null);
+      setIsImportOpen(true);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleImport = async () => {
+    if (!columnMap.email && !Object.values(columnMap).includes('email')) {
+      toast({ title: 'Email column is required', description: 'Map at least one column to Email', variant: 'destructive' });
+      return;
+    }
+    const emailCol = Object.entries(columnMap).find(([, v]) => v === 'email')?.[0];
+    if (!emailCol) {
+      toast({ title: 'Email column is required', variant: 'destructive' });
+      return;
+    }
+
+    setImporting(true);
+    const contacts = csvRows
+      .filter((row) => row[emailCol]?.includes('@'))
+      .map((row) => {
+        const contact: Record<string, any> = { email: row[emailCol], source: 'import' };
+        for (const [csvCol, field] of Object.entries(columnMap)) {
+          if (!field || field === 'email') continue;
+          const val = row[csvCol];
+          if (!val) continue;
+          if (field === 'tags') {
+            contact.tags = val.split(/[;,]/).map((t: string) => t.trim()).filter(Boolean);
+          } else {
+            contact[field] = val;
+          }
+        }
+        return contact;
+      });
+
+    if (contacts.length === 0) {
+      toast({ title: 'No valid rows', description: 'No rows with valid email addresses found', variant: 'destructive' });
+      setImporting(false);
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/dashboard/contacts/import', { contacts });
+      const body = res?.data || res;
+      setImportResult(body);
+      toast({ title: `Import complete: ${body.created} created, ${body.updated} updated` });
+      fetchContacts();
+    } catch (e: any) {
+      toast({ title: 'Import failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await api.getRaw('/api/dashboard/contacts/export');
+      const text = await res.text();
+      const blob = new Blob([text], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Contacts exported' });
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -191,6 +344,14 @@ export default function ContactsPage() {
           <p className="text-muted-foreground">Manage your contact list for email campaigns</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Contact
@@ -435,6 +596,146 @@ export default function ContactsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden file input for CSV import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".csv,.txt"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Import CSV Dialog */}
+      <Dialog open={isImportOpen} onOpenChange={(open) => { setIsImportOpen(open); if (!open) { setCsvRows([]); setCsvHeaders([]); setColumnMap({}); setImportResult(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Contacts from CSV</DialogTitle>
+            <DialogDescription>
+              Map your CSV columns to contact fields. Only rows with a valid email will be imported.
+            </DialogDescription>
+          </DialogHeader>
+
+          {importResult ? (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">Import Complete</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold">{importResult.created}</div>
+                    <p className="text-sm text-muted-foreground">Contacts created</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold">{importResult.updated}</div>
+                    <p className="text-sm text-muted-foreground">Contacts updated</p>
+                  </CardContent>
+                </Card>
+              </div>
+              {importResult.errors?.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">{importResult.errors.length} errors</span>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto rounded border p-2 text-sm text-muted-foreground">
+                    {importResult.errors.map((err, i) => (
+                      <div key={i}>{err}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => setIsImportOpen(false)}>Done</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileUp className="h-4 w-4" />
+                <span>{csvRows.length} rows found in file</span>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Column Mapping</Label>
+                <div className="rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>CSV Column</TableHead>
+                        <TableHead>Maps To</TableHead>
+                        <TableHead>Preview</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvHeaders.map((header) => (
+                        <TableRow key={header}>
+                          <TableCell className="font-mono text-sm">{header}</TableCell>
+                          <TableCell>
+                            <select
+                              className="w-full rounded border bg-background px-2 py-1 text-sm"
+                              value={columnMap[header] || ''}
+                              onChange={(e) => setColumnMap({ ...columnMap, [header]: e.target.value })}
+                            >
+                              {FIELD_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                            {csvRows[0]?.[header] || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {csvRows.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Preview (first 3 rows)</Label>
+                  <div className="rounded border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {csvHeaders.filter((h) => columnMap[h]).map((h) => (
+                            <TableHead key={h}>{columnMap[h]}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {csvRows.slice(0, 3).map((row, i) => (
+                          <TableRow key={i}>
+                            {csvHeaders.filter((h) => columnMap[h]).map((h) => (
+                              <TableCell key={h} className="text-sm">{row[h] || '-'}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsImportOpen(false)}>Cancel</Button>
+                <Button onClick={handleImport} disabled={importing || !Object.values(columnMap).includes('email')}>
+                  {importing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Import {csvRows.filter((r) => {
+                    const emailCol = Object.entries(columnMap).find(([, v]) => v === 'email')?.[0];
+                    return emailCol && r[emailCol]?.includes('@');
+                  }).length} Contacts
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

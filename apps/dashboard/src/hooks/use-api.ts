@@ -120,6 +120,22 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     [request]
   );
 
+  const getRaw = useCallback(
+    async (endpoint: string): Promise<Response> => {
+      const headers: HeadersInit = {};
+      if (session?.accessToken) {
+        (headers as Record<string, string>)['Authorization'] =
+          `Bearer ${session.accessToken}`;
+      }
+      const response = await fetch(`${apiUrl}${endpoint}`, { headers });
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      return response;
+    },
+    [apiUrl, session?.accessToken]
+  );
+
   return {
     ...state,
     request,
@@ -128,6 +144,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     put,
     patch,
     delete: del,
+    getRaw,
     isReady: !!session?.accessToken,
   };
 }

@@ -151,6 +151,7 @@ interface FormData {
   deliveryDate: string;
   completionDate: string;
   propertyTypeReference: string;
+  syncEnabled: boolean;
 }
 
 function LanguageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -270,7 +271,7 @@ export default function EditPropertyPage() {
     metaKeywords: { ...emptyMultilingual }, pageTitle: { ...emptyMultilingual },
     agentId: '', salesAgentId: '', project: '', isOwnProperty: false, villaSelection: false,
     luxurySelection: false, apartmentSelection: false, deliveryDate: '', completionDate: '',
-    propertyTypeReference: '',
+    propertyTypeReference: '', syncEnabled: true,
   });
 
   useEffect(() => {
@@ -387,6 +388,7 @@ export default function EditPropertyPage() {
             deliveryDate: dateStr(property.deliveryDate),
             completionDate: dateStr(property.completionDate),
             propertyTypeReference: property.propertyTypeReference || '',
+            syncEnabled: property.syncEnabled !== false,
           });
         }
       } catch {
@@ -526,6 +528,7 @@ export default function EditPropertyPage() {
         villaSelection: formData.villaSelection,
         luxurySelection: formData.luxurySelection,
         apartmentSelection: formData.apartmentSelection,
+        syncEnabled: formData.syncEnabled,
       };
 
       if (propertySource === 'manual') payload.reference = formData.reference;
@@ -1016,6 +1019,31 @@ export default function EditPropertyPage() {
                   <Switch checked={formData[field as keyof FormData] as boolean} onCheckedChange={(c) => handleInputChange(field, c)} />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feed Sync</CardTitle>
+              <CardDescription>
+                {propertySource !== 'manual'
+                  ? <>Imported from <span className="font-medium capitalize">{propertySource}</span>. Control whether feed imports can update this property.</>
+                  : 'Control whether feed imports can overwrite this property if a matching record is found.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Feed Sync</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When turned off, this property will be skipped during feed imports — your manual edits will be preserved.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.syncEnabled}
+                  onCheckedChange={(c) => handleInputChange('syncEnabled', c)}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

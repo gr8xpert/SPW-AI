@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Lead, LeadActivity } from '../../database/entities';
 import { LeadService } from './lead.service';
 import { LeadScoringService } from './lead-scoring.service';
-import { LeadController, InquiryController } from './lead.controller';
+import { LeadController, InquiryController, ShareFavoritesController } from './lead.controller';
 import { ContactModule } from '../contact/contact.module';
 
 @Module({
@@ -11,7 +11,7 @@ import { ContactModule } from '../contact/contact.module';
     TypeOrmModule.forFeature([Lead, LeadActivity]),
     ContactModule,
   ],
-  controllers: [LeadController, InquiryController],
+  controllers: [LeadController, InquiryController, ShareFavoritesController],
   providers: [LeadService, LeadScoringService],
   exports: [LeadService],
 })

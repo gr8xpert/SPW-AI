@@ -76,6 +76,7 @@ if (typeof document !== 'undefined') {
         enableFavorites: container.dataset.spwEnableFavorites !== 'false',
         enableInquiry: container.dataset.spwEnableInquiry !== 'false',
         enableTracking: container.dataset.spwEnableTracking !== 'false',
+        enableAiChat: container.dataset.spwEnableAiChat === 'true',
       });
 
       widget.init().catch((error) => {

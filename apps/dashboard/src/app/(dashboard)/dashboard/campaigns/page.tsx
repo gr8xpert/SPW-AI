@@ -52,9 +52,11 @@ import {
   Pause,
   Eye,
   Trash2,
+  Edit,
   Mail,
   Send,
   MousePointer,
+  FileText,
   Loader2,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
@@ -63,6 +65,9 @@ import { useToast } from '@/hooks/use-toast';
 interface Template {
   id: number;
   name: string;
+  subject: string;
+  bodyHtml: string;
+  type: string;
 }
 
 interface Campaign {
@@ -103,11 +108,16 @@ export default function CampaignsPage() {
   const [form, setForm] = useState(emptyForm);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
+  const [isDeleteTemplateOpen, setIsDeleteTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
 
   const api = useApi();
   const { toast } = useToast();
 
   const fetchCampaigns = async () => {
+    if (!api.isReady) return;
     try {
       const res = await api.get('/api/dashboard/campaigns');
       const body = res?.data || res;
@@ -118,6 +128,7 @@ export default function CampaignsPage() {
   };
 
   const fetchTemplates = async () => {
+    if (!api.isReady) return;
     try {
       const res = await api.get('/api/dashboard/email-templates');
       const body = res?.data || res;
@@ -127,7 +138,7 @@ export default function CampaignsPage() {
     }
   };
 
-  useEffect(() => { fetchCampaigns(); fetchTemplates(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchCampaigns(); fetchTemplates(); }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateTemplate = async () => {
     try {
@@ -197,6 +208,49 @@ export default function CampaignsPage() {
     toast({ title: 'Delete not available for campaigns', variant: 'destructive' });
     setIsDeleteOpen(false);
     setDeletingCampaign(null);
+  };
+
+  const openEditTemplate = (template: Template) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name,
+      subject: template.subject || '',
+      bodyHtml: template.bodyHtml || '',
+    });
+    setIsEditTemplateOpen(true);
+  };
+
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return;
+    try {
+      await api.put(`/api/dashboard/email-templates/${editingTemplate.id}`, {
+        name: templateForm.name,
+        subject: templateForm.subject,
+        bodyHtml: templateForm.bodyHtml,
+      });
+      toast({ title: 'Template updated' });
+      setIsEditTemplateOpen(false);
+      setEditingTemplate(null);
+      setTemplateForm(emptyTemplateForm);
+      fetchTemplates();
+    } catch (e: any) {
+      toast({ title: 'Failed to update template', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!deletingTemplate) return;
+    try {
+      await api.delete(`/api/dashboard/email-templates/${deletingTemplate.id}`);
+      toast({ title: 'Template deleted' });
+      setIsDeleteTemplateOpen(false);
+      setDeletingTemplate(null);
+      fetchTemplates();
+    } catch (e: any) {
+      toast({ title: 'Cannot delete template', description: e.message, variant: 'destructive' });
+      setIsDeleteTemplateOpen(false);
+      setDeletingTemplate(null);
+    }
   };
 
   const filteredCampaigns = campaigns.filter(
@@ -272,6 +326,52 @@ export default function CampaignsPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search campaigns..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Templates */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Email Templates</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => { setTemplateForm(emptyTemplateForm); setIsTemplateOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {templates.length === 0 ? (
+            <p className="text-center py-6 text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableCell className="text-muted-foreground truncate max-w-[300px]">{t.subject}</TableCell>
+                    <TableCell><Badge variant="outline">{t.type || 'custom'}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditTemplate(t)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setDeletingTemplate(t); setIsDeleteTemplateOpen(true); }}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -482,7 +582,7 @@ export default function CampaignsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirmation */}
+      {/* Delete Campaign Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -494,6 +594,59 @@ export default function CampaignsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Template Dialog */}
+      <Dialog open={isEditTemplateOpen} onOpenChange={(open) => { setIsEditTemplateOpen(open); if (!open) { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Template</DialogTitle>
+            <DialogDescription>Modify the email template</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Template Name *</Label>
+              <Input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Default Subject *</Label>
+              <Input value={templateForm.subject} onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>HTML Body *</Label>
+              <Textarea
+                className="font-mono text-sm min-h-[200px]"
+                value={templateForm.bodyHtml}
+                onChange={(e) => setTemplateForm({ ...templateForm, bodyHtml: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditTemplateOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateTemplate} disabled={!templateForm.name || !templateForm.subject || !templateForm.bodyHtml || api.isLoading}>
+              {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Template Confirmation */}
+      <AlertDialog open={isDeleteTemplateOpen} onOpenChange={setIsDeleteTemplateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deletingTemplate?.name}&quot;? Templates used by existing campaigns cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTemplate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

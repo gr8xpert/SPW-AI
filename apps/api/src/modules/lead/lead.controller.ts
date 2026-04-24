@@ -100,10 +100,40 @@ export class InquiryController {
     @CurrentTenant() tenantId: number,
     @Body() dto: CreateLeadDto,
   ) {
-    // Use system user ID for public inquiries
     return this.leadService.create(tenantId, 0, {
       ...dto,
       source: 'widget_inquiry',
     });
+  }
+}
+
+// Public share-favorites endpoint for widget wishlist
+@Controller('api/v1/share-favorites')
+export class ShareFavoritesController {
+  constructor(private readonly leadService: LeadService) {}
+
+  @Public()
+  @Post()
+  async shareFavorites(
+    @CurrentTenant() tenantId: number,
+    @Body() body: { name: string; email: string; friendEmail?: string; message?: string; propertyIds: number[] },
+  ) {
+    await this.leadService.create(tenantId, 0, {
+      name: body.name,
+      email: body.email,
+      message: body.message || `Shared ${body.propertyIds.length} wishlist properties`,
+      source: 'website',
+    });
+
+    if (body.friendEmail && body.friendEmail !== body.email) {
+      await this.leadService.create(tenantId, 0, {
+        name: body.name,
+        email: body.friendEmail,
+        message: `Wishlist shared by ${body.name} (${body.email}): ${body.propertyIds.length} properties`,
+        source: 'referral',
+      });
+    }
+
+    return { success: true, message: 'Wishlist shared successfully' };
   }
 }

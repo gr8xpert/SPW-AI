@@ -15,6 +15,7 @@ export interface ResultsGridOptions {
   onFavoriteToggle?: (property: Property) => void;
   onSortChange?: (sortBy: SearchFilters['sortBy']) => void;
   onPageChange?: (page: number) => void;
+  onOpenFavorites?: () => void;
 }
 
 export class ResultsGrid {
@@ -37,6 +38,16 @@ export class ResultsGrid {
       return;
     }
 
+    const favCount = this.options.favorites?.size || 0;
+    const favBtnHtml = this.options.enableFavorites ? `
+      <button class="spw-btn spw-btn-outline spw-favorites-btn" title="${escapeHtml(labels['favorites.title'] || 'My Wishlist')}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="${favCount > 0 ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3.332.88-4.5 2.06A6.17 6.17 0 0 0 7.5 3 5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+        </svg>
+        ${favCount > 0 ? `<span class="spw-favorites-badge">${favCount}</span>` : ''}
+      </button>
+    ` : '';
+
     const headerHtml = `
       <div class="spw-results-header">
         <div class="spw-results-count">
@@ -46,7 +57,10 @@ export class ResultsGrid {
           <strong>${results.meta.total}</strong>
           ${escapeHtml(labels['results.properties'])}
         </div>
-        ${showSorting ? this.renderSortDropdown() : ''}
+        <div class="spw-results-actions">
+          ${favBtnHtml}
+          ${showSorting ? this.renderSortDropdown() : ''}
+        </div>
       </div>
     `;
 
@@ -202,6 +216,10 @@ export class ResultsGrid {
       this.currentSort = sortSelect.value as SearchFilters['sortBy'];
       this.options.onSortChange?.(this.currentSort);
     });
+
+    // Favorites button
+    const favBtn = this.container.querySelector('.spw-favorites-btn');
+    favBtn?.addEventListener('click', () => this.options.onOpenFavorites?.());
 
     // Pagination clicks
     const paginationBtns = this.container.querySelectorAll('.spw-pagination-btn');

@@ -7,9 +7,34 @@ import { Tenant } from '../../database/entities';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514';
 
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+}
+
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+  };
+}
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}
+
+export interface StreamEvent {
+  type: 'delta' | 'tool_calls' | 'done' | 'error';
+  content?: string;
+  toolCalls?: ToolCall[];
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  error?: string;
 }
 
 @Injectable()
@@ -80,6 +105,81 @@ export class AiService {
       }
       throw err;
     }
+  }
+
+  async chatCompletionWithTools(
+    tenantId: number,
+    messages: ChatMessage[],
+    tools?: ToolDefinition[],
+    options?: { model?: string; temperature?: number; maxTokens?: number },
+  ): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
+    const { apiKey, model } = await this.resolveKeyAndModel(tenantId, options?.model);
+
+    try {
+      const body: Record<string, any> = {
+        model,
+        messages,
+        temperature: options?.temperature ?? 0.3,
+        max_tokens: options?.maxTokens ?? 4096,
+      };
+      if (tools?.length) {
+        body.tools = tools;
+        body.tool_choice = 'auto';
+      }
+
+      const response = await axios.post(OPENROUTER_URL, body, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://spw.app',
+          'X-Title': 'SPW Property Manager',
+        },
+        timeout: 120_000,
+      });
+
+      const choice = response.data?.choices?.[0];
+      const usage = response.data?.usage || {};
+
+      return {
+        content: choice?.message?.content || null,
+        toolCalls: choice?.message?.tool_calls || [],
+        usage: {
+          promptTokens: usage.prompt_tokens || 0,
+          completionTokens: usage.completion_tokens || 0,
+          totalTokens: usage.total_tokens || 0,
+        },
+      };
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const msg = err.response?.data?.error?.message || err.message;
+        if (status === 401) throw new BadRequestException('OpenRouter API key is invalid.');
+        if (status === 402) throw new BadRequestException('OpenRouter account has insufficient credits.');
+        this.logger.error(`OpenRouter API error (${status}): ${msg}`);
+        throw new BadRequestException(`AI request failed: ${msg}`);
+      }
+      throw err;
+    }
+  }
+
+  private async resolveKeyAndModel(
+    tenantId: number,
+    modelOverride?: string,
+  ): Promise<{ apiKey: string; model: string }> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'settings'],
+    });
+    const apiKey = tenant?.settings?.openRouterApiKey;
+    if (!apiKey) {
+      throw new BadRequestException(
+        'OpenRouter API key not configured. Go to Settings → AI to add your key.',
+      );
+    }
+    return {
+      apiKey,
+      model: modelOverride || tenant.settings.openRouterModel || DEFAULT_MODEL,
+    };
   }
 
   async testConnection(tenantId: number): Promise<{ ok: boolean; model: string; error?: string }> {

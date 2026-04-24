@@ -15,6 +15,7 @@ export interface SPWConfig {
   enableFavorites?: boolean;
   enableInquiry?: boolean;
   enableTracking?: boolean;
+  enableAiChat?: boolean;
   // How often (ms) to poll /api/v1/sync-meta to auto-invalidate the widget's
   // local cache when the tenant admin clicks "clear cache". Default 60_000.
   // Set to 0 to disable polling entirely — host page would need to handle
@@ -194,6 +195,17 @@ export interface Labels {
   'pagination.next': string;
   'pagination.page': string;
 
+  // Favorites / Wishlist
+  'favorites.title': string;
+  'favorites.properties': string;
+  'favorites.shareTitle': string;
+  'favorites.friendEmail': string;
+  'favorites.messagePlaceholder': string;
+  'favorites.send': string;
+  'favorites.success': string;
+  'favorites.error': string;
+  'favorites.empty': string;
+
   // General
   'general.loading': string;
   'general.error': string;
@@ -242,6 +254,9 @@ export interface SPWEvents {
   'favorite:remove': Property;
   'sync:changed': { syncVersion: number };
   'error': Error;
+  'chat:open': void;
+  'chat:close': void;
+  'chat:message': { role: 'user' | 'assistant'; content: string };
 }
 
 // Tracking Types

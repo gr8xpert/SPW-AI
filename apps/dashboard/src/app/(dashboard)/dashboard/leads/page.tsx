@@ -109,6 +109,7 @@ export default function LeadsPage() {
   const { toast } = useToast();
 
   const fetchLeads = async () => {
+    if (!api.isReady) return;
     try {
       const res = await api.get('/api/dashboard/leads');
       const body = res?.data || res;
@@ -118,7 +119,7 @@ export default function LeadsPage() {
     }
   };
 
-  useEffect(() => { fetchLeads(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchLeads(); }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (id: number, status: LeadStatus) => {
     try {
