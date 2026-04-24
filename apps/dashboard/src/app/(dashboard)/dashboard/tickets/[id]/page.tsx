@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -21,19 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   ArrowLeft,
-  MoreHorizontal,
   Send,
-  Paperclip,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -42,100 +32,41 @@ import {
   User,
   Calendar,
   Tag,
+  Loader2,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 
-// Sample ticket data
-const sampleTicket = {
-  id: 1,
-  ticketNumber: 'TKT-000001',
-  subject: 'Unable to import properties from Resales',
-  status: 'in_progress',
-  priority: 'high',
-  category: 'technical',
-  user: { id: 1, name: 'Alex Johnson', email: 'alex@example.com' },
-  assignedTo: { id: 2, name: 'Support Team' },
-  createdAt: '2026-04-05T14:30:00Z',
-  lastReplyAt: '2026-04-06T08:00:00Z',
-};
+interface TicketData {
+  id: number;
+  ticketNumber: string;
+  subject: string;
+  status: string;
+  priority: string;
+  category: string;
+  user?: { id: number; name: string; email: string };
+  assignedToUser?: { id: number; name: string };
+  lastReplyAt: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  messages?: TicketMessage[];
+}
 
-const sampleMessages = [
-  {
-    id: 1,
-    isStaff: false,
-    user: { name: 'Alex Johnson', email: 'alex@example.com' },
-    message: `Hi,
-
-I'm having trouble importing properties from my Resales Online feed. The import keeps failing with an "Authentication Error" message.
-
-I've double-checked my API credentials and they seem correct. The last successful import was 3 days ago.
-
-Could you please help me resolve this issue?
-
-Thanks,
-Alex`,
-    attachments: [],
-    createdAt: '2026-04-05T14:30:00Z',
-  },
-  {
-    id: 2,
-    isStaff: true,
-    user: { name: 'Support Team', email: 'support@spw.com' },
-    message: `Hi Alex,
-
-Thank you for reaching out. I understand you're experiencing issues with your Resales Online feed import.
-
-I've checked your account and I can see the authentication errors in the logs. This usually happens when:
-
-1. The API credentials have been regenerated on the Resales Online side
-2. There's a temporary issue with the Resales Online API
-
-Could you please:
-1. Log into your Resales Online account
-2. Go to Settings > API Access
-3. Verify the API key matches what you have configured in SPW
-4. If in doubt, generate a new API key and update it in your SPW dashboard
-
-Let me know if this helps!
-
-Best regards,
-Support Team`,
-    attachments: [],
-    createdAt: '2026-04-05T16:00:00Z',
-  },
-  {
-    id: 3,
-    isStaff: false,
-    user: { name: 'Alex Johnson', email: 'alex@example.com' },
-    message: `Hi,
-
-I checked and you're right - Resales Online had regenerated my API key as part of their security update last week. I've updated the key in SPW.
-
-However, when I try to run a manual sync, it now says "Rate limit exceeded". How long do I need to wait before trying again?`,
-    attachments: [],
-    createdAt: '2026-04-06T07:30:00Z',
-  },
-  {
-    id: 4,
-    isStaff: true,
-    user: { name: 'Support Team', email: 'support@spw.com' },
-    message: `Hi Alex,
-
-Great news that you found the issue with the API key!
-
-Regarding the rate limit - Resales Online has a limit of 100 requests per hour. After multiple failed authentication attempts, your quota may have been consumed.
-
-I've reset the rate limit counter on our side. Please try the sync again now - it should work.
-
-If you continue to experience issues, let me know and I'll dig deeper.
-
-Best regards,
-Support Team`,
-    attachments: [],
-    createdAt: '2026-04-06T08:00:00Z',
-  },
-];
+interface TicketMessage {
+  id: number;
+  message: string;
+  isStaff: boolean;
+  isInternal: boolean;
+  attachments: Array<{ name: string; url: string; size: number }> | null;
+  createdAt: string;
+  user?: { name: string; email: string };
+}
 
 const statusConfig: Record<
   string,
@@ -166,37 +97,119 @@ const categoryLabels: Record<string, string> = {
 export default function TicketDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const api = useApi();
   const { toast } = useToast();
+  const [ticket, setTicket] = useState<TicketData | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const ticket = sampleTicket;
-  const messages = sampleMessages;
-  const status = statusConfig[ticket.status];
-  const StatusIcon = status.icon;
+  const ticketId = params.id;
 
-  const handleStatusChange = (newStatus: string) => {
-    toast({
-      title: 'Status updated',
-      description: `Ticket status changed to ${statusConfig[newStatus].label}`,
-    });
+  const uploadFiles = async (files: FileList) => {
+    const uploaded: Array<{ name: string; url: string; size: number }> = [];
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/api/dashboard/upload', formData);
+        const data = res?.data || res;
+        uploaded.push({ name: data.originalFilename || file.name, url: data.url, size: data.fileSize || file.size });
+      }
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
+    return uploaded;
+  };
+
+  const fetchTicket = async () => {
+    try {
+      const res = await api.get(`/api/dashboard/tickets/${ticketId}`);
+      const body = res?.data || res;
+      setTicket(body);
+    } catch {
+      toast({ title: 'Failed to load ticket', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (api.isReady && ticketId) fetchTicket();
+  }, [api.isReady, ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [ticket?.messages?.length]);
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!ticket) return;
+    try {
+      await api.put(`/api/dashboard/tickets/${ticket.id}`, { status: newStatus });
+      setTicket((prev) => prev ? { ...prev, status: newStatus } : prev);
+      toast({ title: `Status changed to ${statusConfig[newStatus]?.label || newStatus}` });
+    } catch (e: any) {
+      toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleSendReply = async () => {
-    if (!replyMessage.trim()) return;
-
+    if (!ticket || !replyMessage.trim()) return;
     setIsSending(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    toast({
-      title: 'Reply sent',
-      description: 'Your message has been sent.',
-    });
-
-    setReplyMessage('');
-    setIsSending(false);
+    try {
+      const body: any = { message: replyMessage };
+      if (replyAttachments.length > 0) {
+        body.attachments = replyAttachments;
+      }
+      await api.post(`/api/dashboard/tickets/${ticket.id}/messages`, body);
+      setReplyMessage('');
+      setReplyAttachments([]);
+      toast({ title: 'Reply sent' });
+      await fetchTicket();
+    } catch (e: any) {
+      toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSending(false);
+    }
   };
+
+  if (isLoading || !api.isReady) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className="space-y-4">
+        <Link href="/dashboard/tickets">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to tickets
+          </Button>
+        </Link>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">Ticket not found</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const status = statusConfig[ticket.status] || statusConfig.open;
+  const StatusIcon = status.icon;
+  const messages = ticket.messages || [];
+  const isClosed = ticket.status === 'closed' || ticket.status === 'resolved';
 
   return (
     <div className="space-y-6">
@@ -223,35 +236,6 @@ export default function TicketDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Select defaultValue={ticket.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(statusConfig).map(([key, config]) => (
-                <SelectItem key={key} value={key}>
-                  {config.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Assign to me</DropdownMenuItem>
-              <DropdownMenuItem>Mark as spam</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                Delete ticket
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
@@ -259,98 +243,145 @@ export default function TicketDetailPage() {
         <div className="md:col-span-3 space-y-6">
           <Card>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`p-6 ${message.isStaff ? 'bg-muted/30' : ''}`}
-                  >
-                    <div className="flex gap-4">
-                      <Avatar>
-                        <AvatarFallback className={message.isStaff ? 'bg-primary text-primary-foreground' : ''}>
-                          {message.user.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{message.user.name}</span>
-                            {message.isStaff && (
-                              <Badge variant="secondary" className="text-xs">
-                                Staff
-                              </Badge>
-                            )}
+              {messages.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No messages yet
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`p-6 ${msg.isStaff ? 'bg-muted/30' : ''}`}
+                    >
+                      <div className="flex gap-4">
+                        <Avatar>
+                          <AvatarFallback className={msg.isStaff ? 'bg-primary text-primary-foreground' : ''}>
+                            {(msg.user?.name || (msg.isStaff ? 'S' : 'U'))
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {msg.user?.name || (msg.isStaff ? 'Support' : 'You')}
+                              </span>
+                              {msg.isStaff && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Staff
+                                </Badge>
+                              )}
+                              {msg.isInternal && (
+                                <Badge variant="outline" className="text-xs text-amber-600">
+                                  Internal
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(msg.createdAt).toLocaleString()}
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(message.createdAt)}
-                          </span>
-                        </div>
-                        <div className="text-sm whitespace-pre-wrap">
-                          {message.message}
-                        </div>
-                        {message.attachments.length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {/* Attachment rendering would go here */}
+                          <div className="text-sm whitespace-pre-wrap">
+                            {msg.message}
                           </div>
-                        )}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {msg.attachments.map((att, i) => (
+                                att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block">
+                                    <img src={att.url} alt={att.name} className="max-w-[200px] max-h-[150px] rounded border object-cover" />
+                                  </a>
+                                ) : (
+                                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs border hover:bg-muted">
+                                    <FileText className="h-3 w-3" />
+                                    {att.name}
+                                  </a>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Reply Box */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Reply</CardTitle>
-              <CardDescription>
-                Send a message to the customer
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Type your reply..."
-                rows={6}
-                value={replyMessage}
-                onChange={(e) => setReplyMessage(e.target.value)}
-              />
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm">
-                  <Paperclip className="h-4 w-4 mr-2" />
-                  Attach File
-                </Button>
-                <div className="flex gap-2">
+          {!isClosed && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Reply</CardTitle>
+                <CardDescription>Send a message</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="Type your reply..."
+                  rows={4}
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                />
+                {replyAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {replyAttachments.map((att, i) => (
+                      <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
+                        {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                        <span className="max-w-[120px] truncate">{att.name}</span>
+                        <button onClick={() => setReplyAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={async (e) => {
+                        if (e.target.files?.length) {
+                          const files = await uploadFiles(e.target.files);
+                          setReplyAttachments((prev) => [...prev, ...files]);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                      {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
+                      Attach Files
+                    </Button>
+                  </div>
                   <Button
-                    variant="outline"
-                    onClick={() => {
-                      handleSendReply();
-                      handleStatusChange('waiting_customer');
-                    }}
+                    onClick={() => handleSendReply()}
                     disabled={isSending || !replyMessage.trim()}
                   >
-                    Send & Wait for Reply
-                  </Button>
-                  <Button
-                    onClick={handleSendReply}
-                    disabled={isSending || !replyMessage.trim()}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
+                    {isSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
                     Send Reply
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Ticket Details */}
           <Card>
             <CardHeader>
               <CardTitle>Details</CardTitle>
@@ -361,30 +392,32 @@ export default function TicketDetailPage() {
                   <User className="h-3 w-3" />
                   Requester
                 </p>
-                <p className="font-medium">{ticket.user.name}</p>
-                <p className="text-sm text-muted-foreground">{ticket.user.email}</p>
+                <p className="font-medium">{ticket.user?.name || '-'}</p>
+                {ticket.user?.email && (
+                  <p className="text-sm text-muted-foreground">{ticket.user.email}</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" />
                   Assigned To
                 </p>
-                <p className="font-medium">{ticket.assignedTo?.name || 'Unassigned'}</p>
+                <p className="font-medium">{ticket.assignedToUser?.name || 'Unassigned'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Tag className="h-3 w-3" />
                   Category
                 </p>
-                <Badge variant="outline">{categoryLabels[ticket.category]}</Badge>
+                <Badge variant="outline">{categoryLabels[ticket.category] || ticket.category}</Badge>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
                   Priority
                 </p>
-                <span className={`font-medium ${priorityConfig[ticket.priority].color}`}>
-                  {priorityConfig[ticket.priority].label}
+                <span className={`font-medium ${priorityConfig[ticket.priority]?.color || ''}`}>
+                  {priorityConfig[ticket.priority]?.label || ticket.priority}
                 </span>
               </div>
               <div>
@@ -394,40 +427,70 @@ export default function TicketDetailPage() {
                 </p>
                 <p className="text-sm">{formatDate(ticket.createdAt)}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Last Reply
-                </p>
-                <p className="text-sm">{formatDate(ticket.lastReplyAt)}</p>
-              </div>
+              {ticket.lastReplyAt && (
+                <div>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Last Reply
+                  </p>
+                  <p className="text-sm">{formatDate(ticket.lastReplyAt)}</p>
+                </div>
+              )}
+              {ticket.resolvedAt && (
+                <div>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Resolved
+                  </p>
+                  <p className="text-sm">{formatDate(ticket.resolvedAt)}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => handleStatusChange('resolved')}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Mark as Resolved
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => handleStatusChange('closed')}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Close Ticket
-              </Button>
-            </CardContent>
-          </Card>
+          {!isClosed && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleStatusChange('resolved')}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark as Resolved
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleStatusChange('closed')}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Close Ticket
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {isClosed && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleStatusChange('open')}
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Reopen Ticket
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

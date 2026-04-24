@@ -6,6 +6,7 @@ import {
   FeedProperty,
   FeedImportResult,
   FeedPropertyImage,
+  FeedValidationResult,
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
 
@@ -21,7 +22,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
     attributeNamePrefix: '@_',
   });
 
-  async validateCredentials(credentials: FeedCredentials): Promise<boolean> {
+  async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/SearchProperties`, {
         params: {
@@ -33,10 +34,33 @@ export class ResalesAdapter extends BaseFeedAdapter {
         timeout: 10000,
       });
 
-      return response.status === 200;
-    } catch (error) {
+      const data = typeof response.data === 'string'
+        ? this.parser.parse(response.data)
+        : response.data;
+
+      if (data?.transaction?.status === 'error') {
+        const desc = data.transaction.errordescription || {};
+        const messages = Object.values(desc).filter(Boolean).join('; ');
+        return { valid: false, error: messages || 'Resales Online returned an error' };
+      }
+
+      return { valid: true };
+    } catch (error: any) {
       this.logger.error('Resales credential validation failed', error);
-      return false;
+
+      if (error.response?.data) {
+        const body = typeof error.response.data === 'string'
+          ? (() => { try { return JSON.parse(error.response.data); } catch { return null; } })()
+          : error.response.data;
+
+        if (body?.transaction?.errordescription) {
+          const desc = body.transaction.errordescription;
+          const messages = Object.values(desc).filter(Boolean).join('; ');
+          return { valid: false, error: messages };
+        }
+      }
+
+      return { valid: false, error: 'Could not connect to Resales Online. Check your API key and client ID.' };
     }
   }
 

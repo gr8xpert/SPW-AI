@@ -71,10 +71,10 @@ export class FeedService {
 
   async createConfig(tenantId: number, dto: CreateFeedConfigDto): Promise<FeedConfig> {
     const adapter = this.getAdapter(dto.provider);
-    const isValid = await adapter.validateCredentials(dto.credentials);
+    const result = await adapter.validateCredentials(dto.credentials);
 
-    if (!isValid) {
-      throw new BadRequestException('Invalid feed credentials');
+    if (!result.valid) {
+      throw new BadRequestException(result.error || 'Invalid feed credentials');
     }
 
     const config = this.feedConfigRepository.create({
@@ -94,10 +94,10 @@ export class FeedService {
 
     if (dto.credentials) {
       const adapter = this.getAdapter(config.provider);
-      const isValid = await adapter.validateCredentials(dto.credentials);
+      const result = await adapter.validateCredentials(dto.credentials);
 
-      if (!isValid) {
-        throw new BadRequestException('Invalid feed credentials');
+      if (!result.valid) {
+        throw new BadRequestException(result.error || 'Invalid feed credentials');
       }
     }
 

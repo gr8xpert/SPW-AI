@@ -1,8 +1,8 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ClassSerializerInterceptor, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { BullModule as BullQueueModule } from '@nestjs/bullmq';
@@ -192,6 +192,11 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
+    },
+    // Strip @Exclude() fields (e.g. passwordHash) from serialized responses
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
     },
     // Global rate limiter. Runs before JwtAuthGuard so anonymous floods still get throttled.
     {

@@ -49,14 +49,16 @@ export interface FeedImportResult {
   page?: number;
 }
 
+export interface FeedValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
 export abstract class BaseFeedAdapter {
   abstract readonly provider: string;
   abstract readonly displayName: string;
 
-  /**
-   * Validates that the provided credentials are correct
-   */
-  abstract validateCredentials(credentials: FeedCredentials): Promise<boolean>;
+  abstract validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult>;
 
   /**
    * Fetches properties from the feed provider

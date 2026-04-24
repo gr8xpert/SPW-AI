@@ -6,15 +6,17 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   ParseIntPipe,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AnalyticsService } from './analytics.service';
-import { TrackViewDto, TrackSearchDto } from './dto';
+import { TenantService } from '../tenant/tenant.service';
+import { TrackViewDto, TrackSearchDto, TrackPdfDto } from './dto';
 import { CurrentTenant, CurrentUser, Public } from '../../common/decorators';
 
-// Dashboard Analytics Controller
 @Controller('api/dashboard/analytics')
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
@@ -26,6 +28,24 @@ export class AnalyticsController {
   ) {
     const dateRange = this.parseDateRange(range);
     return this.analyticsService.getOverview(tenantId, dateRange);
+  }
+
+  @Get('activity')
+  async getDailyActivity(
+    @CurrentTenant() tenantId: number,
+    @Query('range') range: string = '30d',
+  ) {
+    const dateRange = this.parseDateRange(range);
+    return this.analyticsService.getDailyActivity(tenantId, dateRange);
+  }
+
+  @Get('events')
+  async getEventBreakdown(
+    @CurrentTenant() tenantId: number,
+    @Query('range') range: string = '30d',
+  ) {
+    const dateRange = this.parseDateRange(range);
+    return this.analyticsService.getEventBreakdown(tenantId, dateRange);
   }
 
   @Get('properties')
@@ -82,18 +102,28 @@ export class AnalyticsController {
   }
 }
 
-// Public Tracking Controller (for widget)
 @Controller('api/v1/track')
 export class TrackingController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly tenantService: TenantService,
+  ) {}
+
+  private async resolveTenant(apiKey: string): Promise<number> {
+    if (!apiKey) throw new UnauthorizedException('API key required');
+    const tenant = await this.tenantService.findByApiKey(apiKey);
+    if (!tenant) throw new UnauthorizedException('Invalid API key');
+    return tenant.id;
+  }
 
   @Public()
   @Post('view')
   async trackView(
-    @CurrentTenant() tenantId: number,
+    @Headers('x-api-key') apiKey: string,
     @Body() dto: TrackViewDto,
     @Req() req: Request,
   ) {
+    const tenantId = await this.resolveTenant(apiKey);
     const ip = req.ip || req.socket.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
 
@@ -104,45 +134,69 @@ export class TrackingController {
   @Public()
   @Post('search')
   async trackSearch(
-    @CurrentTenant() tenantId: number,
+    @Headers('x-api-key') apiKey: string,
     @Body() dto: TrackSearchDto,
   ) {
+    const tenantId = await this.resolveTenant(apiKey);
     await this.analyticsService.trackSearch(tenantId, dto);
+    return { success: true };
+  }
+
+  @Public()
+  @Post('pdf')
+  async trackPdf(
+    @Headers('x-api-key') apiKey: string,
+    @Body() dto: TrackPdfDto,
+  ) {
+    const tenantId = await this.resolveTenant(apiKey);
+    await this.analyticsService.markPdfDownload(tenantId, dto.propertyId, dto.sessionId);
     return { success: true };
   }
 }
 
-// Public Favorites Controller (for widget)
 @Controller('api/v1/favorites')
 export class FavoritesController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly tenantService: TenantService,
+  ) {}
+
+  private async resolveTenant(apiKey: string): Promise<number> {
+    if (!apiKey) throw new UnauthorizedException('API key required');
+    const tenant = await this.tenantService.findByApiKey(apiKey);
+    if (!tenant) throw new UnauthorizedException('Invalid API key');
+    return tenant.id;
+  }
 
   @Public()
   @Get()
   async getFavorites(
-    @CurrentTenant() tenantId: number,
+    @Headers('x-api-key') apiKey: string,
     @Query('sessionId') sessionId: string,
   ) {
+    const tenantId = await this.resolveTenant(apiKey);
     return this.analyticsService.getFavorites(tenantId, sessionId);
   }
 
   @Public()
   @Post()
   async addFavorite(
-    @CurrentTenant() tenantId: number,
+    @Headers('x-api-key') apiKey: string,
     @Body('propertyId') propertyId: number,
     @Body('sessionId') sessionId: string,
   ) {
+    const tenantId = await this.resolveTenant(apiKey);
     return this.analyticsService.addFavorite(tenantId, propertyId, sessionId);
   }
 
   @Public()
   @Delete(':propertyId')
   async removeFavorite(
-    @CurrentTenant() tenantId: number,
+    @Headers('x-api-key') apiKey: string,
     @Param('propertyId', ParseIntPipe) propertyId: number,
     @Query('sessionId') sessionId: string,
   ) {
+    const tenantId = await this.resolveTenant(apiKey);
     await this.analyticsService.removeFavorite(tenantId, propertyId, sessionId);
     return { success: true };
   }

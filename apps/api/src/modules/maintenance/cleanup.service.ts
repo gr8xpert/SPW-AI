@@ -2,28 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron } from '@nestjs/schedule';
 import { LessThan, Repository } from 'typeorm';
-import { RefreshToken, WebhookDelivery } from '../../database/entities';
+import { RefreshToken, WebhookDelivery, Ticket, TicketMessage, MediaFile } from '../../database/entities';
 import { RedisLockService } from '../../common/redis/redis-lock.service';
+import { UploadService } from '../upload/upload.service';
 
-// Retention windows. Expired+revoked refresh tokens have no functional value
-// after the access-token lifetime elapses; we keep a week to aid incident
-// forensics. Webhook delivery rows are kept for 30 days so operators can
-// replay from the dashboard — long enough for most downstreams to notice an
-// outage, short enough to bound table growth.
 const REFRESH_TOKEN_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const WEBHOOK_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const TICKET_ATTACHMENT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
-// Distributed lock key + TTL. The TTL is an upper bound on how long a single
-// cleanup run could take — a generous 10 min covers a very large refresh-token
-// table being pruned under slow-io conditions. If the holder crashes, the TTL
-// auto-releases. Cron fires daily, so worst-case one day's run is skipped if
-// a holder hangs past the TTL — acceptable.
 const CLEANUP_LOCK_KEY = 'cron:cleanup';
 const CLEANUP_LOCK_TTL_MS = 10 * 60 * 1000;
 
 interface CleanupCounts {
   refreshTokens: number;
   webhookDeliveries: number;
+  ticketAttachments: number;
 }
 
 export interface ScheduledCleanupOutcome {
@@ -40,6 +33,13 @@ export class CleanupService {
     private readonly refreshTokenRepo: Repository<RefreshToken>,
     @InjectRepository(WebhookDelivery)
     private readonly webhookRepo: Repository<WebhookDelivery>,
+    @InjectRepository(Ticket)
+    private readonly ticketRepo: Repository<Ticket>,
+    @InjectRepository(TicketMessage)
+    private readonly ticketMessageRepo: Repository<TicketMessage>,
+    @InjectRepository(MediaFile)
+    private readonly mediaFileRepo: Repository<MediaFile>,
+    private readonly uploadService: UploadService,
     private readonly lock: RedisLockService,
   ) {}
 
@@ -56,7 +56,7 @@ export class CleanupService {
     );
     if (outcome.acquired && outcome.result) {
       this.logger.log(
-        `scheduled cleanup: pruned ${outcome.result.refreshTokens} refresh_tokens, ${outcome.result.webhookDeliveries} webhook_deliveries`,
+        `scheduled cleanup: pruned ${outcome.result.refreshTokens} refresh_tokens, ${outcome.result.webhookDeliveries} webhook_deliveries, ${outcome.result.ticketAttachments} ticket_attachments`,
       );
       return { executed: true, counts: outcome.result };
     }
@@ -75,10 +75,6 @@ export class CleanupService {
     const refreshCutoff = new Date(now.getTime() - REFRESH_TOKEN_RETENTION_MS);
     const webhookCutoff = new Date(now.getTime() - WEBHOOK_RETENTION_MS);
 
-    // Refresh tokens: only prune ones that are both past their TTL AND
-    // revoked. An un-revoked expired token is technically still queryable
-    // for reuse-detection audits — its removal would create a false
-    // negative in "was this token ever issued?" checks.
     const refreshResult = await this.refreshTokenRepo
       .createQueryBuilder()
       .delete()
@@ -90,9 +86,50 @@ export class CleanupService {
       createdAt: LessThan(webhookCutoff),
     });
 
+    const ticketAttachments = await this.cleanupTicketAttachments(now);
+
     return {
       refreshTokens: refreshResult.affected ?? 0,
       webhookDeliveries: webhookResult.affected ?? 0,
+      ticketAttachments,
     };
+  }
+
+  private async cleanupTicketAttachments(now: Date): Promise<number> {
+    const cutoff = new Date(now.getTime() - TICKET_ATTACHMENT_RETENTION_MS);
+
+    // Find messages with attachments on resolved/closed tickets older than retention
+    const messages = await this.ticketMessageRepo
+      .createQueryBuilder('msg')
+      .innerJoin('msg.ticket', 'ticket')
+      .where('ticket.status IN (:...statuses)', { statuses: ['resolved', 'closed'] })
+      .andWhere('(ticket.resolvedAt < :cutoff OR ticket.closedAt < :cutoff)', { cutoff })
+      .andWhere('msg.attachments IS NOT NULL')
+      .select(['msg.id', 'msg.attachments'])
+      .getMany();
+
+    if (!messages.length) return 0;
+
+    let deletedCount = 0;
+
+    for (const msg of messages) {
+      if (!Array.isArray(msg.attachments) || !msg.attachments.length) continue;
+
+      for (const attachment of msg.attachments) {
+        try {
+          const mediaFile = await this.mediaFileRepo.findOne({ where: { url: attachment.url } });
+          if (mediaFile) {
+            await this.uploadService.deleteFile(mediaFile.tenantId, mediaFile.id);
+          }
+          deletedCount++;
+        } catch (err) {
+          this.logger.warn(`Failed to delete ticket attachment ${attachment.url}: ${(err as Error).message}`);
+        }
+      }
+
+      await this.ticketMessageRepo.update(msg.id, { attachments: null as any });
+    }
+
+    return deletedCount;
   }
 }

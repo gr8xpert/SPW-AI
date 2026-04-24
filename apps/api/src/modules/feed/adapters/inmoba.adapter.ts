@@ -5,6 +5,7 @@ import {
   FeedProperty,
   FeedImportResult,
   FeedPropertyImage,
+  FeedValidationResult,
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
 
@@ -15,7 +16,7 @@ export class InmobaAdapter extends BaseFeedAdapter {
 
   private readonly logger = new Logger(InmobaAdapter.name);
 
-  async validateCredentials(credentials: FeedCredentials): Promise<boolean> {
+  async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
     try {
       const endpoint = credentials.endpoint || 'https://api.inmoba.com/v1';
 
@@ -25,10 +26,11 @@ export class InmobaAdapter extends BaseFeedAdapter {
         timeout: 10000,
       });
 
-      return response.status === 200;
-    } catch (error) {
+      return { valid: response.status === 200 };
+    } catch (error: any) {
       this.logger.error('Inmoba credential validation failed', error);
-      return false;
+      const msg = error.response?.data?.message || error.message || 'Connection failed';
+      return { valid: false, error: `Inmoba: ${msg}` };
     }
   }
 

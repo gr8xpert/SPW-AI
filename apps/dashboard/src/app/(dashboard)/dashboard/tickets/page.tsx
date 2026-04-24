@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -45,6 +45,10 @@ import {
   XCircle,
   Loader2,
   Send,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -62,12 +66,19 @@ interface Ticket {
   messages?: TicketMessage[];
 }
 
+interface Attachment {
+  name: string;
+  url: string;
+  size: number;
+}
+
 interface TicketMessage {
   id: number;
   message: string;
   isStaff: boolean;
   createdAt: string;
   user?: { name: string };
+  attachments?: Attachment[] | null;
 }
 
 interface TicketStats {
@@ -117,17 +128,46 @@ export default function TicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [form, setForm] = useState(emptyForm);
+  const [createAttachments, setCreateAttachments] = useState<Attachment[]>([]);
+  const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const createFileRef = useRef<HTMLInputElement>(null);
+  const replyFileRef = useRef<HTMLInputElement>(null);
 
   const api = useApi();
   const { toast } = useToast();
+
+  const uploadFiles = async (files: FileList): Promise<Attachment[]> => {
+    const uploaded: Attachment[] = [];
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/api/dashboard/upload', formData);
+        const data = res?.data || res;
+        uploaded.push({ name: data.originalFilename || file.name, url: data.url, size: data.fileSize || file.size });
+      }
+    } catch (e: any) {
+      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
+    return uploaded;
+  };
 
   const fetchTickets = async () => {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
       const res = await api.get(`/api/dashboard/tickets?${params}`);
-      const body = res?.data || res;
-      setTickets(Array.isArray(body) ? body : body.data || []);
-      setTotalPages(body.meta?.pages || Math.ceil((body.total || 0) / 20) || 1);
+      if (Array.isArray(res?.data)) {
+        setTickets(res.data);
+        setTotalPages(Math.ceil((res.total || res.data.length) / 20) || 1);
+      } else {
+        const body = res?.data || res;
+        setTickets(body?.data || []);
+        setTotalPages(Math.ceil((body?.total || 0) / 20) || 1);
+      }
     } catch {
       toast({ title: 'Failed to load tickets', variant: 'destructive' });
     }
@@ -139,8 +179,8 @@ export default function TicketsPage() {
       const body = res?.data || res;
       setStats({
         open: body.open ?? 0,
-        inProgress: body.inProgress ?? body.in_progress ?? 0,
-        awaitingReply: body.awaitingReply ?? body.waiting_customer ?? 0,
+        inProgress: body.inProgress ?? 0,
+        awaitingReply: body.waitingCustomer ?? 0,
         resolved: body.resolved ?? 0,
       });
     } catch {
@@ -148,19 +188,24 @@ export default function TicketsPage() {
     }
   };
 
-  useEffect(() => { fetchTickets(); fetchStats(); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (api.isReady) { fetchTickets(); fetchStats(); } }, [page, api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     try {
-      await api.post('/api/dashboard/tickets', {
+      const body: any = {
         subject: form.subject,
         message: form.message,
         priority: form.priority,
         category: form.category,
-      });
+      };
+      if (createAttachments.length > 0) {
+        body.attachments = createAttachments;
+      }
+      await api.post('/api/dashboard/tickets', body);
       toast({ title: 'Ticket created' });
       setIsCreateOpen(false);
       setForm(emptyForm);
+      setCreateAttachments([]);
       fetchTickets();
       fetchStats();
     } catch (e: any) {
@@ -184,11 +229,14 @@ export default function TicketsPage() {
   const handleReply = async () => {
     if (!selectedTicket || !replyMessage.trim()) return;
     try {
-      await api.post(`/api/dashboard/tickets/${selectedTicket.id}/messages`, {
-        message: replyMessage,
-      });
+      const body: any = { message: replyMessage };
+      if (replyAttachments.length > 0) {
+        body.attachments = replyAttachments;
+      }
+      await api.post(`/api/dashboard/tickets/${selectedTicket.id}/messages`, body);
       toast({ title: 'Reply sent' });
       setReplyMessage('');
+      setReplyAttachments([]);
       const res = await api.get(`/api/dashboard/tickets/${selectedTicket.id}`);
       setSelectedTicket(res?.data || res);
       fetchTickets();
@@ -396,10 +444,44 @@ export default function TicketsPage() {
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Attachments</Label>
+              <input
+                ref={createFileRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  if (e.target.files?.length) {
+                    const files = await uploadFiles(e.target.files);
+                    setCreateAttachments((prev) => [...prev, ...files]);
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => createFileRef.current?.click()} disabled={isUploading}>
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
+                Attach Files
+              </Button>
+              {createAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {createAttachments.map((att, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
+                      {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                      <span className="max-w-[120px] truncate">{att.name}</span>
+                      <button onClick={() => setCreateAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!form.subject || !form.message || api.isLoading}>
+            <Button variant="outline" onClick={() => { setIsCreateOpen(false); setCreateAttachments([]); }}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={!form.subject || !form.message || api.isLoading || isUploading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Submit Ticket
             </Button>
@@ -442,6 +524,22 @@ export default function TicketsPage() {
                         </span>
                       </div>
                       <p className="whitespace-pre-wrap">{msg.message}</p>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {msg.attachments.map((att, i) => (
+                            att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img src={att.url} alt={att.name} className="max-w-[200px] max-h-[150px] rounded border object-cover" />
+                              </a>
+                            ) : (
+                              <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs border hover:bg-muted">
+                                <FileText className="h-3 w-3" />
+                                {att.name}
+                              </a>
+                            )
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -450,17 +548,52 @@ export default function TicketsPage() {
               </div>
 
               {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <Textarea
                     placeholder="Type your reply..."
                     rows={2}
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
-                    className="flex-1"
                   />
-                  <Button onClick={handleReply} disabled={!replyMessage.trim() || api.isLoading} className="self-end">
-                    {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
+                  {replyAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {replyAttachments.map((att, i) => (
+                        <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
+                          {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                          <span className="max-w-[100px] truncate">{att.name}</span>
+                          <button onClick={() => setReplyAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <div>
+                      <input
+                        ref={replyFileRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={async (e) => {
+                          if (e.target.files?.length) {
+                            const files = await uploadFiles(e.target.files);
+                            setReplyAttachments((prev) => [...prev, ...files]);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button variant="outline" size="sm" onClick={() => replyFileRef.current?.click()} disabled={isUploading}>
+                        {isUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Paperclip className="h-3 w-3 mr-1" />}
+                        Attach
+                      </Button>
+                    </div>
+                    <Button onClick={handleReply} disabled={!replyMessage.trim() || api.isLoading} size="sm">
+                      {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                      Send
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

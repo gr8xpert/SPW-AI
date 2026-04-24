@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, Between } from 'typeorm';
 import { PropertyView, SearchLog, Favorite, SavedSearch, Property, Lead } from '../../database/entities';
 import { TrackViewDto, TrackSearchDto } from './dto';
 import * as crypto from 'crypto';
@@ -71,152 +71,202 @@ export class AnalyticsService {
     );
   }
 
+  async markPdfDownload(
+    tenantId: number,
+    propertyId: number,
+    sessionId: string,
+  ): Promise<void> {
+    await this.propertyViewRepository.update(
+      { tenantId, propertyId, sessionId },
+      { pdfDownloaded: true },
+    );
+  }
+
   async getOverview(
     tenantId: number,
     dateRange: { start: Date; end: Date },
-  ): Promise<{
-    properties: { total: number; change: number };
-    views: { total: number; change: number };
-    inquiries: { total: number; change: number };
-    leads: { total: number; newThisWeek: number };
-  }> {
-    const rangeDays = Math.ceil(
-      (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    const previousStart = new Date(dateRange.start);
-    previousStart.setDate(previousStart.getDate() - rangeDays);
-
-    // Properties count
-    const totalProperties = await this.propertyRepository.count({
-      where: { tenantId, status: 'active' },
+  ) {
+    const searches = await this.searchLogRepository.count({
+      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
     });
 
-    const newPropertiesThisMonth = await this.propertyRepository.count({
-      where: {
-        tenantId,
-        createdAt: MoreThanOrEqual(dateRange.start),
-      },
+    const views = await this.propertyViewRepository.count({
+      where: { tenantId, viewedAt: MoreThanOrEqual(dateRange.start) },
     });
 
-    // Views
-    const currentViews = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        viewedAt: MoreThanOrEqual(dateRange.start),
-      },
+    const cardClicks = await this.searchLogRepository.count({
+      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start), clickedPropertyId: MoreThanOrEqual(1) as any },
     });
 
-    const previousViews = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        viewedAt: MoreThanOrEqual(previousStart),
-      },
+    const wishlistAdds = await this.favoriteRepository.count({
+      where: { tenantId, createdAt: MoreThanOrEqual(dateRange.start) },
     });
 
-    const viewsChange = previousViews > 0
-      ? Math.round(((currentViews - previousViews) / previousViews) * 100)
-      : 0;
-
-    // Inquiries
-    const currentInquiries = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        inquiryMade: true,
-        viewedAt: MoreThanOrEqual(dateRange.start),
-      },
+    const inquiries = await this.propertyViewRepository.count({
+      where: { tenantId, inquiryMade: true, viewedAt: MoreThanOrEqual(dateRange.start) },
     });
 
-    const previousInquiries = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        inquiryMade: true,
-        viewedAt: MoreThanOrEqual(previousStart),
-      },
+    const pdfDownloads = await this.propertyViewRepository.count({
+      where: { tenantId, pdfDownloaded: true, viewedAt: MoreThanOrEqual(dateRange.start) },
     });
 
-    const inquiriesChange = previousInquiries > 0
-      ? Math.round(((currentInquiries - previousInquiries) / previousInquiries) * 100)
-      : 0;
+    return { searches, views, cardClicks, wishlistAdds, inquiries, pdfDownloads };
+  }
 
-    // Leads
-    const totalLeads = await this.leadRepository.count({
-      where: { tenantId },
-    });
+  async getDailyActivity(
+    tenantId: number,
+    dateRange: { start: Date; end: Date },
+  ) {
+    const days: { date: string; searches: number; views: number; inquiries: number }[] = [];
+    const current = new Date(dateRange.start);
+    current.setHours(0, 0, 0, 0);
 
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    while (current <= dateRange.end) {
+      const dayStart = new Date(current);
+      const dayEnd = new Date(current);
+      dayEnd.setHours(23, 59, 59, 999);
 
-    const newLeadsThisWeek = await this.leadRepository.count({
-      where: {
-        tenantId,
-        createdAt: MoreThanOrEqual(weekAgo),
-      },
-    });
+      const [searchCount, viewCount, inquiryCount] = await Promise.all([
+        this.searchLogRepository.count({
+          where: { tenantId, searchedAt: Between(dayStart, dayEnd) },
+        }),
+        this.propertyViewRepository.count({
+          where: { tenantId, viewedAt: Between(dayStart, dayEnd) },
+        }),
+        this.propertyViewRepository.count({
+          where: { tenantId, inquiryMade: true, viewedAt: Between(dayStart, dayEnd) },
+        }),
+      ]);
 
-    return {
-      properties: { total: totalProperties, change: newPropertiesThisMonth },
-      views: { total: currentViews, change: viewsChange },
-      inquiries: { total: currentInquiries, change: inquiriesChange },
-      leads: { total: totalLeads, newThisWeek: newLeadsThisWeek },
-    };
+      days.push({
+        date: dayStart.toISOString().split('T')[0],
+        searches: searchCount,
+        views: viewCount,
+        inquiries: inquiryCount,
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return days;
+  }
+
+  async getEventBreakdown(
+    tenantId: number,
+    dateRange: { start: Date; end: Date },
+  ) {
+    const [searches, views, cardClicks, wishlistAdds, inquiries] = await Promise.all([
+      this.searchLogRepository.count({
+        where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
+      }),
+      this.propertyViewRepository.count({
+        where: { tenantId, viewedAt: MoreThanOrEqual(dateRange.start) },
+      }),
+      this.searchLogRepository.count({
+        where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start), clickedPropertyId: MoreThanOrEqual(1) as any },
+      }),
+      this.favoriteRepository.count({
+        where: { tenantId, createdAt: MoreThanOrEqual(dateRange.start) },
+      }),
+      this.propertyViewRepository.count({
+        where: { tenantId, inquiryMade: true, viewedAt: MoreThanOrEqual(dateRange.start) },
+      }),
+    ]);
+
+    return [
+      { name: 'Searches', value: searches, color: '#3b82f6' },
+      { name: 'Property Views', value: views, color: '#10b981' },
+      { name: 'Card Clicks', value: cardClicks, color: '#06b6d4' },
+      { name: 'Wishlist Adds', value: wishlistAdds, color: '#ef4444' },
+      { name: 'Inquiries', value: inquiries, color: '#f59e0b' },
+    ];
   }
 
   async getTopProperties(
     tenantId: number,
     dateRange: { start: Date; end: Date },
     limit: number = 10,
-  ): Promise<Array<{
-    propertyId: number;
-    reference: string;
-    title: string;
-    views: number;
-    inquiries: number;
-  }>> {
+  ) {
     const result = await this.propertyViewRepository
       .createQueryBuilder('view')
       .select('view.propertyId', 'propertyId')
       .addSelect('property.reference', 'reference')
       .addSelect("JSON_UNQUOTE(JSON_EXTRACT(property.title, '$.en'))", 'title')
+      .addSelect("JSON_UNQUOTE(JSON_EXTRACT(location.name, '$.en'))", 'location')
+      .addSelect('property.listingType', 'listingType')
       .addSelect('COUNT(*)', 'views')
       .addSelect('SUM(CASE WHEN view.inquiryMade = true THEN 1 ELSE 0 END)', 'inquiries')
+      .addSelect('SUM(CASE WHEN view.pdfDownloaded = true THEN 1 ELSE 0 END)', 'pdfs')
+      .addSelect('COUNT(DISTINCT view.sessionId)', 'uniqueUsers')
       .innerJoin('view.property', 'property')
+      .leftJoin('property.location', 'location')
       .where('view.tenantId = :tenantId', { tenantId })
       .andWhere('view.viewedAt >= :start', { start: dateRange.start })
       .andWhere('view.viewedAt <= :end', { end: dateRange.end })
       .groupBy('view.propertyId')
       .addGroupBy('property.reference')
       .addGroupBy('property.title')
+      .addGroupBy('property.listingType')
+      .addGroupBy('location.name')
       .orderBy('views', 'DESC')
       .limit(limit)
       .getRawMany();
+
+    const propertyIds = result.map((r) => parseInt(r.propertyId));
+
+    let clickCounts: Record<number, number> = {};
+    let wishlistCounts: Record<number, number> = {};
+
+    if (propertyIds.length > 0) {
+      const clicks = await this.searchLogRepository
+        .createQueryBuilder('log')
+        .select('log.clickedPropertyId', 'propertyId')
+        .addSelect('COUNT(*)', 'clicks')
+        .where('log.tenantId = :tenantId', { tenantId })
+        .andWhere('log.searchedAt >= :start', { start: dateRange.start })
+        .andWhere('log.clickedPropertyId IN (:...ids)', { ids: propertyIds })
+        .groupBy('log.clickedPropertyId')
+        .getRawMany();
+
+      clickCounts = Object.fromEntries(clicks.map((c) => [c.propertyId, parseInt(c.clicks)]));
+
+      const wishlists = await this.favoriteRepository
+        .createQueryBuilder('fav')
+        .select('fav.propertyId', 'propertyId')
+        .addSelect('COUNT(*)', 'count')
+        .where('fav.tenantId = :tenantId', { tenantId })
+        .andWhere('fav.createdAt >= :start', { start: dateRange.start })
+        .andWhere('fav.propertyId IN (:...ids)', { ids: propertyIds })
+        .groupBy('fav.propertyId')
+        .getRawMany();
+
+      wishlistCounts = Object.fromEntries(wishlists.map((w) => [w.propertyId, parseInt(w.count)]));
+    }
 
     return result.map((r) => ({
       propertyId: parseInt(r.propertyId),
       reference: r.reference,
       title: r.title || '',
+      location: r.location || '-',
+      listingType: r.listingType || '-',
       views: parseInt(r.views),
+      clicks: clickCounts[parseInt(r.propertyId)] || 0,
+      wishlist: wishlistCounts[parseInt(r.propertyId)] || 0,
       inquiries: parseInt(r.inquiries),
+      pdfs: parseInt(r.pdfs),
+      uniqueUsers: parseInt(r.uniqueUsers),
     }));
   }
 
   async getSearchAnalytics(
     tenantId: number,
     dateRange: { start: Date; end: Date },
-  ): Promise<{
-    popularLocations: Array<{ locationId: number; name: string; count: number }>;
-    popularFilters: Record<string, number>;
-    priceRanges: Array<{ range: string; percentage: number }>;
-  }> {
+  ) {
     const searches = await this.searchLogRepository.find({
-      where: {
-        tenantId,
-        searchedAt: MoreThanOrEqual(dateRange.start),
-      },
+      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
     });
 
     const locationCounts: Record<number, number> = {};
-    const filterCounts: Record<string, number> = {};
     const priceRanges: Record<string, number> = {
       '0-200k': 0,
       '200k-400k': 0,
@@ -232,16 +282,6 @@ export class AnalyticsService {
         locationCounts[filters.locationId] = (locationCounts[filters.locationId] || 0) + 1;
       }
 
-      if (filters.bedrooms) {
-        filterCounts[`${filters.bedrooms}+ bedrooms`] = (filterCounts[`${filters.bedrooms}+ bedrooms`] || 0) + 1;
-      }
-
-      if (filters.features) {
-        for (const feature of filters.features) {
-          filterCounts[feature] = (filterCounts[feature] || 0) + 1;
-        }
-      }
-
       const maxPrice = filters.maxPrice || filters.priceMax;
       if (maxPrice) {
         if (maxPrice <= 200000) priceRanges['0-200k']++;
@@ -254,12 +294,31 @@ export class AnalyticsService {
 
     const totalSearches = searches.length || 1;
 
+    // Top property types by actual views (not search filters)
+    const typeViews = await this.propertyViewRepository
+      .createQueryBuilder('view')
+      .select("JSON_UNQUOTE(JSON_EXTRACT(pt.name, '$.en'))", 'typeName')
+      .addSelect('COUNT(*)', 'count')
+      .innerJoin('view.property', 'property')
+      .innerJoin('property_types', 'pt', 'pt.id = property.propertyTypeId')
+      .where('view.tenantId = :tenantId', { tenantId })
+      .andWhere('view.viewedAt >= :start', { start: dateRange.start })
+      .andWhere('property.propertyTypeId IS NOT NULL')
+      .groupBy('pt.id')
+      .addGroupBy('pt.name')
+      .orderBy('count', 'DESC')
+      .limit(10)
+      .getRawMany();
+
     return {
       popularLocations: Object.entries(locationCounts)
         .map(([id, count]) => ({ locationId: parseInt(id), name: '', count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
-      popularFilters: filterCounts,
+      popularTypes: typeViews.map((t) => ({
+        name: t.typeName || 'Unknown',
+        count: parseInt(t.count),
+      })),
       priceRanges: Object.entries(priceRanges).map(([range, count]) => ({
         range,
         percentage: Math.round((count / totalSearches) * 100),
@@ -270,13 +329,7 @@ export class AnalyticsService {
   async getFunnel(
     tenantId: number,
     dateRange: { start: Date; end: Date },
-  ): Promise<{
-    visitors: number;
-    views: number;
-    inquiries: number;
-    leads: number;
-    won: number;
-  }> {
+  ) {
     const uniqueSessions = await this.propertyViewRepository
       .createQueryBuilder('view')
       .select('COUNT(DISTINCT view.sessionId)', 'count')
@@ -285,33 +338,19 @@ export class AnalyticsService {
       .getRawOne();
 
     const views = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        viewedAt: MoreThanOrEqual(dateRange.start),
-      },
+      where: { tenantId, viewedAt: MoreThanOrEqual(dateRange.start) },
     });
 
     const inquiries = await this.propertyViewRepository.count({
-      where: {
-        tenantId,
-        inquiryMade: true,
-        viewedAt: MoreThanOrEqual(dateRange.start),
-      },
+      where: { tenantId, inquiryMade: true, viewedAt: MoreThanOrEqual(dateRange.start) },
     });
 
     const leads = await this.leadRepository.count({
-      where: {
-        tenantId,
-        createdAt: MoreThanOrEqual(dateRange.start),
-      },
+      where: { tenantId, createdAt: MoreThanOrEqual(dateRange.start) },
     });
 
     const won = await this.leadRepository.count({
-      where: {
-        tenantId,
-        status: 'won',
-        wonAt: MoreThanOrEqual(dateRange.start),
-      },
+      where: { tenantId, status: 'won', wonAt: MoreThanOrEqual(dateRange.start) },
     });
 
     return {

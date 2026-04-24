@@ -48,3 +48,12 @@ export class TrackInquiryDto {
   @IsOptional()
   inquiryMade?: boolean;
 }
+
+export class TrackPdfDto {
+  @IsInt()
+  propertyId: number;
+
+  @IsString()
+  @IsNotEmpty()
+  sessionId: string;
+}

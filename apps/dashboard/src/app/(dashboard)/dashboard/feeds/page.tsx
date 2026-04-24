@@ -121,6 +121,7 @@ export default function FeedsPage() {
   const { toast } = useToast();
 
   const fetchFeeds = async () => {
+    if (!api.isReady) return;
     try {
       const res = await api.get('/api/dashboard/feeds');
       const body = res?.data || res;
@@ -130,7 +131,7 @@ export default function FeedsPage() {
     }
   };
 
-  useEffect(() => { fetchFeeds(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchFeeds(); }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     try {
@@ -229,6 +230,10 @@ export default function FeedsPage() {
     setIsEditOpen(true);
   };
 
+  const showClientId = form.provider === 'resales' || form.provider === 'inmoba';
+  const showEndpoint = form.provider === 'inmoba';
+  const showUsernamePassword = form.provider === 'infocasa' || form.provider === 'redsp';
+
   const formFields = (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
@@ -248,23 +253,33 @@ export default function FeedsPage() {
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>API Key</Label>
+        <Label>API Key *</Label>
         <Input placeholder="Provider API key" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      {showClientId && (
         <div className="space-y-2">
-          <Label>Username</Label>
-          <Input placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+          <Label>Client ID {form.provider === 'resales' ? '(Agency Filter ID) *' : ''}</Label>
+          <Input placeholder={form.provider === 'resales' ? 'e.g. 1029727' : 'Client identifier'} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
         </div>
+      )}
+      {showUsernamePassword && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Username</Label>
+            <Input placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Password</Label>
+            <Input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          </div>
+        </div>
+      )}
+      {showEndpoint && (
         <div className="space-y-2">
-          <Label>Password</Label>
-          <Input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <Label>Endpoint URL</Label>
+          <Input placeholder="https://api.inmoba.com/v1" value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} />
         </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Endpoint URL</Label>
-        <Input placeholder="https://api.provider.com/feed" value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} />
-      </div>
+      )}
       <div className="space-y-2">
         <Label>Sync Schedule (cron)</Label>
         <Input placeholder="0 6 * * *" value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />

@@ -14,9 +14,11 @@ import {
   TrackingController,
   FavoritesController,
 } from './analytics.controller';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
+    TenantModule,
     TypeOrmModule.forFeature([
       PropertyView,
       SearchLog,

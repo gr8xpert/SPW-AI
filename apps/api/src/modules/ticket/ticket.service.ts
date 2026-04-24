@@ -1,16 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Ticket, TicketMessage, TicketStatus } from '../../database/entities';
 import { CreateTicketDto, UpdateTicketDto, CreateMessageDto } from './dto';
+import { TicketNotificationService } from './ticket-notification.service';
 
 @Injectable()
 export class TicketService {
+  private readonly logger = new Logger(TicketService.name);
+
   constructor(
     @InjectRepository(Ticket)
     private ticketRepository: Repository<Ticket>,
     @InjectRepository(TicketMessage)
     private messageRepository: Repository<TicketMessage>,
+    private readonly notifications: TicketNotificationService,
   ) {}
 
   private async generateTicketNumber(): Promise<string> {
@@ -33,17 +37,23 @@ export class TicketService {
 
     const savedTicket = await this.ticketRepository.save(ticket);
 
-    // Create initial message
     const message = this.messageRepository.create({
-      ticketId: savedTicket.id,
+      ticket: { id: savedTicket.id } as Ticket,
       userId,
       message: dto.message,
+      attachments: (dto.attachments as any) || null,
       isStaff: false,
     });
 
     await this.messageRepository.save(message);
 
-    return this.findOne(tenantId, savedTicket.id);
+    const fullTicket = await this.findOne(tenantId, savedTicket.id);
+
+    this.notifications.notifyTicketCreated(fullTicket, dto.message).catch((err) =>
+      this.logger.error(`Failed to send ticket creation notification: ${err.message}`),
+    );
+
+    return fullTicket;
   }
 
   async findAll(
@@ -71,7 +81,9 @@ export class TicketService {
       query.andWhere('ticket.userId = :userId', { userId });
     }
 
-    query.orderBy('ticket.createdAt', 'DESC');
+    query
+      .loadRelationCountAndMap('ticket.messagesCount', 'ticket.messages')
+      .orderBy('ticket.createdAt', 'DESC');
 
     const [data, total] = await query
       .skip((page - 1) * limit)
@@ -105,7 +117,9 @@ export class TicketService {
       query.andWhere('ticket.tenantId = :tenantId', { tenantId });
     }
 
-    query.orderBy('ticket.createdAt', 'DESC');
+    query
+      .loadRelationCountAndMap('ticket.messagesCount', 'ticket.messages')
+      .orderBy('ticket.createdAt', 'DESC');
 
     const [data, total] = await query
       .skip((page - 1) * limit)
@@ -170,37 +184,52 @@ export class TicketService {
     dto: CreateMessageDto,
     isStaff: boolean,
   ): Promise<TicketMessage> {
-    const ticket = await this.findOne(tenantId, ticketId);
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId, tenantId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const message = this.messageRepository.create({
-      ticketId: ticket.id,
-      userId,
-      message: dto.message,
-      attachments: dto.attachments,
-      isStaff,
-      isInternal: dto.isInternal || false,
+    const insertResult = await this.messageRepository
+      .createQueryBuilder()
+      .insert()
+      .into(TicketMessage)
+      .values({
+        ticketId: ticket.id,
+        userId,
+        message: dto.message,
+        attachments: (dto.attachments as any) || null,
+        isStaff,
+        isInternal: dto.isInternal || false,
+      })
+      .execute();
+
+    const savedMessage = await this.messageRepository.findOne({
+      where: { id: insertResult.generatedMaps[0].id as number },
+      relations: ['user'],
     });
 
-    const savedMessage = await this.messageRepository.save(message);
+    const updateFields: Partial<Ticket> = { lastReplyAt: new Date() };
 
-    // Update ticket last reply time
-    ticket.lastReplyAt = new Date();
-
-    // Track first response time
     if (isStaff && !ticket.firstResponseAt) {
-      ticket.firstResponseAt = new Date();
+      updateFields.firstResponseAt = new Date();
     }
 
-    // Update status based on who replied
     if (isStaff && ticket.status === 'open') {
-      ticket.status = 'in_progress';
+      updateFields.status = 'in_progress' as TicketStatus;
     } else if (!isStaff && ticket.status === 'waiting_customer') {
-      ticket.status = 'in_progress';
+      updateFields.status = 'in_progress' as TicketStatus;
     }
 
-    await this.ticketRepository.save(ticket);
+    await this.ticketRepository.update(ticket.id, updateFields);
 
-    return savedMessage;
+    if (savedMessage && !dto.isInternal) {
+      const senderName = savedMessage.user?.name || savedMessage.user?.email || (isStaff ? 'Support' : 'Customer');
+      this.notifications.notifyTicketReply(ticket, savedMessage, senderName).catch((err) =>
+        this.logger.error(`Failed to send reply notification: ${err.message}`),
+      );
+    }
+
+    return savedMessage!;
   }
 
   async getStats(tenantId?: number): Promise<{

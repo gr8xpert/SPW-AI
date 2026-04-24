@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -9,6 +10,7 @@ import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { TimeEntry, Ticket, User } from '../../database/entities';
 import { CreateTimeEntryDto, UpdateTimeEntryDto } from './dto';
 import { UserRole } from '@spw/shared';
+import { TicketNotificationService } from '../ticket/ticket-notification.service';
 
 export interface TimeEntrySummary {
   totalHours: number;
@@ -26,6 +28,8 @@ export interface WebmasterStats {
 
 @Injectable()
 export class WebmasterService {
+  private readonly logger = new Logger(WebmasterService.name);
+
   constructor(
     @InjectRepository(TimeEntry)
     private timeEntryRepository: Repository<TimeEntry>,
@@ -33,6 +37,7 @@ export class WebmasterService {
     private ticketRepository: Repository<Ticket>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private readonly ticketNotifications: TicketNotificationService,
   ) {}
 
   /**
@@ -290,9 +295,9 @@ export class WebmasterService {
       throw new NotFoundException('Ticket not found');
     }
 
-    // Verify webmaster exists if assigning
+    let webmaster: User | null = null;
     if (webmasterId !== null) {
-      const webmaster = await this.userRepository.findOne({
+      webmaster = await this.userRepository.findOne({
         where: { id: webmasterId, role: UserRole.WEBMASTER },
       });
 
@@ -306,7 +311,15 @@ export class WebmasterService {
       ticket.status = 'in_progress';
     }
 
-    return this.ticketRepository.save(ticket);
+    const saved = await this.ticketRepository.save(ticket);
+
+    if (webmaster) {
+      this.ticketNotifications.notifyTicketAssigned(saved, webmaster).catch((err) =>
+        this.logger.error(`Failed to send assignment notification: ${err.message}`),
+      );
+    }
+
+    return saved;
   }
 
   /**

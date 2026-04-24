@@ -51,6 +51,9 @@ export class PropertyView {
   @Column({ default: false })
   inquiryMade: boolean;
 
+  @Column({ default: false })
+  pdfDownloaded: boolean;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   viewedAt: Date;
 }

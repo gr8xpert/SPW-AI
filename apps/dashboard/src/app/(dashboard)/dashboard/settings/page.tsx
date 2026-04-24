@@ -147,7 +147,7 @@ interface SenderDomainVerifyResponse {
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [savingGeneral, setSavingGeneral] = useState(false);
   const [syncVersion, setSyncVersion] = useState<number | null>(null);
   const [lastClearedAt, setLastClearedAt] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
@@ -206,6 +206,16 @@ export default function SettingsPage() {
   const [aiChatTTLDays, setAiChatTTLDays] = useState(7);
   const [aiChatAutoEmailAdmin, setAiChatAutoEmailAdmin] = useState(true);
   const [savingAiChat, setSavingAiChat] = useState(false);
+
+  // Email config state
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  // API key state
+  const [apiKeyLast4, setApiKeyLast4] = useState<string | null>(null);
+  const [revealedApiKey, setRevealedApiKey] = useState<string | null>(null);
+  const [rotatingApiKey, setRotatingApiKey] = useState(false);
 
   // Tenant-level languages
   const [enabledLanguages, setEnabledLanguages] = useState<string[]>(['en']);
@@ -280,6 +290,24 @@ export default function SettingsPage() {
         // Non-fatal — user gets the empty state.
       })
       .finally(() => setSenderDomainLoaded(true));
+
+    apiGet<{ smtpHost?: string; smtpPort?: number; smtpUser?: string; smtpPassword?: string; fromEmail?: string; fromName?: string } | null>('/api/dashboard/email-config')
+      .then((config) => {
+        if (config) {
+          if (config.smtpHost) emailForm.setValue('smtpHost', config.smtpHost);
+          if (config.smtpPort) emailForm.setValue('smtpPort', config.smtpPort);
+          if (config.smtpUser) emailForm.setValue('smtpUser', config.smtpUser);
+          if (config.fromEmail) emailForm.setValue('fromEmail', config.fromEmail);
+          if (config.fromName) emailForm.setValue('fromName', config.fromName);
+        }
+      })
+      .catch(() => {});
+
+    apiGet<{ apiKeyLast4: string }>('/api/dashboard/tenant/api-credentials')
+      .then((res) => {
+        setApiKeyLast4(res.apiKeyLast4);
+      })
+      .catch(() => {});
   }, [session?.accessToken]);
 
   const loadDeliveries = async () => {
@@ -636,7 +664,7 @@ export default function SettingsPage() {
   });
 
   const onGeneralSubmit = async (data: z.infer<typeof generalSchema>) => {
-    setIsLoading(true);
+    setSavingGeneral(true);
     try {
       await apiPut('/api/dashboard/tenant/settings', {
         companyName: data.companyName,
@@ -655,14 +683,23 @@ export default function SettingsPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setSavingGeneral(false);
     }
   };
 
   const onEmailSubmit = async (data: z.infer<typeof emailSchema>) => {
-    setIsLoading(true);
+    setSavingEmail(true);
     try {
-      // API call would go here
+      await apiPut('/api/dashboard/email-config', {
+        provider: 'smtp',
+        smtpHost: data.smtpHost || undefined,
+        smtpPort: data.smtpPort || 587,
+        smtpUser: data.smtpUser || undefined,
+        smtpPassword: data.smtpPassword || undefined,
+        fromEmail: data.fromEmail || undefined,
+        fromName: data.fromName || undefined,
+      });
+      setEmailTestResult(null);
       toast({
         title: 'Email settings saved',
         description: 'Your SMTP configuration has been updated.',
@@ -670,11 +707,53 @@ export default function SettingsPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to save email settings.',
+        description: (error as Error).message || 'Failed to save email settings.',
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setSavingEmail(false);
+    }
+  };
+
+  const onTestEmail = async () => {
+    setTestingEmail(true);
+    setEmailTestResult(null);
+    try {
+      const res = await apiPost<{ success: boolean; error?: string }>(
+        '/api/dashboard/email-config/test',
+      );
+      setEmailTestResult(res);
+    } catch (err) {
+      setEmailTestResult({ success: false, error: (err as Error).message || 'Connection test failed' });
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
+  const onRotateApiKey = async () => {
+    const confirmed = window.confirm(
+      'Regenerate your API key? The current key will stop working immediately. You must update your widget and any integrations with the new key.',
+    );
+    if (!confirmed) return;
+    setRotatingApiKey(true);
+    try {
+      const res = await apiPost<{ apiKey: string; apiKeyLast4: string }>(
+        '/api/dashboard/tenant/api-key/rotate',
+      );
+      setRevealedApiKey(res.apiKey);
+      setApiKeyLast4(res.apiKeyLast4);
+      toast({
+        title: 'API key regenerated',
+        description: 'Copy the new key now — it will not be shown again.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to regenerate API key',
+        description: (err as Error).message || 'Unexpected error',
+        variant: 'destructive',
+      });
+    } finally {
+      setRotatingApiKey(false);
     }
   };
 
@@ -791,8 +870,8 @@ export default function SettingsPage() {
                     )}
                   </div>
                 </div>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : 'Save Changes'}
+                <Button type="submit" disabled={savingGeneral}>
+                  {savingGeneral ? 'Saving...' : 'Save Changes'}
                 </Button>
               </form>
             </CardContent>
@@ -943,13 +1022,39 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Saving...' : 'Save Settings'}
+                  <Button type="submit" disabled={savingEmail}>
+                    {savingEmail ? 'Saving...' : 'Save Settings'}
                   </Button>
-                  <Button type="button" variant="outline">
-                    Send Test Email
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onTestEmail}
+                    disabled={testingEmail}
+                  >
+                    <Mail className={`h-4 w-4 mr-2 ${testingEmail ? 'animate-pulse' : ''}`} />
+                    {testingEmail ? 'Testing...' : 'Send Test Email'}
                   </Button>
                 </div>
+                {emailTestResult && (
+                  <div
+                    className={
+                      'rounded-lg border p-4 mt-4 ' +
+                      (emailTestResult.success
+                        ? 'border-green-500/40 bg-green-50 dark:bg-green-950/30'
+                        : 'border-red-500/40 bg-red-50 dark:bg-red-950/30')
+                    }
+                  >
+                    {emailTestResult.success ? (
+                      <p className="text-sm text-green-800 dark:text-green-200">
+                        SMTP connection test successful! A test email was sent.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-red-800 dark:text-red-200">
+                        Connection failed: {emailTestResult.error}
+                      </p>
+                    )}
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>
@@ -1124,48 +1229,64 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>API Keys</CardTitle>
               <CardDescription>
-                Manage your API keys for widget integration
+                Your API key authenticates widget and integration requests.
+                The full key is shown only once when regenerated — store it securely.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium">Public API Key</p>
+                    <p className="font-medium">API Key</p>
                     <p className="text-sm text-muted-foreground">
-                      Use this key in your website widget
+                      {apiKeyLast4
+                        ? `Used in your website widget (x-api-key header). Ends in …${apiKeyLast4}`
+                        : 'Loading…'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <code className="px-2 py-1 bg-muted rounded text-sm">
-                      pk_live_xxxxxxxxxxxx
+                    <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
+                      {apiKeyLast4 ? `••••••••••••${apiKeyLast4}` : '••••��•••••••'}
                     </code>
-                    <Button variant="outline" size="sm">
-                      Copy
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onRotateApiKey}
+                      disabled={rotatingApiKey}
+                    >
+                      {rotatingApiKey ? 'Regenerating…' : 'Regenerate'}
                     </Button>
                   </div>
                 </div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Secret API Key</p>
-                    <p className="text-sm text-muted-foreground">
-                      Use for server-side integrations only
+                {revealedApiKey && (
+                  <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-3">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      New API key — copy it now. It will not be shown again.
                     </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <code className="flex-1 px-2 py-1 bg-muted rounded text-xs font-mono break-all">
+                        {revealedApiKey}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(revealedApiKey);
+                          toast({ title: 'Copied to clipboard' });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRevealedApiKey(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <code className="px-2 py-1 bg-muted rounded text-sm">
-                      sk_live_••••••••••••
-                    </code>
-                    <Button variant="outline" size="sm">
-                      Reveal
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Regenerate
-                    </Button>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
