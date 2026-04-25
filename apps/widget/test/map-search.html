@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPW Test — Map Search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; }
+
+    .test-header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: white; padding: 1.5rem 2rem; display: flex; align-items: center; gap: 1rem;
+    }
+    .test-header h1 { font-size: 1.25rem; }
+    .test-header nav { margin-left: auto; display: flex; gap: 1rem; }
+    .test-header nav a { color: #94a3b8; text-decoration: none; font-size: 0.875rem; }
+    .test-header nav a:hover, .test-header nav a.active { color: white; }
+
+    .test-section {
+      max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem;
+    }
+    .test-section h2 {
+      font-size: 1rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
+    }
+    .test-card {
+      background: white; border-radius: 12px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 2rem;
+    }
+    .test-card--full {
+      padding: 0; overflow: hidden;
+    }
+    .test-label {
+      font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+    .test-label--padded { padding: 1rem 1.5rem 0; }
+    .test-info {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem;
+      font-size: 0.875rem; color: #1e40af; margin-bottom: 1.5rem;
+    }
+
+    /* Map needs explicit height */
+    [data-spw-widget="map_container"],
+    [data-spw-widget="map-template-01"],
+    [data-spw-widget="map-template-02"],
+    [data-spw-widget="map-template-03"] {
+      min-height: 500px;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-header">
+    <h1>SPW Widget Test — Map Search</h1>
+    <nav>
+      <a href="search-listing.html">Search + Listing</a>
+      <a href="detail.html">Detail</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="map-search.html" class="active">Map Search</a>
+    </nav>
+  </div>
+
+  <div class="test-section">
+    <div class="test-info">
+      <strong>Map Search:</strong> Maps load Leaflet from CDN on first render. The Explore Map loads all properties at once with proportionally-sized location clusters (like Booking.com / Idealista). Pan/zoom triggers viewport search on standard templates.
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Explore Map — All Properties (Booking.com / Idealista style) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Explore Map — All Properties (Booking.com / Idealista Style)</h2>
+    <div class="test-card test-card--full">
+      <div class="test-label test-label--padded">Full-width explore map: loads ALL properties, proportional location clusters, stats bar. Click a cluster to zoom in.</div>
+      <div data-spw-widget="map_container" data-spw-mode="explore" data-spw-zoom="9" style="min-height: 600px;"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Map Template 01 — Location Tags -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Map Template 01 — Location Tags</h2>
+    <div class="test-card test-card--full">
+      <div class="test-label test-label--padded">Full-width map with clickable location tags + zone/property toggle</div>
+      <div data-spw-widget="map-template-01" style="min-height: 550px;"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Map Template 02 — Full-Width + Filters -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Map Template 02 — Full-Width + Filter Bar</h2>
+    <div class="test-card test-card--full">
+      <div class="test-label test-label--padded">Filter bar + full-width map + list/map toggle</div>
+      <div data-spw-widget="map-template-02" style="min-height: 550px;"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Map Template 03 — Split Panel -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Map Template 03 — Split Panel (Map + Results)</h2>
+    <div class="test-card test-card--full">
+      <div class="test-label test-label--padded">Map on left (60%), scrollable property cards on right (40%), hover highlight sync</div>
+      <div data-spw-widget="map-template-03" style="min-height: 600px;"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Individual Map Sub-Components -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Individual Map Sub-Components</h2>
+
+    <div class="test-card">
+      <div class="test-label">Map Container — Standalone</div>
+      <div data-spw-widget="map_container" data-spw-zoom="12" data-spw-center="36.51,-4.88" style="min-height: 400px;"></div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Location Tags</div>
+      <div data-spw-widget="map_location_tags"></div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Radius Search (Address + Distance)</div>
+      <div data-spw-widget="map_radius_search"></div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Map Results Panel</div>
+      <div data-spw-widget="map_results_panel" data-spw-template="3" style="max-height: 500px;"></div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Map View Toggle (List / Map)</div>
+      <div data-spw-widget="map_view_toggle"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Custom Map Layout (Designer Freestyle) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Custom Map Layout — Designer Freestyle</h2>
+    <div class="test-card">
+      <div class="test-label">Custom split layout with radius search + map + results panel</div>
+      <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <div data-spw-widget="map_radius_search" style="flex: 1; min-width: 250px;"></div>
+        <div data-spw-widget="map_view_toggle"></div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 380px; gap: 1rem; min-height: 450px;">
+        <div data-spw-widget="map_container" data-spw-zoom="11" data-spw-center="36.50,-4.95" style="min-height: 450px; border-radius: 8px; overflow: hidden;"></div>
+        <div data-spw-widget="map_results_panel" style="max-height: 450px; overflow-y: auto;"></div>
+      </div>
+      <div style="margin-top: 0.75rem;">
+        <div data-spw-widget="map_location_tags"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Bubble -->
+  <div data-spw-widget="chat_bubble"></div>
+  <div data-spw-widget="chat_panel"></div>
+
+  <!-- Config + Mock Data + Widget -->
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://127.0.0.1:3001',
+      apiKey: 'test-key-12345',
+      language: 'en',
+      currency: 'EUR',
+      enableChat: true,
+      enableFavorites: true,
+      propertyPageSlug: 'property',
+      onReady: function() {
+        console.log('[SPW Test] Widget initialized — map search page ready!');
+      }
+    };
+  </script>
+  <script src="mock-data.js"></script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

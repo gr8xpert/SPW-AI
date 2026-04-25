@@ -1,11 +1,22 @@
 import { defineConfig } from 'vite';
+import preact from '@preact/preset-vite';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
-    cssInjectedByJsPlugin(), // Injects CSS into JS bundle
+    ...(command === 'build' ? [preact(), cssInjectedByJsPlugin()] : []),
   ],
+  esbuild: command === 'serve' ? {
+    jsx: 'automatic',
+    jsxImportSource: 'preact',
+  } : undefined,
+  server: {
+    open: '/test/search-listing.html',
+    fs: {
+      allow: ['.'],
+    },
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
@@ -15,7 +26,6 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Ensure CSS is bundled
         assetFileNames: 'spw-widget.[ext]',
       },
     },
@@ -30,6 +40,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      'react': 'preact/compat',
+      'react-dom': 'preact/compat',
+      'react/jsx-runtime': 'preact/jsx-runtime',
     },
   },
-});
+}));

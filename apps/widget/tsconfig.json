@@ -16,8 +16,12 @@
     "noFallthroughCasesInSwitch": true,
     "declaration": true,
     "declarationDir": "dist/types",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react": ["./node_modules/preact/compat/"],
+      "react-dom": ["./node_modules/preact/compat/"]
     }
   },
   "include": ["src"]

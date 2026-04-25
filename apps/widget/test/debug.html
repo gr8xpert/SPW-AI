@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPW Debug</title>
+</head>
+<body>
+  <h2>SPW Debug Page</h2>
+  <pre id="log" style="background:#111;color:#0f0;padding:1rem;font-size:13px;max-height:600px;overflow:auto;"></pre>
+
+  <div data-spw-widget="location" data-spw-variation="1"></div>
+  <div data-spw-widget="listing_type" data-spw-variation="1"></div>
+  <div data-spw-widget="property_grid"></div>
+
+  <script>
+    // Override console to capture in page
+    var logEl = document.getElementById('log');
+    var origLog = console.log;
+    var origWarn = console.warn;
+    var origError = console.error;
+    function appendLog(prefix, args) {
+      var text = prefix + ' ' + Array.from(args).map(function(a) {
+        if (typeof a === 'object') try { return JSON.stringify(a, null, 2).substring(0, 300); } catch(e) { return String(a); }
+        return String(a);
+      }).join(' ') + '\n';
+      logEl.textContent += text;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    console.log = function() { appendLog('[LOG]', arguments); origLog.apply(console, arguments); };
+    console.warn = function() { appendLog('[WARN]', arguments); origWarn.apply(console, arguments); };
+    console.error = function() { appendLog('[ERROR]', arguments); origError.apply(console, arguments); };
+    window.addEventListener('error', function(e) { appendLog('[UNCAUGHT]', [e.message, e.filename, e.lineno]); });
+    window.addEventListener('unhandledrejection', function(e) { appendLog('[UNHANDLED REJECTION]', [e.reason && e.reason.message || e.reason]); });
+  </script>
+
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://127.0.0.1:3001',
+      apiKey: 'test-key-12345',
+      language: 'en',
+      currency: 'EUR',
+    };
+  </script>
+  <script src="mock-data.js"></script>
+
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

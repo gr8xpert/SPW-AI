@@ -1,311 +1,300 @@
-import type {
-  LocalData,
-  Location,
-  PropertyType,
-  Feature,
-  Labels,
-  Property,
-  SearchFilters,
-  SearchResults,
-  InquiryData,
-  TrackingEvent,
-} from '../types';
+import type { SearchFilters, SearchResults, Property, Location, PropertyType, Feature, WidgetConfig } from '@/types';
+import type { Labels } from '@/types/labels';
+import { ApiClient } from './api-client';
+import { getCached, setCache, clearCache as clearIDB } from './idb-cache';
+import { store } from './store';
+import { actions } from './actions';
 
-export interface DataLoaderConfig {
-  apiUrl: string;
-  apiKey: string;
-  dataPath: string;
+export interface BundleData {
+  syncVersion: number;
+  config?: Partial<WidgetConfig>;
+  locations: Location[];
+  types: PropertyType[];
+  features: Feature[];
+  labels: Record<string, string>;
+  defaultResults?: SearchResults;
 }
 
-export interface SyncMeta {
+interface SyncMeta {
   syncVersion: number;
   tenantSlug: string;
 }
 
-/**
- * DataLoader handles fetching data from both local JSON files and the API
- * - Local JSON: Used for dropdown data (locations, types, features, labels)
- * - API: Used for property search and property details
- */
+declare global {
+  interface Window {
+    __SPW_DATA__?: BundleData;
+  }
+}
+
 export class DataLoader {
-  private config: DataLoaderConfig;
-  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
-  private cacheTTL = 5 * 60 * 1000; // 5 minutes
-
-  // Sync polling state. `knownSyncVersion` is the version the widget's
-  // current cache was built against. When a poll sees a newer number on
-  // the server we know the operator clicked "clear cache" and we need to
-  // drop our local maps + reload. Null until the first poll establishes
-  // the baseline.
-  private knownSyncVersion: number | null = null;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private api: ApiClient;
+  private apiKey: string;
+  private cdnUrl: string;
+  private dataPath: string;
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler: (() => void) | null = null;
-  private onSyncChange: ((newVersion: number) => void) | null = null;
+  private memoryCache = new Map<string, { data: unknown; ts: number }>();
+  private readonly MEMORY_TTL = 5 * 60 * 1000;
 
-  constructor(config: DataLoaderConfig) {
-    this.config = config;
+  constructor(config: WidgetConfig) {
+    this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
+    this.apiKey = config.apiKey;
+    this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
+    this.dataPath = config.dataPath || '/spw-data';
   }
 
-  /**
-   * Load all local data files at once
-   */
-  async loadLocalData(): Promise<LocalData> {
-    const [locations, propertyTypes, features, labels, config] = await Promise.all([
-      this.loadLocalFile<Location[]>('locations.json'),
-      this.loadLocalFile<PropertyType[]>('types.json'),
-      this.loadLocalFile<Feature[]>('features.json'),
-      this.loadLocalFile<Labels>('labels.json'),
-      this.loadLocalFile<LocalData['config']>('config.json'),
+  async loadBundle(): Promise<BundleData> {
+    // Layer 0: WP inline preload
+    const inline = this.tryInlineData();
+    if (inline) {
+      this.persistToIDB(inline);
+      return inline;
+    }
+
+    // Layer 1: IndexedDB cache
+    const cached = await this.tryIDBCache();
+    if (cached) {
+      this.checkFreshnessInBackground();
+      return cached;
+    }
+
+    // Layer 2: CDN bundle
+    const cdn = await this.tryCDNBundle();
+    if (cdn) {
+      this.persistToIDB(cdn);
+      return cdn;
+    }
+
+    // Layer 3: API fallback (individual endpoints)
+    return this.loadFromAPI();
+  }
+
+  private tryInlineData(): BundleData | null {
+    const data = window.__SPW_DATA__;
+    if (!data) return null;
+    return data;
+  }
+
+  private async tryIDBCache(): Promise<BundleData | null> {
+    const entry = await getCached<BundleData>(this.cacheKey());
+    if (!entry) return null;
+    return entry.data;
+  }
+
+  private async tryCDNBundle(): Promise<BundleData | null> {
+    const config = store.getState().config;
+    const slug = config.tenantSlug;
+    const version = config.syncVersion;
+    if (!slug) return null;
+
+    const url = version
+      ? `${this.cdnUrl}/${slug}/v${version}/bundle.json`
+      : `${this.cdnUrl}/${slug}/bundle.json`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  private async loadFromAPI(): Promise<BundleData> {
+    const [locations, types, features, labels] = await Promise.all([
+      this.loadLocalFileOrAPI<Location[]>('locations.json', '/v1/locations'),
+      this.loadLocalFileOrAPI<PropertyType[]>('types.json', '/v1/property-types'),
+      this.loadLocalFileOrAPI<Feature[]>('features.json', '/v1/features'),
+      this.loadLocalFileOrAPI<Record<string, string>>('labels.json', '/v1/labels'),
     ]);
 
-    // Load sync metadata
-    const syncMeta = await this.loadLocalFile<{ version: number; synced_at: string }>('sync_meta.json').catch(() => ({
-      version: 0,
-      synced_at: new Date().toISOString(),
-    }));
+    const syncMeta = await this.fetchSyncMeta();
 
-    return {
-      locations,
-      propertyTypes,
-      features,
-      labels,
-      config,
-      syncVersion: syncMeta.version,
-      lastSyncAt: syncMeta.synced_at,
+    const bundle: BundleData = {
+      syncVersion: syncMeta?.syncVersion ?? 0,
+      locations: locations ?? [],
+      types: types ?? [],
+      features: features ?? [],
+      labels: labels ?? {},
     };
+
+    this.persistToIDB(bundle);
+    return bundle;
   }
 
-  /**
-   * Load a single local JSON file
-   */
-  async loadLocalFile<T>(filename: string): Promise<T> {
-    const cacheKey = `local:${filename}`;
-    const cached = this.getFromCache<T>(cacheKey);
+  private async loadLocalFileOrAPI<T>(filename: string, apiEndpoint: string): Promise<T | null> {
+    try {
+      const res = await fetch(`${this.dataPath}/${filename}`);
+      if (res.ok) return await res.json();
+    } catch { /* local file not available */ }
+
+    try {
+      return await this.api.get<T>(apiEndpoint);
+    } catch {
+      return null;
+    }
+  }
+
+  private async persistToIDB(data: BundleData): Promise<void> {
+    await setCache(this.cacheKey(), data, data.syncVersion);
+  }
+
+  private cacheKey(): string {
+    return `spw:${this.apiKey.slice(-8)}`;
+  }
+
+  async checkFreshnessInBackground(): Promise<void> {
+    try {
+      const meta = await this.fetchSyncMeta();
+      if (!meta) return;
+
+      const current = store.getState().syncVersion;
+      if (meta.syncVersion > current) {
+        await clearIDB(this.cacheKey());
+        const fresh = await this.tryCDNBundle() ?? await this.loadFromAPI();
+        this.hydrateStore(fresh);
+        actions.setSyncVersion(meta.syncVersion);
+      }
+    } catch { /* background check failed */ }
+  }
+
+  async fetchSyncMeta(): Promise<SyncMeta | null> {
+    try {
+      return await this.api.get<SyncMeta>('/v1/sync-meta');
+    } catch {
+      return null;
+    }
+  }
+
+  hydrateStore(bundle: BundleData): void {
+    actions.setLocations(bundle.locations);
+    actions.setPropertyTypes(bundle.types);
+    actions.setFeatures(bundle.features);
+    actions.setLabels(bundle.labels as unknown as Labels);
+    actions.setSyncVersion(bundle.syncVersion);
+    if (bundle.defaultResults) {
+      actions.setResults(bundle.defaultResults);
+    }
+  }
+
+  async searchProperties(filters: SearchFilters): Promise<SearchResults> {
+    const cacheKey = `search:${JSON.stringify(filters)}`;
+    const cached = this.getMemoryCache<SearchResults>(cacheKey);
     if (cached) return cached;
 
-    const url = `${this.config.dataPath}/${filename}`;
+    const params: Record<string, string | number | boolean | undefined> = {};
+    if (filters.query) params.query = filters.query;
+    if (filters.listingType) params.listingType = filters.listingType;
+    if (filters.locationId) params.locationId = filters.locationId;
+    if (filters.propertyTypeId) params.propertyTypeId = filters.propertyTypeId;
+    if (filters.minPrice) params.minPrice = filters.minPrice;
+    if (filters.maxPrice) params.maxPrice = filters.maxPrice;
+    if (filters.minBedrooms) params.minBedrooms = filters.minBedrooms;
+    if (filters.maxBedrooms) params.maxBedrooms = filters.maxBedrooms;
+    if (filters.minBathrooms) params.minBathrooms = filters.minBathrooms;
+    if (filters.maxBathrooms) params.maxBathrooms = filters.maxBathrooms;
+    if (filters.minBuildSize) params.minBuildSize = filters.minBuildSize;
+    if (filters.maxBuildSize) params.maxBuildSize = filters.maxBuildSize;
+    if (filters.minPlotSize) params.minPlotSize = filters.minPlotSize;
+    if (filters.maxPlotSize) params.maxPlotSize = filters.maxPlotSize;
+    if (filters.reference) params.reference = filters.reference;
+    if (filters.isFeatured) params.isFeatured = true;
+    if (filters.sortBy) params.sortBy = filters.sortBy;
+    if (filters.page) params.page = filters.page;
+    if (filters.limit) params.limit = filters.limit;
+    if (filters.bounds) params.bounds = filters.bounds;
+    if (filters.lat != null) params.lat = filters.lat;
+    if (filters.lng != null) params.lng = filters.lng;
+    if (filters.radius) params.radius = filters.radius;
+    if (filters.features?.length) params.features = filters.features.join(',');
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to load ${filename}: ${response.statusText}`);
-      }
-      const data = await response.json();
-      this.setCache(cacheKey, data);
-      return data;
-    } catch (error) {
-      console.error(`Error loading local file ${filename}:`, error);
-      throw error;
-    }
+    const results = await this.api.get<SearchResults>('/v1/properties', params);
+    this.setMemoryCache(cacheKey, results);
+    return results;
   }
 
-  /**
-   * Search properties via API
-   */
-  async searchProperties(filters: SearchFilters): Promise<SearchResults> {
-    const queryParams = new URLSearchParams();
-
-    // Build query parameters
-    if (filters.query) queryParams.append('q', filters.query);
-    if (filters.listingType) queryParams.append('listingType', filters.listingType);
-    if (filters.locationId) queryParams.append('locationId', String(filters.locationId));
-    if (filters.propertyTypeId) queryParams.append('propertyTypeId', String(filters.propertyTypeId));
-    if (filters.minPrice) queryParams.append('minPrice', String(filters.minPrice));
-    if (filters.maxPrice) queryParams.append('maxPrice', String(filters.maxPrice));
-    if (filters.minBedrooms) queryParams.append('minBedrooms', String(filters.minBedrooms));
-    if (filters.maxBedrooms) queryParams.append('maxBedrooms', String(filters.maxBedrooms));
-    if (filters.minBathrooms) queryParams.append('minBathrooms', String(filters.minBathrooms));
-    if (filters.minBuildSize) queryParams.append('minBuildSize', String(filters.minBuildSize));
-    if (filters.maxBuildSize) queryParams.append('maxBuildSize', String(filters.maxBuildSize));
-    if (filters.features?.length) {
-      filters.features.forEach(f => queryParams.append('features[]', String(f)));
-    }
-    if (filters.isFeatured !== undefined) queryParams.append('isFeatured', String(filters.isFeatured));
-    if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
-    if (filters.page) queryParams.append('page', String(filters.page));
-    if (filters.limit) queryParams.append('limit', String(filters.limit));
-
-    return this.apiRequest<SearchResults>(`/v1/properties?${queryParams.toString()}`);
-  }
-
-  /**
-   * Get property by reference
-   */
   async getProperty(reference: string): Promise<Property> {
-    return this.apiRequest<Property>(`/v1/properties/${encodeURIComponent(reference)}`);
+    const cacheKey = `property:${reference}`;
+    const cached = this.getMemoryCache<Property>(cacheKey);
+    if (cached) return cached;
+
+    const property = await this.api.get<Property>(`/v1/properties/${encodeURIComponent(reference)}`);
+    this.setMemoryCache(cacheKey, property);
+    return property;
   }
 
-  /**
-   * Submit property inquiry
-   */
-  async submitInquiry(data: InquiryData): Promise<{ success: boolean; message: string }> {
-    return this.apiRequest<{ success: boolean; message: string }>('/v1/inquiry', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async getSimilarProperties(reference: string, limit = 6): Promise<Property[]> {
+    return this.api.get<Property[]>(`/v1/properties/${encodeURIComponent(reference)}/similar`, { limit });
   }
 
-  /**
-   * Share favorites via email
-   */
-  async shareFavorites(data: {
-    name: string;
-    email: string;
-    friendEmail?: string;
-    message?: string;
-    propertyIds: number[];
-  }): Promise<{ success: boolean; message: string }> {
-    return this.apiRequest<{ success: boolean; message: string }>('/v1/share-favorites', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async submitInquiry(data: unknown): Promise<{ success: boolean; message: string }> {
+    return this.api.post('/v1/inquiry', data);
   }
 
-  /**
-   * Track event (view, search, etc.)
-   */
-  async trackEvent(event: TrackingEvent): Promise<void> {
+  async shareFavorites(data: unknown): Promise<{ success: boolean; message: string }> {
+    return this.api.post('/v1/share-favorites', data);
+  }
+
+  async trackEvent(event: unknown): Promise<void> {
     try {
-      const endpoint = event.type === 'view' ? '/v1/track/view' : '/v1/track/search';
-      await this.apiRequest(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(event),
-      });
-    } catch (error) {
-      // Silently fail tracking - don't break the widget
-      console.warn('Tracking failed:', error);
-    }
+      await this.api.post('/v1/track', event);
+    } catch { /* fire and forget */ }
   }
 
-  /**
-   * Fetch the tenant's current sync metadata from the API. Widget polls
-   * this to detect when an operator has clicked "clear cache" — the
-   * syncVersion will have bumped and the local cache needs to drop.
-   *
-   * The server's global response interceptor wraps plain objects as
-   * `{ data: ... }`; listing endpoints already return `{ data, meta }`
-   * so they pass through unwrapped. Unwrap defensively here — handles
-   * either shape so this keeps working if the API stops wrapping later.
-   */
-  async fetchSyncMeta(): Promise<SyncMeta> {
-    const raw = await this.apiRequest<SyncMeta | { data: SyncMeta }>('/v1/sync-meta');
-    return 'syncVersion' in raw ? raw : raw.data;
-  }
-
-  /**
-   * Starts a background poll that drops the local cache whenever the
-   * server's syncVersion advances past what we last saw. `intervalMs <= 0`
-   * disables polling entirely.
-   *
-   * The callback fires AFTER the internal cache is cleared, so the widget
-   * can re-run loadLocalData() / search() to repopulate.
-   */
-  startSyncPolling(intervalMs: number, onChange: (newVersion: number) => void): void {
+  startSyncPolling(intervalMs = 60_000, onChange?: () => void): void {
     this.stopSyncPolling();
-    if (intervalMs <= 0) return;
-
-    this.onSyncChange = onChange;
-
-    // Seed the baseline so the very first tick isn't treated as a change.
-    void this.fetchSyncMeta()
-      .then((meta) => {
-        this.knownSyncVersion = meta.syncVersion;
-      })
-      .catch(() => {
-        // Baseline unavailable — leave null; the first successful poll
-        // sets it without firing onChange.
-      });
 
     const tick = async () => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (document.hidden) return;
       try {
         const meta = await this.fetchSyncMeta();
-        if (this.knownSyncVersion === null) {
-          this.knownSyncVersion = meta.syncVersion;
-          return;
+        if (!meta) return;
+        const current = store.getState().syncVersion;
+        if (meta.syncVersion > current) {
+          await clearIDB(this.cacheKey());
+          this.memoryCache.clear();
+          const fresh = await this.tryCDNBundle() ?? await this.loadFromAPI();
+          this.hydrateStore(fresh);
+          onChange?.();
         }
-        if (meta.syncVersion > this.knownSyncVersion) {
-          const newVersion = meta.syncVersion;
-          this.knownSyncVersion = newVersion;
-          this.clearCache();
-          this.onSyncChange?.(newVersion);
-        }
-      } catch {
-        // Transient failure — next tick will retry. Don't log noisily
-        // on every failure; offline widgets shouldn't spam the console.
-      }
+      } catch { /* poll failed */ }
     };
 
-    this.pollTimer = setInterval(tick, intervalMs);
+    this.syncTimer = setInterval(tick, intervalMs);
 
-    // Re-run a tick immediately when the tab becomes visible again — if
-    // the user clicked "clear cache" while the tab was in the background,
-    // don't make them wait for the next full interval.
-    if (typeof document !== 'undefined') {
-      this.visibilityHandler = () => {
-        if (!document.hidden) void tick();
-      };
-      document.addEventListener('visibilitychange', this.visibilityHandler);
-    }
+    this.visibilityHandler = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
   stopSyncPolling(): void {
-    if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
     }
-    if (this.visibilityHandler && typeof document !== 'undefined') {
+    if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
       this.visibilityHandler = null;
     }
-    this.onSyncChange = null;
   }
 
-  /**
-   * Make API request
-   */
-  private async apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.config.apiUrl}/api${endpoint}`;
+  clearAllCaches(): void {
+    this.memoryCache.clear();
+    clearIDB(this.cacheKey());
+  }
 
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.config.apiKey,
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `API request failed: ${response.status}`);
+  private getMemoryCache<T>(key: string): T | null {
+    const entry = this.memoryCache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > this.MEMORY_TTL) {
+      this.memoryCache.delete(key);
+      return null;
     }
-
-    return response.json();
+    return entry.data as T;
   }
 
-  /**
-   * Get from cache if not expired
-   */
-  private getFromCache<T>(key: string): T | null {
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-      return cached.data as T;
-    }
-    return null;
-  }
-
-  /**
-   * Set cache value
-   */
-  private setCache(key: string, data: unknown): void {
-    this.cache.set(key, { data, timestamp: Date.now() });
-  }
-
-  /**
-   * Clear cache
-   */
-  clearCache(): void {
-    this.cache.clear();
+  private setMemoryCache<T>(key: string, data: T): void {
+    this.memoryCache.set(key, { data, ts: Date.now() });
   }
 }

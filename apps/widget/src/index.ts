@@ -1,90 +1,148 @@
-/**
- * Smart Property Widget (SPW)
- * Embeddable property search widget
- *
- * Usage:
- *
- * <div id="property-widget"></div>
- * <script src="https://cdn.example.com/spw-widget.iife.js"></script>
- * <script>
- *   const widget = new SPW.Widget({
- *     apiUrl: 'https://api.example.com',
- *     apiKey: 'your-api-key',
- *     container: '#property-widget',
- *   });
- *   widget.init();
- * </script>
- */
+import './styles/base.css';
+import './styles/components.css';
+import './styles/templates.css';
+import './styles/animations.css';
 
-import { SPWWidget } from './core/Widget';
-import type {
-  SPWConfig,
-  Property,
-  SearchFilters,
-  SearchResults,
-  InquiryData,
-  Labels,
-  SPWEvents,
-} from './types';
+import { store } from './core/store';
+import { actions } from './core/actions';
+import { DataLoader } from './core/data-loader';
+import { scanDOM } from './core/dom-scanner';
+import { mountAll, unmountAll } from './core/component-mounter';
+import { registerAllComponents } from './registry/component-registry';
+import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
+import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
+import { installLegacyAPI, setSearchHandler } from './core/legacy-api';
+import { loadPersistedFavorites } from './hooks/useFavorites';
+import type { SearchFilters } from './types';
 
-// Export for ES modules
-export { SPWWidget as Widget };
-export type {
-  SPWConfig,
-  Property,
-  SearchFilters,
-  SearchResults,
-  InquiryData,
-  Labels,
-  SPWEvents,
-};
+let dataLoader: DataLoader | null = null;
 
-// Export for IIFE bundle (global SPW object)
-export default {
-  Widget: SPWWidget,
-};
+async function init(): Promise<void> {
+  console.log('[SPW] init() starting...');
+  const config = parseConfig();
 
-// Auto-initialization from data attributes
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    // Find elements with data-spw-widget attribute
-    const autoInitElements = document.querySelectorAll('[data-spw-widget]');
+  if (!config.apiUrl || !config.apiKey) {
+    console.warn('[SPW] Missing apiUrl or apiKey — widget will not initialize.');
+    return;
+  }
 
-    autoInitElements.forEach((element) => {
-      const container = element as HTMLElement;
-      const apiUrl = container.dataset.spwApiUrl;
-      const apiKey = container.dataset.spwApiKey;
+  actions.setConfig(config);
 
-      if (!apiUrl || !apiKey) {
-        console.error('SPW Widget: Missing required data-spw-api-url or data-spw-api-key attribute');
-        return;
-      }
+  registerAllComponents();
 
-      const widget = new SPWWidget({
-        apiUrl,
-        apiKey,
-        container,
-        dataPath: container.dataset.spwDataPath,
-        language: container.dataset.spwLanguage,
-        currency: container.dataset.spwCurrency,
-        theme: container.dataset.spwTheme as 'light' | 'dark' | 'auto',
-        layout: container.dataset.spwLayout as 'grid' | 'list',
-        resultsPerPage: container.dataset.spwResultsPerPage ? Number(container.dataset.spwResultsPerPage) : undefined,
-        showFilters: container.dataset.spwShowFilters !== 'false',
-        showSorting: container.dataset.spwShowSorting !== 'false',
-        showPagination: container.dataset.spwShowPagination !== 'false',
-        enableFavorites: container.dataset.spwEnableFavorites !== 'false',
-        enableInquiry: container.dataset.spwEnableInquiry !== 'false',
-        enableTracking: container.dataset.spwEnableTracking !== 'false',
-        enableAiChat: container.dataset.spwEnableAiChat === 'true',
-      });
+  const entries = scanDOM();
+  console.log('[SPW] Scan found', entries.length, 'elements:', entries.map(e => e.isTemplate ? e.templateId : e.componentType));
+  for (const entry of entries) {
+    if (!entry.element.children.length) {
+      entry.element.innerHTML = '<div class="rs-skeleton" style="height:42px"></div>';
+    }
+  }
 
-      widget.init().catch((error) => {
-        console.error('SPW Widget: Auto-initialization failed', error);
-      });
+  applyTheme(config);
 
-      // Store widget instance on element
-      (container as HTMLElement & { spwWidget?: SPWWidget }).spwWidget = widget;
+  const favorites = loadPersistedFavorites();
+  if (favorites.length) actions.setFavorites(favorites);
+
+  const prefilled = parsePrefilledFilters();
+  const locked = parseLockedFilters();
+  if (Object.keys(prefilled).length) actions.setFilters(prefilled);
+  if (Object.keys(locked).length) actions.setLockedFilters(locked);
+
+  dataLoader = new DataLoader(config);
+  try {
+    console.log('[SPW] Loading bundle...');
+    const bundle = await dataLoader.loadBundle();
+    console.log('[SPW] Bundle loaded:', {
+      syncVersion: bundle.syncVersion,
+      locations: bundle.locations?.length,
+      types: bundle.types?.length,
+      features: bundle.features?.length,
+      labels: Object.keys(bundle.labels || {}).length,
+      hasResults: !!bundle.defaultResults,
+      resultCount: bundle.defaultResults?.data?.length,
     });
+    if (bundle.config) {
+      const merged = mergeWithDashboardConfig(config, bundle.config);
+      actions.setConfig(merged);
+      applyTheme(merged);
+    }
+    dataLoader.hydrateStore(bundle);
+    console.log('[SPW] Store hydrated. Results:', !!store.getState().results);
+  } catch (err) {
+    console.error('[SPW] Bundle load failed:', err);
+    actions.setError(err instanceof Error ? err.message : 'Failed to load widget data');
+  }
+
+  const mountEntries = scanDOM();
+  console.log('[SPW] Mounting', mountEntries.length, 'components...');
+  await mountAll(mountEntries);
+  console.log('[SPW] Mount complete');
+
+  installLegacyAPI();
+
+  setSearchHandler(async (filters: SearchFilters) => {
+    if (!dataLoader) return;
+    actions.setSearchLoading(true);
+    try {
+      const results = await dataLoader.searchProperties(filters);
+      actions.setResults(results);
+    } catch (err) {
+      actions.setError(err instanceof Error ? err.message : 'Search failed');
+    } finally {
+      actions.setSearchLoading(false);
+    }
   });
+
+  // Initial search if bundle didn't include default results
+  if (!store.getState().results) {
+    const effectiveFilters: SearchFilters = {
+      ...store.getState().filters,
+      page: 1,
+      limit: config.resultsPerPage || 12,
+    };
+    const locked = store.getState().lockedFilters;
+    for (const [key, value] of Object.entries(locked)) {
+      if (value != null) (effectiveFilters as Record<string, unknown>)[key] = value;
+    }
+
+    actions.setSearchLoading(true);
+    try {
+      const results = await dataLoader.searchProperties(effectiveFilters);
+      actions.setResults(results);
+    } catch (err) {
+      actions.setError(err instanceof Error ? err.message : 'Initial search failed');
+    } finally {
+      actions.setSearchLoading(false);
+    }
+  }
+
+  dataLoader.startSyncPolling(config.syncPollIntervalMs || 60_000, () => {
+    unmountAll();
+    const freshEntries = scanDOM();
+    mountAll(freshEntries);
+  });
+
+  actions.setInitialized();
+  actions.setLoading(false);
+
+  const rc = window.RealtySoftConfig;
+  if (rc?.onReady) rc.onReady();
 }
+
+// Auto-initialize on DOMContentLoaded
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}
+
+export { store } from './core/store';
+export { actions } from './core/actions';
+export { selectors } from './core/selectors';
+export { DataLoader } from './core/data-loader';
+export type { WidgetConfig, SearchFilters, Property, SearchResults } from './types';
+export type { Labels } from './types/labels';
+
+export default { init };

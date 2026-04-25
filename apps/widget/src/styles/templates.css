@@ -1,0 +1,153 @@
+/* ── Search template layouts ── */
+.rs-search-template-01,
+.rs-search-template-02,
+.rs-search-template-03,
+.rs-search-template-04,
+.rs-search-template-05,
+.rs-search-template-06 {
+  font-family: var(--rs-font);
+}
+
+/* Template 01: Single horizontal row */
+.rs-search-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.rs-search-row > * {
+  flex: 1;
+  min-width: 140px;
+}
+
+.rs-search-row > .rs_search_button,
+.rs-search-row > .rs_reset_button {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+/* Template 02: Tabs on top + row below */
+.rs-search-tabbed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Template 03: Vertical stack */
+.rs-search-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rs-search-stack__row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rs-search-stack__row > * {
+  flex: 1;
+  min-width: 180px;
+}
+
+.rs-search-stack__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Template 04: Compact single row with all dropdowns */
+.rs-search-compact {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.rs-search-compact > * {
+  flex: 1;
+  min-width: 120px;
+}
+
+.rs-search-compact > .rs_search_button {
+  flex: 0 0 auto;
+}
+
+/* Template 05: Full-featured with quick features */
+.rs-search-full {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rs-search-full__main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.rs-search-full__main > * {
+  flex: 1;
+  min-width: 140px;
+}
+
+.rs-search-full__main > .rs_search_button,
+.rs-search-full__main > .rs_reset_button {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.rs-search-full__extras {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.rs-search-full__extras > * {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Template 06: Minimal (location + button) */
+.rs-search-minimal {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  max-width: 600px;
+}
+
+.rs-search-minimal > .rs_location {
+  flex: 1;
+}
+
+.rs-search-minimal > .rs_search_button {
+  flex: 0 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rs-search-row,
+  .rs-search-compact,
+  .rs-search-full__main,
+  .rs-search-full__extras,
+  .rs-search-stack__row {
+    flex-direction: column;
+  }
+
+  .rs-search-row > *,
+  .rs-search-compact > *,
+  .rs-search-full__main > *,
+  .rs-search-full__extras > *,
+  .rs-search-stack__row > * {
+    min-width: 100%;
+  }
+
+  .rs-search-minimal {
+    flex-direction: column;
+    max-width: 100%;
+  }
+}

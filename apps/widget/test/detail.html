@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPW Test — Property Detail</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; }
+
+    .test-header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: white; padding: 1.5rem 2rem; display: flex; align-items: center; gap: 1rem;
+    }
+    .test-header h1 { font-size: 1.25rem; }
+    .test-header nav { margin-left: auto; display: flex; gap: 1rem; }
+    .test-header nav a { color: #94a3b8; text-decoration: none; font-size: 0.875rem; }
+    .test-header nav a:hover, .test-header nav a.active { color: white; }
+
+    .test-section {
+      max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem;
+    }
+    .test-section h2 {
+      font-size: 1rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
+    }
+    .test-card {
+      background: white; border-radius: 12px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 2rem;
+    }
+    .test-label {
+      font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+
+    /* Custom detail page layout (designer freestyle) */
+    .detail-layout { max-width: 1200px; margin: 0 auto; }
+    .detail-two-col {
+      display: grid; grid-template-columns: 1fr 380px; gap: 2rem; align-items: start;
+    }
+    @media (max-width: 900px) {
+      .detail-two-col { grid-template-columns: 1fr; }
+    }
+    .detail-main { display: flex; flex-direction: column; gap: 1.5rem; }
+    .detail-sidebar {
+      display: flex; flex-direction: column; gap: 1.5rem;
+      position: sticky; top: 1.5rem;
+    }
+    .detail-sidebar .test-card { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="test-header">
+    <h1>SPW Widget Test — Property Detail</h1>
+    <nav>
+      <a href="search-listing.html">Search + Listing</a>
+      <a href="detail.html" class="active">Detail</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="map-search.html">Map Search</a>
+    </nav>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Detail Container (auto loads property) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Detail Container — loads first property</h2>
+    <div class="test-card">
+      <div data-spw-widget="detail"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: All Detail Sub-Components (standalone display) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>All Detail Sub-Components (Custom Layout)</h2>
+
+    <div class="detail-layout">
+      <!-- Back button -->
+      <div style="margin-bottom: 1rem;">
+        <div data-spw-widget="detail_back"></div>
+      </div>
+
+      <!-- Gallery -->
+      <div class="test-card">
+        <div class="test-label">Detail Gallery</div>
+        <div data-spw-widget="detail_gallery"></div>
+      </div>
+
+      <div class="detail-two-col">
+        <!-- Main column -->
+        <div class="detail-main">
+          <div class="test-card">
+            <div class="test-label">Title + Price + Share + Wishlist</div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <div data-spw-widget="detail_title"></div>
+                <div data-spw-widget="detail_price" style="margin-top: 0.5rem;"></div>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <div data-spw-widget="detail_wishlist"></div>
+                <div data-spw-widget="detail_share"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Specifications</div>
+            <div data-spw-widget="detail_specs"></div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Description</div>
+            <div data-spw-widget="detail_description"></div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Features</div>
+            <div data-spw-widget="detail_features"></div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Map</div>
+            <div data-spw-widget="detail_map"></div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="detail-sidebar">
+          <div class="test-card">
+            <div class="test-label">Agent Card</div>
+            <div data-spw-widget="detail_agent"></div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Inquiry Form</div>
+            <div data-spw-widget="detail_inquiry_form"></div>
+          </div>
+
+          <div class="test-card">
+            <div class="test-label">Mortgage Calculator</div>
+            <div data-spw-widget="mortgage_calculator"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Related properties -->
+      <div class="test-card" style="margin-top: 2rem;">
+        <div class="test-label">Related Properties</div>
+        <div data-spw-widget="detail_related" data-spw-limit="6"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Bubble (floating) -->
+  <div data-spw-widget="chat_bubble"></div>
+  <div data-spw-widget="chat_panel"></div>
+
+  <!-- Config + Mock Data + Widget -->
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://127.0.0.1:3001',
+      apiKey: 'test-key-12345',
+      language: 'en',
+      currency: 'EUR',
+      enableChat: true,
+      enableFavorites: true,
+      propertyPageSlug: 'property',
+      onReady: function() {
+        console.log('[SPW Test] Widget initialized — detail page ready!');
+        if (window.__MOCK_PROPERTIES && window.__MOCK_PROPERTIES.length > 0) {
+          window.RealtySoft.State.set('selectedProperty', window.__MOCK_PROPERTIES[0]);
+          console.log('[SPW Test] selectedProperty set:', window.__MOCK_PROPERTIES[0].title);
+        }
+      }
+    };
+  </script>
+  <script src="mock-data.js"></script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

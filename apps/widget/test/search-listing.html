@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPW Test — Search + Listing</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; }
+
+    .test-header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: white; padding: 1.5rem 2rem; display: flex; align-items: center; gap: 1rem;
+    }
+    .test-header h1 { font-size: 1.25rem; }
+    .test-header nav { margin-left: auto; display: flex; gap: 1rem; }
+    .test-header nav a { color: #94a3b8; text-decoration: none; font-size: 0.875rem; }
+    .test-header nav a:hover, .test-header nav a.active { color: white; }
+
+    .test-section {
+      max-width: 1400px; margin: 2rem auto; padding: 0 1.5rem;
+    }
+    .test-section h2 {
+      font-size: 1rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
+    }
+    .test-card {
+      background: white; border-radius: 12px; padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 2rem;
+    }
+    .test-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .test-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) {
+      .test-grid-2, .test-grid-3 { grid-template-columns: 1fr; }
+    }
+    .test-label {
+      font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+    .test-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+    .test-toolbar { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="test-header">
+    <h1>SPW Widget Test — Search + Listing</h1>
+    <nav>
+      <a href="search-listing.html" class="active">Search + Listing</a>
+      <a href="detail.html">Detail</a>
+      <a href="wishlist.html">Wishlist</a>
+      <a href="map-search.html">Map Search</a>
+    </nav>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Search Template 05 (most comprehensive) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Search Template 05 — Full Search Bar</h2>
+    <div class="test-card">
+      <div data-spw-widget="search-template-05"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Individual Search Components — All Variations -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Individual Search Components — All Variations</h2>
+
+    <!-- Location variations -->
+    <div class="test-card">
+      <div class="test-label">Location — 4 Variations</div>
+      <div class="test-grid-2">
+        <div>
+          <div class="test-label">V1: Typeahead</div>
+          <div data-spw-widget="location" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Cascading</div>
+          <div data-spw-widget="location" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Hierarchical</div>
+          <div data-spw-widget="location" data-spw-variation="3"></div>
+        </div>
+        <div>
+          <div class="test-label">V4: Dropdown</div>
+          <div data-spw-widget="location" data-spw-variation="4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Listing Type variations -->
+    <div class="test-card">
+      <div class="test-label">Listing Type — 3 Variations</div>
+      <div class="test-grid-3">
+        <div>
+          <div class="test-label">V1: Buttons</div>
+          <div data-spw-widget="listing_type" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Dropdown</div>
+          <div data-spw-widget="listing_type" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Tabs</div>
+          <div data-spw-widget="listing_type" data-spw-variation="3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Type variations -->
+    <div class="test-card">
+      <div class="test-label">Property Type — 4 Variations</div>
+      <div class="test-grid-2">
+        <div>
+          <div class="test-label">V1: Typeahead</div>
+          <div data-spw-widget="property_type" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Dropdown</div>
+          <div data-spw-widget="property_type" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Multi-select (Tags)</div>
+          <div data-spw-widget="property_type" data-spw-variation="3"></div>
+        </div>
+        <div>
+          <div class="test-label">V4: Icons</div>
+          <div data-spw-widget="property_type" data-spw-variation="4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bedrooms & Bathrooms -->
+    <div class="test-card">
+      <div class="test-label">Bedrooms — 3 Variations</div>
+      <div class="test-grid-3">
+        <div>
+          <div class="test-label">V1: Dropdown</div>
+          <div data-spw-widget="bedrooms" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Buttons</div>
+          <div data-spw-widget="bedrooms" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Free Input</div>
+          <div data-spw-widget="bedrooms" data-spw-variation="3"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Bathrooms — 3 Variations</div>
+      <div class="test-grid-3">
+        <div>
+          <div class="test-label">V1: Dropdown</div>
+          <div data-spw-widget="bathrooms" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Buttons</div>
+          <div data-spw-widget="bathrooms" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Free Input</div>
+          <div data-spw-widget="bathrooms" data-spw-variation="3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price -->
+    <div class="test-card">
+      <div class="test-label">Price — 3 Variations</div>
+      <div class="test-grid-3">
+        <div>
+          <div class="test-label">V1: Inputs</div>
+          <div data-spw-widget="price" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Range Slider</div>
+          <div data-spw-widget="price" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Dropdown</div>
+          <div data-spw-widget="price" data-spw-variation="3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Built Area & Plot Size -->
+    <div class="test-card">
+      <div class="test-label">Built Area & Plot Size — 2 Variations Each</div>
+      <div class="test-grid-2">
+        <div>
+          <div class="test-label">Built Area V1: Inputs</div>
+          <div data-spw-widget="built_area" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">Built Area V2: Range Slider</div>
+          <div data-spw-widget="built_area" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">Plot Size V1: Inputs</div>
+          <div data-spw-widget="plot_size" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">Plot Size V2: Range Slider</div>
+          <div data-spw-widget="plot_size" data-spw-variation="2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="test-card">
+      <div class="test-label">Features — 3 Variations + Quick Features</div>
+      <div class="test-grid-2">
+        <div>
+          <div class="test-label">V1: Popup Modal</div>
+          <div data-spw-widget="features" data-spw-variation="1"></div>
+        </div>
+        <div>
+          <div class="test-label">V2: Inline Checkboxes</div>
+          <div data-spw-widget="features" data-spw-variation="2"></div>
+        </div>
+        <div>
+          <div class="test-label">V3: Tags</div>
+          <div data-spw-widget="features" data-spw-variation="3"></div>
+        </div>
+        <div>
+          <div class="test-label">Quick Features (Dashboard-selected)</div>
+          <div data-spw-widget="quick_features"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reference, Search, Reset -->
+    <div class="test-card">
+      <div class="test-label">Reference, Search & Reset Buttons</div>
+      <div class="test-row">
+        <div style="flex: 1; min-width: 200px;">
+          <div data-spw-widget="reference"></div>
+        </div>
+        <div data-spw-widget="search_button"></div>
+        <div data-spw-widget="reset_button"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Other Search Templates -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>All Search Templates (01–06)</h2>
+
+    <div class="test-card">
+      <div class="test-label">Search Template 01</div>
+      <div data-spw-widget="search-template-01"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Search Template 02</div>
+      <div data-spw-widget="search-template-02"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Search Template 03</div>
+      <div data-spw-widget="search-template-03"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Search Template 04</div>
+      <div data-spw-widget="search-template-04"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Search Template 06</div>
+      <div data-spw-widget="search-template-06"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Listing Toolbar + Grid -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Listing Components</h2>
+
+    <div class="test-card">
+      <div class="test-label">Toolbar: Results Count + Active Filters + Sort + View Toggle</div>
+      <div class="test-toolbar">
+        <div data-spw-widget="results_count"></div>
+        <div data-spw-widget="active_filters"></div>
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <div data-spw-widget="sort"></div>
+          <div data-spw-widget="view_toggle"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Grid with different templates -->
+    <div class="test-card">
+      <div class="test-label">Property Grid — Template 01 (Default) — 4 Columns</div>
+      <div data-spw-widget="property_grid" data-spw-columns="4" data-spw-template="1"></div>
+    </div>
+
+    <div class="test-card">
+      <div class="test-label">Pagination</div>
+      <div data-spw-widget="pagination"></div>
+    </div>
+
+    <!-- Carousel -->
+    <div class="test-card">
+      <div class="test-label">Property Carousel</div>
+      <div data-spw-widget="property_carousel"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Listing Templates -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Listing Templates (01–04 shown, 13 total)</h2>
+    <div class="test-card">
+      <div class="test-label">Listing Template 01</div>
+      <div data-spw-widget="listing-template-01"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Listing Template 02</div>
+      <div data-spw-widget="listing-template-02"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Listing Template 03</div>
+      <div data-spw-widget="listing-template-03"></div>
+    </div>
+    <div class="test-card">
+      <div class="test-label">Listing Template 04</div>
+      <div data-spw-widget="listing-template-04"></div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Utility Components -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Utility Components</h2>
+    <div class="test-card">
+      <div class="test-row">
+        <div>
+          <div class="test-label">Language Selector</div>
+          <div data-spw-widget="language_selector"></div>
+        </div>
+        <div>
+          <div class="test-label">Currency Selector</div>
+          <div data-spw-widget="currency_selector"></div>
+        </div>
+        <div>
+          <div class="test-label">Wishlist Counter</div>
+          <div data-spw-widget="wishlist_counter"></div>
+        </div>
+        <div>
+          <div class="test-label">Share Buttons</div>
+          <div data-spw-widget="share_buttons"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- SECTION: Custom Layout Example (as a designer would use) -->
+  <!-- ============================== -->
+  <div class="test-section">
+    <h2>Custom Layout — Designer Freestyle (No Template)</h2>
+    <div class="test-card" style="background: linear-gradient(180deg, #1e3a5f 0%, #2563eb 100%); padding: 2rem; border-radius: 12px;">
+      <div data-spw-widget="search_container" style="max-width: 900px; margin: 0 auto;">
+        <h2 style="color: white; text-align: center; margin-bottom: 1.5rem; font-size: 1.5rem;">Find Your Dream Home</h2>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 0.75rem; align-items: end;">
+          <div data-spw-widget="location" data-spw-variation="1"></div>
+          <div data-spw-widget="listing_type" data-spw-variation="2"></div>
+          <div data-spw-widget="bedrooms" data-spw-variation="1"></div>
+          <div data-spw-widget="price" data-spw-variation="1"></div>
+          <div data-spw-widget="search_button"></div>
+        </div>
+        <div style="margin-top: 0.75rem;">
+          <div data-spw-widget="quick_features" data-spw-feature-ids="1,4,17,18"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Bubble (floating) -->
+  <div data-spw-widget="chat_bubble"></div>
+  <div data-spw-widget="chat_panel"></div>
+
+  <!-- Config + Mock Data + Widget -->
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://127.0.0.1:3001',
+      apiKey: 'test-key-12345',
+      language: 'en',
+      currency: 'EUR',
+      resultsPerPage: 12,
+      enableChat: true,
+      enableFavorites: true,
+      propertyPageSlug: 'property',
+      onReady: function() {
+        console.log('[SPW Test] Widget initialized successfully!');
+      }
+    };
+  </script>
+  <script src="mock-data.js"></script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

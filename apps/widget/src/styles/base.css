@@ -1,0 +1,60 @@
+:root {
+  --rs-primary: #2563eb;
+  --rs-primary-hover: #1d4ed8;
+  --rs-primary-light: #eff6ff;
+  --rs-text: #1e293b;
+  --rs-text-light: #64748b;
+  --rs-bg: #ffffff;
+  --rs-bg-secondary: #f8fafc;
+  --rs-border: #e2e8f0;
+  --rs-radius: 8px;
+  --rs-radius-lg: 12px;
+  --rs-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --rs-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --rs-font: system-ui, -apple-system, sans-serif;
+  --rs-transition: 200ms ease;
+}
+
+[data-spw-widget],
+[class*="rs_"],
+[class*="rs-"][class*="-template-"] {
+  box-sizing: border-box;
+  font-family: var(--rs-font);
+  color: var(--rs-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-spw-widget] *,
+[class*="rs_"] *,
+[class*="rs-"][class*="-template-"] * {
+  box-sizing: border-box;
+}
+
+/* Reset for widget elements inside client pages */
+[data-spw-widget] button,
+[class*="rs_"] button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+}
+
+[data-spw-widget] input,
+[data-spw-widget] select,
+[data-spw-widget] textarea,
+[class*="rs_"] input,
+[class*="rs_"] select,
+[class*="rs_"] textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+[data-spw-widget] img,
+[class*="rs_"] img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
