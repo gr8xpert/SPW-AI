@@ -36,7 +36,6 @@ const clientSchema = z.object({
   domain: z.string().optional().nullable(),
   ownerEmail: z.string().email().optional().nullable(),
   siteName: z.string().optional().nullable(),
-  apiUrl: z.string().url().optional().nullable().or(z.literal('')),
   planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
   billingCycle: z.enum(['monthly', 'yearly']).optional().nullable(),
@@ -73,7 +72,6 @@ export default function EditClientPage() {
       domain: '',
       ownerEmail: '',
       siteName: '',
-      apiUrl: '',
       planId: 1,
       subscriptionStatus: 'active',
       billingCycle: null,
@@ -102,7 +100,6 @@ export default function EditClientPage() {
           domain: client.domain || '',
           ownerEmail: client.ownerEmail || '',
           siteName: client.siteName || '',
-          apiUrl: client.apiUrl || '',
           planId: client.planId,
           subscriptionStatus: client.subscriptionStatus,
           billingCycle: client.billingCycle,
@@ -133,7 +130,6 @@ export default function EditClientPage() {
         domain: data.domain || null,
         ownerEmail: data.ownerEmail || null,
         siteName: data.siteName || null,
-        apiUrl: data.apiUrl || null,
       };
 
       await api.put(`/api/super-admin/clients/${clientId}`, cleanData);
@@ -155,9 +151,9 @@ export default function EditClientPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href={`/admin/clients/${clientId}`}>
             <Button variant="ghost" size="icon">
@@ -165,11 +161,11 @@ export default function EditClientPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Edit Client</h1>
-            <p className="text-muted-foreground">Update client settings and configuration</p>
+            <h1 className="page-title">Edit Client</h1>
+            <p className="page-description mt-1">Update client settings and configuration</p>
           </div>
         </div>
-        <Button onClick={form.handleSubmit(onSubmit)} disabled={saving}>
+        <Button onClick={form.handleSubmit(onSubmit)} disabled={saving} className="shadow-sm">
           {saving ? (
             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -203,7 +199,7 @@ export default function EditClientPage() {
                         <FormItem>
                           <FormLabel>Company Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Acme Real Estate" {...field} />
+                            <Input placeholder="Company name" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -217,7 +213,7 @@ export default function EditClientPage() {
                         <FormItem>
                           <FormLabel>Site Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Acme Properties" {...field} value={field.value || ''} />
+                            <Input placeholder="Display name" {...field} value={field.value || ''} />
                           </FormControl>
                           <FormDescription>Display name for the widget</FormDescription>
                           <FormMessage />
@@ -232,7 +228,7 @@ export default function EditClientPage() {
                         <FormItem>
                           <FormLabel>Domain</FormLabel>
                           <FormControl>
-                            <Input placeholder="www.example.com" {...field} value={field.value || ''} />
+                            <Input placeholder="yourdomain.com" {...field} value={field.value || ''} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -246,7 +242,7 @@ export default function EditClientPage() {
                         <FormItem>
                           <FormLabel>Owner Email</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder="owner@example.com" {...field} value={field.value || ''} />
+                            <Input type="email" placeholder="owner@company.com" {...field} value={field.value || ''} />
                           </FormControl>
                           <FormDescription>For notifications and inquiries</FormDescription>
                           <FormMessage />
@@ -254,20 +250,6 @@ export default function EditClientPage() {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="apiUrl"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>API URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://api.example.com" {...field} value={field.value || ''} />
-                          </FormControl>
-                          <FormDescription>Property API endpoint</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                   </div>
 
                   <FormField

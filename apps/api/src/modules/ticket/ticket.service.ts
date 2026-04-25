@@ -142,6 +142,19 @@ export class TicketService {
     return ticket;
   }
 
+  async findOneForSuperAdmin(id: number): Promise<Ticket> {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id },
+      relations: ['tenant', 'user', 'assignedToUser', 'messages', 'messages.user'],
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    return ticket;
+  }
+
   async update(
     tenantId: number,
     id: number,

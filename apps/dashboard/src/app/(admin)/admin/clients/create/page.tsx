@@ -41,7 +41,6 @@ const createClientSchema = z.object({
   domain: z.string().optional(),
   ownerEmail: z.string().email().optional().or(z.literal('')),
   siteName: z.string().optional(),
-  apiUrl: z.string().url().optional().or(z.literal('')),
   planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
   billingCycle: z.enum(['monthly', 'yearly']).optional(),
@@ -79,7 +78,6 @@ export default function CreateClientPage() {
       domain: '',
       ownerEmail: '',
       siteName: '',
-      apiUrl: '',
       planId: 1,
       subscriptionStatus: 'active',
       billingCycle: 'monthly',
@@ -131,7 +129,6 @@ export default function CreateClientPage() {
         domain: data.domain || undefined,
         ownerEmail: data.ownerEmail || undefined,
         siteName: data.siteName || undefined,
-        apiUrl: data.apiUrl || undefined,
       };
 
       const response = await api.post('/api/super-admin/clients', cleanData);
@@ -153,9 +150,9 @@ export default function CreateClientPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href="/admin/clients">
             <Button variant="ghost" size="icon">
@@ -163,11 +160,11 @@ export default function CreateClientPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Client</h1>
-            <p className="text-muted-foreground">Add a new client to the platform</p>
+            <h1 className="page-title">Create Client</h1>
+            <p className="page-description mt-1">Add a new client to the platform</p>
           </div>
         </div>
-        <Button onClick={form.handleSubmit(onSubmit)} disabled={saving}>
+        <Button onClick={form.handleSubmit(onSubmit)} disabled={saving} className="shadow-sm">
           {saving ? (
             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -203,7 +200,7 @@ export default function CreateClientPage() {
                           <FormLabel>Company Name *</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Acme Real Estate"
+                              placeholder="Company name"
                               {...field}
                               onChange={(e) => {
                                 field.onChange(e);
@@ -223,7 +220,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Slug *</FormLabel>
                           <FormControl>
-                            <Input placeholder="acme-real-estate" {...field} />
+                            <Input placeholder="company-name" {...field} />
                           </FormControl>
                           <FormDescription>Unique identifier (auto-generated)</FormDescription>
                           <FormMessage />
@@ -238,7 +235,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Site Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Acme Properties" {...field} />
+                            <Input placeholder="Display name" {...field} />
                           </FormControl>
                           <FormDescription>Display name for the widget</FormDescription>
                           <FormMessage />
@@ -253,7 +250,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Domain</FormLabel>
                           <FormControl>
-                            <Input placeholder="www.example.com" {...field} />
+                            <Input placeholder="yourdomain.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -267,7 +264,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Owner Email</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder="owner@example.com" {...field} />
+                            <Input type="email" placeholder="owner@company.com" {...field} />
                           </FormControl>
                           <FormDescription>For notifications (defaults to admin email)</FormDescription>
                           <FormMessage />
@@ -275,20 +272,6 @@ export default function CreateClientPage() {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="apiUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>API URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://api.example.com" {...field} />
-                          </FormControl>
-                          <FormDescription>Property API endpoint</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                   </div>
                 </CardContent>
               </Card>
@@ -309,7 +292,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Admin Email *</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder="admin@example.com" {...field} />
+                            <Input type="email" placeholder="admin@company.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -323,7 +306,7 @@ export default function CreateClientPage() {
                         <FormItem>
                           <FormLabel>Admin Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="John Doe" {...field} />
+                            <Input placeholder="Full name" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

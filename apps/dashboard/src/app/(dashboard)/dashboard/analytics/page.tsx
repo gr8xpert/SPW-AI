@@ -209,12 +209,12 @@ export default function AnalyticsPage() {
   const maxFunnel = funnelStages[0]?.value || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground">
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-description mt-1">
             Track property performance and visitor behavior
           </p>
         </div>
@@ -248,12 +248,12 @@ export default function AnalyticsPage() {
                 <Card key={metric.key}>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${metric.color}`}>
+                      <div className={`stat-card-icon ${metric.color}`}>
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">{metric.label}</p>
-                        <p className="text-2xl font-bold">{value.toLocaleString()}</p>
+                        <p className="text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>

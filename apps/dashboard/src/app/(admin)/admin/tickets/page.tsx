@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -55,8 +56,8 @@ interface TicketItem {
 
 interface TicketStats {
   open: number;
-  in_progress: number;
-  awaiting_reply: number;
+  inProgress: number;
+  waitingCustomer: number;
   resolved: number;
   closed: number;
 }
@@ -64,11 +65,11 @@ interface TicketStats {
 /* ---------- Colour maps ---------- */
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }> = {
-  open:            { label: 'Open',            variant: 'default',     className: 'bg-blue-600 hover:bg-blue-600 text-white' },
-  in_progress:     { label: 'In Progress',     variant: 'default',     className: 'bg-amber-500 hover:bg-amber-500 text-white' },
-  awaiting_reply:  { label: 'Awaiting Reply',  variant: 'default',     className: 'bg-purple-500 hover:bg-purple-500 text-white' },
-  resolved:        { label: 'Resolved',        variant: 'default',     className: 'bg-green-600 hover:bg-green-600 text-white' },
-  closed:          { label: 'Closed',          variant: 'secondary' },
+  open:              { label: 'Open',            variant: 'default',     className: 'bg-blue-600 hover:bg-blue-600 text-white' },
+  in_progress:       { label: 'In Progress',     variant: 'default',     className: 'bg-amber-500 hover:bg-amber-500 text-white' },
+  waiting_customer:  { label: 'Awaiting Reply',  variant: 'default',     className: 'bg-purple-500 hover:bg-purple-500 text-white' },
+  resolved:          { label: 'Resolved',        variant: 'default',     className: 'bg-green-600 hover:bg-green-600 text-white' },
+  closed:            { label: 'Closed',          variant: 'secondary' },
 };
 
 const priorityConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -78,13 +79,13 @@ const priorityConfig: Record<string, { label: string; variant: 'default' | 'seco
   critical: { label: 'Critical', variant: 'destructive' },
 };
 
-const statIcons: Record<string, React.ReactNode> = {
-  open:            <AlertCircle className="h-4 w-4 text-blue-600" />,
-  in_progress:     <Clock className="h-4 w-4 text-amber-500" />,
-  awaiting_reply:  <MessageSquare className="h-4 w-4 text-purple-500" />,
-  resolved:        <CheckCircle2 className="h-4 w-4 text-green-600" />,
-  closed:          <XCircle className="h-4 w-4 text-muted-foreground" />,
-};
+const statCardConfig: { key: string; statsKey: keyof TicketStats; label: string; icon: React.ReactNode }[] = [
+  { key: 'open', statsKey: 'open', label: 'Open', icon: <div className="stat-card-icon bg-blue-50"><AlertCircle className="h-4 w-4 text-blue-600" /></div> },
+  { key: 'in_progress', statsKey: 'inProgress', label: 'In Progress', icon: <div className="stat-card-icon bg-amber-50"><Clock className="h-4 w-4 text-amber-500" /></div> },
+  { key: 'waiting_customer', statsKey: 'waitingCustomer', label: 'Awaiting Reply', icon: <div className="stat-card-icon bg-purple-50"><MessageSquare className="h-4 w-4 text-purple-500" /></div> },
+  { key: 'resolved', statsKey: 'resolved', label: 'Resolved', icon: <div className="stat-card-icon bg-green-50"><CheckCircle2 className="h-4 w-4 text-green-600" /></div> },
+  { key: 'closed', statsKey: 'closed', label: 'Closed', icon: <div className="stat-card-icon bg-gray-50"><XCircle className="h-4 w-4 text-muted-foreground" /></div> },
+];
 
 /* ---------- Helpers ---------- */
 
@@ -103,6 +104,7 @@ function unwrapArray<T>(response: any): T[] {
 export default function AdminTicketsPage() {
   const api = useApi();
   const { toast } = useToast();
+  const router = useRouter();
 
   /* State */
   const [tickets, setTickets] = useState<TicketItem[]>([]);
@@ -202,16 +204,16 @@ export default function AdminTicketsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
-          <p className="text-muted-foreground">
-            Manage customer support tickets across all tenants
+          <h1 className="page-title">Support Tickets</h1>
+          <p className="page-description mt-1">
+            Manage customer support tickets across all clients
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+        <Button variant="outline" size="sm" className="shadow-sm" onClick={handleRefresh} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -219,19 +221,19 @@ export default function AdminTicketsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-5">
-        {(['open', 'in_progress', 'awaiting_reply', 'resolved', 'closed'] as const).map((key) => (
-          <Card key={key}>
+        {statCardConfig.map((card) => (
+          <Card key={card.key}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                {statusConfig[key]?.label ?? key}
+                {card.label}
               </CardTitle>
-              {statIcons[key]}
+              {card.icon}
             </CardHeader>
             <CardContent>
               {statsLoading ? (
                 <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : (
-                <div className="text-2xl font-bold">{stats?.[key] ?? 0}</div>
+                <div className="text-2xl font-bold tracking-tight">{stats?.[card.statsKey] ?? 0}</div>
               )}
             </CardContent>
           </Card>
@@ -259,7 +261,7 @@ export default function AdminTicketsPage() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="awaiting_reply">Awaiting Reply</SelectItem>
+                <SelectItem value="waiting_customer">Awaiting Reply</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
@@ -300,7 +302,7 @@ export default function AdminTicketsPage() {
                   <TableRow>
                     <TableHead>Ticket #</TableHead>
                     <TableHead>Subject</TableHead>
-                    <TableHead>Client / Tenant</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Created</TableHead>
@@ -313,7 +315,7 @@ export default function AdminTicketsPage() {
                     const pc = priorityConfig[ticket.priority] ?? { label: ticket.priority, variant: 'outline' as const };
 
                     return (
-                      <TableRow key={ticket.id}>
+                      <TableRow key={ticket.id} className="cursor-pointer" onClick={() => router.push(`/admin/tickets/${ticket.id}`)}>
                         <TableCell className="font-mono text-sm">
                           {ticket.ticketNumber}
                         </TableCell>
@@ -323,7 +325,7 @@ export default function AdminTicketsPage() {
                         <TableCell>
                           <div>
                             <span className="text-sm">
-                              {ticket.clientName || ticket.tenantName || `Tenant ${ticket.tenantId}`}
+                              {ticket.clientName || ticket.tenantName || `Client ${ticket.tenantId}`}
                             </span>
                           </div>
                         </TableCell>

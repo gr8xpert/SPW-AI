@@ -372,16 +372,16 @@ export default function PlansPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Plans</h1>
-          <p className="text-muted-foreground">Manage subscription plans and pricing</p>
+          <h1 className="page-title">Plans</h1>
+          <p className="page-description mt-1">Manage subscription plans and pricing</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
+            <Button className="shadow-sm" onClick={() => { resetForm(); setIsCreateOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Add Plan
             </Button>

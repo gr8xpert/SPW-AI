@@ -122,13 +122,13 @@ export default function AuditLogPage() {
   const entityTypes = Array.from(new Set(entries.map((e) => e.entityType))).sort();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Audit Log</h1>
-          <p className="text-muted-foreground">Track system activity and changes</p>
+          <h1 className="page-title">Audit Log</h1>
+          <p className="page-description mt-1">Track system activity and changes</p>
         </div>
-        <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+        <Button variant="outline" className="shadow-sm" onClick={fetchLogs} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -191,7 +191,7 @@ export default function AuditLogPage() {
                     <TableHead>User</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Entity</TableHead>
-                    <TableHead>Tenant</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>IP</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -217,7 +217,7 @@ export default function AuditLogPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {entry.tenantName || (entry.tenantId ? `Tenant ${entry.tenantId}` : 'System')}
+                        {entry.tenantName || (entry.tenantId ? `Client ${entry.tenantId}` : 'System')}
                       </TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">
                         {entry.ipAddress || '—'}

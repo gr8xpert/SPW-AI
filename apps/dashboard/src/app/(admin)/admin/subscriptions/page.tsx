@@ -57,11 +57,11 @@ const statusColors: Record<string, string> = {
 };
 
 const statusIcons: Record<string, React.ReactNode> = {
-  active: <CheckCircle className="h-4 w-4 text-green-500" />,
-  grace: <Clock className="h-4 w-4 text-yellow-500" />,
-  expired: <AlertTriangle className="h-4 w-4 text-red-500" />,
-  manual: <CreditCard className="h-4 w-4 text-blue-500" />,
-  internal: <CreditCard className="h-4 w-4 text-purple-500" />,
+  active: <div className="stat-card-icon bg-green-50"><CheckCircle className="h-4 w-4 text-green-500" /></div>,
+  grace: <div className="stat-card-icon bg-yellow-50"><Clock className="h-4 w-4 text-yellow-500" /></div>,
+  expired: <div className="stat-card-icon bg-red-50"><AlertTriangle className="h-4 w-4 text-red-500" /></div>,
+  manual: <div className="stat-card-icon bg-blue-50"><CreditCard className="h-4 w-4 text-blue-500" /></div>,
+  internal: <div className="stat-card-icon bg-purple-50"><CreditCard className="h-4 w-4 text-purple-500" /></div>,
 };
 
 export default function SubscriptionsPage() {
@@ -120,13 +120,13 @@ export default function SubscriptionsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Subscriptions</h1>
-          <p className="text-muted-foreground">Manage client subscriptions and billing status</p>
+          <h1 className="page-title">Subscriptions</h1>
+          <p className="page-description mt-1">Manage client subscriptions and billing status</p>
         </div>
-        <Button variant="outline" onClick={fetchClients} disabled={loading}>
+        <Button variant="outline" className="shadow-sm" onClick={fetchClients} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -144,7 +144,7 @@ export default function SubscriptionsPage() {
               {statusIcons[status]}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{statusCounts[status] || 0}</div>
+              <div className="text-2xl font-bold tracking-tight">{statusCounts[status] || 0}</div>
             </CardContent>
           </Card>
         ))}

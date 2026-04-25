@@ -271,18 +271,18 @@ export default function CampaignsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Email Campaigns</h1>
-          <p className="text-muted-foreground">Create and manage email marketing campaigns</p>
+          <h1 className="page-title">Email Campaigns</h1>
+          <p className="page-description mt-1">Create and manage email marketing campaigns</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsTemplateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Template
           </Button>
-          <Button onClick={() => { setForm(emptyForm); setSelectedTemplateId(templates[0]?.id || null); setIsCreateOpen(true); }}>
+          <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setSelectedTemplateId(templates[0]?.id || null); setIsCreateOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             New Campaign
           </Button>
@@ -293,30 +293,38 @@ export default function CampaignsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-blue-50">
+              <Mail className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.total}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Sent</CardTitle>
-            <Send className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-green-50">
+              <Send className="h-4 w-4 text-green-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-600">{stats.sent}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{stats.sent}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-amber-50">
+              <Mail className="h-4 w-4 text-amber-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-amber-600">{stats.scheduled}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-amber-600">{stats.scheduled}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-purple-50">
+              <Mail className="h-4 w-4 text-purple-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.drafts}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.drafts}</div></CardContent>
         </Card>
       </div>
 

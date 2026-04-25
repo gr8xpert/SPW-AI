@@ -53,6 +53,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Users,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -337,11 +338,11 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
-          <p className="text-muted-foreground">Manage your contact list for email campaigns</p>
+          <h1 className="page-title">Contacts</h1>
+          <p className="page-description mt-1">Manage your contact list for email campaigns</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -352,7 +353,7 @@ export default function ContactsPage() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
+          <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Contact
           </Button>
@@ -360,30 +361,39 @@ export default function ContactsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Contacts</CardTitle>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Contacts</CardTitle>
+            <div className="stat-card-icon bg-blue-50">
+              <Users className="h-5 w-5 text-blue-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-2xl font-bold tracking-tight">{total}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Subscribed</CardTitle>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Subscribed</CardTitle>
+            <div className="stat-card-icon bg-green-50">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold tracking-tight text-green-600">
               {contacts.filter((c) => c.subscribed).length}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Unsubscribed</CardTitle>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Unsubscribed</CardTitle>
+            <div className="stat-card-icon bg-red-50">
+              <UserMinus className="h-5 w-5 text-red-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold tracking-tight text-red-600">
               {contacts.filter((c) => !c.subscribed).length}
             </div>
           </CardContent>
@@ -519,11 +529,11 @@ export default function ContactsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Email *</Label>
-              <Input type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input type="email" placeholder="email@company.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>

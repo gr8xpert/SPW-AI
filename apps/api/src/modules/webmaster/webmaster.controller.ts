@@ -13,7 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { WebmasterService } from './webmaster.service';
-import { CreateTimeEntryDto, UpdateTimeEntryDto } from './dto';
+import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -92,6 +92,19 @@ export class WebmasterAdminController {
   @Get()
   async getWebmasters() {
     return this.webmasterService.getWebmasters();
+  }
+
+  @Post()
+  async createWebmaster(@Body() dto: CreateWebmasterDto) {
+    return this.webmasterService.createWebmaster(dto);
+  }
+
+  @Put(':id')
+  async updateWebmaster(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWebmasterDto,
+  ) {
+    return this.webmasterService.updateWebmaster(id, dto);
   }
 
   @Get('unpaid-hours')

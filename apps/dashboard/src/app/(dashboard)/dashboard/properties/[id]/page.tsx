@@ -300,14 +300,14 @@ export default function PropertyDetailPage() {
   ].filter((l) => l.url);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon"><Link href="/dashboard/properties"><ArrowLeft className="h-4 w-4" /></Link></Button>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold tracking-tight font-mono">{property.reference}</h1>
+              <h1 className="page-title font-mono">{property.reference}</h1>
               <Badge variant={statusVariant[property.status]}>{property.status}</Badge>
               {property.isFeatured && <Badge variant="warning">Featured</Badge>}
               {property.isPublished && <Badge variant="success">Published</Badge>}
@@ -316,14 +316,14 @@ export default function PropertyDetailPage() {
               {property.luxurySelection && <Badge variant="outline">Luxury</Badge>}
               {property.apartmentSelection && <Badge variant="outline">Apartment Selection</Badge>}
             </div>
-            <p className="text-muted-foreground mt-1">{title}</p>
+            <p className="page-description mt-1">{title}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline"><Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link></Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={deleting}><Trash2 className="h-4 w-4 mr-2" />{deleting ? 'Deleting...' : 'Delete'}</Button>
+              <Button variant="destructive" disabled={deleting} className="shadow-sm"><Trash2 className="h-4 w-4 mr-2" />{deleting ? 'Deleting...' : 'Delete'}</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -391,15 +391,32 @@ export default function PropertyDetailPage() {
               <CardHeader><CardTitle>Details</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {detailItems.map((item) => (
-                    <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
-                      <item.icon className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">{item.label}</p>
-                        <p className="font-semibold">{item.display}</p>
+                  {detailItems.map((item, idx) => {
+                    const iconColors = [
+                      'bg-blue-50 text-blue-600',
+                      'bg-green-50 text-green-600',
+                      'bg-amber-50 text-amber-600',
+                      'bg-purple-50 text-purple-600',
+                      'bg-rose-50 text-rose-600',
+                      'bg-cyan-50 text-cyan-600',
+                      'bg-indigo-50 text-indigo-600',
+                      'bg-emerald-50 text-emerald-600',
+                      'bg-orange-50 text-orange-600',
+                      'bg-teal-50 text-teal-600',
+                    ];
+                    const colorClass = iconColors[idx % iconColors.length];
+                    return (
+                      <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
+                        <div className={`stat-card-icon ${colorClass}`}>
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">{item.label}</p>
+                          <p className="font-semibold">{item.display}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

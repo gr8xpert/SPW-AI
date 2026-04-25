@@ -7,11 +7,15 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto, UpdateTicketDto, CreateMessageDto } from './dto';
 import { CurrentTenant, CurrentUser } from '../../common/decorators';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { TicketStatus } from '../../database/entities';
+import { UserRole } from '@spw/shared';
 
 @Controller('api/dashboard/tickets')
 export class TicketController {
@@ -87,8 +91,9 @@ export class TicketController {
   }
 }
 
-// Super Admin Controller for managing all tickets
 @Controller('api/super-admin/tickets')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.SUPER_ADMIN)
 export class SuperAdminTicketController {
   constructor(private readonly ticketService: TicketService) {}
 
@@ -110,6 +115,31 @@ export class SuperAdminTicketController {
   @Get('stats')
   getStats() {
     return this.ticketService.getStats();
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.ticketService.findOneForSuperAdmin(id);
+  }
+
+  @Put(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTicketDto,
+    @CurrentUser('id') userId: number,
+  ) {
+    const ticket = await this.ticketService.findOneForSuperAdmin(id);
+    return this.ticketService.update(ticket.tenantId, id, dto, userId, true);
+  }
+
+  @Post(':id/messages')
+  async addMessage(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @Body() dto: CreateMessageDto,
+  ) {
+    const ticket = await this.ticketService.findOneForSuperAdmin(id);
+    return this.ticketService.addMessage(ticket.tenantId, id, userId, dto, true);
   }
 
   @Put(':tenantId/:id/assign')

@@ -46,7 +46,6 @@ interface ClientDetail {
   domain: string | null;
   ownerEmail: string | null;
   siteName: string | null;
-  apiUrl: string | null;
   apiKey: string;
   webhookUrl: string | null;
   settings: Record<string, any>;
@@ -236,9 +235,9 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href="/admin/clients">
             <Button variant="ghost" size="icon">
@@ -246,8 +245,8 @@ export default function ClientDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
-            <p className="text-muted-foreground">{client.slug}</p>
+            <h1 className="page-title">{client.name}</h1>
+            <p className="page-description mt-1">{client.slug}</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge className={`${statusColors[client.subscriptionStatus]} text-white`}>
@@ -267,7 +266,7 @@ export default function ClientDetailPage() {
           </Link>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">
+              <Button variant="destructive" className="shadow-sm">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
@@ -305,7 +304,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
+                  <div className="stat-card-icon bg-blue-50 text-blue-600"><Building2 className="h-5 w-5" /></div>
                   Client Information
                 </CardTitle>
               </CardHeader>
@@ -349,10 +348,6 @@ export default function ClientDetailPage() {
                       <p className="font-medium">—</p>
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">API URL</p>
-                    <p className="font-medium text-sm truncate">{client.apiUrl || '—'}</p>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -361,7 +356,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
+                  <div className="stat-card-icon bg-green-50 text-green-600"><Mail className="h-5 w-5" /></div>
                   Admin User
                 </CardTitle>
               </CardHeader>
@@ -401,7 +396,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
+                  <div className="stat-card-icon bg-amber-50 text-amber-600"><Zap className="h-5 w-5" /></div>
                   Widget Features
                 </CardTitle>
               </CardHeader>
@@ -438,7 +433,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
+                  <div className="stat-card-icon bg-purple-50 text-purple-600"><Key className="h-5 w-5" /></div>
                   API Credentials
                 </CardTitle>
               </CardHeader>
@@ -574,7 +569,7 @@ export default function ClientDetailPage() {
                 <CardTitle>License Keys</CardTitle>
                 <CardDescription>Manage widget license keys for this client</CardDescription>
               </div>
-              <Button onClick={handleGenerateLicenseKey}>
+              <Button onClick={handleGenerateLicenseKey} className="shadow-sm">
                 <Key className="mr-2 h-4 w-4" />
                 Generate New Key
               </Button>
@@ -626,7 +621,7 @@ export default function ClientDetailPage() {
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tenant Settings</CardTitle>
+              <CardTitle>Client Settings</CardTitle>
               <CardDescription>Raw settings JSON for this client</CardDescription>
             </CardHeader>
             <CardContent>

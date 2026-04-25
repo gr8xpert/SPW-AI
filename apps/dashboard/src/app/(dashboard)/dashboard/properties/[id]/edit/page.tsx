@@ -615,14 +615,14 @@ export default function EditPropertyPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href={detailUrl}><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Edit Property {formData.reference || id}</h1>
-            <p className="text-muted-foreground">Update property details</p>
+            <h1 className="page-title">Edit Property {formData.reference || id}</h1>
+            <p className="page-description mt-1">Update property details</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -633,7 +633,7 @@ export default function EditPropertyPage() {
               {isTranslating ? 'Translating…' : 'AI Translate'}
             </Button>
           )}
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} className="shadow-sm">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Changes
           </Button>
@@ -945,7 +945,7 @@ export default function EditPropertyPage() {
                 {[
                   ['videoUrl', 'Video URL', 'https://youtube.com/...'], ['virtualTourUrl', 'Virtual Tour URL', 'https://matterport.com/...'],
                   ['floorPlanUrl', 'Floor Plan URL', 'https://...'], ['externalLink', 'External Link', 'https://...'],
-                  ['blogUrl', 'Blog URL', 'https://blog.example.com/...'], ['mapLink', 'Map Link', 'https://maps.google.com/...'],
+                  ['blogUrl', 'Blog URL', 'https://yourblog.com/...'], ['mapLink', 'Map Link', 'https://maps.google.com/...'],
                   ['websiteUrl', 'Website URL', 'https://yoursite.com/...'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2"><Label>{label}</Label><Input value={formData[field as keyof FormData] as string} onChange={(e) => handleInputChange(field, e.target.value)} placeholder={ph} /></div>
@@ -1051,7 +1051,7 @@ export default function EditPropertyPage() {
 
       <div className="flex items-center justify-end gap-2 pb-8">
         <Link href={detailUrl}><Button variant="outline">Cancel</Button></Link>
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving} className="shadow-sm">
           {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           Save Changes
         </Button>

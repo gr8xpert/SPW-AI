@@ -102,11 +102,11 @@ export default function AiChatPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Chat</h1>
-          <p className="text-muted-foreground">Monitor chat conversations and AI feature usage</p>
+          <h1 className="page-title">AI Chat</h1>
+          <p className="page-description mt-1">Monitor chat conversations and AI feature usage</p>
         </div>
         <div className="flex gap-2">
           <div className="flex border rounded-md">
@@ -136,40 +136,48 @@ export default function AiChatPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Conversations</CardTitle>
-                <MessagesSquare className="h-4 w-4 text-muted-foreground" />
+                <div className="stat-card-icon bg-blue-50 text-blue-600">
+                  <MessagesSquare className="h-4 w-4" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(stats?.totalConversations ?? 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold tracking-tight">{(stats?.totalConversations ?? 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">Total chat sessions</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <div className="stat-card-icon bg-green-50 text-green-600">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(stats?.totalMessages ?? 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold tracking-tight">{(stats?.totalMessages ?? 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">User + assistant messages</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Avg. per Chat</CardTitle>
-                <Hash className="h-4 w-4 text-muted-foreground" />
+                <div className="stat-card-icon bg-amber-50 text-amber-600">
+                  <Hash className="h-4 w-4" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.avgMessagesPerConversation ?? 0}</div>
+                <div className="text-2xl font-bold tracking-tight">{stats?.avgMessagesPerConversation ?? 0}</div>
                 <p className="text-xs text-muted-foreground">Messages per conversation</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Languages</CardTitle>
-                <Globe className="h-4 w-4 text-muted-foreground" />
+                <div className="stat-card-icon bg-purple-50 text-purple-600">
+                  <Globe className="h-4 w-4" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.languageBreakdown?.length ?? 0}</div>
+                <div className="text-2xl font-bold tracking-tight">{stats?.languageBreakdown?.length ?? 0}</div>
                 <p className="text-xs text-muted-foreground">Detected languages</p>
               </CardContent>
             </Card>

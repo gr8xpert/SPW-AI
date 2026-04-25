@@ -213,12 +213,12 @@ export default function PropertiesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Properties</h1>
-          <p className="text-muted-foreground">Manage your property listings</p>
+          <h1 className="page-title">Properties</h1>
+          <p className="page-description mt-1">Manage your property listings</p>
         </div>
         <div className="flex items-center gap-2">
           {tenantLanguages.length > 1 && (
@@ -236,7 +236,7 @@ export default function PropertiesPage() {
               )}
             </Button>
           )}
-          <Button asChild>
+          <Button asChild className="shadow-sm">
             <Link href="/dashboard/properties/create">
               <Plus className="h-4 w-4 mr-2" />
               Add Property
@@ -404,7 +404,7 @@ export default function PropertiesPage() {
                   {properties.map((property) => (
                     <TableRow key={property.id}>
                       <TableCell>
-                        <div className="h-12 w-16 rounded-md bg-muted overflow-hidden">
+                        <div className="h-12 w-16 rounded-lg bg-muted overflow-hidden">
                           {property.images?.[0]?.url ? (
                             <img src={property.images[0].url} alt="" className="h-full w-full object-cover" />
                           ) : (

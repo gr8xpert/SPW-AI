@@ -252,13 +252,13 @@ export default function TicketsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
-          <p className="text-muted-foreground">Get help from our support team</p>
+          <h1 className="page-title">Support Tickets</h1>
+          <p className="page-description mt-1">Get help from our support team</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
+        <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           New Ticket
         </Button>
@@ -268,30 +268,38 @@ export default function TicketsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Open</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-blue-50 text-blue-600">
+              <AlertCircle className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.open}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.open}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-amber-50 text-amber-600">
+              <Clock className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-amber-600">{stats.inProgress}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-amber-600">{stats.inProgress}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Awaiting Reply</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-purple-50 text-purple-600">
+              <MessageSquare className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.awaitingReply}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.awaitingReply}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-green-50 text-green-600">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-600">{stats.resolved}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{stats.resolved}</div></CardContent>
         </Card>
       </div>
 
@@ -319,7 +327,7 @@ export default function TicketsPage() {
           ) : filteredTickets.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No tickets found</p>
-              <Button className="mt-4" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
+              <Button className="mt-4 shadow-sm" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create your first ticket
               </Button>

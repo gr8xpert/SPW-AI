@@ -15,12 +15,18 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
+  if (session.user.role === 'super_admin') {
+    redirect('/admin');
+  }
+
+  const userRole = session.user.role as string;
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar userRole={userRole} />
       <div className="pl-64">
         <Header />
-        <main className="p-6">{children}</main>
+        <main className="p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

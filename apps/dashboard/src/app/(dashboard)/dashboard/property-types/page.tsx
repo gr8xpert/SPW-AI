@@ -323,11 +323,11 @@ export default function PropertyTypesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Property Types</h1>
-          <p className="text-muted-foreground">Manage property type classifications</p>
+          <h1 className="page-title">Property Types</h1>
+          <p className="page-description mt-1">Manage property type classifications</p>
         </div>
         <div className="flex gap-2">
           {languages.length > 1 && (
@@ -338,7 +338,7 @@ export default function PropertyTypesPage() {
           )}
           <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '' }); }}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Add Type</Button>
+              <Button className="shadow-sm"><Plus className="h-4 w-4 mr-2" />Add Type</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>

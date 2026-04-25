@@ -304,11 +304,11 @@ export default function LabelsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Labels</h1>
-          <p className="text-muted-foreground">Manage UI text translations for your widget</p>
+          <h1 className="page-title">Labels</h1>
+          <p className="page-description mt-1">Manage UI text translations for your widget</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleInitialize}>
@@ -321,7 +321,7 @@ export default function LabelsPage() {
               AI Translate All
             </Button>
           )}
-          <Button onClick={() => setIsAddOpen(true)}>
+          <Button className="shadow-sm" onClick={() => setIsAddOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Label
           </Button>
@@ -330,20 +330,40 @@ export default function LabelsPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Labels</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{labels.length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Labels</CardTitle>
+            <div className="stat-card-icon bg-blue-50">
+              <Edit className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{labels.length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Languages</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{languages.length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Languages</CardTitle>
+            <div className="stat-card-icon bg-green-50">
+              <Sparkles className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{languages.length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Custom Labels</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{labels.filter((l) => l.isCustom).length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Custom Labels</CardTitle>
+            <div className="stat-card-icon bg-purple-50">
+              <Plus className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{labels.filter((l) => l.isCustom).length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Missing Translations</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-amber-600">{missingCount}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Missing Translations</CardTitle>
+            <div className="stat-card-icon bg-amber-50">
+              <Search className="h-4 w-4 text-amber-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-amber-600">{missingCount}</div></CardContent>
         </Card>
       </div>
 

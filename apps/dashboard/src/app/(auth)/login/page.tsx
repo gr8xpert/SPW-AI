@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -78,7 +78,10 @@ function LoginForm() {
           variant: 'destructive',
         });
       } else {
-        router.push(callbackUrl);
+        const session = await getSession();
+        const role = session?.user?.role;
+        const target = role === 'super_admin' ? '/admin' : role === 'webmaster' ? '/dashboard/time-tracking' : callbackUrl;
+        router.push(target);
         router.refresh();
       }
     } catch (error) {
@@ -93,9 +96,14 @@ function LoginForm() {
   };
 
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
+    <Card className="shadow-lg border-border/60">
+      <CardHeader className="space-y-1 pb-4">
+        <div className="flex justify-center mb-2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <span className="text-lg font-bold text-primary-foreground">S</span>
+          </div>
+        </div>
+        <CardTitle className="text-xl text-center">Welcome back</CardTitle>
         <CardDescription className="text-center">
           Sign in to your account to continue
         </CardDescription>
@@ -103,11 +111,11 @@ function LoginForm() {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder="Your email address"
               {...register('email')}
               disabled={isLoading}
             />
@@ -116,7 +124,7 @@ function LoginForm() {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
             <Input
               id="password"
               type="password"
@@ -130,7 +138,7 @@ function LoginForm() {
               </p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full shadow-sm" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>

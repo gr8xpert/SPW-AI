@@ -89,8 +89,8 @@ export default function LicenseKeysPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href={`/admin/clients/${clientId}`}>
             <Button variant="ghost" size="icon">
@@ -98,11 +98,11 @@ export default function LicenseKeysPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">License Keys</h1>
-            <p className="text-muted-foreground">Manage license keys for this client</p>
+            <h1 className="page-title">License Keys</h1>
+            <p className="page-description mt-1">Manage license keys for this client</p>
           </div>
         </div>
-        <Button onClick={handleGenerate} disabled={generating}>
+        <Button onClick={handleGenerate} disabled={generating} className="shadow-sm">
           {generating ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (

@@ -289,13 +289,13 @@ export default function FeedsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Feed Sources</h1>
-          <p className="text-muted-foreground">Configure property feed imports from external providers</p>
+          <h1 className="page-title">Feed Sources</h1>
+          <p className="page-description mt-1">Configure property feed imports from external providers</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
+        <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Feed Source
         </Button>
@@ -303,24 +303,44 @@ export default function FeedsPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Feeds</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{feeds.length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Feeds</CardTitle>
+            <div className="stat-card-icon bg-blue-50">
+              <Settings className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{feeds.length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Active</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-600">{feeds.filter((f) => f.isActive).length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <div className="stat-card-icon bg-green-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{feeds.filter((f) => f.isActive).length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Last Sync Total</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Last Sync Total</CardTitle>
+            <div className="stat-card-icon bg-purple-50">
+              <RefreshCw className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{feeds.reduce((acc, f) => acc + (f.lastSyncCount || 0), 0)}</div>
+            <div className="text-2xl font-bold tracking-tight">{feeds.reduce((acc, f) => acc + (f.lastSyncCount || 0), 0)}</div>
             <p className="text-xs text-muted-foreground">properties imported</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Issues</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Issues</CardTitle>
+            <div className="stat-card-icon bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+            </div>
+          </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
+            <div className="text-2xl font-bold tracking-tight text-amber-600">
               {feeds.filter((f) => f.lastSyncStatus && f.lastSyncStatus !== 'success').length}
             </div>
           </CardContent>

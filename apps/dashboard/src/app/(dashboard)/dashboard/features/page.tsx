@@ -356,11 +356,11 @@ export default function FeaturesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Features</h1>
-          <p className="text-muted-foreground">Manage property features and amenities</p>
+          <h1 className="page-title">Features</h1>
+          <p className="page-description mt-1">Manage property features and amenities</p>
         </div>
         <div className="flex gap-2">
           {languages.length > 1 && (
@@ -369,7 +369,7 @@ export default function FeaturesPage() {
               AI Translate All
             </Button>
           )}
-          <Button onClick={() => { setForm({ names: {}, category: 'interior', icon: '' }); setIsAddOpen(true); }}>
+          <Button className="shadow-sm" onClick={() => { setForm({ names: {}, category: 'interior', icon: '' }); setIsAddOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Feature
           </Button>
@@ -378,16 +378,31 @@ export default function FeaturesPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Features</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{features.length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Features</CardTitle>
+            <div className="stat-card-icon bg-blue-50">
+              <Home className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{features.length}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Categories Used</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{new Set(features.map((f) => f.category)).size}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Categories Used</CardTitle>
+            <div className="stat-card-icon bg-purple-50">
+              <Sun className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{new Set(features.map((f) => f.category)).size}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Active</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{features.filter((f) => f.isActive !== false).length}</div></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <div className="stat-card-icon bg-green-50">
+              <Check className="h-4 w-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{features.filter((f) => f.isActive !== false).length}</div></CardContent>
         </Card>
       </div>
 

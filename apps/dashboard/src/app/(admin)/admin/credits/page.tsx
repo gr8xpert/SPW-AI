@@ -118,7 +118,7 @@ export default function CreditsPage() {
     } catch {
       toast({
         title: 'Failed to load credits',
-        description: 'Could not fetch tenant credit balances.',
+        description: 'Could not fetch client credit balances.',
         variant: 'destructive',
       });
     } finally {
@@ -151,7 +151,7 @@ export default function CreditsPage() {
       } catch {
         toast({
           title: 'Failed to load history',
-          description: 'Could not fetch credit history for this tenant.',
+          description: 'Could not fetch credit history for this client.',
           variant: 'destructive',
         });
       } finally {
@@ -240,16 +240,16 @@ export default function CreditsPage() {
   /* ---------- render ---------- */
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Credits</h1>
-          <p className="text-muted-foreground">
-            Manage credit allocations and usage across all tenants
+          <h1 className="page-title">Credits</h1>
+          <p className="page-description mt-1">
+            Manage credit allocations and usage across all clients
           </p>
         </div>
-        <Button variant="outline" onClick={fetchTenants} disabled={loading}>
+        <Button variant="outline" className="shadow-sm" onClick={fetchTenants} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -260,36 +260,36 @@ export default function CreditsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Credits Outstanding</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-amber-50"><Coins className="h-4 w-4 text-amber-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tracking-tight">
               {loading ? '...' : totalOutstanding.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Across all tenants</p>
+            <p className="text-xs text-muted-foreground">Across all clients</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tenants with Balance</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Clients with Balance</CardTitle>
+            <div className="stat-card-icon bg-blue-50"><Users className="h-4 w-4 text-blue-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tracking-tight">
               {loading ? '...' : tenantsWithBalance}
             </div>
             <p className="text-xs text-muted-foreground">
-              {tenantsWithZero} tenant{tenantsWithZero !== 1 ? 's' : ''} at zero
+              {tenantsWithZero} client{tenantsWithZero !== 1 ? 's' : ''} at zero
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <div className="stat-card-icon bg-green-50"><CreditCard className="h-4 w-4 text-green-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tracking-tight">
               {loading ? '...' : tenants.length}
             </div>
             <p className="text-xs text-muted-foreground">With credit accounts</p>
@@ -313,13 +313,13 @@ export default function CreditsPage() {
           ) : tenants.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <CreditCard className="h-8 w-8 mb-2" />
-              <p className="text-sm">No tenant credit records found.</p>
+              <p className="text-sm">No client credit records found.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tenant Name</TableHead>
+                  <TableHead>Client Name</TableHead>
                   <TableHead>Slug</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
                   <TableHead>Last Activity</TableHead>
@@ -340,12 +340,15 @@ export default function CreditsPage() {
                       </code>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge
-                        variant={tenant.balance > 0 ? 'default' : 'secondary'}
-                        className="font-mono"
+                      <span
+                        className={`inline-flex items-center rounded-md px-3 py-1 text-base font-bold font-mono ${
+                          tenant.balance > 0
+                            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
                       >
                         {tenant.balance.toLocaleString()}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {tenant.lastActivity

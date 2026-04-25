@@ -30,6 +30,7 @@ import { LicenseKey } from './entities/license-key.entity';
 import { CreditBalance } from './entities/credit-balance.entity';
 import { CreditTransaction } from './entities/credit-transaction.entity';
 import { EmailTemplate, EmailCampaign } from './entities/email-campaign.entity';
+import { TimeEntry } from './entities/time-entry.entity';
 import { UserRole } from '@spw/shared';
 
 const DEMO_TENANT_SLUG = 'costa-sol-realty';
@@ -831,6 +832,83 @@ async function seedEmailTemplatesAndCampaigns(ds: DataSource, tenantId: number, 
   console.log(`[demo-email] created ${templates.length} templates, ${campaigns.length} campaigns`);
 }
 
+async function seedWebmasters(ds: DataSource, tickets: Ticket[]): Promise<void> {
+  const userRepo = ds.getRepository(User);
+  const teRepo = ds.getRepository(TimeEntry);
+
+  const existing = await userRepo.findOne({ where: { role: UserRole.WEBMASTER } });
+  if (existing) {
+    console.log('[demo-webmasters] already exist — skipping');
+    return;
+  }
+
+  const platform = await ds.getRepository(Tenant).findOne({ where: { slug: 'platform' } });
+  if (!platform) {
+    console.log('[demo-webmasters] platform tenant missing — skipping');
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash('Webmaster123!', 12);
+
+  const webmasters = await Promise.all([
+    userRepo.save(userRepo.create({
+      tenantId: platform.id,
+      email: 'alex@spw-admin.com',
+      name: 'Alex Rodriguez',
+      passwordHash,
+      role: UserRole.WEBMASTER,
+      isActive: true,
+      emailVerifiedAt: new Date(),
+      lastLoginAt: new Date(Date.now() - 2 * 3600_000),
+    })),
+    userRepo.save(userRepo.create({
+      tenantId: platform.id,
+      email: 'maria@spw-admin.com',
+      name: 'Maria Santos',
+      passwordHash,
+      role: UserRole.WEBMASTER,
+      isActive: true,
+      emailVerifiedAt: new Date(),
+      lastLoginAt: new Date(Date.now() - 24 * 3600_000),
+    })),
+    userRepo.save(userRepo.create({
+      tenantId: platform.id,
+      email: 'james@spw-admin.com',
+      name: 'James Wilson',
+      passwordHash,
+      role: UserRole.WEBMASTER,
+      isActive: false,
+      emailVerifiedAt: new Date(),
+      lastLoginAt: new Date(Date.now() - 30 * 24 * 3600_000),
+    })),
+  ]);
+
+  const [alex, maria] = webmasters;
+
+  if (tickets.length >= 4) {
+    const entries: Array<Partial<TimeEntry>> = [
+      { ticketId: tickets[0].id, userId: alex.id, hours: 1.5, description: 'Investigated WordPress plugin conflict, cleared cache', workDate: new Date('2026-04-20'), isPaid: false },
+      { ticketId: tickets[0].id, userId: alex.id, hours: 2.0, description: 'Fixed widget embed code, tested cross-browser', workDate: new Date('2026-04-21'), isPaid: false },
+      { ticketId: tickets[2].id, userId: alex.id, hours: 3.0, description: 'Built CSV import parser and validation', workDate: new Date('2026-04-18'), isPaid: true },
+      { ticketId: tickets[2].id, userId: alex.id, hours: 1.5, description: 'Error handling and progress feedback', workDate: new Date('2026-04-19'), isPaid: true },
+      { ticketId: tickets[1].id, userId: maria.id, hours: 0.5, description: 'Reviewed upgrade path and plan differences', workDate: new Date('2026-04-22'), isPaid: false },
+      { ticketId: tickets[3].id, userId: maria.id, hours: 2.0, description: 'Debugged email delivery DKIM/SPF records', workDate: new Date('2026-04-21'), isPaid: false },
+      { ticketId: tickets[3].id, userId: maria.id, hours: 1.0, description: 'Set up email authentication records in DNS', workDate: new Date('2026-04-22'), isPaid: false },
+      { ticketId: tickets[0].id, userId: maria.id, hours: 1.0, description: 'Verified widget load times on client staging', workDate: new Date('2026-04-23'), isPaid: true },
+    ];
+
+    for (const e of entries) {
+      await teRepo.save(teRepo.create(e));
+    }
+  }
+
+  console.log(`[demo-webmasters] created ${webmasters.length} webmasters with time entries`);
+  console.log(`  Webmaster logins (all password: Webmaster123!):`);
+  console.log(`    alex@spw-admin.com (active)`);
+  console.log(`    maria@spw-admin.com (active)`);
+  console.log(`    james@spw-admin.com (inactive)`);
+}
+
 async function main(): Promise<void> {
   const ds = await dataSource.initialize();
   try {
@@ -844,12 +922,13 @@ async function main(): Promise<void> {
     const properties = await seedProperties(ds, tid, locations, types, features, users);
     const contacts = await seedContacts(ds, tid, properties);
     await seedLeads(ds, tid, contacts, properties, users);
-    await seedTickets(ds, tid, users);
+    const tickets = await seedTickets(ds, tid, users);
     await seedLabels(ds, tid);
     await seedAnalytics(ds, tid, properties);
     await seedLicenseKeys(ds, tid);
     await seedCredits(ds, tid, users);
     await seedEmailTemplatesAndCampaigns(ds, tid, properties);
+    await seedWebmasters(ds, tickets);
 
     console.log('\nDemo data seed complete.');
     console.log(`\nDemo tenant login:`);

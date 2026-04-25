@@ -85,11 +85,11 @@ const sampleCampaign = {
 };
 
 const sampleRecipients = [
-  { id: 1, email: 'john@example.com', name: 'John Smith', status: 'sent', openedAt: '2026-04-01T11:30:00Z', clickedAt: '2026-04-01T11:32:00Z' },
-  { id: 2, email: 'sarah@example.com', name: 'Sarah Johnson', status: 'sent', openedAt: '2026-04-01T12:15:00Z', clickedAt: null },
-  { id: 3, email: 'mike@example.com', name: 'Mike Wilson', status: 'sent', openedAt: null, clickedAt: null },
-  { id: 4, email: 'emma@example.com', name: 'Emma Brown', status: 'bounced', openedAt: null, clickedAt: null },
-  { id: 5, email: 'david@example.com', name: 'David Lee', status: 'sent', openedAt: '2026-04-01T14:00:00Z', clickedAt: '2026-04-01T14:05:00Z' },
+  { id: 1, email: 'recipient1@company.com', name: 'Recipient One', status: 'sent', openedAt: '2026-04-01T11:30:00Z', clickedAt: '2026-04-01T11:32:00Z' },
+  { id: 2, email: 'recipient2@company.com', name: 'Recipient Two', status: 'sent', openedAt: '2026-04-01T12:15:00Z', clickedAt: null },
+  { id: 3, email: 'recipient3@company.com', name: 'Recipient Three', status: 'sent', openedAt: null, clickedAt: null },
+  { id: 4, email: 'recipient4@company.com', name: 'Recipient Four', status: 'bounced', openedAt: null, clickedAt: null },
+  { id: 5, email: 'recipient5@company.com', name: 'Recipient Five', status: 'sent', openedAt: '2026-04-01T14:00:00Z', clickedAt: '2026-04-01T14:05:00Z' },
 ];
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }> = {

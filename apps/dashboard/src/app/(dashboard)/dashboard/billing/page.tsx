@@ -112,12 +112,14 @@ export default function BillingPage() {
   const onPaddle = tenant?.billingSource === 'paddle';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription and upgrade your plan
-        </p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Billing</h1>
+          <p className="page-description mt-1">
+            Manage your subscription and upgrade your plan
+          </p>
+        </div>
       </div>
 
       {/* Current subscription */}
@@ -245,7 +247,7 @@ export default function BillingPage() {
                     </ul>
                     <div className="mt-6">
                       <Button
-                        className="w-full"
+                        className="w-full shadow-sm"
                         disabled={!canCheckout || upgradingPlanId === plan.id}
                         onClick={() => handleUpgrade(plan)}
                       >

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { AdminHeader } from '@/components/admin/admin-header';
+import { SessionGate } from '@/components/admin/session-gate';
 
 export default async function AdminLayout({
   children,
@@ -25,7 +26,9 @@ export default async function AdminLayout({
       <AdminSidebar />
       <div className="pl-64">
         <AdminHeader />
-        <main className="p-6">{children}</main>
+        <main className="p-6 lg:p-8">
+          <SessionGate>{children}</SessionGate>
+        </main>
       </div>
     </div>
   );

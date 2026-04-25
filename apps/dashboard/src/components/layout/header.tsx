@@ -19,23 +19,21 @@ export function Header() {
   const { data: session } = useSession();
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6">
-      <div>
-        {/* Breadcrumb or page title can go here */}
-      </div>
+    <header className="sticky top-0 z-40 h-16 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-6">
+      <div />
 
-      <div className="flex items-center gap-4">
-        {/* Notifications */}
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="relative rounded-lg text-muted-foreground hover:text-foreground">
+          <Bell className="h-[18px] w-[18px]" />
         </Button>
 
-        {/* User Menu */}
+        <div className="mx-1 h-6 w-px bg-border/60" />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback>
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                   {session?.user?.name ? getInitials(session.user.name) : 'U'}
                 </AvatarFallback>
               </Avatar>

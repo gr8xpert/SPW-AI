@@ -148,11 +148,11 @@ export default function FeedExportPage() {
   const apiKey = config?.apiKey || '';
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Feed Export</h1>
-          <p className="text-muted-foreground">Export your properties as XML (Kyero) or JSON for external portals</p>
+          <h1 className="page-title">Feed Export</h1>
+          <p className="page-description mt-1">Export your properties as XML (Kyero) or JSON for external portals</p>
         </div>
       </div>
 
@@ -266,7 +266,7 @@ export default function FeedExportPage() {
                   <CardTitle>Export Settings</CardTitle>
                   <CardDescription>Configure which properties are included in the feed</CardDescription>
                 </div>
-                <Button onClick={handleSaveSettings} disabled={api.isLoading}>
+                <Button className="shadow-sm" onClick={handleSaveSettings} disabled={api.isLoading}>
                   {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Settings
                 </Button>

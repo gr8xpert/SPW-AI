@@ -58,11 +58,11 @@ export default function QueueDepthPage() {
   const renderCount = (n: number) => (n < 0 ? '—' : n.toLocaleString());
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Queue Depth</h1>
-          <p className="text-muted-foreground">
+          <h1 className="page-title">Queue Depth</h1>
+          <p className="page-description mt-1">
             BullMQ backlogs per tracked queue. Worst-first so a stuck
             queue surfaces above the healthy ones.
           </p>
@@ -73,7 +73,7 @@ export default function QueueDepthPage() {
               Refreshed {refreshedAt.toLocaleTimeString()}
             </span>
           )}
-          <Button variant="outline" onClick={load} disabled={loading}>
+          <Button variant="outline" className="shadow-sm" onClick={load} disabled={loading}>
             <RefreshCw
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
             />

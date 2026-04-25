@@ -12,11 +12,14 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -28,6 +31,8 @@ import {
   Clock,
   DollarSign,
   Loader2,
+  Plus,
+  Power,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -72,6 +77,13 @@ export default function WebmastersPage() {
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<number>>(new Set());
   const [markingPaid, setMarkingPaid] = useState(false);
+
+  // Create webmaster dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -141,6 +153,40 @@ export default function WebmastersPage() {
     }
   };
 
+  const handleCreate = async () => {
+    if (!createName.trim() || !createEmail.trim() || !createPassword.trim()) return;
+    setCreating(true);
+    try {
+      await api.post('/api/super-admin/webmasters', {
+        name: createName.trim(),
+        email: createEmail.trim(),
+        password: createPassword,
+      });
+      toast({ title: `Webmaster ${createName.trim()} created` });
+      setCreateOpen(false);
+      setCreateName('');
+      setCreateEmail('');
+      setCreatePassword('');
+      fetchData();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to create webmaster';
+      toast({ title: msg, variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const toggleActive = async (e: React.MouseEvent, wm: Webmaster) => {
+    e.stopPropagation();
+    try {
+      await api.put(`/api/super-admin/webmasters/${wm.id}`, { isActive: !wm.isActive });
+      toast({ title: `${wm.name} ${wm.isActive ? 'deactivated' : 'activated'}` });
+      fetchData();
+    } catch {
+      toast({ title: 'Failed to update status', variant: 'destructive' });
+    }
+  };
+
   const getUnpaidHours = (userId: number) => {
     return unpaidSummary.find((s) => s.userId === userId)?.totalHours || 0;
   };
@@ -152,26 +198,32 @@ export default function WebmastersPage() {
   const totalUnpaidHours = unpaidSummary.reduce((sum, s) => sum + s.totalHours, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Webmasters</h1>
-          <p className="text-muted-foreground">Manage webmaster accounts and track time</p>
+          <h1 className="page-title">Webmasters</h1>
+          <p className="page-description mt-1">Manage webmaster accounts and track time</p>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="shadow-sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button className="shadow-sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Webmaster
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Webmasters</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-blue-50"><Users className="h-4 w-4 text-blue-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{webmasters.length}</div>
+            <div className="text-2xl font-bold tracking-tight">{webmasters.length}</div>
             <p className="text-xs text-muted-foreground">
               {webmasters.filter((w) => w.isActive).length} active
             </p>
@@ -180,10 +232,10 @@ export default function WebmastersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Unpaid Hours</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-amber-50"><Clock className="h-4 w-4 text-amber-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalUnpaidHours.toFixed(1)}h</div>
+            <div className="text-2xl font-bold tracking-tight">{totalUnpaidHours.toFixed(1)}h</div>
             <p className="text-xs text-muted-foreground">
               Across {unpaidSummary.length} webmasters
             </p>
@@ -192,10 +244,10 @@ export default function WebmastersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Unpaid Entries</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="stat-card-icon bg-green-50"><DollarSign className="h-4 w-4 text-green-600" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tracking-tight">
               {unpaidSummary.reduce((sum, s) => sum + s.entryCount, 0)}
             </div>
             <p className="text-xs text-muted-foreground">Time entries awaiting payment</p>
@@ -214,7 +266,10 @@ export default function WebmastersPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : webmasters.length === 0 ? (
-            <p className="text-center py-8 text-sm text-muted-foreground">No webmasters found</p>
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Users className="h-8 w-8 mb-2" />
+              <p className="text-sm">No webmasters yet. Click &quot;Add Webmaster&quot; to create one.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -226,6 +281,7 @@ export default function WebmastersPage() {
                   <TableHead>Unpaid Entries</TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -254,6 +310,16 @@ export default function WebmastersPage() {
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDistanceToNow(new Date(wm.createdAt), { addSuffix: true })}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={wm.isActive ? 'Deactivate' : 'Activate'}
+                        onClick={(e) => toggleActive(e, wm)}
+                      >
+                        <Power className={`h-4 w-4 ${wm.isActive ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -262,6 +328,62 @@ export default function WebmastersPage() {
         </CardContent>
       </Card>
 
+      {/* Create Webmaster Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Webmaster</DialogTitle>
+            <DialogDescription>
+              Create a new webmaster account. They will be able to log in and manage assigned tickets.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="wm-name">Full Name</Label>
+              <Input
+                id="wm-name"
+                placeholder="John Doe"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wm-email">Email</Label>
+              <Input
+                id="wm-email"
+                type="email"
+                placeholder="john@example.com"
+                value={createEmail}
+                onChange={(e) => setCreateEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wm-password">Password</Label>
+              <Input
+                id="wm-password"
+                type="password"
+                placeholder="Minimum 8 characters"
+                value={createPassword}
+                onChange={(e) => setCreatePassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !createName.trim() || !createEmail.trim() || createPassword.length < 8}
+            >
+              {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Webmaster
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Time Entries Dialog */}
       <Dialog open={!!selectedWebmaster} onOpenChange={(open) => !open && setSelectedWebmaster(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>

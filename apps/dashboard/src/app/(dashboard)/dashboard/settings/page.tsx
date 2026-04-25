@@ -758,13 +758,15 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account and application settings
-        </p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-description mt-1">
+            Manage your account and application settings
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
@@ -830,7 +832,7 @@ export default function SettingsPage() {
                     <Label htmlFor="domain">Website Domain</Label>
                     <Input
                       id="domain"
-                      placeholder="www.example.com"
+                      placeholder="yourdomain.com"
                       {...generalForm.register('domain')}
                     />
                   </div>
@@ -975,7 +977,7 @@ export default function SettingsPage() {
                     <Label htmlFor="smtpHost">SMTP Host</Label>
                     <Input
                       id="smtpHost"
-                      placeholder="smtp.example.com"
+                      placeholder="smtp.yourprovider.com"
                       {...emailForm.register('smtpHost')}
                     />
                   </div>
@@ -1008,7 +1010,7 @@ export default function SettingsPage() {
                     <Input
                       id="fromEmail"
                       type="email"
-                      placeholder="noreply@example.com"
+                      placeholder="noreply@yourdomain.com"
                       {...emailForm.register('fromEmail')}
                     />
                   </div>

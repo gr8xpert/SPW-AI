@@ -150,17 +150,17 @@ export default function ClientsPage() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground">
+          <h1 className="page-title">Clients</h1>
+          <p className="page-description mt-1">
             Manage all clients and their subscriptions
           </p>
         </div>
         <Link href="/admin/clients/create">
-          <Button>
+          <Button className="shadow-sm">
             <Plus className="mr-2 h-4 w-4" />
             Add Client
           </Button>
@@ -193,7 +193,7 @@ export default function ClientsPage() {
                 <SelectItem value="internal">Internal</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="submit">
+            <Button type="submit" className="shadow-sm">
               <Search className="mr-2 h-4 w-4" />
               Search
             </Button>

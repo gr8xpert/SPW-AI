@@ -4,13 +4,15 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { TimeEntry, Ticket, User } from '../../database/entities';
-import { CreateTimeEntryDto, UpdateTimeEntryDto } from './dto';
+import { TimeEntry, Ticket, User, Tenant } from '../../database/entities';
+import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
 import { UserRole } from '@spw/shared';
 import { TicketNotificationService } from '../ticket/ticket-notification.service';
+import * as bcrypt from 'bcrypt';
 
 export interface TimeEntrySummary {
   totalHours: number;
@@ -37,6 +39,8 @@ export class WebmasterService {
     private ticketRepository: Repository<Ticket>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Tenant)
+    private tenantRepository: Repository<Tenant>,
     private readonly ticketNotifications: TicketNotificationService,
   ) {}
 
@@ -260,7 +264,7 @@ export class WebmasterService {
   /**
    * Get unpaid hours summary by webmaster (super admin function)
    */
-  async getUnpaidHoursSummary(): Promise<Array<{ userId: number; userName: string; unpaidHours: number }>> {
+  async getUnpaidHoursSummary(): Promise<Array<{ userId: number; userName: string; totalHours: number; entryCount: number }>> {
     const webmasters = await this.getWebmasters();
 
     const summary = await Promise.all(
@@ -268,16 +272,17 @@ export class WebmasterService {
         const entries = await this.timeEntryRepository.find({
           where: { userId: wm.id, isPaid: false },
         });
-        const unpaidHours = entries.reduce((sum, e) => sum + Number(e.hours), 0);
+        const totalHours = entries.reduce((sum, e) => sum + Number(e.hours), 0);
         return {
           userId: wm.id,
           userName: wm.name || wm.email,
-          unpaidHours,
+          totalHours,
+          entryCount: entries.length,
         };
       }),
     );
 
-    return summary.filter((s) => s.unpaidHours > 0);
+    return summary.filter((s) => s.totalHours > 0);
   }
 
   /**
@@ -341,5 +346,60 @@ export class WebmasterService {
     ticket.status = 'waiting_customer';
 
     return this.ticketRepository.save(ticket);
+  }
+
+  /**
+   * Create a new webmaster account (super admin function)
+   */
+  async createWebmaster(dto: CreateWebmasterDto): Promise<User> {
+    const existing = await this.userRepository.findOne({
+      where: { email: dto.email.toLowerCase() },
+    });
+    if (existing) {
+      throw new ConflictException('A user with this email already exists');
+    }
+
+    const platform = await this.tenantRepository.findOne({ where: { slug: 'platform' } });
+    if (!platform) {
+      throw new BadRequestException('Platform tenant not found — run seed first');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const user = this.userRepository.create({
+      tenantId: platform.id,
+      email: dto.email.toLowerCase(),
+      name: dto.name,
+      passwordHash,
+      role: UserRole.WEBMASTER,
+      isActive: true,
+      emailVerifiedAt: new Date(),
+    });
+
+    const saved = await this.userRepository.save(user);
+    const { passwordHash: _, ...result } = saved as any;
+    return result;
+  }
+
+  /**
+   * Update a webmaster account (super admin function)
+   */
+  async updateWebmaster(id: number, dto: UpdateWebmasterDto): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id, role: UserRole.WEBMASTER },
+    });
+    if (!user) {
+      throw new NotFoundException('Webmaster not found');
+    }
+
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.email !== undefined) user.email = dto.email.toLowerCase();
+    if (dto.isActive !== undefined) user.isActive = dto.isActive;
+    if (dto.password) {
+      user.passwordHash = await bcrypt.hash(dto.password, 12);
+    }
+
+    const saved = await this.userRepository.save(user);
+    const { passwordHash: _, ...result } = saved as any;
+    return result;
   }
 }

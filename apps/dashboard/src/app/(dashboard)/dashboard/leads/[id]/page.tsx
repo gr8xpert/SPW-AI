@@ -62,8 +62,8 @@ import { useToast } from '@/hooks/use-toast';
 const sampleLead = {
   id: 1,
   contact: {
-    name: 'John Smith',
-    email: 'john.smith@example.com',
+    name: 'Sample Contact',
+    email: 'contact@company.com',
     phone: '+34 612 345 678',
   },
   property: {

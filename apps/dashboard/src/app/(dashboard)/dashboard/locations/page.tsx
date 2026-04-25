@@ -357,13 +357,13 @@ export default function LocationsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Locations</h1>
-          <p className="text-muted-foreground">Manage your location hierarchy for property filtering</p>
+          <h1 className="page-title">Locations</h1>
+          <p className="page-description mt-1">Manage your location hierarchy for property filtering</p>
         </div>
-        <Button onClick={() => openAdd()}>
+        <Button className="shadow-sm" onClick={() => openAdd()}>
           <Plus className="h-4 w-4 mr-2" />
           Add Location
         </Button>
@@ -371,18 +371,21 @@ export default function LocationsPage() {
 
       <div className="grid gap-4 md:grid-cols-5">
         {[
-          ['Total Locations', stats.total],
-          ['Countries', stats.countries],
-          ['Provinces', stats.provinces],
-          ['Towns', stats.towns],
-          ['Areas', stats.areas],
-        ].map(([label, value]) => (
+          ['Total Locations', stats.total, 'bg-blue-50', 'text-blue-600'],
+          ['Countries', stats.countries, 'bg-green-50', 'text-green-600'],
+          ['Provinces', stats.provinces, 'bg-purple-50', 'text-purple-600'],
+          ['Towns', stats.towns, 'bg-amber-50', 'text-amber-600'],
+          ['Areas', stats.areas, 'bg-rose-50', 'text-rose-600'],
+        ].map(([label, value, bgColor, textColor]) => (
           <Card key={label as string}>
-            <CardHeader className="pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">{label}</CardTitle>
+              <div className={cn('stat-card-icon', bgColor as string)}>
+                <MapPin className={cn('h-4 w-4', textColor as string)} />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{value}</div>
+              <div className="text-2xl font-bold tracking-tight">{value}</div>
             </CardContent>
           </Card>
         ))}

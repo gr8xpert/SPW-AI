@@ -109,15 +109,15 @@ export default function SuppressionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Email Suppressions</h1>
-          <p className="text-muted-foreground">
-            Manage email suppression lists across all tenants
+          <h1 className="page-title">Email Suppressions</h1>
+          <p className="page-description mt-1">
+            Manage email suppression lists across all clients
           </p>
         </div>
-        <Button variant="outline" onClick={fetchSuppressions} disabled={loading}>
+        <Button variant="outline" className="shadow-sm" onClick={fetchSuppressions} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -135,7 +135,7 @@ export default function SuppressionsPage() {
                 className="pl-9"
               />
             </div>
-            <Button type="submit">
+            <Button type="submit" className="shadow-sm">
               <Search className="mr-2 h-4 w-4" />
               Search
             </Button>
@@ -169,7 +169,7 @@ export default function SuppressionsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Email</TableHead>
-                    <TableHead>Tenant</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Added By</TableHead>
                     <TableHead>Date</TableHead>
@@ -181,7 +181,7 @@ export default function SuppressionsPage() {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.email}</TableCell>
                       <TableCell className="text-sm">
-                        {s.tenantName || `Tenant ${s.tenantId}`}
+                        {s.tenantName || `Client ${s.tenantId}`}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
                         {s.reason || '—'}

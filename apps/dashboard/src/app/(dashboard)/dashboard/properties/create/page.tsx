@@ -528,23 +528,23 @@ export default function CreatePropertyPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/properties">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Property</h1>
-            <p className="text-muted-foreground">Add a new property to your portfolio</p>
+            <h1 className="page-title">Create Property</h1>
+            <p className="page-description mt-1">Add a new property to your portfolio</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => handleSave(false)} disabled={isSaving}>
             <Save className="h-4 w-4 mr-2" /> Save Draft
           </Button>
-          <Button onClick={() => handleSave(true)} disabled={isSaving}>
+          <Button onClick={() => handleSave(true)} disabled={isSaving} className="shadow-sm">
             <Eye className="h-4 w-4 mr-2" /> Publish
           </Button>
         </div>
@@ -976,7 +976,7 @@ export default function CreatePropertyPage() {
                   ['videoUrl', 'Video URL', 'https://youtube.com/watch?v=...'],
                   ['virtualTourUrl', 'Virtual Tour URL', 'https://matterport.com/...'],
                   ['externalLink', 'External Link', 'https://...'],
-                  ['blogUrl', 'Blog URL', 'https://blog.example.com/...'],
+                  ['blogUrl', 'Blog URL', 'https://yourblog.com/...'],
                   ['mapLink', 'Map Link', 'https://maps.google.com/...'],
                   ['websiteUrl', 'Website URL', 'https://yoursite.com/property/...'],
                 ].map(([field, label, ph]) => (

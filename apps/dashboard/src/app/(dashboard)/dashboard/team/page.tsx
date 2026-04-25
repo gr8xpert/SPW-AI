@@ -210,16 +210,16 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Team</h1>
-          <p className="text-muted-foreground">Manage your team members and their roles</p>
+          <h1 className="page-title">Team</h1>
+          <p className="page-description mt-1">Manage your team members and their roles</p>
         </div>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
-            <Button><UserPlus className="h-4 w-4 mr-2" /> Invite Member</Button>
+            <Button className="shadow-sm"><UserPlus className="h-4 w-4 mr-2" /> Invite Member</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -229,11 +229,11 @@ export default function TeamPage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="invite-email">Email *</Label>
-                <Input id="invite-email" type="email" placeholder="user@example.com" value={inviteForm.email} onChange={(e) => setInviteForm(p => ({ ...p, email: e.target.value }))} />
+                <Input id="invite-email" type="email" placeholder="email@company.com" value={inviteForm.email} onChange={(e) => setInviteForm(p => ({ ...p, email: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invite-name">Name</Label>
-                <Input id="invite-name" placeholder="John Doe" value={inviteForm.name} onChange={(e) => setInviteForm(p => ({ ...p, name: e.target.value }))} />
+                <Input id="invite-name" placeholder="Full name" value={inviteForm.name} onChange={(e) => setInviteForm(p => ({ ...p, name: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invite-password">Password *</Label>
@@ -266,10 +266,12 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-muted-foreground" />
+                <div className="stat-card-icon bg-blue-50 text-blue-600">
+                  <Users className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Members</p>
-                  <p className="text-2xl font-bold">{stats.currentUsers} <span className="text-sm font-normal text-muted-foreground">/ {stats.maxUsers}</span></p>
+                  <p className="text-2xl font-bold tracking-tight">{stats.currentUsers} <span className="text-sm font-normal text-muted-foreground">/ {stats.maxUsers}</span></p>
                 </div>
               </div>
             </CardContent>
@@ -277,10 +279,12 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-muted-foreground" />
+                <div className="stat-card-icon bg-purple-50 text-purple-600">
+                  <Shield className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Admins</p>
-                  <p className="text-2xl font-bold">{stats.admins}</p>
+                  <p className="text-2xl font-bold tracking-tight">{stats.admins}</p>
                 </div>
               </div>
             </CardContent>
@@ -288,10 +292,12 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-muted-foreground" />
+                <div className="stat-card-icon bg-green-50 text-green-600">
+                  <User className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Users</p>
-                  <p className="text-2xl font-bold">{stats.users}</p>
+                  <p className="text-2xl font-bold tracking-tight">{stats.users}</p>
                 </div>
               </div>
             </CardContent>
@@ -299,10 +305,12 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <UserPlus className="h-5 w-5 text-muted-foreground" />
+                <div className="stat-card-icon bg-amber-50 text-amber-600">
+                  <UserPlus className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Seats Available</p>
-                  <p className="text-2xl font-bold">{stats.maxUsers - stats.currentUsers}</p>
+                  <p className="text-2xl font-bold tracking-tight">{stats.maxUsers - stats.currentUsers}</p>
                 </div>
               </div>
             </CardContent>

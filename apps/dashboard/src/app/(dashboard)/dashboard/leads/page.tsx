@@ -167,34 +167,46 @@ export default function LeadsPage() {
     (leadsByStatus.negotiating?.length || 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-          <p className="text-muted-foreground">Manage your sales pipeline and track lead progress</p>
+          <h1 className="page-title">Leads</h1>
+          <p className="page-description mt-1">Manage your sales pipeline and track lead progress</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
+        <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Lead
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Leads</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{leads.length}</div></CardContent>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Leads</CardTitle>
+            <div className="stat-card-icon bg-primary/5"><Building2 className="h-5 w-5 text-primary/70" /></div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{leads.length}</div></CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">New</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{leadsByStatus.new?.length || 0}</div></CardContent>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">New</CardTitle>
+            <div className="stat-card-icon bg-blue-50"><Plus className="h-5 w-5 text-blue-600" /></div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{leadsByStatus.new?.length || 0}</div></CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">In Progress</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{inProgress}</div></CardContent>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+            <div className="stat-card-icon bg-amber-50"><Loader2 className="h-5 w-5 text-amber-600" /></div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{inProgress}</div></CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Won</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-green-600">{leadsByStatus.won?.length || 0}</div></CardContent>
+        <Card className="relative overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Won</CardTitle>
+            <div className="stat-card-icon bg-green-50"><DollarSign className="h-5 w-5 text-green-600" /></div>
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{leadsByStatus.won?.length || 0}</div></CardContent>
         </Card>
       </div>
 
@@ -205,19 +217,19 @@ export default function LeadsPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex gap-4 overflow-x-auto pb-4">
               {columns.map((column) => {
                 const colLeads = leadsByStatus[column.id] || [];
                 return (
                   <div key={column.id} className="flex-shrink-0 w-72">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className={cn('w-3 h-3 rounded-full', column.color)} />
-                      <h3 className="font-semibold">{column.title}</h3>
-                      <Badge variant="secondary" className="ml-auto">{colLeads.length}</Badge>
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <div className={cn('w-2.5 h-2.5 rounded-full', column.color)} />
+                      <h3 className="text-sm font-semibold">{column.title}</h3>
+                      <Badge variant="secondary" className="ml-auto text-[11px] h-5">{colLeads.length}</Badge>
                     </div>
-                    <div className="space-y-0">
+                    <div className="space-y-0 rounded-xl bg-muted/30 p-2 min-h-[200px]">
                       {colLeads.map((lead) => (
-                        <Card key={lead.id} className="mb-3 cursor-pointer hover:shadow-md transition-shadow">
+                        <Card key={lead.id} className="mb-2 cursor-pointer border-border/60 hover:shadow-card-hover transition-all duration-200">
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">
@@ -292,7 +304,7 @@ export default function LeadsPage() {
                         </Card>
                       ))}
                       {colLeads.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+                        <div className="text-center py-10 text-muted-foreground/60 text-xs">
                           No leads
                         </div>
                       )}
@@ -315,11 +327,11 @@ export default function LeadsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Email *</Label>
-              <Input type="email" placeholder="john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input type="email" placeholder="email@company.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>

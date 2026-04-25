@@ -57,12 +57,12 @@ export default function RateLimitsPage() {
       : 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300';
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Rate Limits</h1>
-          <p className="text-muted-foreground">
-            Current per-tenant headroom against their plan&apos;s
+          <h1 className="page-title">Rate Limits</h1>
+          <p className="page-description mt-1">
+            Current per-client headroom against their plan&apos;s
             per-minute ceiling. Sorted busiest-first.
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function RateLimitsPage() {
               Refreshed {refreshedAt.toLocaleTimeString()}
             </span>
           )}
-          <Button variant="outline" onClick={load} disabled={loading}>
+          <Button variant="outline" className="shadow-sm" onClick={load} disabled={loading}>
             <RefreshCw
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
             />
@@ -83,11 +83,11 @@ export default function RateLimitsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Per-tenant usage</CardTitle>
+          <CardTitle>Per-client usage</CardTitle>
           <CardDescription>
             Usage is summed across every throttler key tagged with the
-            tenant&apos;s API key hash in the last 60 seconds. Counts reset
-            when the tenant&apos;s bucket TTL expires.
+            client&apos;s API key hash in the last 60 seconds. Counts reset
+            when the client&apos;s bucket TTL expires.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,14 +97,14 @@ export default function RateLimitsPage() {
             <p className="text-sm text-muted-foreground">Loading\u2026</p>
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No active tenants.
+              No active clients.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="py-2 pr-3 font-medium">Tenant</th>
+                    <th className="py-2 pr-3 font-medium">Client</th>
                     <th className="py-2 pr-3 font-medium">Plan</th>
                     <th className="py-2 pr-3 font-medium text-right">
                       Usage
