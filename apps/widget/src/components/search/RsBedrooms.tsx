@@ -1,15 +1,16 @@
-import { useCallback } from 'preact/hooks';
+import { useCallback, useMemo } from 'preact/hooks';
 import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
+import { useConfig } from '@/hooks/useConfig';
+import RsCustomSelect from './RsCustomSelect';
 
 interface Props {
   variation?: number;
   [key: string]: unknown;
 }
 
-const OPTIONS = ['', '1', '2', '3', '4', '5'] as const;
-
 export default function RsBedrooms({ variation = 1 }: Props) {
+  const config = useConfig();
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
   const locked = isLocked('minBedrooms');
@@ -17,17 +18,22 @@ export default function RsBedrooms({ variation = 1 }: Props) {
   const anyLabel = t('bedrooms_any', 'Any');
   const current = filters.minBedrooms;
 
+  const options = useMemo(() => {
+    const nums = config.bedroomOptions ?? [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    return ['', ...nums.map(String)];
+  }, [config.bedroomOptions]);
+
   const handleChange = useCallback((value: string) => {
     setFilter('minBedrooms', value ? Number(value) : undefined as unknown as number);
   }, [setFilter]);
 
-  const displayLabel = (v: string) => v === '' ? anyLabel : v === '5' ? '5+' : v;
+  const displayLabel = (v: string) => v === '' ? anyLabel : `${v}+`;
 
   if (variation === 2) {
     return (
       <div class={`rs_bedrooms${locked ? ' rs-field--locked' : ''}`}>
         <div class="rs-btn-group">
-          {OPTIONS.map(v => (
+          {options.map(v => (
             <button
               key={v}
               type="button"
@@ -78,20 +84,20 @@ export default function RsBedrooms({ variation = 1 }: Props) {
     );
   }
 
+  const selectOptions = useMemo(() =>
+    options.map(v => ({ value: v, label: displayLabel(v) })),
+  [options, anyLabel]);
+
   return (
     <div class={`rs_bedrooms rs-field${locked ? ' rs-field--locked' : ''}`}>
       <label class="rs-field__label">{label}</label>
-      <select
-        class="rs-select"
-        value={current ?? ''}
-        onChange={(e) => handleChange((e.target as HTMLSelectElement).value)}
+      <RsCustomSelect
+        options={selectOptions}
+        value={current?.toString() ?? ''}
+        onChange={handleChange}
+        placeholder={anyLabel}
         disabled={locked}
-      >
-        <option value="">{anyLabel}</option>
-        {OPTIONS.filter(v => v !== '').map(v => (
-          <option key={v} value={v}>{v === '5' ? '5+' : v}</option>
-        ))}
-      </select>
+      />
     </div>
   );
 }

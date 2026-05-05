@@ -2,5 +2,5 @@
 /**
  * Silence is golden.
  *
- * @package SPW_Sync
+ * @package SPM_Sync
  */

@@ -1,7 +1,9 @@
-import { useCallback } from 'preact/hooks';
+import { useCallback, useMemo } from 'preact/hooks';
 import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useConfig } from '@/hooks/useConfig';
+import RsCustomSelect from './RsCustomSelect';
 
 interface Props {
   variation?: number;
@@ -17,7 +19,10 @@ const PRICE_RANGES = [
   { min: 2500000, max: 0 },
 ];
 
+const DEFAULT_SALE_PRICES = [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000];
+
 export default function RsPrice({ variation = 1 }: Props) {
+  const config = useConfig();
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
@@ -25,9 +30,20 @@ export default function RsPrice({ variation = 1 }: Props) {
   const minLabel = t('price_min', 'Min Price');
   const maxLabel = t('price_max', 'Max Price');
 
+  const priceOptions = useMemo(() => {
+    const opts = config.priceOptions;
+    if (!opts || typeof opts !== 'object') return DEFAULT_SALE_PRICES;
+    const lt = filters.listingType || 'sale';
+    return opts[lt] || opts['sale'] || DEFAULT_SALE_PRICES;
+  }, [config.priceOptions, filters.listingType]);
+
   const handleMin = useCallback((value: string) => {
-    setFilter('minPrice', value ? Number(value) : undefined as unknown as number);
-  }, [setFilter]);
+    const num = value ? Number(value) : undefined as unknown as number;
+    setFilter('minPrice', num);
+    if (num && filters.maxPrice && filters.maxPrice <= num) {
+      setFilter('maxPrice', undefined as unknown as number);
+    }
+  }, [setFilter, filters.maxPrice]);
 
   const handleMax = useCallback((value: string) => {
     setFilter('maxPrice', value ? Number(value) : undefined as unknown as number);
@@ -75,13 +91,20 @@ export default function RsPrice({ variation = 1 }: Props) {
 
   if (variation === 3) {
     const currentKey = `${filters.minPrice ?? 0}-${filters.maxPrice ?? 0}`;
+    const rangeOptions = useMemo(() => [
+      { value: '0-0', label: t('price_min', 'Any Price') },
+      ...PRICE_RANGES.map(r => ({
+        value: `${r.min}-${r.max}`,
+        label: `${formatPrice(r.min)} – ${r.max > 0 ? formatPrice(r.max) : `${formatPrice(r.min)}+`}`,
+      })),
+    ], [formatPrice, t]);
+
     return (
       <div class={`rs_price rs-field${locked ? ' rs-field--locked' : ''}`}>
-        <select
-          class="rs-select"
+        <RsCustomSelect
+          options={rangeOptions}
           value={currentKey}
-          onChange={(e) => {
-            const v = (e.target as HTMLSelectElement).value;
+          onChange={(v) => {
             if (v === '0-0') {
               handleMin('');
               handleMax('');
@@ -91,39 +114,72 @@ export default function RsPrice({ variation = 1 }: Props) {
               if (Number(hi) > 0) handleMax(hi); else handleMax('');
             }
           }}
+          placeholder={t('price_min', 'Any Price')}
           disabled={locked}
-        >
-          <option value="0-0">{t('price_min', 'Any Price')}</option>
-          {PRICE_RANGES.map(r => (
-            <option key={`${r.min}-${r.max}`} value={`${r.min}-${r.max}`}>
-              {formatPrice(r.min)} – {r.max > 0 ? formatPrice(r.max) : `${formatPrice(r.min)}+`}
-            </option>
-          ))}
-        </select>
+        />
       </div>
     );
   }
 
+  if (variation === 4) {
+    return (
+      <div class={`rs_price rs-field${locked ? ' rs-field--locked' : ''}`}>
+        <div class="rs-range-row">
+          <input
+            type="number"
+            class="rs-input"
+            placeholder={minLabel}
+            value={filters.minPrice ?? ''}
+            onInput={(e) => handleMin((e.target as HTMLInputElement).value)}
+            min="0"
+            disabled={locked}
+          />
+          <span class="rs-range-sep">–</span>
+          <input
+            type="number"
+            class="rs-input"
+            placeholder={maxLabel}
+            value={filters.maxPrice ?? ''}
+            onInput={(e) => handleMax((e.target as HTMLInputElement).value)}
+            min="0"
+            disabled={locked}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const minVal = filters.minPrice;
+  const maxOptions = minVal
+    ? priceOptions.filter(v => v > minVal)
+    : priceOptions;
+
+  const minOptions = useMemo(() => [
+    { value: '', label: minLabel },
+    ...priceOptions.map(v => ({ value: String(v), label: formatPrice(v) })),
+  ], [priceOptions, formatPrice, minLabel]);
+
+  const maxOpts = useMemo(() => [
+    { value: '', label: maxLabel },
+    ...maxOptions.map(v => ({ value: String(v), label: formatPrice(v) })),
+  ], [maxOptions, formatPrice, maxLabel]);
+
   return (
     <div class={`rs_price rs-field${locked ? ' rs-field--locked' : ''}`}>
       <div class="rs-range-row">
-        <input
-          type="number"
-          class="rs-input"
+        <RsCustomSelect
+          options={minOptions}
+          value={String(minVal ?? '')}
+          onChange={handleMin}
           placeholder={minLabel}
-          value={filters.minPrice ?? ''}
-          onInput={(e) => handleMin((e.target as HTMLInputElement).value)}
-          min="0"
           disabled={locked}
         />
         <span class="rs-range-sep">–</span>
-        <input
-          type="number"
-          class="rs-input"
+        <RsCustomSelect
+          options={maxOpts}
+          value={String(filters.maxPrice ?? '')}
+          onChange={handleMax}
           placeholder={maxLabel}
-          value={filters.maxPrice ?? ''}
-          onInput={(e) => handleMax((e.target as HTMLInputElement).value)}
-          min="0"
           disabled={locked}
         />
       </div>

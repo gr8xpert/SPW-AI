@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 // Extended payload type to support 'id' as alias for 'sub'
 type ExtendedJwtPayloadKey = keyof JwtPayload | 'id';

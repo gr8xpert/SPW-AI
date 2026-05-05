@@ -1,16 +1,16 @@
-import type { SPWState, Action, ActionType, StateSlice } from '@/types';
+import type { SPMState, Action, ActionType, StateSlice } from '@/types';
 
 type Listener = () => void;
-type SliceListener<K extends StateSlice> = (value: SPWState[K], prev: SPWState[K]) => void;
+type SliceListener<K extends StateSlice> = (value: SPMState[K], prev: SPMState[K]) => void;
 
-const DEFAULT_STATE: SPWState = {
+const DEFAULT_STATE: SPMState = {
   config: { apiUrl: '', apiKey: '' },
   filters: {},
   lockedFilters: {},
   results: null,
   selectedProperty: null,
   favorites: [],
-  labels: {} as SPWState['labels'],
+  labels: {} as SPMState['labels'],
   locations: [],
   propertyTypes: [],
   features: [],
@@ -31,23 +31,23 @@ const DEFAULT_STATE: SPWState = {
   syncVersion: 0,
 };
 
-function reduce(state: SPWState, action: Action): SPWState {
+function reduce(state: SPMState, action: Action): SPMState {
   const { type, payload } = action;
   switch (type) {
     case 'SET_CONFIG':
-      return { ...state, config: payload as SPWState['config'] };
+      return { ...state, config: payload as SPMState['config'] };
     case 'SET_FILTERS':
-      return { ...state, filters: payload as SPWState['filters'] };
+      return { ...state, filters: payload as SPMState['filters'] };
     case 'MERGE_FILTERS':
-      return { ...state, filters: { ...state.filters, ...(payload as Partial<SPWState['filters']>) } };
+      return { ...state, filters: { ...state.filters, ...(payload as Partial<SPMState['filters']>) } };
     case 'RESET_FILTERS':
       return { ...state, filters: {} };
     case 'SET_LOCKED_FILTERS':
-      return { ...state, lockedFilters: payload as SPWState['lockedFilters'] };
+      return { ...state, lockedFilters: payload as SPMState['lockedFilters'] };
     case 'SET_RESULTS':
-      return { ...state, results: payload as SPWState['results'] };
+      return { ...state, results: payload as SPMState['results'] };
     case 'SET_SELECTED_PROPERTY':
-      return { ...state, selectedProperty: payload as SPWState['selectedProperty'] };
+      return { ...state, selectedProperty: payload as SPMState['selectedProperty'] };
     case 'ADD_FAVORITE': {
       const id = payload as number;
       if (state.favorites.includes(id)) return state;
@@ -60,32 +60,32 @@ function reduce(state: SPWState, action: Action): SPWState {
     case 'SET_FAVORITES':
       return { ...state, favorites: payload as number[] };
     case 'SET_LABELS':
-      return { ...state, labels: payload as SPWState['labels'] };
+      return { ...state, labels: payload as SPMState['labels'] };
     case 'SET_LOCATIONS':
-      return { ...state, locations: payload as SPWState['locations'] };
+      return { ...state, locations: payload as SPMState['locations'] };
     case 'SET_PROPERTY_TYPES':
-      return { ...state, propertyTypes: payload as SPWState['propertyTypes'] };
+      return { ...state, propertyTypes: payload as SPMState['propertyTypes'] };
     case 'SET_FEATURES':
-      return { ...state, features: payload as SPWState['features'] };
+      return { ...state, features: payload as SPMState['features'] };
     case 'SET_CURRENCY':
       return { ...state, currency: { ...state.currency, current: payload as string } };
     case 'SET_CURRENCY_RATES':
       return { ...state, currency: { ...state.currency, rates: payload as Record<string, number> } };
     case 'SET_UI':
-      return { ...state, ui: payload as SPWState['ui'] };
+      return { ...state, ui: payload as SPMState['ui'] };
     case 'MERGE_UI':
-      return { ...state, ui: { ...state.ui, ...(payload as Partial<SPWState['ui']>) } };
+      return { ...state, ui: { ...state.ui, ...(payload as Partial<SPMState['ui']>) } };
     case 'SET_SYNC_VERSION':
       return { ...state, syncVersion: payload as number };
     case 'HYDRATE':
-      return { ...state, ...(payload as Partial<SPWState>) };
+      return { ...state, ...(payload as Partial<SPMState>) };
     default:
       return state;
   }
 }
 
-class SPWStore {
-  private state: SPWState;
+class SPMStore {
+  private state: SPMState;
   private listeners = new Set<Listener>();
   private sliceListeners = new Map<StateSlice, Set<SliceListener<StateSlice>>>();
 
@@ -93,11 +93,11 @@ class SPWStore {
     this.state = { ...DEFAULT_STATE };
   }
 
-  getState(): SPWState {
+  getState(): SPMState {
     return this.state;
   }
 
-  get<K extends StateSlice>(key: K): SPWState[K] {
+  get<K extends StateSlice>(key: K): SPMState[K] {
     return this.state[key];
   }
 
@@ -134,9 +134,9 @@ class SPWStore {
     return () => set.delete(listener as SliceListener<StateSlice>);
   }
 
-  getSnapshot = (): SPWState => this.state;
+  getSnapshot = (): SPMState => this.state;
 
-  getServerSnapshot = (): SPWState => this.state;
+  getServerSnapshot = (): SPMState => this.state;
 
   reset(): void {
     this.state = { ...DEFAULT_STATE };
@@ -146,5 +146,5 @@ class SPWStore {
   }
 }
 
-export const store = new SPWStore();
-export type { SPWStore };
+export const store = new SPMStore();
+export type { SPMStore };

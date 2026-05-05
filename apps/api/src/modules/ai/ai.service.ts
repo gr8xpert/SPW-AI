@@ -78,8 +78,8 @@ export class AiService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://spw.app',
-            'X-Title': 'SPW Property Manager',
+            'HTTP-Referer': 'https://spm.app',
+            'X-Title': 'SPM Property Manager',
           },
           timeout: 60_000,
         },
@@ -131,8 +131,8 @@ export class AiService {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://spw.app',
-          'X-Title': 'SPW Property Manager',
+          'HTTP-Referer': 'https://spm.app',
+          'X-Title': 'SPM Property Manager',
         },
         timeout: 120_000,
       });

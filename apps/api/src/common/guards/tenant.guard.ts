@@ -4,7 +4,7 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 @Injectable()
 export class TenantGuard implements CanActivate {

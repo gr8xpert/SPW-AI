@@ -20,7 +20,7 @@ import dataSource from '../config/database.config';
 import { Plan } from './entities/plan.entity';
 import { Tenant } from './entities/tenant.entity';
 import { User } from './entities/user.entity';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 
 interface PlanSeed {
   name: string;

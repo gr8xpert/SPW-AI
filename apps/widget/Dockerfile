@@ -7,7 +7,7 @@
 #
 #   docker build -f apps/widget/Dockerfile -t spw-widget .
 
-FROM node:20-alpine AS base
+FROM node:20-alpine3.20 AS base
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /workspace
 
@@ -24,7 +24,7 @@ FROM deps AS build
 COPY apps/widget apps/widget
 RUN pnpm --filter @spw/widget build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.27-alpine3.20 AS runtime
 COPY --from=build /workspace/apps/widget/dist /usr/share/nginx/html
 # Widget scripts are loaded cross-origin by tenant WordPress/site pages, so
 # we allow any origin to GET them — this is a public CDN-style asset server.

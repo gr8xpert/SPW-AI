@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,8 +28,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useApi } from '@/hooks/use-api';
-import { ArrowLeft, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Copy, Check } from 'lucide-react';
 
 const createClientSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -48,7 +58,14 @@ const createClientSchema = z.object({
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
-  aiSearchEnabled: z.boolean(),
+  featureFlags: z.object({
+    mapSearch: z.boolean(),
+    mapView: z.boolean(),
+    aiSearch: z.boolean(),
+    aiChatbot: z.boolean(),
+    mortgageCalculator: z.boolean(),
+    currencyConverter: z.boolean(),
+  }),
 });
 
 type CreateClientFormData = z.infer<typeof createClientSchema>;
@@ -62,10 +79,14 @@ interface Plan {
 export default function CreateClientPage() {
   const router = useRouter();
   const api = useApi();
+  const { toast } = useToast();
 
   const [saving, setSaving] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createdClientId, setCreatedClientId] = useState<number | null>(null);
+  const [rawApiKey, setRawApiKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const form = useForm<CreateClientFormData>({
     resolver: zodResolver(createClientSchema),
@@ -85,7 +106,14 @@ export default function CreateClientPage() {
       adminOverride: false,
       isInternal: false,
       widgetEnabled: true,
-      aiSearchEnabled: false,
+      featureFlags: {
+        mapSearch: false,
+        mapView: false,
+        aiSearch: false,
+        aiChatbot: false,
+        mortgageCalculator: false,
+        currencyConverter: false,
+      },
     },
   });
 
@@ -132,10 +160,15 @@ export default function CreateClientPage() {
       };
 
       const response = await api.post('/api/super-admin/clients', cleanData);
-      router.push(`/admin/clients/${response.data.id}`);
+      const body = response.data || response;
+      setCreatedClientId(body.id);
+      setRawApiKey(body.rawApiKey || null);
+      if (!body.rawApiKey) {
+        router.push(`/admin/clients/${body.id}`);
+      }
     } catch (error: any) {
       console.error('Failed to create client:', error);
-      alert(error.response?.data?.message || 'Failed to create client');
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to create client', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -481,8 +514,8 @@ export default function CreateClientPage() {
             <TabsContent value="features" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Widget Features</CardTitle>
-                  <CardDescription>Configure which features are enabled</CardDescription>
+                  <CardTitle>Features & Add-ons</CardTitle>
+                  <CardDescription>Control which features this client can access on their website</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField
@@ -503,29 +536,74 @@ export default function CreateClientPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="aiSearchEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">AI Search</FormLabel>
-                          <FormDescription>
-                            Enable AI-powered natural language property search
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  {[
+                    { name: 'featureFlags.mapSearch' as const, label: 'Map Search', description: 'Search properties by drawing on a map' },
+                    { name: 'featureFlags.mapView' as const, label: 'Map View', description: 'Display properties on an interactive map' },
+                    { name: 'featureFlags.aiSearch' as const, label: 'AI Search', description: 'AI-powered natural language property search' },
+                    { name: 'featureFlags.aiChatbot' as const, label: 'AI Chatbot', description: 'Conversational AI assistant on the widget' },
+                    { name: 'featureFlags.mortgageCalculator' as const, label: 'Mortgage Calculator', description: 'Mortgage calculator on property pages' },
+                    { name: 'featureFlags.currencyConverter' as const, label: 'Currency Converter', description: 'Currency conversion on the widget' },
+                  ].map((feature) => (
+                    <FormField
+                      key={feature.name}
+                      control={form.control}
+                      name={feature.name}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">{feature.label}</FormLabel>
+                            <FormDescription>{feature.description}</FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </form>
       </Form>
+
+      <AlertDialog open={!!rawApiKey}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Client Created Successfully</AlertDialogTitle>
+            <AlertDialogDescription>
+              Copy the widget key now — it will not be shown again. If lost, you can regenerate it from the Widget Keys tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <label className="text-sm font-medium">Widget Key</label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <code className="flex-1 rounded border bg-muted px-3 py-2 text-sm font-mono break-all select-all">
+                {rawApiKey}
+              </code>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  if (rawApiKey) {
+                    navigator.clipboard.writeText(rawApiKey);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }
+                }}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => router.push(`/admin/clients/${createdClientId}`)}>
+              Continue to Client
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

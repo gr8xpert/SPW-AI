@@ -4,7 +4,9 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { buildPropertyUrl } from '@/core/url-utils';
 import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
+import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import type { Property } from '@/types';
 import RsWishlistEmpty from './RsWishlistEmpty';
 
@@ -30,17 +32,17 @@ export default function RsWishlistGrid() {
     return <RsWishlistEmpty />;
   }
 
-  const slug = config.propertyPageSlug || 'property';
+  const getUrl = (p: Property) => buildPropertyUrl(p, config) || '#';
 
   return (
     <div class="rs-wishlist-grid">
-      {properties.map((property) => {
+      {properties.map((property, i) => {
         const isSelected = compareSelection.includes(property.id);
         const note = notes[property.id];
         const isEditingNote = editingNote === property.id;
 
         return (
-          <div key={property.id} class="rs-wishlist-grid__card">
+          <div key={property.id} class="rs-wishlist-grid__card" style={`--i:${i}`}>
             <div class="rs-wishlist-grid__image">
               {property.images[0] && (
                 <img
@@ -55,9 +57,7 @@ export default function RsWishlistGrid() {
                 onClick={() => remove(property.id)}
                 aria-label={t('wishlist_remove', 'Remove')}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
+                <RsWishlistIcon size={20} filled />
               </button>
               {property.isFeatured && (
                 <span class="rs-wishlist-grid__badge">
@@ -141,7 +141,7 @@ export default function RsWishlistGrid() {
               )}
 
               <a
-                href={`/${slug}/${property.reference}`}
+                href={getUrl(property)}
                 class="rs-search-btn rs-wishlist-grid__view-btn"
               >
                 {t('view_details', 'View Details')}

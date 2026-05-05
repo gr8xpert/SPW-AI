@@ -136,7 +136,7 @@ export default function AiChatPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Conversations</CardTitle>
-                <div className="stat-card-icon bg-blue-50 text-blue-600">
+                <div className="stat-card-icon">
                   <MessagesSquare className="h-4 w-4" />
                 </div>
               </CardHeader>
@@ -148,7 +148,7 @@ export default function AiChatPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                <div className="stat-card-icon bg-green-50 text-green-600">
+                <div className="stat-card-icon">
                   <MessageSquare className="h-4 w-4" />
                 </div>
               </CardHeader>
@@ -160,7 +160,7 @@ export default function AiChatPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Avg. per Chat</CardTitle>
-                <div className="stat-card-icon bg-amber-50 text-amber-600">
+                <div className="stat-card-icon">
                   <Hash className="h-4 w-4" />
                 </div>
               </CardHeader>
@@ -172,7 +172,7 @@ export default function AiChatPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Languages</CardTitle>
-                <div className="stat-card-icon bg-purple-50 text-purple-600">
+                <div className="stat-card-icon">
                   <Globe className="h-4 w-4" />
                 </div>
               </CardHeader>

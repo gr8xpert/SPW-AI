@@ -16,10 +16,11 @@ import {
   CreditBalance,
   AuditLog,
   EmailSuppression,
+  CreditPackage,
 } from '../../database/entities';
-import { UserRole, DEFAULT_TENANT_SETTINGS, TenantFull } from '@spw/shared';
+import { UserRole, DEFAULT_TENANT_SETTINGS, DEFAULT_FEATURE_FLAGS, TenantFull } from '@spm/shared';
 import { generateApiKey } from '../../common/crypto/api-key';
-import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
+import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
 import { TenantService, CacheClearResult } from '../tenant/tenant.service';
 
 export interface PaginatedResult<T> {
@@ -65,6 +66,8 @@ export class SuperAdminService {
     private auditLogRepository: Repository<AuditLog>,
     @InjectRepository(EmailSuppression)
     private emailSuppressionRepository: Repository<EmailSuppression>,
+    @InjectRepository(CreditPackage)
+    private creditPackageRepository: Repository<CreditPackage>,
     private dataSource: DataSource,
     private readonly tenantService: TenantService,
   ) {}
@@ -202,6 +205,7 @@ export class SuperAdminService {
       widgetEnabled: tenant.widgetEnabled,
       aiSearchEnabled: tenant.aiSearchEnabled,
       widgetFeatures: tenant.widgetFeatures,
+      featureFlags: tenant.featureFlags || DEFAULT_FEATURE_FLAGS,
       planId: tenant.planId,
       lastCacheClearedAt: tenant.lastCacheClearedAt,
       adminUser,
@@ -211,7 +215,7 @@ export class SuperAdminService {
   /**
    * Create a new client (tenant) with admin user
    */
-  async createClient(dto: CreateClientDto, createdByUserId: number): Promise<TenantFull> {
+  async createClient(dto: CreateClientDto, createdByUserId: number): Promise<TenantFull & { rawApiKey?: string }> {
     // Check if slug already exists
     const existingTenant = await this.tenantRepository.findOne({
       where: { slug: dto.slug },
@@ -230,16 +234,11 @@ export class SuperAdminService {
       throw new NotFoundException('Plan not found');
     }
 
-    // Generate tenant API key + webhook secret. apiKey.rawKey is discarded
-    // here because createClient returns the TenantFull shape only (no raw
-    // key). Admins who need the raw key call rotateApiKey.
-    // TODO: expose the raw key in the create-client response when the
-    // super-admin UI can consume it (one-time flash message).
     const apiKey = generateApiKey();
     const webhookSecret = crypto.randomBytes(32).toString('hex');
 
     // Hash admin password
-    const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
+    const passwordHash = await bcrypt.hash(dto.adminPassword, 13);
 
     // Calculate grace period end date if expires is set
     let graceEndsAt: Date | null = null;
@@ -275,8 +274,9 @@ export class SuperAdminService {
         adminOverride: dto.adminOverride || false,
         isInternal: dto.isInternal || false,
         widgetEnabled: dto.widgetEnabled !== false,
-        aiSearchEnabled: dto.aiSearchEnabled || false,
+        aiSearchEnabled: dto.featureFlags?.aiSearch ?? dto.aiSearchEnabled ?? false,
         widgetFeatures: dto.widgetFeatures || ['search', 'detail', 'wishlist'],
+        featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...dto.featureFlags },
       });
 
       const savedTenant = await queryRunner.manager.save(tenant);
@@ -325,7 +325,8 @@ export class SuperAdminService {
 
       await queryRunner.commitTransaction();
 
-      return this.getClient(savedTenant.id);
+      const client = await this.getClient(savedTenant.id);
+      return { ...client, rawApiKey: apiKey.rawKey };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -385,6 +386,16 @@ export class SuperAdminService {
     if (dto.settings) {
       changes.settings = { before: tenant.settings, after: { ...tenant.settings, ...dto.settings } };
       tenant.settings = { ...tenant.settings, ...dto.settings };
+    }
+
+    // Merge feature flags
+    if (dto.featureFlags) {
+      const current = tenant.featureFlags || DEFAULT_FEATURE_FLAGS;
+      changes.featureFlags = { before: current, after: { ...current, ...dto.featureFlags } };
+      tenant.featureFlags = { ...current, ...dto.featureFlags };
+      if (dto.featureFlags.aiSearch !== undefined) {
+        tenant.aiSearchEnabled = dto.featureFlags.aiSearch;
+      }
     }
 
     // Auto-calculate grace period if expiresAt changed
@@ -613,6 +624,29 @@ export class SuperAdminService {
     );
 
     return result;
+  }
+
+  async rotateApiKey(clientId: number, userId: number): Promise<{ rawApiKey: string; last4: string }> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: clientId } });
+    if (!tenant) throw new NotFoundException('Client not found');
+
+    const apiKey = generateApiKey();
+    tenant.apiKeyHash = apiKey.hash;
+    tenant.apiKeyLast4 = apiKey.last4;
+    await this.tenantRepository.save(tenant);
+
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: clientId,
+        userId,
+        action: 'update',
+        entityType: 'tenant',
+        entityId: clientId,
+        metadata: { action: 'rotate_api_key', newLast4: apiKey.last4 },
+      }),
+    );
+
+    return { rawApiKey: apiKey.rawKey, last4: apiKey.last4 };
   }
 
   /**
@@ -1155,5 +1189,106 @@ export class SuperAdminService {
     const suppression = await this.emailSuppressionRepository.findOneBy({ id });
     if (!suppression) throw new NotFoundException('Suppression not found');
     await this.emailSuppressionRepository.delete(id);
+  }
+
+  // ============ CREDIT PACKAGES ============
+
+  async getCreditPackages(): Promise<CreditPackage[]> {
+    return this.creditPackageRepository.find({
+      order: { sortOrder: 'ASC', hours: 'ASC' },
+    });
+  }
+
+  async getCreditPackage(id: number): Promise<CreditPackage> {
+    const pkg = await this.creditPackageRepository.findOne({ where: { id } });
+    if (!pkg) throw new NotFoundException('Credit package not found');
+    return pkg;
+  }
+
+  async createCreditPackage(
+    dto: CreateCreditPackageDto,
+    userId: number,
+  ): Promise<CreditPackage> {
+    const pkg = this.creditPackageRepository.create({
+      name: dto.name,
+      hours: dto.hours,
+      pricePerHour: dto.pricePerHour,
+      totalPrice: dto.totalPrice,
+      currency: dto.currency ?? 'EUR',
+      stripePriceId: dto.stripePriceId ?? null,
+      isActive: dto.isActive !== false,
+      sortOrder: dto.sortOrder ?? 0,
+    });
+
+    const saved = await this.creditPackageRepository.save(pkg);
+
+    const auditLog = this.auditLogRepository.create({
+      tenantId: null,
+      userId,
+      action: 'create',
+      entityType: 'credit_package',
+      entityId: saved.id,
+      metadata: { packageName: dto.name, hours: dto.hours },
+    });
+    await this.auditLogRepository.save(auditLog);
+
+    return saved;
+  }
+
+  async updateCreditPackage(
+    id: number,
+    dto: UpdateCreditPackageDto,
+    userId: number,
+  ): Promise<CreditPackage> {
+    const pkg = await this.creditPackageRepository.findOne({ where: { id } });
+    if (!pkg) throw new NotFoundException('Credit package not found');
+
+    const changes: Record<string, { before: any; after: any }> = {};
+    const fields = [
+      'name', 'hours', 'pricePerHour', 'totalPrice',
+      'currency', 'stripePriceId', 'isActive', 'sortOrder',
+    ];
+
+    for (const field of fields) {
+      const dtoValue = (dto as any)[field];
+      const pkgValue = (pkg as any)[field];
+      if (dtoValue !== undefined && dtoValue !== pkgValue) {
+        changes[field] = { before: pkgValue, after: dtoValue };
+        (pkg as any)[field] = dtoValue;
+      }
+    }
+
+    const saved = await this.creditPackageRepository.save(pkg);
+
+    if (Object.keys(changes).length > 0) {
+      const auditLog = this.auditLogRepository.create({
+        tenantId: null,
+        userId,
+        action: 'update',
+        entityType: 'credit_package',
+        entityId: id,
+        changes,
+      });
+      await this.auditLogRepository.save(auditLog);
+    }
+
+    return saved;
+  }
+
+  async deleteCreditPackage(id: number, userId: number): Promise<void> {
+    const pkg = await this.creditPackageRepository.findOne({ where: { id } });
+    if (!pkg) throw new NotFoundException('Credit package not found');
+
+    const auditLog = this.auditLogRepository.create({
+      tenantId: null,
+      userId,
+      action: 'delete',
+      entityType: 'credit_package',
+      entityId: id,
+      metadata: { packageName: pkg.name, hours: pkg.hours },
+    });
+    await this.auditLogRepository.save(auditLog);
+
+    await this.creditPackageRepository.delete(id);
   }
 }

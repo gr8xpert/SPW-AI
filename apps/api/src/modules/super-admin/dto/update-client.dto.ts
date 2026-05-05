@@ -12,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings } from '@spw/shared';
+import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags } from '@spm/shared';
 
 export class UpdateClientDto {
   @IsString()
@@ -90,6 +90,9 @@ export class UpdateClientDto {
   @ValidateNested()
   @Type(() => Object)
   settings?: Partial<TenantSettings>;
+
+  @IsOptional()
+  featureFlags?: Partial<TenantFeatureFlags>;
 }
 
 export class ExtendSubscriptionDto {

@@ -17,7 +17,7 @@ import {
   RolesGuard,
 } from '../../common/guards';
 import { CurrentTenant, Roles } from '../../common/decorators';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 import { SetEmailDomainDto } from './dto/set-email-domain.dto';
 
 // Powers the dashboard "Sender Domain" panel (5R). All endpoints are

@@ -12,13 +12,13 @@ export default function MapTemplate01() {
   const { t } = useLabels();
   const results = useSelector(selectors.getResults);
   const [activeTab, setActiveTab] = useState<'zones' | 'properties'>('properties');
+  const [fitBoundsKey, setFitBoundsKey] = useState<string | undefined>(undefined);
 
   const properties = results?.data ?? [];
   const geoProperties = properties.filter((p) => p.lat != null && p.lng != null);
 
-  const handleZoomToBounds = useCallback((_bounds: string) => {
-    // Bounds zoom is handled by map container via filters
-    // A future enhancement can use a ref to the map to call fitBounds directly
+  const handleZoomToBounds = useCallback((bounds: string) => {
+    setFitBoundsKey(Date.now() + ':' + bounds);
   }, []);
 
   return (
@@ -26,7 +26,7 @@ export default function MapTemplate01() {
       <RsMapLocationTags onZoomToBounds={handleZoomToBounds} />
 
       <div class="rs-map-template-01__map">
-        <RsMapContainer zoom={10} />
+        <RsMapContainer zoom={10} fitBounds={fitBoundsKey} />
       </div>
 
       <div class="rs-map-template-01__footer">

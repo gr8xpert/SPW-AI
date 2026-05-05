@@ -1,27 +1,27 @@
 /**
- * SPW Sync Admin JavaScript
+ * SPM Sync Admin JavaScript
  */
 
 (function ($) {
     'use strict';
 
     // Manual Sync button
-    $('#spw-manual-sync').on('click', function () {
+    $('#spm-manual-sync').on('click', function () {
         var $btn = $(this);
-        var $result = $('#spw-sync-result');
-        var $container = $btn.closest('.spw-card');
+        var $result = $('#spm-sync-result');
+        var $container = $btn.closest('.spm-card');
 
         // Disable button and show loading
-        $btn.prop('disabled', true).text(spwSync.strings.syncing);
-        $container.addClass('spw-loading');
+        $btn.prop('disabled', true).text(spmSync.strings.syncing);
+        $container.addClass('spm-loading');
         $result.hide();
 
         $.ajax({
-            url: spwSync.ajaxUrl,
+            url: spmSync.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'spw_manual_sync',
-                nonce: spwSync.nonce
+                action: 'spm_manual_sync',
+                nonce: spmSync.nonce
             },
             success: function (response) {
                 $result.show();
@@ -30,7 +30,7 @@
                     $result
                         .removeClass('error info')
                         .addClass('success')
-                        .html('<strong>' + spwSync.strings.syncComplete + '</strong><br>' + response.data.message);
+                        .html('<strong>' + spmSync.strings.syncComplete + '</strong><br>' + response.data.message);
 
                     // Refresh the page after 2 seconds to update status
                     setTimeout(function () {
@@ -40,7 +40,7 @@
                     $result
                         .removeClass('success info')
                         .addClass('error')
-                        .html('<strong>' + spwSync.strings.syncError + '</strong><br>' + response.data.message);
+                        .html('<strong>' + spmSync.strings.syncError + '</strong><br>' + response.data.message);
                 }
             },
             error: function (xhr, status, error) {
@@ -48,32 +48,32 @@
                     .show()
                     .removeClass('success info')
                     .addClass('error')
-                    .html('<strong>' + spwSync.strings.syncError + '</strong><br>' + error);
+                    .html('<strong>' + spmSync.strings.syncError + '</strong><br>' + error);
             },
             complete: function () {
                 $btn.prop('disabled', false).text('Sync Now');
-                $container.removeClass('spw-loading');
+                $container.removeClass('spm-loading');
             }
         });
     });
 
     // Check Version button
-    $('#spw-check-version').on('click', function () {
+    $('#spm-check-version').on('click', function () {
         var $btn = $(this);
-        var $result = $('#spw-sync-result');
-        var $container = $btn.closest('.spw-card');
+        var $result = $('#spm-sync-result');
+        var $container = $btn.closest('.spm-card');
 
         // Disable button and show loading
-        $btn.prop('disabled', true).text(spwSync.strings.checking);
-        $container.addClass('spw-loading');
+        $btn.prop('disabled', true).text(spmSync.strings.checking);
+        $container.addClass('spm-loading');
         $result.hide();
 
         $.ajax({
-            url: spwSync.ajaxUrl,
+            url: spmSync.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'spw_check_version',
-                nonce: spwSync.nonce
+                action: 'spm_check_version',
+                nonce: spmSync.nonce
             },
             success: function (response) {
                 $result.show();
@@ -109,13 +109,13 @@
             },
             complete: function () {
                 $btn.prop('disabled', false).text('Check Updates');
-                $container.removeClass('spw-loading');
+                $container.removeClass('spm-loading');
             }
         });
     });
 
     // Copy button
-    $('.spw-copy-btn').on('click', function () {
+    $('.spm-copy-btn').on('click', function () {
         var $btn = $(this);
         var textToCopy = $btn.data('copy');
 

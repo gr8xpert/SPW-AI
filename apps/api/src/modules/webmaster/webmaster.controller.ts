@@ -17,7 +17,7 @@ import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebma
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole, JwtPayload } from '@spw/shared';
+import { UserRole, JwtPayload } from '@spm/shared';
 
 // ============ WEBMASTER ENDPOINTS ============
 

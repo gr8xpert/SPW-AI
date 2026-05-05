@@ -13,9 +13,9 @@ export async function mountAll(entries: ScanEntry[]): Promise<void> {
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     const name = entry.isTemplate ? entry.templateId : entry.componentType;
-    console.log(`[SPW] Mounting [${i + 1}/${entries.length}]: ${name}`);
+    console.log(`[SPM] Mounting [${i + 1}/${entries.length}]: ${name}`);
     await mountEntry(entry);
-    console.log(`[SPW] Mounted [${i + 1}/${entries.length}]: ${name} OK`);
+    console.log(`[SPM] Mounted [${i + 1}/${entries.length}]: ${name} OK`);
   }
 }
 
@@ -26,7 +26,7 @@ async function mountEntry(entry: ScanEntry): Promise<void> {
   let Component: ComponentType<Record<string, unknown>> | null = null;
 
   try {
-    console.log(`[SPW]   Loading module for "${name}"...`);
+    console.log(`[SPM]   Loading module for "${name}"...`);
     const loadPromise = isTemplate && templateId
       ? getTemplate(templateId)
       : getComponent(componentType);
@@ -37,30 +37,32 @@ async function mountEntry(entry: ScanEntry): Promise<void> {
         setTimeout(() => reject(new Error(`Timeout loading "${name}" after 10s`)), 10_000)
       ),
     ]);
-    console.log(`[SPW]   Module loaded for "${name}":`, Component ? 'OK' : 'null');
+    console.log(`[SPM]   Module loaded for "${name}":`, Component ? 'OK' : 'null');
   } catch (err) {
-    console.error(`[SPW] Failed to load component "${name}":`, err);
+    console.error(`[SPM] Failed to load component "${name}":`, err);
     return;
   }
 
   if (!Component) {
-    console.warn(`[SPW] No component registered for "${name}"`);
+    console.warn(`[SPM] No component registered for "${name}"`);
     return;
   }
 
   const props: Record<string, unknown> = {
-    variation,
     ...dataAttributes,
     _element: element,
   };
+  if (variation >= 0) {
+    props.variation = variation;
+  }
 
   try {
-    console.log(`[SPW]   Rendering "${name}"...`);
+    console.log(`[SPM]   Rendering "${name}"...`);
     element.innerHTML = '';
     render(<Component {...props} />, element);
-    console.log(`[SPW]   Rendered "${name}" OK`);
+    console.log(`[SPM]   Rendered "${name}" OK`);
   } catch (err) {
-    console.error(`[SPW] Failed to render component "${name}":`, err);
+    console.error(`[SPM] Failed to render component "${name}":`, err);
     return;
   }
 

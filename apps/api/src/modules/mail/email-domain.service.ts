@@ -106,7 +106,7 @@ export class EmailDomainService {
     const row = this.repo.create({
       tenantId,
       domain: normalized,
-      dkimSelector: 'spw1',
+      dkimSelector: 'spm1',
       dkimPublicKey: keys.publicKey,
       dkimPrivateKey: keys.privateKey,
       spfVerifiedAt: null,

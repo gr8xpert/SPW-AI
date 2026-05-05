@@ -1,7 +1,7 @@
 import type { Property, SearchResults } from './property';
 import type { SearchFilters } from './search';
 
-export interface SPWEvents {
+export interface SPMEvents {
   'ready': void;
   'search': { filters: SearchFilters; results: SearchResults };
   'property:click': { property: Property };

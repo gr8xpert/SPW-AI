@@ -221,7 +221,7 @@ export default function CampaignDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatNumber(campaign.sentCount)}</div>
+            <div className="text-2xl font-bold text-primary">{formatNumber(campaign.sentCount)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -256,7 +256,7 @@ export default function CampaignDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{campaign.unsubscribeCount}</div>
+            <div className="text-2xl font-bold text-primary/70">{campaign.unsubscribeCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -267,7 +267,7 @@ export default function CampaignDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{campaign.bounceCount}</div>
+            <div className="text-2xl font-bold text-primary/50">{campaign.bounceCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -331,7 +331,7 @@ export default function CampaignDetailPage() {
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-green-500 rounded-full"
+                        className="h-full bg-primary rounded-full"
                         style={{ width: `${(campaign.sentCount / campaign.totalRecipients) * 100}%` }}
                       />
                     </div>
@@ -344,7 +344,7 @@ export default function CampaignDetailPage() {
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-500 rounded-full"
+                        className="h-full bg-primary/70 rounded-full"
                         style={{ width: `${openRate}%` }}
                       />
                     </div>
@@ -357,7 +357,7 @@ export default function CampaignDetailPage() {
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-purple-500 rounded-full"
+                        className="h-full bg-primary/50 rounded-full"
                         style={{ width: `${clickRate}%` }}
                       />
                     </div>

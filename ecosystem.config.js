@@ -1,17 +1,17 @@
 /**
  * PM2 Ecosystem Configuration
- * Smart Property Widget v2
+ * Smart Property Manager v2
  *
  * Usage:
  *   pm2 start ecosystem.config.js
- *   pm2 start ecosystem.config.js --only spw-api
+ *   pm2 start ecosystem.config.js --only spm-api
  *   pm2 start ecosystem.config.js --env production
  */
 
 module.exports = {
   apps: [
     {
-      name: 'spw-api',
+      name: 'spm-api',
       script: './apps/api/dist/main.js',
       cwd: __dirname,
       instances: 2,
@@ -19,6 +19,10 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+      listen_timeout: 10000,
+      kill_timeout: 30000,
+      shutdown_with_message: true,
+      wait_ready: false,
       env: {
         NODE_ENV: 'development',
         PORT: 3001,
@@ -34,14 +38,17 @@ module.exports = {
       merge_logs: true,
     },
     {
-      name: 'spw-dashboard',
+      name: 'spm-dashboard',
       script: 'npm',
       args: 'start',
       cwd: './apps/dashboard',
+      // Single instance; HA requires a reverse proxy (nginx/Caddy) in front.
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+      listen_timeout: 10000,
+      kill_timeout: 15000,
       env: {
         NODE_ENV: 'development',
         PORT: 3000,

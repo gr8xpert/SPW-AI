@@ -34,20 +34,14 @@ export function setSearchHandler(handler: (filters: SearchFilters) => void): voi
 export function installLegacyAPI(): void {
   const api: RealtySoftAPI = {
     State: {
-      getState: () => store.getState(),
+      getState: () => structuredClone(store.getState()),
       get: (key: string) => {
         const state = store.getState();
-        return (state as unknown as Record<string, unknown>)[key];
+        const val = (state as unknown as Record<string, unknown>)[key];
+        return typeof val === 'object' && val !== null ? structuredClone(val) : val;
       },
-      set: (key: string, value: unknown) => {
-        const actionMap: Record<string, (v: never) => void> = {
-          selectedProperty: actions.setSelectedProperty,
-          filters: actions.setFilters,
-          favorites: actions.setFavorites,
-          labels: actions.setLabels,
-        };
-        const action = actionMap[key];
-        if (action) action(value as never);
+      set: (_key: string, _value: unknown) => {
+        // Disabled — use setFilters() / addFavorite() / removeFavorite() instead
       },
     },
 

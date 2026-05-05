@@ -14,6 +14,8 @@ const ATTR_MAP: Record<string, keyof SearchFilters> = {
   'max-build-size': 'maxBuildSize',
   'min-plot-size': 'minPlotSize',
   'max-plot-size': 'maxPlotSize',
+  'min-terrace-size': 'minTerraceSize',
+  'max-terrace-size': 'maxTerraceSize',
   'reference': 'reference',
   'sort': 'sortBy',
   'page': 'page',
@@ -23,17 +25,17 @@ const ATTR_MAP: Record<string, keyof SearchFilters> = {
 const NUMERIC_KEYS = new Set([
   'locationId', 'propertyTypeId', 'minPrice', 'maxPrice',
   'minBedrooms', 'maxBedrooms', 'minBathrooms', 'maxBathrooms',
-  'minBuildSize', 'maxBuildSize', 'minPlotSize', 'maxPlotSize',
+  'minBuildSize', 'maxBuildSize', 'minPlotSize', 'maxPlotSize', 'minTerraceSize', 'maxTerraceSize',
   'page', 'limit',
 ]);
 
 export function parsePrefilledFilters(root: HTMLElement = document.documentElement): SearchFilters {
   const filters: SearchFilters = {};
-  const elements = root.querySelectorAll<HTMLElement>('[data-spw-location], [data-spw-listing-type], [data-spw-property-type], [data-spw-min-price], [data-spw-max-price], [data-spw-min-bedrooms], [data-spw-max-bedrooms], [data-spw-sort], [data-spw-limit]');
+  const elements = root.querySelectorAll<HTMLElement>('[data-spm-location], [data-spm-listing-type], [data-spm-property-type], [data-spm-min-price], [data-spm-max-price], [data-spm-min-bedrooms], [data-spm-max-bedrooms], [data-spm-sort], [data-spm-limit]');
 
   for (const el of elements) {
     for (const attr of el.attributes) {
-      if (!attr.name.startsWith('data-spw-') || attr.name.startsWith('data-spw-lock-')) continue;
+      if (!attr.name.startsWith('data-spm-') || attr.name.startsWith('data-spm-lock-')) continue;
       const key = attr.name.slice(9);
       const filterKey = ATTR_MAP[key];
       if (!filterKey) continue;
@@ -41,9 +43,9 @@ export function parsePrefilledFilters(root: HTMLElement = document.documentEleme
     }
   }
 
-  const featuresEl = root.querySelector<HTMLElement>('[data-spw-features]');
+  const featuresEl = root.querySelector<HTMLElement>('[data-spm-features]');
   if (featuresEl) {
-    const raw = featuresEl.getAttribute('data-spw-features');
+    const raw = featuresEl.getAttribute('data-spm-features');
     if (raw) {
       filters.features = raw.split(',').map(Number).filter(Boolean);
     }
@@ -54,11 +56,11 @@ export function parsePrefilledFilters(root: HTMLElement = document.documentEleme
 
 export function parseLockedFilters(root: HTMLElement = document.documentElement): LockedFilters {
   const locked: LockedFilters = {};
-  const elements = root.querySelectorAll<HTMLElement>('[data-spw-lock-location], [data-spw-lock-listing-type], [data-spw-lock-property-type], [data-spw-lock-min-price], [data-spw-lock-max-price], [data-spw-lock-min-bedrooms], [data-spw-lock-max-bedrooms]');
+  const elements = root.querySelectorAll<HTMLElement>('[data-spm-lock-location], [data-spm-lock-listing-type], [data-spm-lock-property-type], [data-spm-lock-min-price], [data-spm-lock-max-price], [data-spm-lock-min-bedrooms], [data-spm-lock-max-bedrooms]');
 
   for (const el of elements) {
     for (const attr of el.attributes) {
-      if (!attr.name.startsWith('data-spw-lock-')) continue;
+      if (!attr.name.startsWith('data-spm-lock-')) continue;
       const key = attr.name.slice(14);
       const filterKey = ATTR_MAP[key];
       if (!filterKey) continue;
@@ -66,9 +68,9 @@ export function parseLockedFilters(root: HTMLElement = document.documentElement)
     }
   }
 
-  const featuresEl = root.querySelector<HTMLElement>('[data-spw-lock-features]');
+  const featuresEl = root.querySelector<HTMLElement>('[data-spm-lock-features]');
   if (featuresEl) {
-    const raw = featuresEl.getAttribute('data-spw-lock-features');
+    const raw = featuresEl.getAttribute('data-spm-lock-features');
     if (raw) {
       locked.features = raw.split(',').map(Number).filter(Boolean);
     }
@@ -82,7 +84,7 @@ export function parseStandaloneConfig(el: HTMLElement): {
   filters: SearchFilters;
   locked: LockedFilters;
 } {
-  const isStandalone = el.hasAttribute('data-spw-standalone');
+  const isStandalone = el.hasAttribute('data-spm-standalone');
   if (!isStandalone) return { isStandalone: false, filters: {}, locked: {} };
 
   return {

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { runBootSecurityAudit } from './common/security/boot-audit';
 import { JsonLogger } from './common/logging/json-logger';
@@ -39,7 +40,13 @@ async function bootstrap() {
     throw new Error('DASHBOARD_URL must be set in production');
   }
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
+      contentSecurityPolicy: false,
+    }),
+  );
+  app.use(compression());
 
   app.useGlobalPipes(
     new ValidationPipe({

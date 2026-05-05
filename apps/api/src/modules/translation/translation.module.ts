@@ -10,7 +10,15 @@ import { TranslationController } from './translation.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Property, PropertyType, Feature, Label]),
-    BullModule.registerQueue({ name: 'translation' }),
+    BullModule.registerQueue({
+      name: 'translation',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 200,
+        removeOnFail: 500,
+      },
+    }),
     AiModule,
   ],
   controllers: [TranslationController],

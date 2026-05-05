@@ -21,7 +21,7 @@ export default function RsPlotSize({ variation = 1 }: Props) {
     setFilter('maxPlotSize', value ? Number(value) : undefined as unknown as number);
   }, [setFilter]);
 
-  if (variation === 2) {
+  if (variation === 3) {
     const min = filters.minPlotSize ?? 0;
     const max = filters.maxPlotSize ?? 10000;
     const absMin = 0;
@@ -62,30 +62,47 @@ export default function RsPlotSize({ variation = 1 }: Props) {
     );
   }
 
+  if (variation === 2) {
+    return (
+      <div class={`rs_plot_size rs-field${locked ? ' rs-field--locked' : ''}`}>
+        <label class="rs-field__label">{label}</label>
+        <div class="rs-range-row">
+          <input
+            type="number"
+            class="rs-input"
+            placeholder={t('price_min', 'Min')}
+            value={filters.minPlotSize ?? ''}
+            onInput={(e) => handleMin((e.target as HTMLInputElement).value)}
+            min="0"
+            disabled={locked}
+          />
+          <span class="rs-range-sep">–</span>
+          <input
+            type="number"
+            class="rs-input"
+            placeholder={t('price_max', 'Max')}
+            value={filters.maxPlotSize ?? ''}
+            onInput={(e) => handleMax((e.target as HTMLInputElement).value)}
+            min="0"
+            disabled={locked}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div class={`rs_plot_size rs-field${locked ? ' rs-field--locked' : ''}`}>
       <label class="rs-field__label">{label}</label>
-      <div class="rs-range-row">
-        <input
-          type="number"
-          class="rs-input"
-          placeholder={t('price_min', 'Min')}
-          value={filters.minPlotSize ?? ''}
-          onInput={(e) => handleMin((e.target as HTMLInputElement).value)}
-          min="0"
-          disabled={locked}
-        />
-        <span class="rs-range-sep">–</span>
-        <input
-          type="number"
-          class="rs-input"
-          placeholder={t('price_max', 'Max')}
-          value={filters.maxPlotSize ?? ''}
-          onInput={(e) => handleMax((e.target as HTMLInputElement).value)}
-          min="0"
-          disabled={locked}
-        />
-      </div>
+      <input
+        type="number"
+        class="rs-input"
+        placeholder={label}
+        value={filters.minPlotSize ?? ''}
+        onInput={(e) => handleMin((e.target as HTMLInputElement).value)}
+        min="0"
+        disabled={locked}
+      />
     </div>
   );
 }

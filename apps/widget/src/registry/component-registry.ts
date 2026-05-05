@@ -60,6 +60,7 @@ export function registerAllComponents(): void {
   registerComponent('price', () => import('@/components/search/RsPrice'));
   registerComponent('built_area', () => import('@/components/search/RsBuiltArea'));
   registerComponent('plot_size', () => import('@/components/search/RsPlotSize'));
+  registerComponent('terrace', () => import('@/components/search/RsTerrace'));
   registerComponent('features', () => import('@/components/search/RsFeatures'));
   registerComponent('quick_features', () => import('@/components/search/RsQuickFeatures'));
   registerComponent('reference', () => import('@/components/search/RsReference'));
@@ -81,9 +82,32 @@ export function registerAllComponents(): void {
   registerComponent('detail_gallery', () => import('@/components/detail/RsDetailGallery'));
   registerComponent('detail_title', () => import('@/components/detail/RsDetailTitle'));
   registerComponent('detail_price', () => import('@/components/detail/RsDetailPrice'));
+  registerComponent('detail_ref', () => import('@/components/detail/RsDetailRef'));
+  registerComponent('detail_location', () => import('@/components/detail/RsDetailLocation'));
+  registerComponent('detail_address', () => import('@/components/detail/RsDetailAddress'));
+  registerComponent('detail_type', () => import('@/components/detail/RsDetailType'));
+  registerComponent('detail_status', () => import('@/components/detail/RsDetailStatus'));
+  registerComponent('detail_beds', () => import('@/components/detail/RsDetailBeds'));
+  registerComponent('detail_baths', () => import('@/components/detail/RsDetailBaths'));
+  registerComponent('detail_built', () => import('@/components/detail/RsDetailBuilt'));
+  registerComponent('detail_plot', () => import('@/components/detail/RsDetailPlot'));
+  registerComponent('detail_terrace', () => import('@/components/detail/RsDetailTerrace'));
+  registerComponent('detail_garden', () => import('@/components/detail/RsDetailGarden'));
+  registerComponent('detail_year', () => import('@/components/detail/RsDetailYear'));
+  registerComponent('detail_floor', () => import('@/components/detail/RsDetailFloor'));
+  registerComponent('detail_orientation', () => import('@/components/detail/RsDetailOrientation'));
+  registerComponent('detail_parking', () => import('@/components/detail/RsDetailParking'));
+  registerComponent('detail_energy_rating', () => import('@/components/detail/RsDetailEnergyRating'));
+  registerComponent('detail_community_fees', () => import('@/components/detail/RsDetailCommunityFees'));
   registerComponent('detail_description', () => import('@/components/detail/RsDetailDescription'));
   registerComponent('detail_features', () => import('@/components/detail/RsDetailFeatures'));
   registerComponent('detail_specs', () => import('@/components/detail/RsDetailSpecs'));
+  registerComponent('detail_resources', () => import('@/components/detail/RsDetailResources'));
+  registerComponent('detail_video_embed', () => import('@/components/detail/RsDetailVideoEmbed'));
+  registerComponent('detail_video_link', () => import('@/components/detail/RsDetailVideoLink'));
+  registerComponent('detail_tour_link', () => import('@/components/detail/RsDetailTourLink'));
+  registerComponent('detail_tour_embed', () => import('@/components/detail/RsDetailTourEmbed'));
+  registerComponent('detail_pdf', () => import('@/components/detail/RsDetailPdf'));
   registerComponent('detail_map', () => import('@/components/detail/RsDetailMap'));
   registerComponent('detail_related', () => import('@/components/detail/RsDetailRelated'));
   registerComponent('detail_agent', () => import('@/components/detail/RsDetailAgent'));
@@ -143,6 +167,9 @@ export function registerAllComponents(): void {
   registerTemplate('listing-template-11', () => import('@/templates/listing/ListingTemplate11'));
   registerTemplate('listing-template-12', () => import('@/templates/listing/ListingTemplate12'));
   registerTemplate('listing-template-13', () => import('@/templates/listing/ListingTemplate13'));
+
+  // Detail templates
+  registerTemplate('detail-template-01', () => import('@/templates/detail/DetailTemplate01'));
 
   // Map templates
   registerTemplate('map-template-01', () => import('@/templates/map/MapTemplate01'));

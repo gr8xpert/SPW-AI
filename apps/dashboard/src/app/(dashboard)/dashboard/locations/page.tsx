@@ -55,7 +55,13 @@ import {
   FolderTree,
   Loader2,
   GripVertical,
+  Eye,
+  EyeOff,
+  Settings2,
+  Save,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -68,6 +74,7 @@ interface Location {
   parentId: number | null;
   propertyCount?: number;
   sortOrder?: number;
+  isActive?: boolean;
   children?: Location[];
 }
 
@@ -76,12 +83,29 @@ const defaultLanguageNames: Record<string, string> = {
   pt: 'Portuguese', it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
 };
 
+interface DropdownConfig {
+  levels: string[];
+  visible: boolean;
+}
+
+interface LocationSearchConfig {
+  dropdown1: DropdownConfig;
+  dropdown2: DropdownConfig;
+  dropdown3: DropdownConfig;
+}
+
+const defaultSearchConfig: LocationSearchConfig = {
+  dropdown1: { levels: ['municipality'], visible: true },
+  dropdown2: { levels: ['town'], visible: true },
+  dropdown3: { levels: ['area'], visible: false },
+};
+
 const levelColors: Record<string, string> = {
-  country: 'bg-blue-100 text-blue-800',
-  province: 'bg-purple-100 text-purple-800',
-  municipality: 'bg-indigo-100 text-indigo-800',
-  town: 'bg-green-100 text-green-800',
-  area: 'bg-amber-100 text-amber-800',
+  country: 'bg-secondary text-primary',
+  province: 'bg-secondary/80 text-primary',
+  municipality: 'bg-secondary/70 text-primary',
+  town: 'bg-secondary/60 text-primary',
+  area: 'bg-secondary/50 text-primary',
 };
 
 const levels = ['country', 'province', 'municipality', 'town', 'area'] as const;
@@ -98,13 +122,15 @@ export default function LocationsPage() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [deletingLocation, setDeletingLocation] = useState<Location | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [searchConfig, setSearchConfig] = useState<LocationSearchConfig>(defaultSearchConfig);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
 
   const fetchLocations = useCallback(async () => {
     try {
-      const res = await api.get('/api/dashboard/locations/tree');
+      const res = await api.get('/api/dashboard/locations/tree?includeInactive=true');
       const data: Location[] = res?.data || [];
       setLocations(data);
     } catch {
@@ -116,8 +142,16 @@ export default function LocationsPage() {
     if (!api.isReady) return;
     fetchLocations();
     api.get('/api/dashboard/tenant').then((res: any) => {
-      const langs = res?.data?.settings?.languages;
+      const settings = res?.data?.settings;
+      const langs = settings?.languages;
       if (langs?.length) setLanguages(langs);
+      if (settings?.locationSearchConfig) {
+        setSearchConfig({
+          dropdown1: { ...defaultSearchConfig.dropdown1, ...settings.locationSearchConfig.dropdown1 },
+          dropdown2: { ...defaultSearchConfig.dropdown2, ...settings.locationSearchConfig.dropdown2 },
+          dropdown3: { ...defaultSearchConfig.dropdown3, ...settings.locationSearchConfig.dropdown3 },
+        });
+      }
     }).catch(() => {});
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -180,7 +214,7 @@ export default function LocationsPage() {
 
   const openAdd = (parentId?: number, level?: string) => {
     const nextLevel = level
-      ? levels[Math.min(levels.indexOf(level as any) + 1, levels.length - 1)]
+      ? levels[Math.min(levels.indexOf(level as typeof levels[number]) + 1, levels.length - 1)]
       : 'country';
     setForm({ ...emptyForm, parentId: parentId || null, level: nextLevel });
     setIsAddOpen(true);
@@ -208,6 +242,50 @@ export default function LocationsPage() {
       toast({ title: 'Failed to reorder', variant: 'destructive' });
       fetchLocations();
     }
+  };
+
+  const handleToggleVisibility = async (location: Location) => {
+    const newActive = !(location.isActive ?? true);
+    try {
+      await api.put(`/api/dashboard/locations/${location.id}`, { isActive: newActive });
+      toast({ title: newActive ? 'Location visible on website' : 'Location hidden from website' });
+      fetchLocations();
+    } catch {
+      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+    }
+  };
+
+  const handleSaveSearchConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api.put('/api/dashboard/tenant/settings', { locationSearchConfig: searchConfig });
+      toast({ title: 'Search configuration saved' });
+    } catch {
+      toast({ title: 'Failed to save configuration', variant: 'destructive' });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const updateDropdownConfig = (key: 'dropdown1' | 'dropdown2' | 'dropdown3', field: string, value: any) => {
+    setSearchConfig(prev => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value },
+    }));
+  };
+
+  const toggleDropdownLevel = (key: 'dropdown1' | 'dropdown2' | 'dropdown3', level: string) => {
+    setSearchConfig(prev => {
+      const dd = prev[key];
+      const has = dd.levels.includes(level);
+      return {
+        ...prev,
+        [key]: {
+          ...dd,
+          levels: has ? dd.levels.filter(l => l !== level) : [...dd.levels, level],
+        },
+      };
+    });
   };
 
   const openDelete = (location: Location) => {
@@ -266,7 +344,8 @@ export default function LocationsPage() {
           className={cn(
             'flex items-center justify-between py-3 px-4 hover:bg-muted/50 rounded-md transition-colors',
             depth > 0 && 'border-l-2 border-muted ml-4',
-            dragOverThis && 'ring-2 ring-primary'
+            dragOverThis && 'ring-2 ring-primary',
+            location.isActive === false && 'opacity-50'
           )}
           style={{ paddingLeft: `${depth * 16 + 16}px` }}
         >
@@ -296,6 +375,22 @@ export default function LocationsPage() {
             <span className="text-sm text-muted-foreground min-w-[80px] text-right">
               {location.propertyCount ?? 0} properties
             </span>
+            <div
+              className="flex items-center gap-1.5"
+              title={location.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {location.isActive !== false ? (
+                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <Switch
+                checked={location.isActive !== false}
+                onCheckedChange={() => handleToggleVisibility(location)}
+                className="scale-75"
+              />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -371,17 +466,17 @@ export default function LocationsPage() {
 
       <div className="grid gap-4 md:grid-cols-5">
         {[
-          ['Total Locations', stats.total, 'bg-blue-50', 'text-blue-600'],
-          ['Countries', stats.countries, 'bg-green-50', 'text-green-600'],
-          ['Provinces', stats.provinces, 'bg-purple-50', 'text-purple-600'],
-          ['Towns', stats.towns, 'bg-amber-50', 'text-amber-600'],
-          ['Areas', stats.areas, 'bg-rose-50', 'text-rose-600'],
-        ].map(([label, value, bgColor, textColor]) => (
+          ['Total Locations', stats.total],
+          ['Countries', stats.countries],
+          ['Provinces', stats.provinces],
+          ['Towns', stats.towns],
+          ['Areas', stats.areas],
+        ].map(([label, value]) => (
           <Card key={label as string}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">{label}</CardTitle>
-              <div className={cn('stat-card-icon', bgColor as string)}>
-                <MapPin className={cn('h-4 w-4', textColor as string)} />
+              <div className="stat-card-icon">
+                <MapPin className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
@@ -422,6 +517,61 @@ export default function LocationsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Location Search Config */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5" />
+              <div>
+                <CardTitle>Website Search Dropdowns</CardTitle>
+                <CardDescription>Configure which location levels appear in each dropdown on your website (Variation 2)</CardDescription>
+              </div>
+            </div>
+            <Button size="sm" onClick={handleSaveSearchConfig} disabled={savingConfig}>
+              {savingConfig ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            {(['dropdown1', 'dropdown2', 'dropdown3'] as const).map((ddKey, ddIdx) => {
+              const dd = searchConfig[ddKey];
+              const ddNum = ddIdx + 1;
+              return (
+                <div key={ddKey} className={cn('rounded-lg border p-4 space-y-3', dd.visible ? '' : 'opacity-60')}>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-sm">Dropdown {ddNum}</h4>
+                    {ddIdx === 2 && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground">Visible</Label>
+                        <Switch
+                          checked={dd.visible}
+                          onCheckedChange={(v) => updateDropdownConfig(ddKey, 'visible', v)}
+                          className="scale-75"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {levels.map((level) => (
+                      <label key={level} className="flex items-center gap-1.5 cursor-pointer">
+                        <Checkbox
+                          checked={dd.levels.includes(level)}
+                          onCheckedChange={() => toggleDropdownLevel(ddKey, level)}
+                        />
+                        <span className="text-sm capitalize">{level}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 

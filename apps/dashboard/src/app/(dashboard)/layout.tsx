@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 export default async function DashboardLayout({
   children,
@@ -24,10 +25,10 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <Sidebar userRole={userRole} />
-      <div className="pl-64">
+      <DashboardShell>
         <Header />
-        <main className="p-6 lg:p-8">{children}</main>
-      </div>
+        <main className="p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">{children}</main>
+      </DashboardShell>
     </div>
   );
 }

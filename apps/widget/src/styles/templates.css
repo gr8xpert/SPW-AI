@@ -8,7 +8,70 @@
   font-family: var(--rs-font);
 }
 
-/* Template 01: Single horizontal row */
+/* Template 01: Two-row horizontal layout */
+.rs-search-template-01 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rs-search-template-01 .rs-field__label {
+  display: none;
+}
+
+.rs-search-template-01 .rs_location,
+.rs-search-template-01 .rs-cascading-v2,
+.rs-search-template-01 .rs-cascading-v2__tabs,
+.rs-search-template-01 .rs_price,
+.rs-search-template-01 .rs_price > .rs-range-row {
+  display: contents;
+}
+
+.rs-search-template-01 .rs_price .rs-range-sep {
+  display: none;
+}
+
+.rs-search-template-01 .rs-search-row {
+  position: relative;
+  flex-wrap: nowrap;
+}
+
+.rs-search-template-01 .rs-search-row > * {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-01 .rs-cascading-v2__tab {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-01 .rs_price .rs-custom-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-01 .rs-search-row > .rs_search_button,
+.rs-search-template-01 .rs-search-row > .rs_reset_button,
+.rs-search-template-01 .rs-search-row > .rs_features {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: auto;
+}
+
+.rs-search-template-01 .rs-cascading-v2__panel {
+  left: 0;
+  right: 0;
+}
+
+.rs-search-template-01 .rs-t01-mobile-actions {
+  display: none;
+}
+
+/* Shared: Flex row */
 .rs-search-row {
   display: flex;
   gap: 12px;
@@ -17,24 +80,211 @@
 }
 
 .rs-search-row > * {
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 140px;
 }
 
 .rs-search-row > .rs_search_button,
-.rs-search-row > .rs_reset_button {
+.rs-search-row > .rs_reset_button,
+.rs-search-row > .rs_features {
   flex: 0 0 auto;
   min-width: auto;
 }
 
-/* Template 02: Tabs on top + row below */
+/* Template 02: Single row + collapsible "More Filters" panel */
+.rs-search-template-02 {
+  position: relative;
+}
+
+.rs-search-template-02 .rs-search-row--inline {
+  flex-wrap: nowrap;
+}
+
+.rs-search-template-02 .rs-search-row--inline > * {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-02 .rs-search-row--inline > .rs_more_filters,
+.rs-search-template-02 .rs-search-row--inline > .rs_search_button,
+.rs-search-template-02 .rs-search-row--inline > .rs_reset_button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: auto;
+}
+
+.rs-search-template-02 .rs-field__label {
+  display: none;
+}
+
+.rs-search-template-02 .rs_price,
+.rs-search-template-02 .rs_price > .rs-range-row {
+  display: contents;
+}
+
+.rs-search-template-02 .rs_price .rs-range-sep {
+  display: none;
+}
+
+.rs-search-template-02 .rs_price .rs-custom-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+/* More Filters button */
+/* button. prefix overrides the [data-spm-widget] button reset (specificity 0,1,1) */
+button.rs-more-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+  background: var(--rs-bg);
+  color: var(--rs-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--rs-font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+button.rs-more-filters-btn:hover {
+  border-color: var(--rs-text-light);
+  background: var(--rs-bg-secondary);
+}
+
+button.rs-more-filters-btn--active {
+  background: var(--rs-primary);
+  color: #fff;
+  border-color: var(--rs-primary);
+}
+
+button.rs-more-filters-btn--active:hover {
+  background: var(--rs-primary-hover);
+  border-color: var(--rs-primary-hover);
+}
+
+.rs-more-filters-chevron {
+  transition: transform 0.2s ease;
+}
+
+.rs-more-filters-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* More Filters dropdown panel */
+.rs-more-filters-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 20px;
+  z-index: 100;
+}
+
+.rs-more-filters-panel .rs-field__label {
+  display: block;
+}
+
+.rs-more-filters-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.rs-more-filters-section:first-child {
+  padding-top: 0;
+}
+
+.rs-more-filters-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rs-more-filters-row {
+  display: flex;
+  gap: 16px;
+}
+
+.rs-more-filters-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.rs-search-template-02 .rs-t02-mobile-actions {
+  display: none;
+}
+
+/* Legacy (keep for backward compat) */
 .rs-search-tabbed {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Template 03: Vertical stack */
+/* Template 03: Three-row stacked layout */
+.rs-search-template-03 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rs-search-template-03 .rs-field__label {
+  display: none;
+}
+
+.rs-search-template-03 .rs-t03-fields {
+  flex-wrap: nowrap;
+}
+
+.rs-search-template-03 .rs-t03-fields > * {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-03 .rs_price,
+.rs-search-template-03 .rs_price > .rs-range-row {
+  display: contents;
+}
+
+.rs-search-template-03 .rs_price .rs-range-sep {
+  display: none;
+}
+
+.rs-search-template-03 .rs_price .rs-custom-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.rs-search-template-03 .rs-t03-actions {
+  align-items: flex-end;
+  flex-wrap: nowrap;
+}
+
+.rs-search-template-03 .rs-t03-actions > .rs_features {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rs-search-template-03 .rs-t03-actions > .rs_search_button,
+.rs-search-template-03 .rs-t03-actions > .rs_reset_button {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+/* Legacy stack classes (used by other templates) */
 .rs-search-stack {
   display: flex;
   flex-direction: column;
@@ -58,7 +308,286 @@
   justify-content: flex-end;
 }
 
-/* Template 04: Compact single row with all dropdowns */
+/* Template 04: Unified Capsule Search Bar */
+.rs-search-template-04 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Listing type pills — subtle, floating above the capsule */
+.rs-search-template-04 .rs-t04-listing-type {
+  display: flex;
+  justify-content: center;
+}
+
+.rs-search-template-04 .rs-t04-listing-type .rs-btn-group {
+  border: none;
+  background: transparent;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px;
+  background: var(--rs-bg-secondary);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.rs-search-template-04 .rs-t04-listing-type button.rs-btn-group__item {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--rs-text-light);
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.rs-search-template-04 .rs-t04-listing-type button.rs-btn-group__item:hover {
+  color: var(--rs-text);
+  background: var(--rs-bg);
+}
+
+.rs-search-template-04 .rs-t04-listing-type button.rs-btn-group__item--active {
+  background: var(--rs-bg);
+  color: var(--rs-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.rs-search-template-04 .rs-t04-listing-type button.rs-btn-group__item--active:hover {
+  background: var(--rs-bg);
+  color: var(--rs-primary);
+}
+
+/* The capsule — unified connected bar */
+.rs-search-template-04 .rs-t04-capsule {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: 9999px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  overflow: visible;
+  position: relative;
+}
+
+.rs-search-template-04 .rs-t04-capsule:hover {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+/* Segments — each field lives in a segment */
+.rs-search-template-04 .rs-t04-segment {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 0 8px 20px;
+  position: relative;
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.rs-search-template-04 .rs-t04-segment:hover {
+  background: var(--rs-bg-secondary);
+}
+
+/* Segment labels — small, muted text above the trigger */
+.rs-search-template-04 .rs-t04-segment__label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rs-text-light);
+  padding-left: 12px;
+  margin-bottom: 1px;
+  pointer-events: none;
+}
+
+/* Dividers between segments */
+.rs-search-template-04 .rs-t04-divider {
+  width: 1px;
+  align-self: center;
+  height: 24px;
+  background: var(--rs-border);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* Strip default styling from selects inside the capsule */
+.rs-search-template-04 .rs-t04-segment .rs-select,
+.rs-search-template-04 .rs-t04-segment button.rs-select {
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  height: 28px;
+  padding: 0 28px 0 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--rs-text);
+  box-shadow: none;
+}
+
+.rs-search-template-04 .rs-t04-segment .rs-select:focus,
+.rs-search-template-04 .rs-t04-segment button.rs-select:focus {
+  box-shadow: none;
+  border: none;
+}
+
+/* Custom select trigger inside capsule */
+.rs-search-template-04 .rs-t04-segment .rs-custom-select__trigger {
+  border: none;
+  background: transparent;
+  height: 28px;
+  padding: 0 28px 0 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.rs-search-template-04 .rs-t04-segment .rs-custom-select__trigger:focus {
+  box-shadow: none;
+  border: none;
+}
+
+/* Hide field labels inside capsule (we have segment labels) */
+.rs-search-template-04 .rs-field__label {
+  display: none;
+}
+
+/* Dropdowns need higher z-index and proper positioning from capsule */
+.rs-search-template-04 .rs-dropdown-wrap {
+  position: static;
+}
+
+.rs-search-template-04 .rs-t04-segment .rs-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: auto;
+  border-radius: var(--rs-radius-lg);
+  min-width: 320px;
+}
+
+.rs-search-template-04 .rs-t04-segment .rs-custom-select__dropdown {
+  border-radius: var(--rs-radius-lg);
+  min-width: 200px;
+}
+
+/* Price segment — needs to handle range display */
+.rs-search-template-04 .rs-t04-segment--price .rs_price,
+.rs-search-template-04 .rs-t04-segment--price .rs-range-row {
+  display: contents;
+}
+
+.rs-search-template-04 .rs-t04-segment--price .rs-range-sep {
+  display: none;
+}
+
+.rs-search-template-04 .rs-t04-segment--price .rs-custom-select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Action area — search button integrated into capsule end */
+.rs-search-template-04 .rs-t04-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 0;
+  flex-shrink: 0;
+}
+
+.rs-search-template-04 .rs-t04-action .rs_search_button {
+  flex-shrink: 0;
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn {
+  height: 44px;
+  width: 44px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  background: var(--rs-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: visible;
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat center;
+  background-size: 20px 20px;
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn .rs-search-btn__count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: var(--rs-bg);
+  color: var(--rs-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn .rs-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn:hover {
+  background: var(--rs-primary-hover);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  transform: scale(1.05);
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-search-btn:active {
+  transform: scale(0.95);
+}
+
+/* Reset button — small icon only */
+.rs-search-template-04 .rs-t04-action .rs_reset_button {
+  flex-shrink: 0;
+}
+
+.rs-search-template-04 .rs-t04-action button.rs-reset-btn--icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--rs-bg-secondary);
+  border: 1px solid var(--rs-border);
+}
+
+/* Legacy class kept for other templates that still reference it */
 .rs-search-compact {
   display: flex;
   gap: 8px;
@@ -75,7 +604,192 @@
   flex: 0 0 auto;
 }
 
-/* Template 05: Full-featured with quick features */
+/* Template 05: Compact Sidebar Filter Card */
+.rs-search-template-05 {
+  display: flex;
+  justify-content: center;
+}
+
+.rs-search-template-05 .rs-t05-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+/* Header — listing type tabs */
+.rs-search-template-05 .rs-t05-header {
+  padding: 0;
+  border-bottom: 1px solid var(--rs-border);
+}
+
+.rs-search-template-05 .rs-t05-header .rs-btn-group {
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  gap: 0;
+}
+
+.rs-search-template-05 .rs-t05-header button.rs-btn-group__item {
+  height: 38px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--rs-text-light);
+  background: transparent;
+  padding: 0 8px;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.rs-search-template-05 .rs-t05-header button.rs-btn-group__item:hover {
+  color: var(--rs-text);
+  background: transparent;
+}
+
+.rs-search-template-05 .rs-t05-header button.rs-btn-group__item--active {
+  color: var(--rs-primary);
+  background: transparent;
+  border-bottom-color: var(--rs-primary);
+}
+
+.rs-search-template-05 .rs-t05-header button.rs-btn-group__item--active:hover {
+  background: transparent;
+  color: var(--rs-primary);
+}
+
+/* Body */
+.rs-search-template-05 .rs-t05-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Sections */
+.rs-search-template-05 .rs-t05-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rs-search-template-05 .rs-t05-section__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--rs-text-light);
+}
+
+/* Hide component labels since we use section labels */
+.rs-search-template-05 .rs-field__label {
+  display: none;
+}
+
+/* Beds + Baths side by side */
+.rs-search-template-05 .rs-t05-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Property type V4 — horizontal scroll */
+.rs-search-template-05 .rs-t05-body .rs_property_type {
+  width: 100%;
+  overflow: hidden;
+}
+
+.rs-search-template-05 .rs-type-icons {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 6px;
+  padding: 8px 8px 0 0;
+}
+
+.rs-search-template-05 .rs-type-icons::-webkit-scrollbar {
+  display: none;
+}
+
+.rs-search-template-05 button.rs-type-icon {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  border-radius: 18px;
+}
+
+.rs-search-template-05 .rs-type-icon__svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Compact selects inside card */
+.rs-search-template-05 .rs-t05-body .rs-select,
+.rs-search-template-05 .rs-t05-body button.rs-select,
+.rs-search-template-05 .rs-t05-body .rs-custom-select__trigger {
+  height: 38px;
+  font-size: 0.825rem;
+}
+
+/* Price range slider */
+.rs-search-template-05 .rs-t05-section--price .rs_price {
+  padding: 0 2px;
+}
+
+.rs-search-template-05 .rs-t05-section--price .rs-range-slider {
+  height: 32px;
+}
+
+.rs-search-template-05 .rs-t05-section--price .rs-range-slider__values {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--rs-text);
+  padding-top: 2px;
+}
+
+/* Features button — full width */
+.rs-search-template-05 .rs-t05-section--features .rs_features {
+  width: 100%;
+}
+
+.rs-search-template-05 .rs-t05-section--features button.rs-select {
+  width: 100%;
+}
+
+/* Footer — action bar */
+.rs-search-template-05 .rs-t05-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rs-border);
+  background: var(--rs-bg-secondary);
+}
+
+.rs-search-template-05 .rs-t05-footer button.rs-search-btn {
+  border-radius: 8px;
+  padding: 0 20px;
+  height: 38px;
+  font-size: 0.825rem;
+}
+
+.rs-search-template-05 .rs-t05-footer button.rs-reset-btn--icon {
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+}
+
+/* Legacy classes for other templates */
 .rs-search-full {
   display: flex;
   flex-direction: column;
@@ -112,7 +826,102 @@
   min-width: 140px;
 }
 
-/* Template 06: Minimal (location + button) */
+/* Template 06: Minimal (location + property type + button) */
+/* ── Template 06: Enhanced minimal search ── */
+.rs-search-template-06 .rs-search-minimal {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  max-width: 720px;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.rs-search-template-06 .rs-search-minimal:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border-color: color-mix(in srgb, var(--rs-primary) 30%, var(--rs-border));
+}
+
+.rs-search-template-06 .rs-search-minimal .rs-field__label {
+  display: none;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location .rs-input {
+  height: 54px;
+  padding: 0 16px 0 44px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location .rs-input:focus {
+  box-shadow: none;
+  border: none;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location .rs-input-wrap {
+  position: relative;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location .rs-input-icon {
+  width: 20px;
+  height: 20px;
+  left: 14px;
+  color: var(--rs-text-light);
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_location .rs-input::placeholder {
+  color: var(--rs-text-light);
+  font-weight: 400;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_property_type {
+  flex: 0 0 180px;
+  min-width: 0;
+  border-left: 1px solid var(--rs-border);
+  display: flex;
+  align-items: center;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_property_type .rs-select {
+  height: 54px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_property_type .rs-select:focus {
+  box-shadow: none;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_search_button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px 8px 0;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_search_button .rs-search-btn {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Legacy fallback for non-template-06 usage */
 .rs-search-minimal {
   display: flex;
   gap: 12px;
@@ -120,8 +929,17 @@
   max-width: 600px;
 }
 
+.rs-search-minimal .rs-field__label {
+  display: none;
+}
+
 .rs-search-minimal > .rs_location {
   flex: 1;
+}
+
+.rs-search-minimal > .rs_property_type {
+  flex: 0 1 180px;
+  min-width: 0;
 }
 
 .rs-search-minimal > .rs_search_button {
@@ -130,6 +948,73 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .rs-search-template-01 .rs-search-row {
+    flex-wrap: wrap;
+  }
+
+  .rs-search-template-01 .rs-search-row > *,
+  .rs-search-template-01 .rs-search-row > .rs_search_button,
+  .rs-search-template-01 .rs-search-row > .rs_reset_button,
+  .rs-search-template-01 .rs-search-row > .rs_features {
+    flex: none;
+    width: 100%;
+  }
+
+  .rs-search-template-01 .rs_location,
+  .rs-search-template-01 .rs-cascading-v2,
+  .rs-search-template-01 .rs-cascading-v2__tabs,
+  .rs-search-template-01 .rs_price,
+  .rs-search-template-01 .rs_price > .rs-range-row {
+    display: block;
+  }
+
+  .rs-search-template-01 .rs-cascading-v2 {
+    position: relative;
+  }
+
+  .rs-search-template-01 .rs-cascading-v2__tabs {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rs-search-template-01 .rs-cascading-v2__tab {
+    flex: none;
+    width: 100%;
+  }
+
+  .rs-search-template-01 .rs_price > .rs-range-row {
+    display: flex;
+  }
+
+  .rs-search-template-01 .rs-search-row > .rs_search_button,
+  .rs-search-template-01 .rs-search-row > .rs_reset_button {
+    display: none;
+  }
+
+  .rs-search-template-01 .rs-t01-mobile-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .rs-search-template-01 .rs-t01-mobile-actions .rs_search_button {
+    flex: 4;
+  }
+
+  .rs-search-template-01 .rs-t01-mobile-actions .rs_search_button .rs-search-btn {
+    width: 100%;
+  }
+
+  .rs-search-template-01 .rs-t01-mobile-actions .rs_reset_button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rs-search-template-01 .rs_price .rs-range-sep {
+    display: block;
+  }
+
   .rs-search-row,
   .rs-search-compact,
   .rs-search-full__main,
@@ -146,8 +1031,253 @@
     min-width: 100%;
   }
 
+  .rs-search-template-06 .rs-search-minimal {
+    flex-direction: column;
+    border-radius: 10px;
+  }
+
+  .rs-search-template-06 .rs-search-minimal > .rs_property_type {
+    display: block;
+    flex: none;
+    width: 100%;
+    min-width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--rs-border);
+  }
+
+  .rs-search-template-06 .rs-search-minimal > .rs_property_type .rs-select {
+    width: 100%;
+  }
+
+  .rs-search-template-06 .rs-search-minimal > .rs_search_button {
+    padding: 0 10px 10px 10px;
+    width: 100%;
+  }
+
+  .rs-search-template-06 .rs-search-minimal > .rs_search_button .rs-search-btn {
+    width: 100%;
+  }
+
   .rs-search-minimal {
     flex-direction: column;
     max-width: 100%;
   }
+
+  .rs-search-template-02 .rs-search-row--inline {
+    flex-wrap: wrap;
+  }
+
+  .rs-search-template-02 .rs-search-row--inline > * {
+    flex: none;
+    width: 100%;
+  }
+
+  .rs-search-template-02 .rs-search-row--inline > .rs_more_filters {
+    width: 100%;
+  }
+
+  .rs-search-template-02 .rs-search-row--inline > .rs_more_filters .rs-more-filters-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rs-search-template-02 .rs-search-row--inline > .rs_search_button,
+  .rs-search-template-02 .rs-search-row--inline > .rs_reset_button {
+    display: none;
+  }
+
+  .rs-search-template-02 .rs-t02-mobile-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .rs-search-template-02 .rs-t02-mobile-actions .rs_search_button {
+    flex: 4;
+  }
+
+  .rs-search-template-02 .rs-t02-mobile-actions .rs_search_button .rs-search-btn {
+    width: 100%;
+  }
+
+  .rs-search-template-02 .rs-t02-mobile-actions .rs_reset_button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rs-search-template-02 .rs_price,
+  .rs-search-template-02 .rs_price > .rs-range-row {
+    display: block;
+  }
+
+  .rs-search-template-02 .rs_price > .rs-range-row {
+    display: flex;
+  }
+
+  .rs-search-template-02 .rs_price .rs-range-sep {
+    display: block;
+  }
+
+  .rs-more-filters-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-height: 75vh;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+    z-index: 1000;
+    padding: 24px 16px;
+  }
+
+  .rs-more-filters-row {
+    flex-direction: column;
+  }
+
+  .rs-search-template-03 .rs-t03-fields {
+    flex-wrap: wrap;
+  }
+
+  .rs-search-template-03 .rs-t03-fields > * {
+    flex: none;
+    width: 100%;
+  }
+
+  .rs-search-template-03 .rs_price,
+  .rs-search-template-03 .rs_price > .rs-range-row {
+    display: block;
+  }
+
+  .rs-search-template-03 .rs_price > .rs-range-row {
+    display: flex;
+  }
+
+  .rs-search-template-03 .rs_price .rs-range-sep {
+    display: block;
+  }
+
+  .rs-search-template-03 .rs-t03-actions {
+    flex-wrap: wrap;
+  }
+
+  .rs-search-template-03 .rs-t03-actions > .rs_features {
+    width: 100%;
+    flex: none;
+  }
+
+  .rs-search-template-03 .rs-t03-actions {
+    flex-direction: row;
+  }
+
+  .rs-search-template-03 .rs-t03-actions > .rs_search_button {
+    flex: 4;
+    min-width: 0;
+  }
+
+  .rs-search-template-03 .rs-t03-actions > .rs_search_button .rs-search-btn {
+    width: 100%;
+  }
+
+  .rs-search-template-03 .rs-t03-actions > .rs_reset_button {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Template 04 responsive — capsule becomes stacked card */
+  .rs-search-template-04 .rs-t04-capsule {
+    flex-direction: column;
+    border-radius: var(--rs-radius-lg);
+    padding: 8px;
+    gap: 0;
+  }
+
+  .rs-search-template-04 .rs-t04-segment {
+    padding: 12px 16px;
+    border-radius: var(--rs-radius);
+  }
+
+  .rs-search-template-04 .rs-t04-divider {
+    width: 100%;
+    height: 1px;
+    margin: 0 auto;
+    align-self: stretch;
+    box-sizing: border-box;
+  }
+
+  .rs-search-template-04 .rs-dropdown-wrap {
+    position: relative;
+  }
+
+  .rs-search-template-04 .rs-t04-segment .rs-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    min-width: unset;
+    width: auto;
+    max-height: 50vh;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+
+  .rs-search-template-04 .rs-t04-action {
+    padding: 12px 8px 8px;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .rs-search-template-04 .rs-t04-action .rs_search_button {
+    flex: 4;
+    min-width: 0;
+  }
+
+  .rs-search-template-04 .rs-t04-action button.rs-search-btn {
+    width: 100%;
+    border-radius: var(--rs-radius);
+    height: 44px;
+    font-size: 0.875rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .rs-search-template-04 .rs-t04-action button.rs-search-btn::before {
+    position: static;
+    transform: none;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .rs-search-template-04 .rs-t04-action button.rs-search-btn .rs-search-btn__count {
+    position: static;
+    min-width: 22px;
+    height: 22px;
+    line-height: 22px;
+  }
+
+  .rs-search-template-04 .rs-t04-action .rs_reset_button {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Template 05 responsive */
+  .rs-search-template-05 .rs-t05-row {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 }
+

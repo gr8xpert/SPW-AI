@@ -52,12 +52,12 @@ export class CreditTransaction {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column()
-  createdBy: number;
+  @Column({ type: 'int', nullable: true })
+  createdBy: number | null;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'createdBy' })
-  createdByUser: User;
+  createdByUser: User | null;
 
   @CreateDateColumn()
   createdAt: Date;

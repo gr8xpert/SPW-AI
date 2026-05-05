@@ -67,11 +67,36 @@ const LANG_NAMES: Record<string, string> = {
 const labelCategories = [
   { id: 'search', name: 'Search Form' },
   { id: 'results', name: 'Search Results' },
-  { id: 'listing', name: 'Listing Page' },
+  { id: 'card', name: 'Property Card' },
   { id: 'detail', name: 'Property Detail' },
+  { id: 'inquiry', name: 'Inquiry Form' },
   { id: 'wishlist', name: 'Wishlist' },
-  { id: 'unit', name: 'Units' },
+  { id: 'map', name: 'Map' },
+  { id: 'chat', name: 'AI Chat' },
+  { id: 'pagination', name: 'Pagination' },
+  { id: 'mortgage', name: 'Mortgage Calculator' },
+  { id: 'general', name: 'General' },
 ];
+
+const CATEGORY_PREFIXES: Record<string, string[]> = {
+  search: ['search_', 'reset_', 'advanced_', 'location_', 'listing_type_', 'property_type', 'bedrooms_', 'bathrooms_', 'price_', 'built_area_', 'plot_size_', 'features_', 'reference_', 'active_filters', 'clear_all', 'quick_features', 'more_filters'],
+  results: ['results_', 'sort_', 'view_', 'back_to_results'],
+  card: ['card_'],
+  detail: ['detail_'],
+  inquiry: ['inquiry_'],
+  wishlist: ['wishlist_', 'compare', 'share_wishlist', 'email_wishlist', 'add_note', 'add_personal_note', 'note_placeholder', 'personal_message', 'your_email_optional'],
+  map: ['map_', 'zones'],
+  chat: ['chat_'],
+  pagination: ['pagination_'],
+  mortgage: ['mortgage_'],
+  general: ['loading', 'error', 'close', 'currency_', 'language_', 'featured', 'cancel', 'clear', 'copy', 'copied', 'save', 'edit', 'share', 'send_email', 'send_to', 'sending', 'email', 'email_error', 'email_sent', 'download_pdf', 'qr_code', 'read_less', 'read_more', 'view_all', 'view_details', 'properties', 'property_singular', 'type', 'reference', 'feature', 'no_results', 'beds', 'baths', 'bedrooms', 'bathrooms', 'location', 'price', 'wishlist'],
+};
+
+function labelMatchesCategory(key: string, categoryId: string): boolean {
+  const prefixes = CATEGORY_PREFIXES[categoryId];
+  if (!prefixes) return false;
+  return prefixes.some(p => key.startsWith(p));
+}
 
 export default function LabelsPage() {
   const [search, setSearch] = useState('');
@@ -290,7 +315,7 @@ export default function LabelsPage() {
       Object.values(label.translations).some((t) =>
         t?.toLowerCase().includes(search.toLowerCase())
       );
-    const matchesCategory = label.key.startsWith(activeCategory);
+    const matchesCategory = labelMatchesCategory(label.key, activeCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -311,29 +336,21 @@ export default function LabelsPage() {
           <p className="page-description mt-1">Manage UI text translations for your widget</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleInitialize}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Initialize Defaults
-          </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
+            <Button size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
               <Sparkles className="h-4 w-4 mr-2" />
               AI Translate All
             </Button>
           )}
-          <Button className="shadow-sm" onClick={() => setIsAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Label
-          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Labels</CardTitle>
-            <div className="stat-card-icon bg-blue-50">
-              <Edit className="h-4 w-4 text-blue-600" />
+            <div className="stat-card-icon">
+              <Edit className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{labels.length}</div></CardContent>
@@ -341,29 +358,20 @@ export default function LabelsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Languages</CardTitle>
-            <div className="stat-card-icon bg-green-50">
-              <Sparkles className="h-4 w-4 text-green-600" />
+            <div className="stat-card-icon">
+              <Sparkles className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{languages.length}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Custom Labels</CardTitle>
-            <div className="stat-card-icon bg-purple-50">
-              <Plus className="h-4 w-4 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent><div className="text-2xl font-bold tracking-tight">{labels.filter((l) => l.isCustom).length}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Missing Translations</CardTitle>
-            <div className="stat-card-icon bg-amber-50">
-              <Search className="h-4 w-4 text-amber-600" />
+            <div className="stat-card-icon">
+              <Search className="h-4 w-4" />
             </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold tracking-tight text-amber-600">{missingCount}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{missingCount}</div></CardContent>
         </Card>
       </div>
 
@@ -406,7 +414,6 @@ export default function LabelsPage() {
                       <TableHead className="w-[200px]">Key</TableHead>
                       <TableHead>English</TableHead>
                       {languages.length > 1 && <TableHead className="w-[120px]">Translations</TableHead>}
-                      <TableHead className="w-[100px]">Type</TableHead>
                       <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -433,11 +440,6 @@ export default function LabelsPage() {
                             </TableCell>
                           )}
                           <TableCell>
-                            <Badge variant={label.isCustom ? 'default' : 'secondary'}>
-                              {label.isCustom ? 'Custom' : 'Default'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
                             <div className="flex gap-1">
                               <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(label)}>
                                 <Edit className="h-4 w-4" />
@@ -447,9 +449,6 @@ export default function LabelsPage() {
                                   <Sparkles className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingLabel(label); setIsDeleteOpen(true); }}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -499,7 +498,7 @@ export default function LabelsPage() {
                         onChange={(e) => setEditValues({ ...editValues, [lang]: e.target.value })}
                       />
                       {editValues[lang]?.trim() ? (
-                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                       ) : (
                         <span className="w-3.5 shrink-0" />
                       )}
@@ -529,8 +528,8 @@ export default function LabelsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <UILabel>Key</UILabel>
-              <Input placeholder="search.my_label" value={newLabelForm.key} onChange={(e) => setNewLabelForm({ ...newLabelForm, key: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Use format: category.label_name (e.g. search.bedrooms, detail.price)</p>
+              <Input placeholder="search_my_label" value={newLabelForm.key} onChange={(e) => setNewLabelForm({ ...newLabelForm, key: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Use format: category_label_name (e.g. bedrooms_label, detail_price, card_view_details)</p>
             </div>
             <div className="space-y-2">
               <UILabel>English</UILabel>

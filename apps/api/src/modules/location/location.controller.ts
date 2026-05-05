@@ -21,8 +21,8 @@ export class LocationController {
   }
 
   @Get('tree')
-  async findTree(@CurrentTenant() tenantId: number) {
-    return this.locationService.findTree(tenantId);
+  async findTree(@CurrentTenant() tenantId: number, @Query('includeInactive') includeInactive?: string) {
+    return this.locationService.findTree(tenantId, includeInactive === 'true');
   }
 
   @Put('reorder')

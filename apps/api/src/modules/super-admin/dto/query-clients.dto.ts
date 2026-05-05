@@ -9,7 +9,7 @@ import {
   Max,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { SubscriptionStatus } from '@spw/shared';
+import { SubscriptionStatus } from '@spm/shared';
 
 export class QueryClientsDto {
   @IsOptional()

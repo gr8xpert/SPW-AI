@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
-import { UserRoleType, UserRole } from '@spw/shared';
+import { UserRoleType, UserRole } from '@spm/shared';
 import { Exclude } from 'class-transformer';
 
 @Entity('users')

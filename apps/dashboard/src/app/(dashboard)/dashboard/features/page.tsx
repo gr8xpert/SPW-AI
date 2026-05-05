@@ -380,8 +380,8 @@ export default function FeaturesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Features</CardTitle>
-            <div className="stat-card-icon bg-blue-50">
-              <Home className="h-4 w-4 text-blue-600" />
+            <div className="stat-card-icon">
+              <Home className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{features.length}</div></CardContent>
@@ -389,8 +389,8 @@ export default function FeaturesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Categories Used</CardTitle>
-            <div className="stat-card-icon bg-purple-50">
-              <Sun className="h-4 w-4 text-purple-600" />
+            <div className="stat-card-icon">
+              <Sun className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{new Set(features.map((f) => f.category)).size}</div></CardContent>
@@ -398,8 +398,8 @@ export default function FeaturesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <div className="stat-card-icon bg-green-50">
-              <Check className="h-4 w-4 text-green-600" />
+            <div className="stat-card-icon">
+              <Check className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{features.filter((f) => f.isActive !== false).length}</div></CardContent>
@@ -589,7 +589,7 @@ export default function FeaturesPage() {
                         onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })}
                       />
                       {form.names[lang]?.trim() ? (
-                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                       ) : (
                         <span className="w-3.5 shrink-0" />
                       )}

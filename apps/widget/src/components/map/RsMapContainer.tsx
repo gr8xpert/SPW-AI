@@ -4,12 +4,14 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { useCurrency } from '@/hooks/useCurrency';
+import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
 
 interface RsMapContainerProps {
   zoom?: number;
   center?: string;
   mode?: string;
+  fitBounds?: string;
 }
 
 interface MarkerGroup {
@@ -70,7 +72,7 @@ function loadLeaflet(): Promise<any> {
   });
 }
 
-export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMode }: RsMapContainerProps) {
+export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMode, fitBounds: fitBoundsProp }: RsMapContainerProps) {
   const isExplore = rawMode === 'explore';
   const zoom = typeof rawZoom === 'string' ? parseInt(rawZoom, 10) || 10 : rawZoom;
   const { t } = useLabels();
@@ -291,9 +293,10 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
         leafletRef.current = L;
         const map = L.map(mapElRef.current).setView(parsedCenter, zoom);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap',
-          maxZoom: 19,
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+          maxZoom: 20,
+          subdomains: 'abcd',
         }).addTo(map);
 
         map.on('moveend', handleMoveEnd);
@@ -346,7 +349,7 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
 
         const icon = L.divIcon({
           className: '',
-          html: `<div style="background:var(--rs-primary,#2563eb);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.25);text-align:center;cursor:pointer;">${markerLabel}</div>`,
+          html: `<div class="rs-map-marker">${markerLabel}</div>`,
           iconSize: [70, 26],
           iconAnchor: [35, 26],
         });
@@ -357,11 +360,7 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
           ? prop.images.sort((a: any, b: any) => a.order - b.order)[0]
           : null;
 
-        const detailUrl = config.propertyPageUrl
-          ? `${config.propertyPageUrl}?id=${prop.id}&ref=${prop.reference}`
-          : config.propertyPageSlug
-            ? `/${config.propertyPageSlug}/${prop.reference}`
-            : '#';
+        const detailUrl = buildPropertyUrl(prop, config) || '#';
 
         const specs: string[] = [];
         if (prop.bedrooms) specs.push(`${prop.bedrooms} bed`);
@@ -398,22 +397,7 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
 
         const icon = L.divIcon({
           className: '',
-          html: `<div style="
-            background:var(--rs-primary,#2563eb);
-            color:#fff;
-            width:${size}px;
-            height:${size}px;
-            border-radius:50%;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-size:${fontSize}px;
-            font-weight:700;
-            box-shadow:0 3px 10px rgba(0,0,0,0.3);
-            border:3px solid rgba(255,255,255,0.9);
-            cursor:pointer;
-            transition:transform 0.15s ease;
-          "><span>${count}</span></div>`,
+          html: `<div class="rs-map-cluster" style="width:${size}px;height:${size}px;font-size:${fontSize}px;"><span>${count}</span></div>`,
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         });
@@ -437,7 +421,7 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
         // ── Default cluster circle ──
         const icon = L.divIcon({
           className: '',
-          html: `<div style="background:var(--rs-primary,#2563eb);color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.25);border:3px solid rgba(255,255,255,0.8);cursor:pointer;"><span>${group.properties.length}</span></div>`,
+          html: `<div class="rs-map-cluster"><span>${group.properties.length}</span></div>`,
           iconSize: [40, 40],
           iconAnchor: [20, 20],
         });
@@ -477,6 +461,39 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
     };
   }, [leafletReady]);
 
+  // ── External fitBounds control (format: "timestamp:minLat,minLng,maxLat,maxLng" or "timestamp:") ──
+  useEffect(() => {
+    const map = mapRef.current;
+    const L = leafletRef.current;
+    if (!map || !L || !leafletReady || !fitBoundsProp) return;
+
+    const colonIdx = fitBoundsProp.indexOf(':');
+    const boundsStr = colonIdx >= 0 ? fitBoundsProp.slice(colonIdx + 1) : fitBoundsProp;
+
+    if (!boundsStr) {
+      const pts = markersRef.current
+        .map((m: any) => m.getLatLng())
+        .filter((ll: any) => ll);
+      if (pts.length > 0) {
+        map.fitBounds(L.latLngBounds(pts.map((ll: any) => [ll.lat, ll.lng])), {
+          padding: [40, 40],
+          maxZoom: 14,
+        });
+      }
+      return;
+    }
+
+    const parts = boundsStr.split(',').map(Number);
+    if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
+      const [minLat, minLng, maxLat, maxLng] = parts;
+      if (minLat === 0 && minLng === 0 && maxLat === 0 && maxLng === 0) return;
+      map.fitBounds(L.latLngBounds([[minLat, minLng], [maxLat, maxLng]]), {
+        padding: [40, 40],
+        maxZoom: 16,
+      });
+    }
+  }, [fitBoundsProp, leafletReady]);
+
   // ── Explore stats ──
   const exploreStats = isExplore && exploreData.length > 0
     ? {
@@ -502,7 +519,7 @@ export default function RsMapContainer({ zoom: rawZoom = 10, center, mode: rawMo
   return (
     <div
       class={`rs-map-container${isExplore ? ' rs-map-container--explore' : ''}`}
-      data-spw-cluster-threshold={CLUSTER_THRESHOLD}
+      data-spm-cluster-threshold={CLUSTER_THRESHOLD}
     >
       {(!leafletReady || (isExplore && exploreLoading)) && (
         <div class="rs-map-container__loading">

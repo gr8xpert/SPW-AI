@@ -1,38 +1,38 @@
-import type { SPWState, SearchFilters, LockedFilters } from '@/types';
+import type { SPMState, SearchFilters, LockedFilters } from '@/types';
 
 export const selectors = {
-  getConfig: (s: SPWState) => s.config,
-  getFilters: (s: SPWState) => s.filters,
-  getLockedFilters: (s: SPWState) => s.lockedFilters,
-  getResults: (s: SPWState) => s.results,
-  getSelectedProperty: (s: SPWState) => s.selectedProperty,
-  getFavorites: (s: SPWState) => s.favorites,
-  getLabels: (s: SPWState) => s.labels,
-  getLocations: (s: SPWState) => s.locations,
-  getPropertyTypes: (s: SPWState) => s.propertyTypes,
-  getFeatures: (s: SPWState) => s.features,
-  getCurrency: (s: SPWState) => s.currency,
-  getUI: (s: SPWState) => s.ui,
-  getSyncVersion: (s: SPWState) => s.syncVersion,
+  getConfig: (s: SPMState) => s.config,
+  getFilters: (s: SPMState) => s.filters,
+  getLockedFilters: (s: SPMState) => s.lockedFilters,
+  getResults: (s: SPMState) => s.results,
+  getSelectedProperty: (s: SPMState) => s.selectedProperty,
+  getFavorites: (s: SPMState) => s.favorites,
+  getLabels: (s: SPMState) => s.labels,
+  getLocations: (s: SPMState) => s.locations,
+  getPropertyTypes: (s: SPMState) => s.propertyTypes,
+  getFeatures: (s: SPMState) => s.features,
+  getCurrency: (s: SPMState) => s.currency,
+  getUI: (s: SPMState) => s.ui,
+  getSyncVersion: (s: SPMState) => s.syncVersion,
 
-  isLoading: (s: SPWState) => s.ui.loading,
-  isSearchLoading: (s: SPWState) => s.ui.searchLoading,
-  isInitialized: (s: SPWState) => s.ui.initialized,
-  getError: (s: SPWState) => s.ui.error,
+  isLoading: (s: SPMState) => s.ui.loading,
+  isSearchLoading: (s: SPMState) => s.ui.searchLoading,
+  isInitialized: (s: SPMState) => s.ui.initialized,
+  getError: (s: SPMState) => s.ui.error,
 
-  isFavorite: (s: SPWState, id: number) => s.favorites.includes(id),
-  getFavoriteCount: (s: SPWState) => s.favorites.length,
+  isFavorite: (s: SPMState, id: number) => s.favorites.includes(id),
+  getFavoriteCount: (s: SPMState) => s.favorites.length,
 
-  getEffectiveFilters: (s: SPWState): SearchFilters => ({
+  getEffectiveFilters: (s: SPMState): SearchFilters => ({
     ...s.filters,
     ...flattenLocked(s.lockedFilters),
   }),
 
-  getResultCount: (s: SPWState) => s.results?.meta.total ?? 0,
-  getCurrentPage: (s: SPWState) => s.results?.meta.page ?? 1,
-  getTotalPages: (s: SPWState) => s.results?.meta.pages ?? 1,
+  getResultCount: (s: SPMState) => s.results?.meta.total ?? 0,
+  getCurrentPage: (s: SPMState) => s.results?.meta.page ?? 1,
+  getTotalPages: (s: SPMState) => s.results?.meta.pages ?? 1,
 
-  getLabel: (s: SPWState, key: string, fallback?: string): string => {
+  getLabel: (s: SPMState, key: string, fallback?: string): string => {
     return (s.labels as Record<string, string>)[key] ?? fallback ?? key;
   },
 };

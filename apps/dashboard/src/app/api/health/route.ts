@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Next.js is strictly a render/proxy tier for SPW — it holds no persistent
+// Next.js is strictly a render/proxy tier for SPM — it holds no persistent
 // state and its upstream is the NestJS API. A successful response here just
 // proves the Node server is serving. Consumers who care about API health
 // should probe the API's /api/health/ready directly.

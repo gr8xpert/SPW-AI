@@ -4,6 +4,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import RsFeaturesModal from './RsFeaturesModal';
 import type { Feature } from '@/types';
 
 interface Props {
@@ -39,6 +40,10 @@ export default function RsQuickFeatures(props: Props) {
       : [...selected, id];
     setFilter('features', next.length ? next : undefined as unknown as number[]);
   }, [selected, setFilter]);
+
+  const clearAll = useCallback(() => {
+    setFilter('features', undefined as unknown as number[]);
+  }, [setFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Feature[]>();
@@ -78,42 +83,13 @@ export default function RsQuickFeatures(props: Props) {
       </div>
 
       {modalOpen && (
-        <div class="rs-modal-backdrop rs-backdrop-enter" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
-          <div class="rs-modal-content rs-modal-enter">
-            <div class="rs-modal-header">
-              <span class="rs-modal-header__title">{t('features_label', 'Features')}</span>
-              <button type="button" class="rs-modal-header__close" onClick={() => setModalOpen(false)}>
-                &times;
-              </button>
-            </div>
-            <div class="rs-modal-body">
-              <div class="rs-features-modal__categories">
-                {Array.from(grouped.entries()).map(([cat, feats]) => (
-                  <div key={cat}>
-                    <div class="rs-features-modal__category-title">{cat}</div>
-                    <div class="rs-features-grid">
-                      {feats.map(f => (
-                        <label key={f.id} class="rs-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(f.id)}
-                            onChange={() => toggle(f.id)}
-                          />
-                          <span>{f.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div class="rs-modal-footer">
-              <button type="button" class="rs-reset-btn" onClick={() => setModalOpen(false)}>
-                {t('close', 'Close')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <RsFeaturesModal
+          grouped={grouped}
+          selected={selected}
+          toggle={toggle}
+          clearAll={clearAll}
+          onClose={() => setModalOpen(false)}
+        />
       )}
     </div>
   );

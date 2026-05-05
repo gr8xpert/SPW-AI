@@ -19,6 +19,7 @@ export type PropertySource = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'manu
 
 export interface PropertyImage {
   url: string;
+  sourceUrl?: string;
   order: number;
   alt?: string;
 }
@@ -294,6 +295,9 @@ export class Property {
   // Field locking (array of locked field names)
   @Column({ type: 'json', nullable: true })
   lockedFields: string[] | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  contentHash: string | null;
 
   // Audit / Feed
   @Column({ type: 'int', nullable: true })

@@ -15,7 +15,7 @@ export class TenantEmailDomain1776303900000 implements MigrationInterface {
         id INT AUTO_INCREMENT PRIMARY KEY,
         tenantId INT NOT NULL UNIQUE,
         domain VARCHAR(255) NOT NULL,
-        dkimSelector VARCHAR(50) NOT NULL DEFAULT 'spw1',
+        dkimSelector VARCHAR(50) NOT NULL DEFAULT 'spm1',
         dkimPublicKey TEXT NOT NULL,
         dkimPrivateKey TEXT NOT NULL,
         spfVerifiedAt TIMESTAMP NULL DEFAULT NULL,

@@ -1,4 +1,4 @@
-const DB_NAME = 'spw-cache';
+const DB_NAME = 'spm-cache';
 const STORE_NAME = 'bundles';
 const DB_VERSION = 1;
 

@@ -7,15 +7,15 @@
   --rs-bg: #ffffff;
   --rs-bg-secondary: #f8fafc;
   --rs-border: #e2e8f0;
-  --rs-radius: 8px;
-  --rs-radius-lg: 12px;
-  --rs-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --rs-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --rs-radius: 4px;
+  --rs-radius-lg: 4px;
+  --rs-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --rs-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.04);
   --rs-font: system-ui, -apple-system, sans-serif;
   --rs-transition: 200ms ease;
 }
 
-[data-spw-widget],
+[data-spm-widget],
 [class*="rs_"],
 [class*="rs-"][class*="-template-"] {
   box-sizing: border-box;
@@ -23,16 +23,17 @@
   color: var(--rs-text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  max-width: 100%;
 }
 
-[data-spw-widget] *,
+[data-spm-widget] *,
 [class*="rs_"] *,
 [class*="rs-"][class*="-template-"] * {
   box-sizing: border-box;
 }
 
 /* Reset for widget elements inside client pages */
-[data-spw-widget] button,
+[data-spm-widget] button,
 [class*="rs_"] button {
   cursor: pointer;
   font-family: inherit;
@@ -42,9 +43,9 @@
   margin: 0;
 }
 
-[data-spw-widget] input,
-[data-spw-widget] select,
-[data-spw-widget] textarea,
+[data-spm-widget] input,
+[data-spm-widget] select,
+[data-spm-widget] textarea,
 [class*="rs_"] input,
 [class*="rs_"] select,
 [class*="rs_"] textarea {
@@ -52,7 +53,7 @@
   font-size: inherit;
 }
 
-[data-spw-widget] img,
+[data-spm-widget] img,
 [class*="rs_"] img {
   max-width: 100%;
   height: auto;

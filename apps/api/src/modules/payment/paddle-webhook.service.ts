@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { BillingCycle, SubscriptionStatus } from '@spw/shared';
+import { BillingCycle, SubscriptionStatus } from '@spm/shared';
 import {
   ProcessedPaddleEvent,
   SubscriptionPayment,

@@ -1,6 +1,11 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
 
+export interface ApiResponse<T> {
+  data: T;
+  meta?: Record<string, unknown>;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export const api = axios.create({

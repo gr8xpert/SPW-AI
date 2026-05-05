@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    image: spw/api:latest
+    image: spw/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       mysql:
@@ -96,7 +96,7 @@ services:
       dockerfile: apps/dashboard/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required (baked into client bundle)}
-    image: spw/dashboard:latest
+    image: spw/dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       - api
@@ -121,7 +121,7 @@ services:
     build:
       context: .
       dockerfile: apps/widget/Dockerfile
-    image: spw/widget:latest
+    image: spw/widget:${IMAGE_TAG:-latest}
     restart: unless-stopped
     deploy:
       resources:
@@ -154,7 +154,7 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--socket=/var/run/mysqld/mysqld.sock"]
       interval: 10s
       timeout: 5s
       retries: 10

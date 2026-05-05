@@ -33,6 +33,24 @@ export interface PriceRangeConfig {
   max: number[];
 }
 
+// Location search dropdown configuration (variation 2)
+export interface LocationDropdownConfig {
+  levels: string[];
+  visible?: boolean;
+}
+
+export interface LocationSearchConfig {
+  dropdown1: LocationDropdownConfig;
+  dropdown2: LocationDropdownConfig;
+  dropdown3: LocationDropdownConfig;
+}
+
+export const DEFAULT_LOCATION_SEARCH_CONFIG: LocationSearchConfig = {
+  dropdown1: { levels: ['municipality'], visible: true },
+  dropdown2: { levels: ['town'], visible: true },
+  dropdown3: { levels: ['area'], visible: false },
+};
+
 // Extended TenantSettings interface with all V1 features
 export interface TenantSettings {
   // Core settings
@@ -83,9 +101,25 @@ export interface TenantSettings {
     shortRental?: PriceRangeConfig;
   };
 
+  // Location search config (variation 2 cascading dropdowns)
+  locationSearchConfig?: LocationSearchConfig;
+
   // AI / OpenRouter
   openRouterApiKey?: string;
   openRouterModel?: string;
+
+  // Search options (configurable ranges for bed/bath/price dropdowns)
+  bedroomOptions?: number[];
+  bathroomOptions?: number[];
+  priceOptions?: Record<string, number[]>;
+  enabledListingTypes?: string[];
+  mapVariation?: 'auto' | '0' | '1' | '2';
+  similarPropertiesLimit?: number;
+
+  // Inquiry notifications
+  inquiryNotificationEmails?: string[];  // Recipients for new inquiry alerts
+  inquiryWebhookUrl?: string;            // POST new inquiries to this URL (Zapier/HubSpot/etc)
+  inquiryAutoReplyEnabled?: boolean;     // Send confirmation email to the inquirer
 
   // AI Chat — master toggle
   aiChatEnabled?: boolean;
@@ -142,6 +176,9 @@ export interface TenantFull extends TenantWithApiKey {
   aiSearchEnabled: boolean;
   widgetFeatures: string[];
 
+  // Super-admin add-on flags
+  featureFlags: TenantFeatureFlags;
+
   planId: number;
 
   // Set whenever a tenant admin or super-admin clicks "Clear widget
@@ -166,6 +203,36 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
     shortRentals: { enabled: false, filterId: '', ownFilter: '', minPrice: 0 },
     longRentals: { enabled: false, filterId: '', ownFilter: '', minPrice: 0 },
   },
+};
+
+// Feature flags — super-admin-controlled add-ons per tenant.
+// Layer 1 (what client paid for). Layer 2 is TenantSettings (what client configured).
+// Effective = featureFlags[x] AND settings[x].
+export interface TenantFeatureFlags {
+  mapSearch: boolean;
+  mapView: boolean;
+  aiSearch: boolean;
+  aiChatbot: boolean;
+  mortgageCalculator: boolean;
+  currencyConverter: boolean;
+}
+
+export const DEFAULT_FEATURE_FLAGS: TenantFeatureFlags = {
+  mapSearch: false,
+  mapView: false,
+  aiSearch: false,
+  aiChatbot: false,
+  mortgageCalculator: false,
+  currencyConverter: false,
+};
+
+export const ALL_ENABLED_FEATURE_FLAGS: TenantFeatureFlags = {
+  mapSearch: true,
+  mapView: true,
+  aiSearch: true,
+  aiChatbot: true,
+  mortgageCalculator: true,
+  currencyConverter: true,
 };
 
 // Currency options supported by the widget

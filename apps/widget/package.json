@@ -1,10 +1,10 @@
 {
-  "name": "@spw/widget",
+  "name": "@spm/widget",
   "version": "2.0.0",
-  "description": "Smart Property Widget - Embeddable property search widget",
+  "description": "Smart Property Manager - Embeddable property search widget",
   "type": "module",
-  "main": "dist/spw-widget.umd.js",
-  "module": "dist/spw-widget.es.js",
+  "main": "dist/spm-widget.umd.js",
+  "module": "dist/spm-widget.es.js",
   "types": "dist/types/index.d.ts",
   "files": [
     "dist"

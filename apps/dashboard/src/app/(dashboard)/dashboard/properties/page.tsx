@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -213,9 +214,9 @@ export default function PropertiesPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header animate-fade-in">
         <div>
           <h1 className="page-title">Properties</h1>
           <p className="page-description mt-1">Manage your property listings</p>

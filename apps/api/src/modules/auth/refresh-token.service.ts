@@ -9,7 +9,7 @@ import {
   RefreshTokenRevokedReason,
   User,
 } from '../../database/entities';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 // Refresh-token rotation with reuse detection.
 //

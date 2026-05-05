@@ -26,9 +26,11 @@ export class LocationService {
     });
   }
 
-  async findTree(tenantId: number): Promise<LocationTree[]> {
+  async findTree(tenantId: number, includeInactive = false): Promise<LocationTree[]> {
+    const where: any = { tenantId };
+    if (!includeInactive) where.isActive = true;
     const locations = await this.locationRepository.find({
-      where: { tenantId, isActive: true },
+      where,
       order: { sortOrder: 'ASC' },
     });
     return this.buildTree(locations);

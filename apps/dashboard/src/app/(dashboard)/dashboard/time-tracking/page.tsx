@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
   Table,
   TableBody,
@@ -96,10 +97,10 @@ interface AssignedTicket {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-blue-600 text-white' },
-  in_progress: { label: 'In Progress', className: 'bg-amber-500 text-white' },
-  waiting_customer: { label: 'Awaiting Reply', className: 'bg-purple-500 text-white' },
-  resolved: { label: 'Resolved', className: 'bg-green-600 text-white' },
+  open: { label: 'Open', className: 'bg-primary text-primary-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-primary/70 text-primary-foreground' },
+  waiting_customer: { label: 'Awaiting Reply', className: 'bg-primary/50 text-primary-foreground' },
+  resolved: { label: 'Resolved', className: 'bg-primary/80 text-primary-foreground' },
   closed: { label: 'Closed', className: '' },
 };
 
@@ -226,9 +227,9 @@ export default function TimeTrackingPage() {
   const activeTickets = assignedTickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved');
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="page-header">
+    <div className="space-y-6">
+      {/* Header - snappy for webmaster */}
+      <div className="page-header animate-fade-in">
         <div>
           <h1 className="page-title">Time Tracking</h1>
           <p className="page-description mt-1">Log and manage your work hours</p>
@@ -250,7 +251,7 @@ export default function TimeTrackingPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <div className="stat-card-icon bg-blue-50"><Calendar className="h-4 w-4 text-blue-600" /></div>
+            <div className="stat-card-icon"><Calendar className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{(stats?.totalHoursThisMonth || 0).toFixed(1)}h</div>
@@ -259,7 +260,7 @@ export default function TimeTrackingPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">All Time</CardTitle>
-            <div className="stat-card-icon bg-green-50"><Timer className="h-4 w-4 text-green-600" /></div>
+            <div className="stat-card-icon"><Timer className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{(stats?.totalHoursAllTime || 0).toFixed(1)}h</div>
@@ -268,7 +269,7 @@ export default function TimeTrackingPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active Tickets</CardTitle>
-            <div className="stat-card-icon bg-amber-50"><Ticket className="h-4 w-4 text-amber-600" /></div>
+            <div className="stat-card-icon"><Ticket className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{stats?.activeTickets || 0}</div>
@@ -277,7 +278,7 @@ export default function TimeTrackingPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Unpaid Hours</CardTitle>
-            <div className="stat-card-icon bg-red-50"><Clock className="h-4 w-4 text-red-600" /></div>
+            <div className="stat-card-icon"><Clock className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{(summary?.unpaidHours || 0).toFixed(1)}h</div>

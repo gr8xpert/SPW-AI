@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { UserRoleType } from '@spw/shared';
+import { UserRoleType } from '@spm/shared';
 import { ROLES_KEY } from '../guards/roles.guard';
 
 /**

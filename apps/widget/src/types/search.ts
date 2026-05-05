@@ -2,7 +2,9 @@ export interface SearchFilters {
   query?: string;
   listingType?: string;
   locationId?: number;
+  locationIds?: number[];
   propertyTypeId?: number;
+  propertyTypeIds?: number[];
   minPrice?: number;
   maxPrice?: number;
   minBedrooms?: number;
@@ -13,6 +15,8 @@ export interface SearchFilters {
   maxBuildSize?: number;
   minPlotSize?: number;
   maxPlotSize?: number;
+  minTerraceSize?: number;
+  maxTerraceSize?: number;
   features?: number[];
   isFeatured?: boolean;
   reference?: string;
@@ -26,11 +30,14 @@ export interface SearchFilters {
 }
 
 export type SortOption =
-  | 'price_asc'
-  | 'price_desc'
-  | 'date_asc'
-  | 'date_desc'
-  | 'featured';
+  | 'create_date_desc'
+  | 'create_date'
+  | 'write_date_desc'
+  | 'write_date'
+  | 'list_price'
+  | 'list_price_desc'
+  | 'is_featured_desc'
+  | 'location_id';
 
 export interface LockedFilters {
   locationId?: number;

@@ -260,7 +260,7 @@ export default function CreditsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Credits Outstanding</CardTitle>
-            <div className="stat-card-icon bg-amber-50"><Coins className="h-4 w-4 text-amber-600" /></div>
+            <div className="stat-card-icon"><Coins className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
@@ -272,7 +272,7 @@ export default function CreditsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clients with Balance</CardTitle>
-            <div className="stat-card-icon bg-blue-50"><Users className="h-4 w-4 text-blue-600" /></div>
+            <div className="stat-card-icon"><Users className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
@@ -286,7 +286,7 @@ export default function CreditsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-            <div className="stat-card-icon bg-green-50"><CreditCard className="h-4 w-4 text-green-600" /></div>
+            <div className="stat-card-icon"><CreditCard className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
@@ -343,7 +343,7 @@ export default function CreditsPage() {
                       <span
                         className={`inline-flex items-center rounded-md px-3 py-1 text-base font-bold font-mono ${
                           tenant.balance > 0
-                            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                            ? 'bg-secondary text-primary'
                             : 'bg-muted text-muted-foreground'
                         }`}
                       >
@@ -432,7 +432,7 @@ export default function CreditsPage() {
                         </TableCell>
                         <TableCell>
                           {tx.type === 'add' ? (
-                            <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                            <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground">
                               <Plus className="mr-1 h-3 w-3" />
                               Add
                             </Badge>
@@ -519,13 +519,13 @@ export default function CreditsPage() {
                 <SelectContent>
                   <SelectItem value="add">
                     <span className="flex items-center gap-2">
-                      <Plus className="h-3 w-3 text-green-600" />
+                      <Plus className="h-3 w-3 text-primary" />
                       Add Credits
                     </span>
                   </SelectItem>
                   <SelectItem value="deduct">
                     <span className="flex items-center gap-2">
-                      <Minus className="h-3 w-3 text-red-600" />
+                      <Minus className="h-3 w-3 text-primary/60" />
                       Deduct Credits
                     </span>
                   </SelectItem>

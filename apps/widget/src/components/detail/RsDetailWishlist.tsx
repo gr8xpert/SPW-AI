@@ -3,6 +3,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 
 interface Props {
   propertyId?: number;
@@ -31,7 +32,7 @@ export default function RsDetailWishlist({ propertyId: idProp }: Props) {
       onClick={handleToggle}
       type="button"
     >
-      <span class="rs-detail-wishlist__icon">{saved ? '♥' : '♡'}</span>
+      <span class="rs-detail-wishlist__icon"><RsWishlistIcon size={18} filled={saved} /></span>
       <span class="rs-detail-wishlist__label">
         {saved
           ? t('detail_saved', 'Saved')

@@ -20,7 +20,7 @@ export function AdminHeader() {
   const { data: session } = useSession();
 
   return (
-    <header className="sticky top-0 z-40 h-16 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-6">
+    <header className="sticky top-0 z-40 h-14 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-6">
       <div className="flex items-center gap-2">
         <Badge variant="destructive" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold">
           <Shield className="h-3 w-3" />

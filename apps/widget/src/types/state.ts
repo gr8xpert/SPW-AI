@@ -3,7 +3,7 @@ import type { SearchFilters, LockedFilters } from './search';
 import type { WidgetConfig } from './config';
 import type { Labels } from './labels';
 
-export interface SPWState {
+export interface SPMState {
   config: WidgetConfig;
   filters: SearchFilters;
   lockedFilters: LockedFilters;
@@ -30,7 +30,7 @@ export interface UIState {
   searchLoading: boolean;
   detailLoading: boolean;
   error: string | null;
-  layout: 'grid' | 'list';
+  layout: 'grid' | 'list' | 'map';
   mapVisible: boolean;
   chatOpen: boolean;
   favoritesOpen: boolean;
@@ -39,7 +39,7 @@ export interface UIState {
   highlightedPropertyId: number | null;
 }
 
-export type StateSlice = keyof SPWState;
+export type StateSlice = keyof SPMState;
 
 export type ActionType =
   | 'SET_CONFIG'

@@ -5,6 +5,11 @@ export interface Labels {
   advanced_search: string;
   location_placeholder: string;
   location_all: string;
+  location_dropdown1_label: string;
+  location_dropdown2_label: string;
+  location_dropdown3_label: string;
+  location_n_selected: string;
+  location_search: string;
   listing_type_all: string;
   listing_type_sale: string;
   listing_type_rent: string;

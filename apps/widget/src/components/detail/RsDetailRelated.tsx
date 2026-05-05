@@ -17,10 +17,10 @@ export default function RsDetailRelated({ limit }: Props) {
   const property = useSelector(selectors.getSelectedProperty);
   const [related, setRelated] = useState<Property[]>([]);
 
-  const maxItems = limit ? Number(limit) : 6;
+  const maxItems = limit ? Number(limit) : (config.similarPropertiesLimit ?? 4);
 
   useEffect(() => {
-    if (!property) return;
+    if (!property || maxItems <= 0) return;
     let cancelled = false;
 
     const apiUrl = config.apiUrl.replace(/\/$/, '');
@@ -45,35 +45,45 @@ export default function RsDetailRelated({ limit }: Props) {
       <h2 class="rs-detail-section__heading">
         {t('detail_similar', 'Similar Properties')}
       </h2>
-      <div class="rs-detail-related" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
-        {related.map((p) => (
+      <div class="rs-detail-related__grid">
+        {related.map((p, i) => (
           <a
             key={p.id}
             class="rs-detail-related__card"
             href={`?ref=${p.reference}`}
-            style="text-decoration: none; color: inherit; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: white;"
+            style={`--i:${i}`}
           >
-            {p.images?.[0] && (
-              <img
-                src={p.images[0].thumbnailUrl || p.images[0].url}
-                alt={p.images[0].alt || p.title}
-                style="width: 100%; height: 180px; object-fit: cover; display: block;"
-                loading="lazy"
-              />
-            )}
-            <div style="padding: 0.75rem;">
-              <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div class="rs-detail-related__image">
+              {p.images?.[0] && (
+                <img
+                  src={p.images[0].thumbnailUrl || p.images[0].url}
+                  alt={p.images[0].alt || p.title}
+                  loading="lazy"
+                />
+              )}
+            </div>
+            <div class="rs-detail-related__body">
+              <div class="rs-detail-related__title">
                 {p.title}
               </div>
-              <div style="color: #2563eb; font-weight: 700; font-size: 0.9rem;">
+              {p.location?.name && (
+                <div class="rs-detail-related__location">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {p.location.name}
+                </div>
+              )}
+              <div class="rs-detail-related__specs">
+                {p.bedrooms != null && <span>{p.bedrooms} {t('beds', 'beds')}</span>}
+                {p.bathrooms != null && <span>{p.bathrooms} {t('baths', 'baths')}</span>}
+                {p.buildSize != null && <span>{p.buildSize}m²</span>}
+              </div>
+              <div class="rs-detail-related__price">
                 {p.priceOnRequest
                   ? t('price_on_request', 'Price on Request')
                   : formatPrice(p.price, p.currency)}
-              </div>
-              <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">
-                {p.bedrooms != null && `${p.bedrooms} ${t('beds', 'beds')}`}
-                {p.bathrooms != null && ` · ${p.bathrooms} ${t('baths', 'baths')}`}
-                {p.buildSize != null && ` · ${p.buildSize}m²`}
               </div>
             </div>
           </a>

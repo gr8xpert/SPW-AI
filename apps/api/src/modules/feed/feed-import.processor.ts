@@ -9,7 +9,7 @@ interface FeedImportJobData {
   tenantId: number;
 }
 
-@Processor('feed-import')
+@Processor('feed-import', { concurrency: 2 })
 export class FeedImportProcessor extends WorkerHost {
   private readonly logger = new Logger(FeedImportProcessor.name);
 

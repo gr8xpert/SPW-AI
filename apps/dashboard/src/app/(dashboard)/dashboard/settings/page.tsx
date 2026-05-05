@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus, MessageSquare } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus, MessageSquare, LayoutGrid, Palette, Heart, Star, Bookmark, Save, ShieldCheck } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
@@ -79,8 +79,46 @@ const emailSchema = z.object({
 interface CacheClearResponse {
   data: { tenantId: number; syncVersion: number; clearedAt: string };
 }
+interface TenantSettings {
+  slugFormat?: string;
+  companyName?: string;
+  defaultLanguage?: string;
+  languages?: string[];
+  openRouterApiKey?: string;
+  openRouterModel?: string;
+  aiChatEnabled?: boolean;
+  aiChatNLSearch?: boolean;
+  aiChatConversational?: boolean;
+  aiChatPropertyQA?: boolean;
+  aiChatComparison?: boolean;
+  aiChatRecommendations?: boolean;
+  aiChatMultilingual?: boolean;
+  aiChatWelcomeMessage?: string;
+  aiChatMaxMessagesPerConversation?: number;
+  aiChatConversationTTLDays?: number;
+  aiChatAutoEmailAdmin?: boolean;
+  bedroomOptions?: number[];
+  bathroomOptions?: number[];
+  priceOptions?: { sale?: number[]; rent?: number[] };
+  enabledListingTypes?: string[];
+  primaryColor?: string;
+  wishlistIcon?: 'heart' | 'star' | 'bookmark' | 'save';
+  mapVariation?: 'auto' | '0' | '1' | '2';
+  recaptchaSiteKey?: string;
+  recaptchaSecretKey?: string;
+  similarPropertiesLimit?: number;
+  inquiryNotificationEmails?: string[];
+  inquiryWebhookUrl?: string;
+  inquiryAutoReplyEnabled?: boolean;
+  [key: string]: unknown;
+}
 interface TenantCurrent {
-  data: { id: number; syncVersion?: number } & Record<string, unknown>;
+  data: {
+    id: number;
+    syncVersion?: number;
+    domain?: string;
+    settings?: TenantSettings;
+  };
 }
 
 // Webhook management (5E). The dashboard fetches the current URL + last4 of
@@ -207,6 +245,28 @@ export default function SettingsPage() {
   const [aiChatAutoEmailAdmin, setAiChatAutoEmailAdmin] = useState(true);
   const [savingAiChat, setSavingAiChat] = useState(false);
 
+  // Widget search options state
+  const [bedroomOptions, setBedroomOptions] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const [bathroomOptions, setBathroomOptions] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const [priceOptions, setPriceOptions] = useState<Record<string, number[]>>({
+    sale: [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000],
+    rent: [250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000],
+    holiday_rent: [150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000],
+  });
+  const [enabledListingTypes, setEnabledListingTypes] = useState<string[]>(['sale', 'rent', 'holiday_rent', 'development']);
+  const [primaryColor, setPrimaryColor] = useState('#2563eb');
+  const [wishlistIcon, setWishlistIcon] = useState<'heart' | 'star' | 'bookmark' | 'save'>('heart');
+  const [mapVariation, setMapVariation] = useState<'auto' | '0' | '1' | '2'>('auto');
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
+  const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
+  const [similarPropertiesLimit, setSimilarPropertiesLimit] = useState(6);
+  const [inquiryNotificationEmails, setInquiryNotificationEmails] = useState<string[]>([]);
+  const [inquiryEmailInput, setInquiryEmailInput] = useState('');
+  const [inquiryWebhookUrl, setInquiryWebhookUrl] = useState('');
+  const [inquiryAutoReplyEnabled, setInquiryAutoReplyEnabled] = useState(true);
+  const [savingInquiry, setSavingInquiry] = useState(false);
+  const [savingWidget, setSavingWidget] = useState(false);
+
   // Email config state
   const [savingEmail, setSavingEmail] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
@@ -236,15 +296,15 @@ export default function SettingsPage() {
         if (typeof res.data?.syncVersion === 'number') {
           setSyncVersion(res.data.syncVersion);
         }
-        const settings = (res.data as any)?.settings;
+        const settings = res.data?.settings;
         if (settings?.slugFormat) {
-          setSlugFormat(settings.slugFormat);
+          setSlugFormat(settings.slugFormat as SlugFormat);
         }
         if (settings?.companyName) {
           generalForm.setValue('companyName', settings.companyName);
         }
-        if ((res.data as any)?.domain) {
-          generalForm.setValue('domain', (res.data as any).domain);
+        if (res.data?.domain) {
+          generalForm.setValue('domain', res.data.domain);
         }
         if (settings?.defaultLanguage) {
           generalForm.setValue('defaultLanguage', settings.defaultLanguage);
@@ -269,6 +329,21 @@ export default function SettingsPage() {
         if (typeof settings?.aiChatMaxMessagesPerConversation === 'number') setAiChatMaxMessages(settings.aiChatMaxMessagesPerConversation);
         if (typeof settings?.aiChatConversationTTLDays === 'number') setAiChatTTLDays(settings.aiChatConversationTTLDays);
         if (typeof settings?.aiChatAutoEmailAdmin === 'boolean') setAiChatAutoEmailAdmin(settings.aiChatAutoEmailAdmin);
+        if (Array.isArray(settings?.bedroomOptions)) setBedroomOptions(settings.bedroomOptions);
+        if (Array.isArray(settings?.bathroomOptions)) setBathroomOptions(settings.bathroomOptions);
+        if (settings?.priceOptions && typeof settings.priceOptions === 'object' && !Array.isArray(settings.priceOptions)) {
+          setPriceOptions(settings.priceOptions);
+        }
+        if (Array.isArray(settings?.enabledListingTypes)) setEnabledListingTypes(settings.enabledListingTypes);
+        if (settings?.primaryColor) setPrimaryColor(settings.primaryColor);
+        if (settings?.wishlistIcon) setWishlistIcon(settings.wishlistIcon);
+        if (settings?.mapVariation) setMapVariation(settings.mapVariation);
+        if (settings?.recaptchaSiteKey) setRecaptchaSiteKey(settings.recaptchaSiteKey);
+        if (settings?.recaptchaSecretKey) setRecaptchaSecretKey(settings.recaptchaSecretKey);
+        if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
+        if (Array.isArray(settings?.inquiryNotificationEmails)) setInquiryNotificationEmails(settings.inquiryNotificationEmails);
+        if (settings?.inquiryWebhookUrl) setInquiryWebhookUrl(settings.inquiryWebhookUrl);
+        if (typeof settings?.inquiryAutoReplyEnabled === 'boolean') setInquiryAutoReplyEnabled(settings.inquiryAutoReplyEnabled);
       })
       .catch(() => {});
 
@@ -642,6 +717,63 @@ export default function SettingsPage() {
     }
   };
 
+  const onSaveWidget = async () => {
+    setSavingWidget(true);
+    try {
+      await apiPut('/api/dashboard/tenant/settings', {
+        bedroomOptions,
+        bathroomOptions,
+        priceOptions,
+        enabledListingTypes,
+        primaryColor,
+        wishlistIcon,
+        mapVariation,
+        recaptchaSiteKey: recaptchaSiteKey.trim() || undefined,
+        recaptchaSecretKey: recaptchaSecretKey.trim() || undefined,
+        similarPropertiesLimit,
+      });
+      toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
+    } catch (err) {
+      toast({ title: 'Failed to save widget settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSavingWidget(false);
+    }
+  };
+
+  const onSaveInquiry = async () => {
+    setSavingInquiry(true);
+    try {
+      await apiPut('/api/dashboard/tenant/settings', {
+        inquiryNotificationEmails,
+        inquiryWebhookUrl: inquiryWebhookUrl.trim() || undefined,
+        inquiryAutoReplyEnabled,
+      });
+      toast({ title: 'Inquiry settings saved', description: 'Notification and webhook settings have been updated.' });
+    } catch (err) {
+      toast({ title: 'Failed to save inquiry settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSavingInquiry(false);
+    }
+  };
+
+  const addInquiryEmail = () => {
+    const email = inquiryEmailInput.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      return;
+    }
+    if (inquiryNotificationEmails.includes(email)) {
+      toast({ title: 'Already added', description: 'This email is already in the list.', variant: 'destructive' });
+      return;
+    }
+    setInquiryNotificationEmails([...inquiryNotificationEmails, email]);
+    setInquiryEmailInput('');
+  };
+
+  const removeInquiryEmail = (email: string) => {
+    setInquiryNotificationEmails(inquiryNotificationEmails.filter(e => e !== email));
+  };
+
   const generalForm = useForm({
     resolver: zodResolver(generalSchema),
     defaultValues: {
@@ -775,26 +907,28 @@ export default function SettingsPage() {
             <Building2 className="h-4 w-4 mr-2" />
             General
           </TabsTrigger>
+          <TabsTrigger value="widget">
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Widget
+          </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="h-4 w-4 mr-2" />
             Email
           </TabsTrigger>
-          <TabsTrigger value="api">
-            <Key className="h-4 w-4 mr-2" />
-            API Keys
-          </TabsTrigger>
-          <TabsTrigger value="webhooks">
-            <Webhook className="h-4 w-4 mr-2" />
-            Webhooks
-          </TabsTrigger>
-          <TabsTrigger value="ai">
-            <Bot className="h-4 w-4 mr-2" />
-            AI
-          </TabsTrigger>
-          <TabsTrigger value="ai-chat">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            AI Chat
-          </TabsTrigger>
+          {/* Webhook tab hidden — only used internally for WP plugin sync, configured by support team */}
+          {webhookUrl && (
+            <TabsTrigger value="webhooks">
+              <Webhook className="h-4 w-4 mr-2" />
+              Webhooks
+            </TabsTrigger>
+          )}
+          {/* AI tab hidden — OpenRouter key/model is infrastructure, managed by super admin */}
+          {aiChatEnabled && (
+            <TabsTrigger value="ai-chat">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              AI Chat
+            </TabsTrigger>
+          )}
           <TabsTrigger value="cache">
             <RefreshCw className="h-4 w-4 mr-2" />
             Cache
@@ -958,6 +1092,390 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        {/* Widget Settings */}
+        <TabsContent value="widget">
+          <Card>
+            <CardHeader>
+              <CardTitle>Search Widget Options</CardTitle>
+              <CardDescription>
+                Configure the bedroom, bathroom, and price options shown in
+                the search widget dropdowns and button groups.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Listing Types</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Select which listing types are available in the search widget. At least one must be enabled.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      { value: 'sale', label: 'Sale' },
+                      { value: 'rent', label: 'Long-term Rent' },
+                      { value: 'holiday_rent', label: 'Holiday Rent' },
+                      { value: 'development', label: 'Development' },
+                    ].map(({ value, label }) => (
+                      <label key={value} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enabledListingTypes.includes(value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEnabledListingTypes([...enabledListingTypes, value]);
+                            } else if (enabledListingTypes.length > 1) {
+                              setEnabledListingTypes(enabledListingTypes.filter(v => v !== value));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Wishlist / Favorites Icon</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Choose the icon used for saving properties across the widget (listing cards, detail page, wishlist).
+                  </p>
+                  <div className="flex gap-2">
+                    {([
+                      { value: 'heart' as const, icon: Heart, label: 'Heart' },
+                      { value: 'star' as const, icon: Star, label: 'Star' },
+                      { value: 'bookmark' as const, icon: Bookmark, label: 'Bookmark' },
+                      { value: 'save' as const, icon: Save, label: 'Save' },
+                    ]).map(({ value, icon: Icon, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${wishlistIcon === value ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
+                        onClick={() => setWishlistIcon(value)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Property Detail Map Display</Label>
+                  <p className="text-xs text-muted-foreground">
+                    How the property location is shown on the detail page map. &quot;Auto&quot; uses the best available data.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { value: 'auto' as const, label: 'Auto (Best Available)', desc: 'Pin → Zip → Location' },
+                      { value: '0' as const, label: 'Pin + Circle', desc: 'Approximate marker with radius' },
+                      { value: '1' as const, label: 'Zip Code Area', desc: 'Boundary around postal code' },
+                      { value: '2' as const, label: 'Location Area', desc: 'Boundary around municipality' },
+                    ]).map(({ value, label, desc }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`flex flex-col items-start rounded-md border px-4 py-2 text-sm transition-colors ${mapVariation === value ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
+                        onClick={() => setMapVariation(value)}
+                      >
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Similar Properties</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Number of similar properties shown on the property detail page. Set to 0 to hide the section entirely.
+                  </p>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={similarPropertiesLimit}
+                    onChange={(e) => setSimilarPropertiesLimit(Number(e.target.value))}
+                    className="w-28"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Bedroom Options</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Values shown in the bedrooms dropdown/buttons. Each value means &quot;X or more&quot;.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {bedroomOptions.map((n) => (
+                      <span
+                        key={n}
+                        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-medium"
+                      >
+                        {n}+
+                        <button
+                          type="button"
+                          className="ml-1 rounded-sm hover:bg-muted p-0.5"
+                          onClick={() =>
+                            setBedroomOptions(bedroomOptions.filter((v) => v !== n))
+                          }
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      placeholder="Add value"
+                      className="w-28"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = Number((e.target as HTMLInputElement).value);
+                          if (val > 0 && !bedroomOptions.includes(val)) {
+                            setBedroomOptions([...bedroomOptions, val].sort((a, b) => a - b));
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">Press Enter to add</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Bathroom Options</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Values shown in the bathrooms dropdown/buttons. Each value means &quot;X or more&quot;.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {bathroomOptions.map((n) => (
+                      <span
+                        key={n}
+                        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-medium"
+                      >
+                        {n}+
+                        <button
+                          type="button"
+                          className="ml-1 rounded-sm hover:bg-muted p-0.5"
+                          onClick={() =>
+                            setBathroomOptions(bathroomOptions.filter((v) => v !== n))
+                          }
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      placeholder="Add value"
+                      className="w-28"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = Number((e.target as HTMLInputElement).value);
+                          if (val > 0 && !bathroomOptions.includes(val)) {
+                            setBathroomOptions([...bathroomOptions, val].sort((a, b) => a - b));
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">Press Enter to add</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                  <Label>Price Dropdown Options</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Configure price dropdown values per listing type. The widget automatically shows the right prices based on the selected listing type.
+                  </p>
+                  {[
+                    { key: 'sale', label: 'Sale' },
+                    { key: 'rent', label: 'Long-term Rent' },
+                    { key: 'holiday_rent', label: 'Holiday Rent' },
+                  ].map(({ key, label }) => {
+                    const values = priceOptions[key] || [];
+                    return (
+                      <div key={key} className="rounded-md border p-3 space-y-2">
+                        <p className="text-sm font-medium">{label}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {values.map((n) => (
+                            <span
+                              key={n}
+                              className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium"
+                            >
+                              {n.toLocaleString()}
+                              <button
+                                type="button"
+                                className="ml-1 rounded-sm hover:bg-muted p-0.5"
+                                onClick={() =>
+                                  setPriceOptions({
+                                    ...priceOptions,
+                                    [key]: values.filter((v) => v !== n),
+                                  })
+                                }
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            placeholder="Add price"
+                            className="w-36 h-8 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = Number((e.target as HTMLInputElement).value);
+                                if (val > 0 && !values.includes(val)) {
+                                  setPriceOptions({
+                                    ...priceOptions,
+                                    [key]: [...values, val].sort((a, b) => a - b),
+                                  });
+                                  (e.target as HTMLInputElement).value = '';
+                                }
+                              }
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">Press Enter to add</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+              <Button onClick={onSaveWidget} disabled={savingWidget}>
+                {savingWidget ? 'Saving...' : 'Save Widget Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Theme Color
+              </CardTitle>
+              <CardDescription>
+                Set a primary color for your widget. All buttons, links, and accents will follow this color.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-input p-0.5"
+                />
+                <Input
+                  value={primaryColor}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setPrimaryColor(v);
+                  }}
+                  className="w-32 font-mono"
+                  maxLength={7}
+                  placeholder="#2563eb"
+                />
+                <div
+                  className="h-10 flex-1 rounded-md flex items-center justify-center text-white text-sm font-medium"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Preview
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {['#2563eb', '#c8a255', '#16a34a', '#dc2626', '#7c3aed', '#0891b2', '#ea580c', '#1e293b'].map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${primaryColor === color ? 'border-foreground scale-110' : 'border-transparent'}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setPrimaryColor(color)}
+                  />
+                ))}
+              </div>
+              <Button onClick={onSaveWidget} disabled={savingWidget} size="sm">
+                {savingWidget ? 'Saving...' : 'Save Theme'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                reCAPTCHA
+              </CardTitle>
+              <CardDescription>
+                Protect your inquiry form from spam with Google reCAPTCHA v2.
+                When both keys are set, a reCAPTCHA checkbox appears above the
+                &quot;Send Inquiry&quot; button on property detail pages.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="recaptchaSiteKey">Site Key</Label>
+                  <Input
+                    id="recaptchaSiteKey"
+                    placeholder="6Lc..."
+                    value={recaptchaSiteKey}
+                    onChange={(e) => setRecaptchaSiteKey(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The public key embedded in the widget HTML.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recaptchaSecretKey">Secret Key</Label>
+                  <Input
+                    id="recaptchaSecretKey"
+                    type="password"
+                    placeholder="6Lc..."
+                    value={recaptchaSecretKey}
+                    onChange={(e) => setRecaptchaSecretKey(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The private key used for server-side verification.
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Get your keys from{' '}
+                <a
+                  href="https://www.google.com/recaptcha/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  google.com/recaptcha/admin
+                </a>
+                . Choose reCAPTCHA v2 &quot;I&apos;m not a robot&quot; checkbox.
+                Leave both fields empty to disable reCAPTCHA.
+              </p>
+              <Button onClick={onSaveWidget} disabled={savingWidget} size="sm">
+                {savingWidget ? 'Saving...' : 'Save reCAPTCHA'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Email Settings */}
         <TabsContent value="email">
           <Card>
@@ -1042,22 +1560,104 @@ export default function SettingsPage() {
                     className={
                       'rounded-lg border p-4 mt-4 ' +
                       (emailTestResult.success
-                        ? 'border-green-500/40 bg-green-50 dark:bg-green-950/30'
-                        : 'border-red-500/40 bg-red-50 dark:bg-red-950/30')
+                        ? 'border-primary/20 bg-secondary/20'
+                        : 'border-primary/10 bg-muted')
                     }
                   >
                     {emailTestResult.success ? (
-                      <p className="text-sm text-green-800 dark:text-green-200">
+                      <p className="text-sm text-primary">
                         SMTP connection test successful! A test email was sent.
                       </p>
                     ) : (
-                      <p className="text-sm text-red-800 dark:text-red-200">
+                      <p className="text-sm text-primary/70">
                         Connection failed: {emailTestResult.error}
                       </p>
                     )}
                   </div>
                 )}
               </form>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Inquiry Notifications
+              </CardTitle>
+              <CardDescription>
+                Configure where inquiry form submissions are sent. Add email
+                recipients and/or a webhook URL to connect with Zapier, HubSpot,
+                Make, or any third-party tool.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <Label>Notification Recipients</Label>
+                <p className="text-xs text-muted-foreground">
+                  All emails listed below will receive a notification when someone
+                  submits an inquiry on your website.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="email@example.com"
+                    value={inquiryEmailInput}
+                    onChange={(e) => setInquiryEmailInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addInquiryEmail(); } }}
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={addInquiryEmail}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {inquiryNotificationEmails.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {inquiryNotificationEmails.map(email => (
+                      <span key={email} className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-sm">
+                        {email}
+                        <button type="button" onClick={() => removeInquiryEmail(email)} className="ml-1 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="autoReply">Auto-reply to Inquirer</Label>
+                  <Switch
+                    id="autoReply"
+                    checked={inquiryAutoReplyEnabled}
+                    onCheckedChange={setInquiryAutoReplyEnabled}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, the person who submitted the inquiry receives a
+                  confirmation email that their message was received.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inquiryWebhook">Inquiry Webhook URL</Label>
+                <Input
+                  id="inquiryWebhook"
+                  placeholder="https://hooks.zapier.com/hooks/catch/..."
+                  value={inquiryWebhookUrl}
+                  onChange={(e) => setInquiryWebhookUrl(e.target.value)}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Every inquiry will be POSTed as JSON to this URL. Works with
+                  Zapier, HubSpot, Make, n8n, or any webhook receiver. The payload
+                  includes: name, email, phone, message, propertyId, and timestamp.
+                </p>
+              </div>
+
+              <Button onClick={onSaveInquiry} disabled={savingInquiry} size="sm">
+                {savingInquiry ? 'Saving...' : 'Save Inquiry Settings'}
+              </Button>
             </CardContent>
           </Card>
 
@@ -1114,9 +1714,9 @@ export default function SettingsPage() {
                           className={
                             'text-xs font-medium rounded px-2 py-1 ' +
                             (senderDomain.status === 'verified'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                              ? 'bg-secondary text-primary'
                               : senderDomain.status === 'partial'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              ? 'bg-secondary/60 text-primary/80'
                               : 'bg-muted text-muted-foreground')
                           }
                         >
@@ -1177,7 +1777,7 @@ export default function SettingsPage() {
                                 className={
                                   'text-xs ' +
                                   (verifiedAt
-                                    ? 'text-green-700 dark:text-green-400'
+                                    ? 'text-primary'
                                     : 'text-muted-foreground')
                                 }
                               >
@@ -1225,74 +1825,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* API Keys */}
-        <TabsContent value="api">
-          <Card>
-            <CardHeader>
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>
-                Your API key authenticates widget and integration requests.
-                The full key is shown only once when regenerated — store it securely.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-medium">API Key</p>
-                    <p className="text-sm text-muted-foreground">
-                      {apiKeyLast4
-                        ? `Used in your website widget (x-api-key header). Ends in …${apiKeyLast4}`
-                        : 'Loading…'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                      {apiKeyLast4 ? `••••••••••••${apiKeyLast4}` : '••••��•••••••'}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={onRotateApiKey}
-                      disabled={rotatingApiKey}
-                    >
-                      {rotatingApiKey ? 'Regenerating…' : 'Regenerate'}
-                    </Button>
-                  </div>
-                </div>
-                {revealedApiKey && (
-                  <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-3">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                      New API key — copy it now. It will not be shown again.
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <code className="flex-1 px-2 py-1 bg-muted rounded text-xs font-mono break-all">
-                        {revealedApiKey}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(revealedApiKey);
-                          toast({ title: 'Copied to clipboard' });
-                        }}
-                      >
-                        Copy
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRevealedApiKey(null)}
-                      >
-                        Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* API Keys tab hidden — not needed by clients yet */}
 
         {/* Webhooks */}
         <TabsContent value="webhooks" className="space-y-4">
@@ -1300,7 +1833,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Webhook Configuration</CardTitle>
               <CardDescription>
-                SPW delivers signed POST requests to your URL when properties
+                SPM delivers signed POST requests to your URL when properties
                 change, cache is cleared, or you click &quot;Send test&quot;
                 below. Signatures use HMAC-SHA256 over <code>`${'{'}timestamp{'}'}.${'{'}body{'}'}`</code>
                 with the secret shown below. Private IPs and non-HTTP schemes are rejected.
@@ -1312,7 +1845,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Input
                     id="webhookUrl"
-                    placeholder="https://yoursite.com/wp-json/spw/v1/sync"
+                    placeholder="https://yoursite.com/wp-json/spm/v1/sync"
                     className="flex-1"
                     value={webhookUrl}
                     onChange={(e) => setWebhookUrl(e.target.value)}
@@ -1346,8 +1879,8 @@ export default function SettingsPage() {
                   </Button>
                 </div>
                 {revealedSecret && (
-                  <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-3">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  <div className="mt-3 rounded-md border border-primary/20 bg-secondary/20 p-3">
+                    <p className="text-sm font-medium text-primary">
                       New webhook secret \u2014 copy it now. It will not be shown again.
                     </p>
                     <div className="mt-2 flex items-center gap-2">
@@ -1435,11 +1968,11 @@ export default function SettingsPage() {
                             <span
                               className={
                                 d.status === 'delivered'
-                                  ? 'text-green-700 dark:text-green-400'
+                                  ? 'text-primary'
                                   : d.status === 'failed'
-                                  ? 'text-red-700 dark:text-red-400'
+                                  ? 'text-primary/50'
                                   : d.status === 'skipped'
-                                  ? 'text-amber-700 dark:text-amber-400'
+                                  ? 'text-primary/70'
                                   : 'text-muted-foreground'
                               }
                             >
@@ -1520,7 +2053,7 @@ export default function SettingsPage() {
 
                   {selectedDelivery.lastError && (
                     <div>
-                      <p className="font-medium mb-1 text-red-700 dark:text-red-400">
+                      <p className="font-medium mb-1 text-primary/70">
                         Last error
                       </p>
                       <code className="block bg-muted rounded p-2 text-xs whitespace-pre-wrap break-words">
@@ -1566,125 +2099,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* AI / OpenRouter */}
-        <TabsContent value="ai">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI &amp; Translation</CardTitle>
-              <CardDescription>
-                Connect your OpenRouter account to enable AI-powered translations
-                for properties, features, labels, and more. Each tenant uses their
-                own API key &mdash; usage is billed directly to your OpenRouter account.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="aiApiKey">OpenRouter API Key</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="aiApiKey"
-                    type="password"
-                    placeholder={aiApiKeyMasked || 'sk-or-v1-...'}
-                    value={aiApiKey}
-                    onChange={(e) => setAiApiKey(e.target.value)}
-                    className="flex-1 font-mono text-sm"
-                  />
-                </div>
-                {aiApiKeyMasked && !aiApiKey && (
-                  <p className="text-xs text-muted-foreground">
-                    Current key: <code className="bg-muted rounded px-1">{aiApiKeyMasked}</code>.
-                    Enter a new key to replace it.
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Get your API key from{' '}
-                  <a
-                    href="https://openrouter.ai/keys"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    openrouter.ai/keys
-                  </a>
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>AI Model</Label>
-                <Select value={aiModel} onValueChange={setAiModel}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AI_MODELS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Recommended: Claude Sonnet 4 for best quality real estate translations.
-                  GPT-4o Mini is the cheapest option for high-volume bulk translations.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={onSaveAi} disabled={savingAi}>
-                  {savingAi ? 'Saving…' : 'Save AI Settings'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={onTestAi}
-                  disabled={testingAi || !aiApiKeyMasked}
-                >
-                  <Bot className={`h-4 w-4 mr-2 ${testingAi ? 'animate-pulse' : ''}`} />
-                  {testingAi ? 'Testing…' : 'Test Connection'}
-                </Button>
-              </div>
-
-              {aiTestResult && (
-                <div
-                  className={
-                    'rounded-lg border p-4 ' +
-                    (aiTestResult.ok
-                      ? 'border-green-500/40 bg-green-50 dark:bg-green-950/30'
-                      : 'border-red-500/40 bg-red-50 dark:bg-red-950/30')
-                  }
-                >
-                  {aiTestResult.ok ? (
-                    <p className="text-sm text-green-800 dark:text-green-200">
-                      Connection successful! Model: <code className="bg-green-100 dark:bg-green-900 rounded px-1">{aiTestResult.model}</code>
-                    </p>
-                  ) : (
-                    <p className="text-sm text-red-800 dark:text-red-200">
-                      Connection failed: {aiTestResult.error}
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>How It Works</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Once configured, AI translation buttons appear throughout the dashboard:
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Property Edit page</strong> &mdash; Translate all multilingual fields (title, description, SEO) for a single property</li>
-                <li><strong>Properties List page</strong> &mdash; Bulk translate all properties at once (runs in background)</li>
-                <li><strong>Property Types, Features, Labels</strong> &mdash; Translate names and labels via their management pages</li>
-              </ul>
-              <p>
-                Translations use your tenant&apos;s configured languages. The AI detects the source
-                language automatically and translates to all other languages you&apos;ve enabled.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* AI tab content hidden — OpenRouter config is managed by super admin */}
 
         {/* AI Chat */}
         <TabsContent value="ai-chat" className="space-y-4">
@@ -1692,9 +2107,8 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>AI Chat Widget</CardTitle>
               <CardDescription>
-                Enable an AI-powered chat assistant on your website widget. Visitors can search properties,
+                Configure the AI-powered chat assistant on your website. Visitors can search properties,
                 ask questions, compare listings, and get recommendations through natural conversation.
-                Requires an OpenRouter API key configured in the AI tab.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

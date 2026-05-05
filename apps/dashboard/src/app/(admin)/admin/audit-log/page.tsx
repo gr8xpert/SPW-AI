@@ -54,13 +54,13 @@ interface AuditEntry {
 }
 
 const actionColors: Record<string, string> = {
-  create: 'bg-green-600 text-white',
-  update: 'bg-blue-600 text-white',
-  delete: 'bg-red-600 text-white',
-  login: 'bg-purple-500 text-white',
-  logout: 'bg-gray-500 text-white',
-  view: 'bg-cyan-500 text-white',
-  export: 'bg-amber-500 text-white',
+  create: 'bg-primary text-primary-foreground',
+  update: 'bg-primary/80 text-primary-foreground',
+  delete: 'bg-primary/60 text-primary-foreground',
+  login: 'bg-primary/50 text-primary-foreground',
+  logout: 'bg-primary/30 text-primary-foreground',
+  view: 'bg-primary/40 text-primary-foreground',
+  export: 'bg-primary/70 text-primary-foreground',
 };
 
 export default function AuditLogPage() {
@@ -291,10 +291,10 @@ export default function AuditLogPage() {
                   {Object.entries(detailEntry.changes).map(([field, change]) => (
                     <div key={field} className="text-sm">
                       <span className="font-medium">{field}:</span>{' '}
-                      <span className="text-red-600 line-through">
+                      <span className="text-primary/50 line-through">
                         {JSON.stringify(change.before)}
                       </span>{' '}
-                      <span className="text-green-600">
+                      <span className="text-primary font-medium">
                         {JSON.stringify(change.after)}
                       </span>
                     </div>

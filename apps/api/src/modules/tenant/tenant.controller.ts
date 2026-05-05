@@ -14,7 +14,7 @@ import {
 import { TenantService } from './tenant.service';
 import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, Roles } from '../../common/decorators';
-import { TenantSettings, UserRole, JwtPayload } from '@spw/shared';
+import { TenantSettings, UserRole, JwtPayload } from '@spm/shared';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
 
 @Controller('api/dashboard/tenant')

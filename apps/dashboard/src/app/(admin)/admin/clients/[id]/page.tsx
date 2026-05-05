@@ -20,6 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useApi } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
   Edit,
@@ -35,6 +36,7 @@ import {
   CheckCircle,
   XCircle,
   Copy,
+  Check,
   ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -60,6 +62,14 @@ interface ClientDetail {
   widgetEnabled: boolean;
   aiSearchEnabled: boolean;
   widgetFeatures: string[];
+  featureFlags?: {
+    mapSearch: boolean;
+    mapView: boolean;
+    aiSearch: boolean;
+    aiChatbot: boolean;
+    mortgageCalculator: boolean;
+    currencyConverter: boolean;
+  };
   planId: number;
   lastCacheClearedAt: string | null;
   adminUser?: {
@@ -82,23 +92,26 @@ interface LicenseKey {
 }
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-500',
-  grace: 'bg-yellow-500',
-  expired: 'bg-red-500',
-  manual: 'bg-blue-500',
-  internal: 'bg-purple-500',
+  active: 'bg-primary',
+  grace: 'bg-primary/60',
+  expired: 'bg-primary/30',
+  manual: 'bg-primary/80',
+  internal: 'bg-primary/50',
 };
 
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const api = useApi();
+  const { toast } = useToast();
   const clientId = params.id as string;
 
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [licenseKeys, setLicenseKeys] = useState<LicenseKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rotatedApiKey, setRotatedApiKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,7 +139,7 @@ export default function ClientDetailPage() {
       router.push('/admin/clients');
     } catch (error) {
       console.error('Failed to delete client:', error);
-      alert('Failed to delete client');
+      toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' });
     }
   };
 
@@ -182,10 +195,10 @@ export default function ClientDetailPage() {
         // Non-fatal: a failed refetch just means the hint won't update
         // until the user reloads. The clear itself already succeeded.
       }
-      alert(`Cache cleared — new sync version: v${version}`);
+      toast({ title: 'Success', description: `Cache cleared — new sync version: v${version}` });
     } catch (error) {
       console.error('Failed to clear client cache:', error);
-      alert('Failed to clear client cache. Check server logs.');
+      toast({ title: 'Error', description: 'Failed to clear client cache. Check server logs.', variant: 'destructive' });
     } finally {
       setActionLoading(false);
     }
@@ -213,6 +226,21 @@ export default function ClientDetailPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handleRotateApiKey = async () => {
+    if (!window.confirm('Generate a new widget key? The old key will stop working immediately. Make sure to update it on the client\'s website.')) return;
+    setActionLoading(true);
+    try {
+      const response = await api.post(`/api/super-admin/clients/${clientId}/rotate-api-key`);
+      setRotatedApiKey(response.data.rawApiKey);
+      setClient(prev => prev ? { ...prev, apiKey: `****${response.data.last4}` } : prev);
+    } catch (error) {
+      console.error('Failed to rotate API key:', error);
+      toast({ title: 'Error', description: 'Failed to rotate API key', variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) {
@@ -245,16 +273,16 @@ export default function ClientDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="page-title">{client.name}</h1>
-            <p className="page-description mt-1">{client.slug}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={`${statusColors[client.subscriptionStatus]} text-white`}>
+            <div className="flex items-center gap-3">
+              <h1 className="page-title">{client.name}</h1>
+              <Badge className={`${statusColors[client.subscriptionStatus]} text-white`}>
               {client.subscriptionStatus}
             </Badge>
-            {client.adminOverride && <Badge variant="outline">Override</Badge>}
-            {client.isInternal && <Badge variant="outline">Internal</Badge>}
-            {!client.isActive && <Badge variant="destructive">Inactive</Badge>}
+              {client.adminOverride && <Badge variant="outline">Override</Badge>}
+              {client.isInternal && <Badge variant="outline">Internal</Badge>}
+              {!client.isActive && <Badge variant="destructive">Inactive</Badge>}
+            </div>
+            <p className="page-description mt-1">{client.slug}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -294,7 +322,7 @@ export default function ClientDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="license">License Keys</TabsTrigger>
+          <TabsTrigger value="license">Widget Keys</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -304,7 +332,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="stat-card-icon bg-blue-50 text-blue-600"><Building2 className="h-5 w-5" /></div>
+                  <div className="stat-card-icon"><Building2 className="h-5 w-5" /></div>
                   Client Information
                 </CardTitle>
               </CardHeader>
@@ -356,7 +384,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="stat-card-icon bg-green-50 text-green-600"><Mail className="h-5 w-5" /></div>
+                  <div className="stat-card-icon"><Mail className="h-5 w-5" /></div>
                   Admin User
                 </CardTitle>
               </CardHeader>
@@ -392,34 +420,43 @@ export default function ClientDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Widget Features */}
+            {/* Features & Add-ons */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="stat-card-icon bg-amber-50 text-amber-600"><Zap className="h-5 w-5" /></div>
-                  Widget Features
+                  <div className="stat-card-icon"><Zap className="h-5 w-5" /></div>
+                  Features & Add-ons
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span>Widget Enabled</span>
                   {client.widgetEnabled ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>AI Search</span>
-                  {client.aiSearchEnabled ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <CheckCircle className="h-5 w-5 text-primary" />
                   ) : (
                     <XCircle className="h-5 w-5 text-muted-foreground" />
                   )}
                 </div>
+                {[
+                  { key: 'mapSearch', label: 'Map Search' },
+                  { key: 'mapView', label: 'Map View' },
+                  { key: 'aiSearch', label: 'AI Search' },
+                  { key: 'aiChatbot', label: 'AI Chatbot' },
+                  { key: 'mortgageCalculator', label: 'Mortgage Calculator' },
+                  { key: 'currencyConverter', label: 'Currency Converter' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span>{label}</span>
+                    {client.featureFlags?.[key as keyof typeof client.featureFlags] ? (
+                      <CheckCircle className="h-5 w-5 text-primary" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                ))}
                 <Separator />
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Enabled Features</p>
+                  <p className="text-sm text-muted-foreground mb-2">Widget Feature Tags</p>
                   <div className="flex flex-wrap gap-2">
                     {client.widgetFeatures.map((feature) => (
                       <Badge key={feature} variant="secondary">{feature}</Badge>
@@ -429,30 +466,15 @@ export default function ClientDetailPage() {
               </CardContent>
             </Card>
 
-            {/* API Credentials */}
+            {/* Webhook */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="stat-card-icon bg-purple-50 text-purple-600"><Key className="h-5 w-5" /></div>
-                  API Credentials
+                  <div className="stat-card-icon"><Globe className="h-5 w-5" /></div>
+                  Webhook
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">API Key</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
-                      {client.apiKey}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => copyToClipboard(client.apiKey)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+              <CardContent>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Webhook URL</p>
                   <p className="text-sm truncate">{client.webhookUrl || 'Not configured'}</p>
@@ -506,7 +528,7 @@ export default function ClientDetailPage() {
 
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center gap-2">
-                  <Shield className={client.adminOverride ? 'text-green-500' : 'text-muted-foreground'} />
+                  <Shield className={client.adminOverride ? 'text-primary' : 'text-muted-foreground'} />
                   <span>Admin Override: {client.adminOverride ? 'ON' : 'OFF'}</span>
                   <Button
                     variant="outline"
@@ -566,13 +588,21 @@ export default function ClientDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>License Keys</CardTitle>
-                <CardDescription>Manage widget license keys for this client</CardDescription>
+                <CardTitle>Widget License Keys</CardTitle>
+                <CardDescription>
+                  These keys are used by the client on their website to connect the widget or WordPress plugin to this account.
+                </CardDescription>
               </div>
-              <Button onClick={handleGenerateLicenseKey} className="shadow-sm">
-                <Key className="mr-2 h-4 w-4" />
-                Generate New Key
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleRotateApiKey} disabled={actionLoading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
+                  Regenerate Key
+                </Button>
+                <Button onClick={handleGenerateLicenseKey} className="shadow-sm">
+                  <Key className="mr-2 h-4 w-4" />
+                  Add Key
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -632,6 +662,43 @@ export default function ClientDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!rotatedApiKey}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>New Widget Key Generated</AlertDialogTitle>
+            <AlertDialogDescription>
+              Copy the new key now — it will not be shown again. The old key has been revoked. Update it on the client&apos;s website.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <label className="text-sm font-medium">Widget Key</label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <code className="flex-1 rounded border bg-muted px-3 py-2 text-sm font-mono break-all select-all">
+                {rotatedApiKey}
+              </code>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  if (rotatedApiKey) {
+                    navigator.clipboard.writeText(rotatedApiKey);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }
+                }}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setRotatedApiKey(null)}>
+              Done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

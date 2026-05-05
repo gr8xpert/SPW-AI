@@ -13,7 +13,7 @@ import { AdjustCreditDto, ConsumeCreditDto } from './dto';
 import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole, JwtPayload } from '@spw/shared';
+import { UserRole, JwtPayload } from '@spm/shared';
 
 // ============ DASHBOARD (Tenant-scoped) ENDPOINTS ============
 

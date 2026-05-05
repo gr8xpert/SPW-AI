@@ -25,7 +25,7 @@ function notify(): void {
 
 function loadNotes(): Record<number, string> {
   try {
-    return JSON.parse(localStorage.getItem('spw_wishlist_notes') || '{}');
+    return JSON.parse(localStorage.getItem('spm_wishlist_notes') || '{}');
   } catch {
     return {};
   }
@@ -33,7 +33,7 @@ function loadNotes(): Record<number, string> {
 
 function persistNotes(): void {
   try {
-    localStorage.setItem('spw_wishlist_notes', JSON.stringify(state.notes));
+    localStorage.setItem('spm_wishlist_notes', JSON.stringify(state.notes));
   } catch { /* */ }
 }
 

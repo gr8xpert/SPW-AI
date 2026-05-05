@@ -3,6 +3,7 @@ import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import RsFeaturesModal from './RsFeaturesModal';
 import type { Feature } from '@/types';
 
 interface Props {
@@ -25,6 +26,10 @@ export default function RsFeatures({ variation = 1 }: Props) {
     setFilter('features', next.length ? next : undefined as unknown as number[]);
   }, [selected, setFilter]);
 
+  const clearAll = useCallback(() => {
+    setFilter('features', undefined as unknown as number[]);
+  }, [setFilter]);
+
   const grouped = useMemo(() => {
     const map = new Map<string, Feature[]>();
     for (const f of features) {
@@ -35,7 +40,7 @@ export default function RsFeatures({ variation = 1 }: Props) {
     return map;
   }, [features, t]);
 
-  if (variation === 1) return <ModalVariation grouped={grouped} selected={selected} toggle={toggle} label={label} locked={locked} t={t} />;
+  if (variation === 1) return <ModalVariation grouped={grouped} selected={selected} toggle={toggle} label={label} locked={locked} clearAll={clearAll} />;
   if (variation === 3) return <TagsVariation features={features} selected={selected} toggle={toggle} locked={locked} />;
 
   return (
@@ -58,65 +63,41 @@ export default function RsFeatures({ variation = 1 }: Props) {
   );
 }
 
-function ModalVariation({ grouped, selected, toggle, label, locked, t }: {
+function ModalVariation({ grouped, selected, toggle, label, locked, clearAll }: {
   grouped: Map<string, Feature[]>;
   selected: number[];
   toggle: (id: number) => void;
   label: string;
   locked: boolean;
-  t: (key: string, fallback?: string) => string;
+  clearAll: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const count = selected.length;
+
+  const openModal = useCallback(() => {
+    if (locked) return;
+    setOpen(true);
+  }, [locked]);
 
   return (
     <div class={`rs_features${locked ? ' rs-field--locked' : ''}`}>
       <button
         type="button"
         class="rs-select"
-        onClick={() => !locked && setOpen(true)}
+        onClick={openModal}
         style="text-align: left"
       >
         {count > 0 ? `${label} (${count})` : label}
       </button>
 
       {open && (
-        <div class="rs-modal-backdrop rs-backdrop-enter" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div class="rs-modal-content rs-modal-enter">
-            <div class="rs-modal-header">
-              <span class="rs-modal-header__title">{label}</span>
-              <button type="button" class="rs-modal-header__close" onClick={() => setOpen(false)}>
-                &times;
-              </button>
-            </div>
-            <div class="rs-modal-body">
-              <div class="rs-features-modal__categories">
-                {Array.from(grouped.entries()).map(([cat, feats]) => (
-                  <div key={cat}>
-                    <div class="rs-features-modal__category-title">{cat}</div>
-                    <div class="rs-features-grid">
-                      {feats.map(f => (
-                        <label key={f.id} class="rs-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(f.id)}
-                            onChange={() => toggle(f.id)}
-                          />
-                          <span>{f.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div class="rs-modal-footer">
-              <button type="button" class="rs-reset-btn" onClick={() => setOpen(false)}>
-                {t('close', 'Close')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <RsFeaturesModal
+          grouped={grouped}
+          selected={selected}
+          toggle={toggle}
+          clearAll={clearAll}
+          onClose={() => setOpen(false)}
+        />
       )}
     </div>
   );

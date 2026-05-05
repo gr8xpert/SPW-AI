@@ -20,13 +20,21 @@ export const databaseConfig = registerAs('database', () => ({
   port: parseInt(process.env.DATABASE_PORT || '3306', 10),
   username: process.env.DATABASE_USER || 'root',
   password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || 'spw_v2_dev',
+  database: process.env.DATABASE_NAME || 'spm_v2_dev',
   entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: isSynchronizeEnabled(),
   logging: process.env.DATABASE_LOGGING === 'true',
   charset: 'utf8mb4',
   timezone: 'Z',
+  extra: {
+    connectionLimit: parseInt(process.env.DATABASE_POOL_SIZE || '20', 10),
+    waitForConnections: true,
+    queueLimit: 0,
+    connectTimeout: 10_000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 30_000,
+  },
 }));
 
 // DataSource for TypeORM CLI
@@ -36,7 +44,7 @@ const options: DataSourceOptions = {
   port: parseInt(process.env.DATABASE_PORT || '3306', 10),
   username: process.env.DATABASE_USER || 'root',
   password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || 'spw_v2_dev',
+  database: process.env.DATABASE_NAME || 'spm_v2_dev',
   entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false,

@@ -7,7 +7,7 @@ import { Property, PropertyType, Feature, Label } from '../../database/entities'
 import { AiService, ChatMessage } from '../ai/ai.service';
 import { BulkTranslateJob } from './translation.service';
 
-@Processor('translation')
+@Processor('translation', { concurrency: 3 })
 export class TranslationProcessor extends WorkerHost {
   private readonly logger = new Logger(TranslationProcessor.name);
 

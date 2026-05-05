@@ -9,7 +9,7 @@
 # Runtime expects a MySQL + Redis reachable at REDIS_HOST / DATABASE_HOST.
 # See .env.production.example at the repo root for required envs.
 
-FROM node:20-alpine AS base
+FROM node:20-alpine3.20 AS base
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /workspace
 
@@ -39,7 +39,7 @@ RUN pnpm --filter api --prod deploy /out
 RUN rm -rf /out/dist && cp -r apps/api/dist /out/dist
 
 # -------- runtime: minimal node image, non-root user, tini init --------
-FROM node:20-alpine AS runtime
+FROM node:20-alpine3.20 AS runtime
 RUN apk add --no-cache tini curl \
  && addgroup -S spw && adduser -S -G spw spw
 WORKDIR /app

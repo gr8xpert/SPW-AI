@@ -1,5 +1,6 @@
-# Local-development infrastructure only. Production uses the host's installed
-# MySQL and Redis — do not use these images in prod.
+# Local-development infrastructure only. NOT FOR PRODUCTION.
+# These passwords are intentionally weak dev-only defaults.
+# Production uses docker-compose.prod.yml with secrets from .env.production.
 
 services:
   mysql:

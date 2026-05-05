@@ -220,7 +220,7 @@ export default function WebmastersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Webmasters</CardTitle>
-            <div className="stat-card-icon bg-blue-50"><Users className="h-4 w-4 text-blue-600" /></div>
+            <div className="stat-card-icon"><Users className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{webmasters.length}</div>
@@ -232,7 +232,7 @@ export default function WebmastersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Unpaid Hours</CardTitle>
-            <div className="stat-card-icon bg-amber-50"><Clock className="h-4 w-4 text-amber-600" /></div>
+            <div className="stat-card-icon"><Clock className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{totalUnpaidHours.toFixed(1)}h</div>
@@ -244,7 +244,7 @@ export default function WebmastersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Unpaid Entries</CardTitle>
-            <div className="stat-card-icon bg-green-50"><DollarSign className="h-4 w-4 text-green-600" /></div>
+            <div className="stat-card-icon"><DollarSign className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
@@ -317,7 +317,7 @@ export default function WebmastersPage() {
                         title={wm.isActive ? 'Deactivate' : 'Activate'}
                         onClick={(e) => toggleActive(e, wm)}
                       >
-                        <Power className={`h-4 w-4 ${wm.isActive ? 'text-green-600' : 'text-muted-foreground'}`} />
+                        <Power className={`h-4 w-4 ${wm.isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                       </Button>
                     </TableCell>
                   </TableRow>

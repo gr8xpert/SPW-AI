@@ -112,9 +112,9 @@ export default function TeamPage() {
         api.get('/api/dashboard/team'),
         api.get('/api/dashboard/team/stats'),
       ]);
-      const membersData = (membersRes as any)?.data || membersRes;
-      const statsData = (statsRes as any)?.data || statsRes;
-      if (Array.isArray(membersData)) setMembers(membersData as TeamMember[]);
+      const membersData = (membersRes as { data: TeamMember[] })?.data || membersRes;
+      const statsData = (statsRes as { data: TeamStats })?.data || statsRes;
+      if (Array.isArray(membersData)) setMembers(membersData);
       if (statsData && typeof statsData === 'object') setStats(statsData as TeamStats);
     } catch {
       // handled by useApi
@@ -266,7 +266,7 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="stat-card-icon bg-blue-50 text-blue-600">
+                <div className="stat-card-icon">
                   <Users className="h-5 w-5" />
                 </div>
                 <div>
@@ -279,7 +279,7 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="stat-card-icon bg-purple-50 text-purple-600">
+                <div className="stat-card-icon">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div>
@@ -292,7 +292,7 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="stat-card-icon bg-green-50 text-green-600">
+                <div className="stat-card-icon">
                   <User className="h-5 w-5" />
                 </div>
                 <div>
@@ -305,7 +305,7 @@ export default function TeamPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="stat-card-icon bg-amber-50 text-amber-600">
+                <div className="stat-card-icon">
                   <UserPlus className="h-5 w-5" />
                 </div>
                 <div>

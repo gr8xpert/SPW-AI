@@ -12,7 +12,7 @@ import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser, Public } from '../../common/decorators';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 @Controller('api/auth')
 export class AuthController {

@@ -40,7 +40,13 @@ export class FeedSchedulerService implements OnModuleInit {
         try {
           await this.feedService.triggerSync(config.tenantId, config.id);
         } catch (error) {
-          this.logger.error(`Failed to trigger sync for feed ${config.id}`, error);
+          this.logger.error(`Failed to trigger sync for feed ${config.id} — will retry once`, error);
+          try {
+            await new Promise((r) => setTimeout(r, 30_000));
+            await this.feedService.triggerSync(config.tenantId, config.id);
+          } catch (retryError) {
+            this.logger.error(`Retry also failed for feed ${config.id}`, retryError);
+          }
         }
       }
     }

@@ -11,6 +11,7 @@ export class LabelController {
 
   @Get()
   async findAll(@CurrentTenant() tenantId: number) {
+    await this.labelService.initializeDefaultLabels(tenantId);
     return this.labelService.findAll(tenantId);
   }
 

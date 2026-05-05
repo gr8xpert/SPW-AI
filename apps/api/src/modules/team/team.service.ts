@@ -10,7 +10,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, Tenant, Plan } from '../../database/entities';
 import { InviteUserDto, UpdateUserDto, ChangePasswordDto, ResetPasswordDto } from './dto';
-import { UserRole, hasPermission } from '@spw/shared';
+import { UserRole, hasPermission } from '@spm/shared';
 
 @Injectable()
 export class TeamService {
@@ -97,7 +97,7 @@ export class TeamService {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await bcrypt.hash(dto.password, 13);
 
     const user = this.userRepository.create({
       tenantId,
@@ -230,7 +230,7 @@ export class TeamService {
     }
 
     // Hash and save new password
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 13);
     await this.userRepository.save(user);
   }
 
@@ -266,7 +266,7 @@ export class TeamService {
     }
 
     // Hash and save new password
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 13);
     await this.userRepository.save(user);
   }
 

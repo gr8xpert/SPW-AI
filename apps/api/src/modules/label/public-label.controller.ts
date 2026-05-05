@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, Query, UnauthorizedException } from '@nestjs/common';
 import { LabelService } from './label.service';
 import { TenantService } from '../tenant/tenant.service';
 import { SetMetadata } from '@nestjs/common';
@@ -15,7 +15,10 @@ export class PublicLabelController {
 
   @Public()
   @Get()
-  async getLabels(@Headers('x-api-key') apiKey: string) {
+  async getLabels(
+    @Headers('x-api-key') apiKey: string,
+    @Query('lang') lang?: string,
+  ) {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
@@ -23,6 +26,7 @@ export class PublicLabelController {
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
-    return this.labelService.getLabelsForWidget(tenant.id);
+    const language = lang || tenant.settings?.defaultLanguage || 'en';
+    return this.labelService.getLabelsForWidget(tenant.id, language);
   }
 }

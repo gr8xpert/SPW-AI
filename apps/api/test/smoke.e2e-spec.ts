@@ -24,6 +24,11 @@ process.env.PADDLE_GRACE_DAYS = '7';
 // fetchImpl is swapped per-test so no real HTTP call ever lands.
 process.env.PADDLE_API_KEY = 'pdl_live_apikeytest_v6e_integration';
 process.env.PADDLE_API_URL = 'https://api.paddle.test';
+// 7A — Stripe webhook tests for credit hour purchases.
+process.env.STRIPE_WEBHOOK_SECRET = 'whsec_smoketest_stripe_v7a';
+// 7E — Stripe outbound checkout. fetchImpl is swapped per-test.
+process.env.STRIPE_SECRET_KEY = 'sk_test_smoketest_stripe_v7e';
+process.env.DASHBOARD_URL = 'http://localhost:3000';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -35,9 +40,11 @@ import { DataSource } from 'typeorm';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
-import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken, SubscriptionPayment, ProcessedPaddleEvent, TenantEmailDomain, Plan } from '../src/database/entities';
+import { User, EmailVerificationToken, Tenant, WebhookDelivery, RefreshToken, SubscriptionPayment, ProcessedPaddleEvent, ProcessedStripeEvent, TenantEmailDomain, Plan, CreditPackage, CreditBalance, CreditTransaction } from '../src/database/entities';
 import { signPaddlePayload } from '../src/modules/payment/paddle-signature';
+import { signStripePayload } from '../src/modules/payment/stripe-signature';
 import { PaddleCheckoutService } from '../src/modules/payment/paddle-checkout.service';
+import { StripeCheckoutService } from '../src/modules/payment/stripe-checkout.service';
 import { EmailSenderService } from '../src/modules/email-campaign/email-sender.service';
 import { CleanupService } from '../src/modules/maintenance/cleanup.service';
 import { SystemMailerService } from '../src/modules/mail/system-mailer.service';
@@ -222,7 +229,7 @@ describe('Smoke — golden path (e2e)', () => {
       expect(res.body.data.user.email).toBe(adminA.email);
       expect(res.body.data.user.role).toBe('admin');
       // Raw tenant API key returned exactly once on registration.
-      expect(res.body.data.tenantApiKey).toMatch(/^spw_[a-f0-9]{64}$/);
+      expect(res.body.data.tenantApiKey).toMatch(/^spm_[a-f0-9]{64}$/);
       expect(res.body.data.emailVerificationRequired).toBe(true);
       tokenA = res.body.data.accessToken;
     });
@@ -341,7 +348,7 @@ describe('Smoke — golden path (e2e)', () => {
               return { messageId: `test-${captured.length}` };
             },
           },
-          '"SPW Test" <noreply@smoke.test>',
+          '"SPM Test" <noreply@smoke.test>',
         );
       });
 
@@ -478,7 +485,7 @@ describe('Smoke — golden path (e2e)', () => {
           .post('/api/dashboard/tenant/api-key/rotate')
           .set('Authorization', `Bearer ${tokenA}`)
           .expect(200);
-        expect(res.body.data.apiKey).toMatch(/^spw_[a-f0-9]{64}$/);
+        expect(res.body.data.apiKey).toMatch(/^spm_[a-f0-9]{64}$/);
         expect(res.body.data.apiKeyLast4).toBe(res.body.data.apiKey.slice(-4));
       });
 
@@ -703,10 +710,10 @@ describe('Smoke — golden path (e2e)', () => {
         expect(received.length).toBeGreaterThan(before);
 
         const hit = received[received.length - 1];
-        expect(hit.headers['x-spw-event']).toBe('property.created');
-        expect(hit.headers['x-spw-delivery-id']).toBeTruthy();
-        const sig = hit.headers['x-spw-signature'] as string;
-        const ts = hit.headers['x-spw-timestamp'] as string;
+        expect(hit.headers['x-spm-event']).toBe('property.created');
+        expect(hit.headers['x-spm-delivery-id']).toBeTruthy();
+        const sig = hit.headers['x-spm-signature'] as string;
+        const ts = hit.headers['x-spm-timestamp'] as string;
         expect(sig).toMatch(/^t=\d+,v1=[a-f0-9]{64}$/);
         expect(ts).toMatch(/^\d+$/);
 
@@ -740,7 +747,7 @@ describe('Smoke — golden path (e2e)', () => {
         // Delivery row is marked delivered with the 200 from the listener.
         const row = await ds
           .getRepository(WebhookDelivery)
-          .findOne({ where: { id: Number(hit.headers['x-spw-delivery-id']) } });
+          .findOne({ where: { id: Number(hit.headers['x-spm-delivery-id']) } });
         expect(row?.status).toBe('delivered');
         expect(row?.lastStatusCode).toBe(200);
       });
@@ -898,7 +905,7 @@ describe('Smoke — golden path (e2e)', () => {
         await request(app.getHttpServer())
           .put('/api/dashboard/tenant/webhook')
           .set('Authorization', `Bearer ${tokenA}`)
-          .send({ webhookUrl: 'https://example.com/spw-test-hook' })
+          .send({ webhookUrl: 'https://example.com/spm-test-hook' })
           .expect(200);
 
         await request(app.getHttpServer())
@@ -1083,7 +1090,7 @@ describe('Smoke — golden path (e2e)', () => {
         await request(app.getHttpServer()).get('/api/v1/sync-meta').expect(401);
         await request(app.getHttpServer())
           .get('/api/v1/sync-meta')
-          .set('x-api-key', 'spw_not-a-real-key')
+          .set('x-api-key', 'spm_not-a-real-key')
           .expect(401);
       });
     });
@@ -1307,9 +1314,9 @@ describe('Smoke — golden path (e2e)', () => {
         eHash,
       ]);
 
-      expect(keyC).toMatch(/^spw_[a-f0-9]{64}$/);
-      expect(keyD).toMatch(/^spw_[a-f0-9]{64}$/);
-      expect(keyE).toMatch(/^spw_[a-f0-9]{64}$/);
+      expect(keyC).toMatch(/^spm_[a-f0-9]{64}$/);
+      expect(keyD).toMatch(/^spm_[a-f0-9]{64}$/);
+      expect(keyE).toMatch(/^spm_[a-f0-9]{64}$/);
     });
 
     it('Free-plan tenant C is throttled at its plan ceiling', async () => {
@@ -1419,7 +1426,7 @@ describe('Smoke — golden path (e2e)', () => {
         .send({ domain: 'mail.example-smoke-a.test' })
         .expect(200);
       expect(res.body.data.domain).toBe('mail.example-smoke-a.test');
-      expect(res.body.data.dkimSelector).toBe('spw1');
+      expect(res.body.data.dkimSelector).toBe('spm1');
       expect(res.body.data.status).toBe('unverified');
       // SPF record lives at the domain apex; value always starts with v=spf1
       expect(res.body.data.records.spf.host).toBe('mail.example-smoke-a.test');
@@ -1427,7 +1434,7 @@ describe('Smoke — golden path (e2e)', () => {
       // DKIM host is <selector>._domainkey.<domain>; value includes the
       // public-key base64 body.
       expect(res.body.data.records.dkim.host).toBe(
-        'spw1._domainkey.mail.example-smoke-a.test',
+        'spm1._domainkey.mail.example-smoke-a.test',
       );
       expect(res.body.data.records.dkim.value).toMatch(
         /^v=DKIM1; k=rsa; p=[A-Za-z0-9+/=]+$/,
@@ -1643,7 +1650,7 @@ describe('Smoke — golden path (e2e)', () => {
       const opts = await sender.getDkimOptions(dkimTenantId);
       expect(opts).not.toBeNull();
       expect(opts!.domainName).toBe('mail.dkim-smoke-test.example');
-      expect(opts!.keySelector).toBe('spw1');
+      expect(opts!.keySelector).toBe('spm1');
       // Decrypted PEM — transformer on TenantEmailDomain.dkimPrivateKey
       // round-trips through enc:v1: ciphertext. If it came back as the
       // encrypted blob, nodemailer would reject it on the first send.
@@ -1677,14 +1684,14 @@ describe('Smoke — golden path (e2e)', () => {
       const escapedPem =
         '-----BEGIN PRIVATE KEY-----\\nMIIE...fake-body...==\\n-----END PRIVATE KEY-----';
       process.env.MAIL_DKIM_DOMAIN = 'platform.smartpropertywidget.com';
-      process.env.MAIL_DKIM_SELECTOR = 'spwsys1';
+      process.env.MAIL_DKIM_SELECTOR = 'spmsys1';
       process.env.MAIL_DKIM_PRIVATE_KEY = escapedPem;
       try {
         const mailer = app.get(SystemMailerService);
         const opts = mailer.getOperatorDkimOptions();
         expect(opts).not.toBeNull();
         expect(opts!.domainName).toBe('platform.smartpropertywidget.com');
-        expect(opts!.keySelector).toBe('spwsys1');
+        expect(opts!.keySelector).toBe('spmsys1');
         // Unescaped: actual newlines present instead of literal \n.
         expect(opts!.privateKey.split('\n').length).toBeGreaterThan(1);
         expect(opts!.privateKey).toContain('BEGIN PRIVATE KEY');
@@ -2105,6 +2112,506 @@ describe('Smoke — golden path (e2e)', () => {
         .set('Authorization', `Bearer ${checkoutToken}`)
         .send({ planId: configuredPlanId, billingCycle: 'yearly' })
         .expect(200);
+    });
+  });
+
+  // 7A — Stripe inbound webhook. Exercises signature verification, replay
+  // idempotency, and the end-to-end credit balance + transaction sync for
+  // checkout.session.completed events that drive credit purchases.
+  describe('Stripe inbound webhook (7A)', () => {
+    const stripeSecret = 'whsec_smoketest_stripe_v7a';
+    let stripeTenantId: number;
+
+    const buildSigned = (body: object, timestamp?: number) => {
+      const raw = JSON.stringify(body);
+      const header = signStripePayload(raw, stripeSecret, timestamp);
+      return { raw, header };
+    };
+
+    beforeAll(async () => {
+      const slug = uniqueSlug('tenant-stripe-wh');
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email: `admin-${slug}@smoke.test`,
+          password: 'SmokeTest1234!',
+          name: 'Stripe WH Tenant Admin',
+          tenantName: 'Stripe WH Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+
+      const ds = app.get(DataSource);
+      const tenant = await ds
+        .getRepository(Tenant)
+        .findOneOrFail({ where: { slug } });
+      stripeTenantId = tenant.id;
+    });
+
+    it('rejects a missing/malformed signature header with 401', async () => {
+      const { raw } = buildSigned({
+        id: 'evt_badsig_stripe_1',
+        type: 'checkout.session.completed',
+        data: { object: {} },
+      });
+      await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', 'not-a-real-header')
+        .send(raw)
+        .expect(401);
+    });
+
+    it('rejects a stale timestamp outside the 5-minute window', async () => {
+      const staleTs = Math.floor(Date.now() / 1000) - 3600;
+      const { raw, header } = buildSigned(
+        { id: 'evt_stale_stripe_1', type: 'checkout.session.completed', data: { object: {} } },
+        staleTs,
+      );
+      await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(401);
+    });
+
+    it('applies checkout.session.completed — credits tenant balance + writes transaction', async () => {
+      const eventId = `evt_stripe_completed_${Date.now()}`;
+      const body = {
+        id: eventId,
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_session_1',
+            payment_intent: 'pi_test_stripe_1',
+            metadata: {
+              tenantId: String(stripeTenantId),
+              packageId: '1',
+              hours: '10',
+            },
+          },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const ds = app.get(DataSource);
+      const balanceBefore = await ds.getRepository(CreditBalance).findOne({
+        where: { tenantId: stripeTenantId },
+      });
+      const previousBalance = balanceBefore ? Number(balanceBefore.balance) : 0;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.outcome).toBe('applied');
+
+      const balanceAfter = await ds.getRepository(CreditBalance).findOneOrFail({
+        where: { tenantId: stripeTenantId },
+      });
+      expect(Number(balanceAfter.balance)).toBe(previousBalance + 10);
+
+      const transactions = await ds.getRepository(CreditTransaction).find({
+        where: { tenantId: stripeTenantId, paymentReference: 'pi_test_stripe_1' },
+      });
+      expect(transactions.length).toBe(1);
+      expect(transactions[0].type).toBe('purchase');
+      expect(Number(transactions[0].amount)).toBe(10);
+      expect(Number(transactions[0].balanceAfter)).toBe(previousBalance + 10);
+    });
+
+    it('is idempotent — replaying the same event_id is a 200 no-op', async () => {
+      const eventId = `evt_stripe_replay_${Date.now()}`;
+      const body = {
+        id: eventId,
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_replay_1',
+            payment_intent: 'pi_test_replay_1',
+            metadata: {
+              tenantId: String(stripeTenantId),
+              packageId: '1',
+              hours: '5',
+            },
+          },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const first = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+      expect(first.body.data.outcome).toBe('applied');
+
+      const ds = app.get(DataSource);
+      const balanceBefore = await ds.getRepository(CreditBalance).findOneOrFail({
+        where: { tenantId: stripeTenantId },
+      });
+
+      const second = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+      expect(second.body.data.outcome).toBe('replay');
+
+      const balanceAfter = await ds.getRepository(CreditBalance).findOneOrFail({
+        where: { tenantId: stripeTenantId },
+      });
+      expect(Number(balanceAfter.balance)).toBe(Number(balanceBefore.balance));
+
+      const dedup = await ds
+        .getRepository(ProcessedStripeEvent)
+        .findOneBy({ eventId });
+      expect(dedup).not.toBeNull();
+    });
+
+    it('ignores unhandled event types with outcome=ignored', async () => {
+      const eventId = `evt_stripe_unhandled_${Date.now()}`;
+      const body = {
+        id: eventId,
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_ignored_1' } },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.outcome).toBe('ignored');
+    });
+
+    it('handles missing metadata gracefully without crashing', async () => {
+      const eventId = `evt_stripe_nometa_${Date.now()}`;
+      const body = {
+        id: eventId,
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_nometa_1',
+            payment_intent: 'pi_test_nometa_1',
+            metadata: {},
+          },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.received).toBe(true);
+    });
+
+    it('handles unknown tenantId gracefully', async () => {
+      const eventId = `evt_stripe_badtenant_${Date.now()}`;
+      const body = {
+        id: eventId,
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_badtenant_1',
+            payment_intent: 'pi_test_badtenant_1',
+            metadata: {
+              tenantId: '999999',
+              packageId: '1',
+              hours: '5',
+            },
+          },
+        },
+      };
+      const { raw, header } = buildSigned(body);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', header)
+        .send(raw)
+        .expect(200);
+
+      expect(res.body.data.received).toBe(true);
+    });
+  });
+
+  // 7E — Stripe outbound checkout for credit hour packages. Exercises the
+  // happy path and guard rails: unconfigured server, unknown package,
+  // inactive package, and the packages listing endpoint.
+  describe('Stripe credit checkout (7E)', () => {
+    let stripeCheckoutTenantId: number;
+    let stripeCheckoutToken: string;
+    let activePackageId: number;
+    let inactivePackageId: number;
+    let originalFetch: typeof fetch;
+    let originalStripeKey: string | undefined;
+
+    beforeAll(async () => {
+      const slug = uniqueSlug('tenant-stripe-chk');
+      const email = `admin-${slug}@smoke.test`;
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email,
+          password: 'SmokeTest1234!',
+          name: 'Stripe Checkout Admin',
+          tenantName: 'Stripe Checkout Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+      await forceVerifyEmail(app, email);
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'SmokeTest1234!' })
+        .expect(200);
+      stripeCheckoutToken = login.body.data.accessToken;
+
+      const ds = app.get(DataSource);
+      const tenant = await ds
+        .getRepository(Tenant)
+        .findOneOrFail({ where: { slug } });
+      stripeCheckoutTenantId = tenant.id;
+
+      const pkgRepo = ds.getRepository(CreditPackage);
+      const activePkg = await pkgRepo.save(
+        pkgRepo.create({
+          name: 'Smoke 5h Pack',
+          hours: 5,
+          pricePerHour: 35,
+          totalPrice: 175,
+          currency: 'EUR',
+          isActive: true,
+          sortOrder: 1,
+        }),
+      );
+      activePackageId = activePkg.id;
+
+      const inactivePkg = await pkgRepo.save(
+        pkgRepo.create({
+          name: 'Smoke Disabled Pack',
+          hours: 20,
+          pricePerHour: 30,
+          totalPrice: 600,
+          currency: 'EUR',
+          isActive: false,
+          sortOrder: 2,
+        }),
+      );
+      inactivePackageId = inactivePkg.id;
+
+      const svc = app.get(StripeCheckoutService);
+      originalFetch = svc.fetchImpl;
+      originalStripeKey = process.env.STRIPE_SECRET_KEY;
+    });
+
+    afterAll(() => {
+      const svc = app.get(StripeCheckoutService);
+      svc.fetchImpl = originalFetch;
+      if (originalStripeKey === undefined) delete process.env.STRIPE_SECRET_KEY;
+      else process.env.STRIPE_SECRET_KEY = originalStripeKey;
+    });
+
+    it('GET /api/billing/credits/packages lists only active packages', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/billing/credits/packages')
+        .set('Authorization', `Bearer ${stripeCheckoutToken}`)
+        .expect(200);
+
+      const packages = res.body.data;
+      expect(Array.isArray(packages)).toBe(true);
+      const activeIds = packages.map((p: any) => p.id);
+      expect(activeIds).toContain(activePackageId);
+      expect(activeIds).not.toContain(inactivePackageId);
+      const pkg = packages.find((p: any) => p.id === activePackageId);
+      expect(Number(pkg.hours)).toBe(5);
+      expect(Number(pkg.totalPrice)).toBe(175);
+    });
+
+    it('returns a Stripe checkout URL on success with correct metadata', async () => {
+      let captured: { url: string; init?: RequestInit } | null = null;
+      const svc = app.get(StripeCheckoutService);
+      svc.fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        captured = { url: String(input), init };
+        return new Response(
+          JSON.stringify({
+            id: 'cs_test_smoke_session_1',
+            url: 'https://checkout.stripe.test/cs_test_smoke_session_1',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }) as typeof fetch;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/billing/credits/checkout')
+        .set('Authorization', `Bearer ${stripeCheckoutToken}`)
+        .send({ packageId: activePackageId })
+        .expect(200);
+
+      expect(res.body.data.url).toContain('checkout.stripe.test');
+      expect(res.body.data.sessionId).toBe('cs_test_smoke_session_1');
+      expect(captured).not.toBeNull();
+      expect(captured!.url).toBe('https://api.stripe.com/v1/checkout/sessions');
+
+      const bodyStr = String(captured!.init?.body ?? '');
+      const params = new URLSearchParams(bodyStr);
+      expect(params.get('metadata[tenantId]')).toBe(String(stripeCheckoutTenantId));
+      expect(params.get('metadata[packageId]')).toBe(String(activePackageId));
+      expect(params.get('metadata[hours]')).toBe('5');
+      expect(params.get('line_items[0][price_data][unit_amount]')).toBe('17500');
+      expect(params.get('line_items[0][price_data][currency]')).toBe('eur');
+      expect(params.get('mode')).toBe('payment');
+      const auth = (captured!.init?.headers as Record<string, string>)?.Authorization;
+      expect(auth).toBe(`Bearer ${process.env.STRIPE_SECRET_KEY}`);
+    });
+
+    it('rejects an inactive packageId with 404', async () => {
+      await request(app.getHttpServer())
+        .post('/api/billing/credits/checkout')
+        .set('Authorization', `Bearer ${stripeCheckoutToken}`)
+        .send({ packageId: inactivePackageId })
+        .expect(404);
+    });
+
+    it('rejects an unknown packageId with 404', async () => {
+      await request(app.getHttpServer())
+        .post('/api/billing/credits/checkout')
+        .set('Authorization', `Bearer ${stripeCheckoutToken}`)
+        .send({ packageId: 999_999 })
+        .expect(404);
+    });
+
+    it('returns 503 when STRIPE_SECRET_KEY is not configured', async () => {
+      delete process.env.STRIPE_SECRET_KEY;
+      try {
+        await request(app.getHttpServer())
+          .post('/api/billing/credits/checkout')
+          .set('Authorization', `Bearer ${stripeCheckoutToken}`)
+          .send({ packageId: activePackageId })
+          .expect(503);
+      } finally {
+        process.env.STRIPE_SECRET_KEY = originalStripeKey ?? 'sk_test_smoketest_stripe_v7e';
+      }
+    });
+
+    it('rejects unauthenticated requests with 401', async () => {
+      await request(app.getHttpServer())
+        .post('/api/billing/credits/checkout')
+        .send({ packageId: activePackageId })
+        .expect(401);
+    });
+  });
+
+  // 7C — Super-admin credit package CRUD. Exercises create, list, update,
+  // and delete operations that the admin uses to manage purchasable packages.
+  describe('Super-admin credit package CRUD (7C)', () => {
+    let adminToken: string;
+    let createdPackageId: number;
+
+    beforeAll(async () => {
+      const slug = uniqueSlug('tenant-pkg-admin');
+      const email = `admin-${slug}@smoke.test`;
+      await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          email,
+          password: 'SmokeTest1234!',
+          name: 'Pkg CRUD Admin',
+          tenantName: 'Pkg CRUD Smoke',
+          tenantSlug: slug,
+        })
+        .expect(201);
+      await forceVerifyEmail(app, email);
+
+      const ds = app.get(DataSource);
+      await ds.getRepository(User).update(
+        { email: email.toLowerCase() },
+        { role: 'super_admin' as any },
+      );
+
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'SmokeTest1234!' })
+        .expect(200);
+      adminToken = login.body.data.accessToken;
+    });
+
+    it('creates a credit package', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/super-admin/credit-packages')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Smoke CRUD Pack',
+          hours: 10,
+          pricePerHour: 35,
+          totalPrice: 350,
+          currency: 'EUR',
+          isActive: true,
+          sortOrder: 99,
+        })
+        .expect(201);
+
+      createdPackageId = res.body.data.id;
+      expect(res.body.data.name).toBe('Smoke CRUD Pack');
+      expect(Number(res.body.data.hours)).toBe(10);
+      expect(Number(res.body.data.totalPrice)).toBe(350);
+    });
+
+    it('lists credit packages including the new one', async () => {
+      if (!adminToken) return;
+      const res = await request(app.getHttpServer())
+        .get('/api/super-admin/credit-packages')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const pkgs = res.body.data;
+      expect(Array.isArray(pkgs)).toBe(true);
+      const found = pkgs.find((p: any) => p.id === createdPackageId);
+      expect(found).toBeDefined();
+      expect(found.name).toBe('Smoke CRUD Pack');
+    });
+
+    it('updates a credit package', async () => {
+      if (!adminToken || !createdPackageId) return;
+      const res = await request(app.getHttpServer())
+        .put(`/api/super-admin/credit-packages/${createdPackageId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Smoke CRUD Pack Updated',
+          pricePerHour: 40,
+          totalPrice: 400,
+        })
+        .expect(200);
+
+      expect(res.body.data.name).toBe('Smoke CRUD Pack Updated');
+      expect(Number(res.body.data.pricePerHour)).toBe(40);
+      expect(Number(res.body.data.totalPrice)).toBe(400);
+    });
+
+    it('deletes a credit package', async () => {
+      if (!adminToken || !createdPackageId) return;
+      await request(app.getHttpServer())
+        .delete(`/api/super-admin/credit-packages/${createdPackageId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/api/super-admin/credit-packages/${createdPackageId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
     });
   });
 

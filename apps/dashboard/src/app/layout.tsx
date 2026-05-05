@@ -6,7 +6,7 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Smart Property Widget - Dashboard',
+  title: 'Smart Property Manager - Dashboard',
   description: 'Manage your property listings and real estate business',
 };
 

@@ -20,13 +20,13 @@ export default defineConfig(({ command }) => ({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'SPW',
+      name: 'SPM',
       formats: ['iife', 'es', 'umd'],
-      fileName: (format) => `spw-widget.${format}.js`,
+      fileName: (format) => `spm-widget.${format}.js`,
     },
     rollupOptions: {
       output: {
-        assetFileNames: 'spw-widget.[ext]',
+        assetFileNames: 'spm-widget.[ext]',
       },
     },
     minify: 'terser',
@@ -35,7 +35,7 @@ export default defineConfig(({ command }) => ({
         drop_console: true,
       },
     },
-    sourcemap: true,
+    sourcemap: false,
   },
   resolve: {
     alias: {

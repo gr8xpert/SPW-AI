@@ -8,6 +8,7 @@ import type { SearchFilters } from '@/types';
 const FILTER_LABELS: Record<string, { labelKey: string; fallback: string }> = {
   listingType: { labelKey: 'filter_listing_type', fallback: 'Listing Type' },
   locationId: { labelKey: 'filter_location', fallback: 'Location' },
+  locationIds: { labelKey: 'filter_location', fallback: 'Locations' },
   propertyTypeId: { labelKey: 'filter_property_type', fallback: 'Property Type' },
   minPrice: { labelKey: 'filter_min_price', fallback: 'Min Price' },
   maxPrice: { labelKey: 'filter_max_price', fallback: 'Max Price' },
@@ -55,6 +56,9 @@ export default function RsActiveFilters() {
     if (key === 'locationId') {
       const loc = locations.find(l => l.id === value);
       displayValue = loc ? loc.name : String(value);
+    } else if (key === 'locationIds' && Array.isArray(value)) {
+      const names = value.map((id: number) => locations.find(l => l.id === id)?.name).filter(Boolean);
+      displayValue = names.length <= 2 ? names.join(', ') : `${names.length} locations`;
     } else if (key === 'propertyTypeId') {
       const pt = propertyTypes.find(p => p.id === value);
       displayValue = pt ? pt.name : String(value);

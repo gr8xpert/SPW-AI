@@ -59,19 +59,26 @@ export class LabelService {
   async initializeDefaultLabels(tenantId: number): Promise<void> {
     const existingLabels = await this.findAll(tenantId);
     const existingKeys = new Set(existingLabels.map((l) => l.key));
+    const defaultKeys = new Set(DEFAULT_LABELS.map((dl) => dl.key));
+
     const labelsToCreate = DEFAULT_LABELS
       .filter((dl) => !existingKeys.has(dl.key))
       .map((dl) => this.labelRepository.create({ tenantId, key: dl.key, translations: dl.translations, isCustom: false }));
     if (labelsToCreate.length > 0) {
       await this.labelRepository.save(labelsToCreate);
     }
+
+    const staleLabels = existingLabels.filter((l) => !l.isCustom && !defaultKeys.has(l.key));
+    if (staleLabels.length > 0) {
+      await this.labelRepository.remove(staleLabels);
+    }
   }
 
-  async getLabelsForWidget(tenantId: number): Promise<Record<string, Record<string, string>>> {
+  async getLabelsForWidget(tenantId: number, language = 'en'): Promise<Record<string, string>> {
     const labels = await this.findAll(tenantId);
     return labels.reduce((acc, label) => {
-      acc[label.key] = label.translations;
+      acc[label.key] = label.translations[language] || label.translations['en'] || '';
       return acc;
-    }, {} as Record<string, Record<string, string>>);
+    }, {} as Record<string, string>);
   }
 }

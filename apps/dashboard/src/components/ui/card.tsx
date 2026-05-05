@@ -1,17 +1,22 @@
+"use client";
+
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
+  React.HTMLAttributes<HTMLDivElement> & { hoverEffect?: boolean }
+>(({ className, hoverEffect = true, ...props }, ref) => (
+  <motion.div
     ref={ref}
+    whileHover={hoverEffect ? { y: -2 } : undefined}
+    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
     className={cn(
-      'rounded-xl border bg-card text-card-foreground shadow-card transition-shadow duration-200 hover:shadow-card-hover',
+      'border bg-card text-card-foreground shadow-card transition-shadow duration-200 hover:shadow-card-hover card-gradient',
       className
     )}
-    {...props}
+    {...(props as object)}
   />
 ));
 Card.displayName = 'Card';

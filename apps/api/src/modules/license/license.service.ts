@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LicenseKey, Tenant, Plan } from '../../database/entities';
+import { ALL_ENABLED_FEATURE_FLAGS, TenantSettings } from '@spm/shared';
 
 export interface LicenseValidationResult {
   valid: boolean;
@@ -26,6 +27,19 @@ export interface WidgetConfig {
   aiSearchEnabled: boolean;
   widgetFeatures: string[];
 
+  // Effective feature flags (computed: featureFlags AND settings)
+  enableAiChat: boolean;
+  enableMortgageCalculator: boolean;
+  mapSearchEnabled: boolean;
+
+  // Configurable search options
+  bedroomOptions?: number[];
+  bathroomOptions?: number[];
+  priceOptions?: Record<string, number[]>;
+  enabledListingTypes?: string[];
+  recaptchaSiteKey?: string;
+  similarPropertiesLimit?: number;
+
   // Settings
   settings: {
     theme: string;
@@ -36,10 +50,12 @@ export interface WidgetConfig {
     baseCurrency: string;
     availableCurrencies: string[];
     wishlistIcon: string;
+    mapVariation?: string;
     primaryColor?: string;
     logoUrl?: string;
     listingTypes?: Record<string, any>;
     priceRanges?: Record<string, any>;
+    locationSearchConfig?: Record<string, any>;
   };
 
   // Plan features
@@ -178,7 +194,8 @@ export class LicenseService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const settings = tenant.settings || {};
+    const settings = tenant.settings || ({} as TenantSettings);
+    const flags = tenant.featureFlags || ALL_ENABLED_FEATURE_FLAGS;
 
     return {
       tenantId: tenant.id,
@@ -188,22 +205,34 @@ export class LicenseService {
       apiKeyLast4: tenant.apiKeyLast4,
 
       widgetEnabled: tenant.widgetEnabled,
-      aiSearchEnabled: tenant.aiSearchEnabled,
+      aiSearchEnabled: flags.aiSearch && tenant.aiSearchEnabled,
       widgetFeatures: tenant.widgetFeatures,
+
+      enableAiChat: flags.aiChatbot && (settings.aiChatEnabled ?? false),
+      enableMortgageCalculator: flags.mortgageCalculator,
+      mapSearchEnabled: flags.mapSearch,
+      bedroomOptions: settings.bedroomOptions,
+      bathroomOptions: settings.bathroomOptions,
+      priceOptions: settings.priceOptions,
+      enabledListingTypes: settings.enabledListingTypes,
+      recaptchaSiteKey: settings.recaptchaSiteKey || undefined,
+      similarPropertiesLimit: settings.similarPropertiesLimit ?? 6,
 
       settings: {
         theme: settings.theme || 'light',
         defaultLanguage: settings.defaultLanguage || 'en',
         languages: settings.languages || ['en'],
-        enableMapView: settings.enableMapView ?? true,
-        enableCurrencyConverter: settings.enableCurrencyConverter ?? false,
+        enableMapView: flags.mapView && (settings.enableMapView ?? true),
+        enableCurrencyConverter: flags.currencyConverter && (settings.enableCurrencyConverter ?? false),
         baseCurrency: settings.baseCurrency || 'EUR',
         availableCurrencies: settings.availableCurrencies || ['EUR', 'GBP', 'USD'],
         wishlistIcon: settings.wishlistIcon || 'heart',
+        mapVariation: settings.mapVariation || 'auto',
         primaryColor: settings.primaryColor,
         logoUrl: settings.logoUrl,
         listingTypes: settings.listingTypes,
         priceRanges: settings.priceRanges,
+        locationSearchConfig: settings.locationSearchConfig,
       },
 
       planFeatures: tenant.plan?.features || {

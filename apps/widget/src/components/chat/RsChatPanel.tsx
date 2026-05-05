@@ -5,6 +5,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
+import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
 
 interface ChatMessage {
@@ -167,10 +168,9 @@ export default function RsChatPanel() {
     (property: Property) => {
       if (config.onPropertyClick) {
         config.onPropertyClick(property);
-      } else if (config.propertyPageUrl) {
-        window.location.href = `${config.propertyPageUrl}?id=${property.id}&ref=${property.reference}`;
-      } else if (config.propertyPageSlug) {
-        window.location.href = `/${config.propertyPageSlug}/${property.reference}`;
+      } else {
+        const url = buildPropertyUrl(property, config);
+        if (url) window.location.href = url;
       }
     },
     [config],

@@ -491,7 +491,7 @@ export default function EditPropertyPage() {
       const res = await api.post(`/api/dashboard/translate/property/${propertyId}`, {
         targetLanguages: tenantLanguages,
       });
-      const translated = (res as any)?.data || res;
+      const translated = (res as { data: Record<string, Record<string, string>> })?.data || res;
       if (translated) {
         const multiFields: MultilingualField[] = ['title', 'description', 'metaTitle', 'metaDescription', 'metaKeywords', 'pageTitle'];
         const updates: Partial<FormData> = {};
@@ -504,7 +504,8 @@ export default function EditPropertyPage() {
       }
       toast({ title: 'Translation complete', description: `Translated to ${tenantLanguages.length - 1} language(s). Review and save to keep changes.` });
     } catch (err) {
-      toast({ title: 'Translation failed', description: (err as any)?.response?.data?.message || (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
+      toast({ title: 'Translation failed', description: errMsg, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
     }

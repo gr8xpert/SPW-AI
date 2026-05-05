@@ -18,7 +18,7 @@ interface CampaignJob {
   tenantId: number;
 }
 
-@Processor('email-campaign')
+@Processor('email-campaign', { concurrency: 3 })
 export class EmailCampaignProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailCampaignProcessor.name);
 

@@ -3,7 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 /**
  * Resolves to the current tenant ID from the authenticated JWT.

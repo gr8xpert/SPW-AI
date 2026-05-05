@@ -36,11 +36,15 @@ function loadLibs() {
 
     const s1 = document.createElement('script');
     s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s1.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmIzVYI+6MYHFMhfMCggHLy6VL12r5OGNrVDNDG+FBAVfEe9Gw==';
+    s1.crossOrigin = 'anonymous';
     s1.onload = check;
     s1.onerror = reject;
 
     const s2 = document.createElement('script');
     s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s2.integrity = 'sha512-BNaRQnYJYiPSc6i1GOKQ0+1VUtrncUOEnCaWT12xtOWxZcQAkLau27/bBNBJjC2vPOHqXax5LCfBBOhPmyZPg==';
+    s2.crossOrigin = 'anonymous';
     s2.onload = check;
     s2.onerror = reject;
 
@@ -57,7 +61,7 @@ export async function generateWishlistPDF(
   brandName?: string,
   primaryColor?: string,
 ): Promise<void> {
-  const brand = brandName || document.title || 'Property Collection';
+  const brand = esc(brandName || document.title || 'Property Collection');
   const color = primaryColor || '#2563eb';
   const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -148,11 +152,11 @@ function buildPropertyHTML(p: Property, formatPrice: (n: number, c?: string) => 
   const desc = p.description ? esc(stripHtml(p.description).slice(0, 300)) + (p.description.length > 300 ? '...' : '') : '';
 
   const specs: string[] = [];
-  if (p.bedrooms != null) specs.push(`${p.bedrooms} Bedrooms`);
-  if (p.bathrooms != null) specs.push(`${p.bathrooms} Bathrooms`);
-  if (p.buildSize != null) specs.push(`${p.buildSize} m² Built`);
-  if (p.plotSize != null) specs.push(`${p.plotSize} m² Plot`);
-  if (p.year != null) specs.push(`Built ${p.year}`);
+  if (p.bedrooms != null) specs.push(`${esc(String(p.bedrooms))} Bedrooms`);
+  if (p.bathrooms != null) specs.push(`${esc(String(p.bathrooms))} Bathrooms`);
+  if (p.buildSize != null) specs.push(`${esc(String(p.buildSize))} m² Built`);
+  if (p.plotSize != null) specs.push(`${esc(String(p.plotSize))} Plot`);
+  if (p.year != null) specs.push(`Built ${esc(String(p.year))}`);
 
   const features = (p.features || []).slice(0, 8).map((f) => esc(f.name));
 

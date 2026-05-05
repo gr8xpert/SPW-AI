@@ -19,7 +19,7 @@ import { UploadService, UploadedFile as IUploadedFile } from './upload.service';
 import { CreateStorageConfigDto, UpdateStorageConfigDto } from './dto';
 import { CurrentTenant, Roles } from '../../common/decorators';
 import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 
 class UpdateFileOrderDto {
   @IsArray()

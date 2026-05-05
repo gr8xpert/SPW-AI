@@ -17,6 +17,7 @@ interface RsMapLocationTagsProps {
 export default function RsMapLocationTags({ onZoomToBounds }: RsMapLocationTagsProps) {
   const { t } = useLabels();
   const results = useSelector(selectors.getResults);
+  const locations = useSelector(selectors.getLocations);
   const properties = results?.data ?? [];
 
   const locationGroups = useMemo(() => {
@@ -31,8 +32,23 @@ export default function RsMapLocationTags({ onZoomToBounds }: RsMapLocationTagsP
 
     const result: LocationGroup[] = [];
     for (const [name, { props }] of groups) {
-      const geoProps = props.filter((p) => p.lat != null && p.lng != null);
-      if (geoProps.length === 0) {
+      const lats: number[] = [];
+      const lngs: number[] = [];
+
+      for (const p of props) {
+        if (p.lat != null && p.lng != null) {
+          lats.push(p.lat);
+          lngs.push(p.lng);
+        } else {
+          const loc = locations.find((l) => l.id === p.location.id);
+          if (loc?.lat != null && loc?.lng != null) {
+            lats.push(loc.lat);
+            lngs.push(loc.lng);
+          }
+        }
+      }
+
+      if (lats.length === 0) {
         result.push({
           name,
           count: props.length,
@@ -40,22 +56,30 @@ export default function RsMapLocationTags({ onZoomToBounds }: RsMapLocationTagsP
         });
         continue;
       }
-      const lats = geoProps.map((p) => p.lat!);
-      const lngs = geoProps.map((p) => p.lng!);
-      result.push({
-        name,
-        count: props.length,
-        bounds: {
-          minLat: Math.min(...lats),
-          maxLat: Math.max(...lats),
-          minLng: Math.min(...lngs),
-          maxLng: Math.max(...lngs),
-        },
-      });
+
+      let minLat = Math.min(...lats);
+      let maxLat = Math.max(...lats);
+      let minLng = Math.min(...lngs);
+      let maxLng = Math.max(...lngs);
+
+      // Ensure minimum bounds area so all markers are visible after zoom
+      const MIN_SPAN = 0.005;
+      if (maxLat - minLat < MIN_SPAN) {
+        const midLat = (minLat + maxLat) / 2;
+        minLat = midLat - MIN_SPAN / 2;
+        maxLat = midLat + MIN_SPAN / 2;
+      }
+      if (maxLng - minLng < MIN_SPAN) {
+        const midLng = (minLng + maxLng) / 2;
+        minLng = midLng - MIN_SPAN / 2;
+        maxLng = midLng + MIN_SPAN / 2;
+      }
+
+      result.push({ name, count: props.length, bounds: { minLat, maxLat, minLng, maxLng } });
     }
 
     return result.sort((a, b) => b.count - a.count);
-  }, [properties]);
+  }, [properties, locations]);
 
   const handleClick = useCallback(
     (group: LocationGroup) => {

@@ -81,9 +81,9 @@ const statusConfig: Record<
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: 'Low', color: 'text-muted-foreground' },
-  medium: { label: 'Medium', color: 'text-blue-600' },
-  high: { label: 'High', color: 'text-amber-600' },
-  urgent: { label: 'Urgent', color: 'text-red-600' },
+  medium: { label: 'Medium', color: 'text-primary/60' },
+  high: { label: 'High', color: 'text-primary/80' },
+  urgent: { label: 'Urgent', color: 'text-primary' },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -277,7 +277,7 @@ export default function TicketDetailPage() {
                                 </Badge>
                               )}
                               {msg.isInternal && (
-                                <Badge variant="outline" className="text-xs text-amber-600">
+                                <Badge variant="outline" className="text-xs text-primary/70">
                                   Internal
                                 </Badge>
                               )}

@@ -18,17 +18,36 @@ export interface WidgetConfig {
   defaultMapTemplate?: number;
 
   enableFavorites?: boolean;
+  wishlistIcon?: 'heart' | 'star' | 'bookmark' | 'save';
+  mapVariation?: 'auto' | '0' | '1' | '2';
+  recaptchaSiteKey?: string;
   enableInquiry?: boolean;
   enableTracking?: boolean;
   enableAiChat?: boolean;
   enableMortgageCalculator?: boolean;
   mapSearchEnabled?: boolean;
+  enableMapView?: boolean;
   similarProperties?: boolean;
+  similarPropertiesLimit?: number;
 
   propertyPageSlug?: string;
   propertyPageUrl?: string;
+  propertyRefPosition?: 'start' | 'end';
   resultsPage?: string;
+  wishlistPage?: string;
 
+  locationSearchConfig?: {
+    dropdown1: { levels: string[]; visible?: boolean };
+    dropdown2: { levels: string[]; visible?: boolean };
+    dropdown3: { levels: string[]; visible?: boolean };
+  };
+
+  bedroomOptions?: number[];
+  bathroomOptions?: number[];
+  priceOptions?: Record<string, number[]>;
+  defaultListingType?: string;
+  enabledListingTypes?: string[];
+  enabledSortOptions?: string[];
   radiusOptions?: number[];
   geocodingProvider?: 'nominatim' | 'google';
   googleMapsKey?: string;
@@ -52,10 +71,14 @@ export interface RealtySoftConfig {
   resultsPerPage?: number;
   propertyPageSlug?: string;
   propertyPageUrl?: string;
+  propertyRefPosition?: 'start' | 'end';
+  defaultListingType?: string;
+  enabledListingTypes?: string[];
   resultsPage?: string;
   searchTemplate?: number;
   listingTemplate?: number;
   mapTemplate?: number;
+  primaryColor?: string;
   enableChat?: boolean;
   enableFavorites?: boolean;
   labels?: Record<string, Record<string, string>>;

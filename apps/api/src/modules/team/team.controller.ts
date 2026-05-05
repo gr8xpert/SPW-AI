@@ -15,7 +15,7 @@ import { TeamService } from './team.service';
 import { InviteUserDto, UpdateUserDto, ChangePasswordDto, ResetPasswordDto } from './dto';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser } from '../../common/decorators';
-import { JwtPayload } from '@spw/shared';
+import { JwtPayload } from '@spm/shared';
 
 @Controller('api/dashboard/team')
 @UseGuards(JwtAuthGuard, TenantGuard)

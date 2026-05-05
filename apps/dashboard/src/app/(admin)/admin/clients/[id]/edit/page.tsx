@@ -29,6 +29,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useApi } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, RefreshCw } from 'lucide-react';
 
 const clientSchema = z.object({
@@ -43,8 +44,15 @@ const clientSchema = z.object({
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
-  aiSearchEnabled: z.boolean(),
   isActive: z.boolean(),
+  featureFlags: z.object({
+    mapSearch: z.boolean(),
+    mapView: z.boolean(),
+    aiSearch: z.boolean(),
+    aiChatbot: z.boolean(),
+    mortgageCalculator: z.boolean(),
+    currencyConverter: z.boolean(),
+  }),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
@@ -59,6 +67,7 @@ export default function EditClientPage() {
   const params = useParams();
   const router = useRouter();
   const api = useApi();
+  const { toast } = useToast();
   const clientId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -79,8 +88,15 @@ export default function EditClientPage() {
       adminOverride: false,
       isInternal: false,
       widgetEnabled: true,
-      aiSearchEnabled: false,
       isActive: true,
+      featureFlags: {
+        mapSearch: false,
+        mapView: false,
+        aiSearch: false,
+        aiChatbot: false,
+        mortgageCalculator: false,
+        currencyConverter: false,
+      },
     },
   });
 
@@ -107,8 +123,15 @@ export default function EditClientPage() {
           adminOverride: client.adminOverride,
           isInternal: client.isInternal,
           widgetEnabled: client.widgetEnabled,
-          aiSearchEnabled: client.aiSearchEnabled,
           isActive: client.isActive,
+          featureFlags: client.featureFlags || {
+            mapSearch: false,
+            mapView: false,
+            aiSearch: false,
+            aiChatbot: false,
+            mortgageCalculator: false,
+            currencyConverter: false,
+          },
         });
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -136,7 +159,7 @@ export default function EditClientPage() {
       router.push(`/admin/clients/${clientId}`);
     } catch (error) {
       console.error('Failed to save client:', error);
-      alert('Failed to save changes');
+      toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -430,8 +453,8 @@ export default function EditClientPage() {
             <TabsContent value="features" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Widget Features</CardTitle>
-                  <CardDescription>Configure which features are enabled for this client</CardDescription>
+                  <CardTitle>Features & Add-ons</CardTitle>
+                  <CardDescription>Control which features this client can access on their website</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField
@@ -452,23 +475,31 @@ export default function EditClientPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="aiSearchEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">AI Search</FormLabel>
-                          <FormDescription>
-                            Enable AI-powered natural language property search
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  {[
+                    { name: 'featureFlags.mapSearch' as const, label: 'Map Search', description: 'Search properties by drawing on a map' },
+                    { name: 'featureFlags.mapView' as const, label: 'Map View', description: 'Display properties on an interactive map' },
+                    { name: 'featureFlags.aiSearch' as const, label: 'AI Search', description: 'AI-powered natural language property search' },
+                    { name: 'featureFlags.aiChatbot' as const, label: 'AI Chatbot', description: 'Conversational AI assistant on the widget' },
+                    { name: 'featureFlags.mortgageCalculator' as const, label: 'Mortgage Calculator', description: 'Mortgage calculator on property pages' },
+                    { name: 'featureFlags.currencyConverter' as const, label: 'Currency Converter', description: 'Currency conversion on the widget' },
+                  ].map((feature) => (
+                    <FormField
+                      key={feature.name}
+                      control={form.control}
+                      name={feature.name}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">{feature.label}</FormLabel>
+                            <FormDescription>{feature.description}</FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>

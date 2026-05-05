@@ -1,15 +1,23 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useSelector } from '@/hooks/useStore';
+import { selectors } from '@/core/selectors';
 
 interface Props {
-  price: number;
-  currency: string;
+  price?: number;
+  currency?: string;
 }
 
-export default function RsMortgageCalculator({ price, currency }: Props) {
+export default function RsMortgageCalculator({ price: priceProp, currency: currencyProp }: Props) {
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
+  const property = useSelector(selectors.getSelectedProperty);
+
+  const price = priceProp ?? property?.price ?? 0;
+  const currency = currencyProp ?? property?.currency ?? 'EUR';
+
+  if (!price || price <= 0) return null;
 
   const [downPaymentPct, setDownPaymentPct] = useState(20);
   const [interestRate, setInterestRate] = useState(3.5);

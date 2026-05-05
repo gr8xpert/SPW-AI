@@ -17,7 +17,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { generateApiKey } from '../../common/crypto/api-key';
-import { JwtPayload, UserRole } from '@spw/shared';
+import { JwtPayload, UserRole } from '@spm/shared';
 
 @Injectable()
 export class AuthService {
@@ -123,7 +123,7 @@ export class AuthService {
     }
 
     // Hash password before transaction
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await bcrypt.hash(dto.password, 13);
 
     // Generate the tenant API key up front so we can return the raw value in
     // the response. Only the hash lands in the database.

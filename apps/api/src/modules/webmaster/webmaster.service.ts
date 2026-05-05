@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { TimeEntry, Ticket, User, Tenant } from '../../database/entities';
 import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 import { TicketNotificationService } from '../ticket/ticket-notification.service';
 import * as bcrypt from 'bcrypt';
 
@@ -364,7 +364,7 @@ export class WebmasterService {
       throw new BadRequestException('Platform tenant not found — run seed first');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await bcrypt.hash(dto.password, 13);
     const user = this.userRepository.create({
       tenantId: platform.id,
       email: dto.email.toLowerCase(),
@@ -395,7 +395,7 @@ export class WebmasterService {
     if (dto.email !== undefined) user.email = dto.email.toLowerCase();
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
     if (dto.password) {
-      user.passwordHash = await bcrypt.hash(dto.password, 12);
+      user.passwordHash = await bcrypt.hash(dto.password, 13);
     }
 
     const saved = await this.userRepository.save(user);

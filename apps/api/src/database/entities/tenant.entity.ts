@@ -14,10 +14,12 @@ import { encryptedColumn } from '../../common/crypto/secret-cipher';
 import {
   TenantSettings,
   DEFAULT_TENANT_SETTINGS,
+  TenantFeatureFlags,
+  DEFAULT_FEATURE_FLAGS,
   SubscriptionStatus,
   BillingCycle,
   BillingSource,
-} from '@spw/shared';
+} from '@spm/shared';
 
 @Entity('tenants')
 export class Tenant {
@@ -56,7 +58,7 @@ export class Tenant {
   @Index()
   apiKeyHash: string;
 
-  // Cosmetic hint for the dashboard (e.g. "spw_****1a2b"). Last 4 of the raw key.
+  // Cosmetic hint for the dashboard (e.g. "spm_****1a2b"). Last 4 of the raw key.
   @Column({ type: 'char', length: 4 })
   apiKeyLast4: string;
 
@@ -129,6 +131,9 @@ export class Tenant {
 
   @Column({ type: 'json', default: () => "'[\"search\", \"detail\", \"wishlist\"]'" })
   widgetFeatures: string[];
+
+  @Column({ type: 'json', default: () => `'${JSON.stringify(DEFAULT_FEATURE_FLAGS)}'` })
+  featureFlags: TenantFeatureFlags;
 
   @CreateDateColumn()
   createdAt: Date;

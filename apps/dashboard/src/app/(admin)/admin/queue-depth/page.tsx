@@ -50,10 +50,10 @@ export default function QueueDepthPage() {
 
   const statusClass = (s: QueueRow['status']) =>
     s === 'critical'
-      ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+      ? 'bg-primary/20 text-primary font-semibold'
       : s === 'warning'
-      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-      : 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300';
+      ? 'bg-secondary text-primary/80'
+      : 'bg-secondary/50 text-primary/60';
 
   const renderCount = (n: number) => (n < 0 ? '—' : n.toLocaleString());
 
@@ -93,7 +93,7 @@ export default function QueueDepthPage() {
         </CardHeader>
         <CardContent>
           {error ? (
-            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            <p className="text-sm text-primary/70">{error}</p>
           ) : loading && rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : rows.length === 0 ? (

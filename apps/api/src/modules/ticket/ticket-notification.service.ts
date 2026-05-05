@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, Ticket, TicketMessage } from '../../database/entities';
 import { SystemMailerService } from '../mail/system-mailer.service';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 
 @Injectable()
 export class TicketNotificationService {

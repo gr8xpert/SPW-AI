@@ -27,7 +27,7 @@ export default function RsWishlistActions(_props: Props) {
   const handleClearAll = () => {
     if (confirm(t('wishlist_clear_confirm', 'Remove all properties from your wishlist?'))) {
       actions.setFavorites([]);
-      try { localStorage.removeItem('spw_favorites'); } catch { /* */ }
+      try { localStorage.removeItem('spm_favorites'); } catch { /* */ }
     }
   };
 
@@ -38,7 +38,7 @@ export default function RsWishlistActions(_props: Props) {
     try {
       await generateWishlistPDF(properties, formatPrice, config.companyName || config.tenantSlug, config.primaryColor);
     } catch (err) {
-      console.error('[SPW] PDF generation failed:', err);
+      console.error('[SPM] PDF generation failed:', err);
     }
   };
 

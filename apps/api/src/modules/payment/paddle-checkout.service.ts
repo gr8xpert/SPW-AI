@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BillingCycle } from '@spw/shared';
+import { BillingCycle } from '@spm/shared';
 import { Plan, Tenant } from '../../database/entities';
 
 // 6E — Paddle outbound checkout. Closes the loop the inbound webhook (6A)

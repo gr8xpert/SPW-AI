@@ -88,9 +88,9 @@ const providerNames: Record<string, string> = {
 };
 
 const statusConfig = {
-  success: { icon: CheckCircle2, color: 'text-green-500', label: 'Success' },
-  partial: { icon: AlertTriangle, color: 'text-amber-500', label: 'Partial' },
-  failed: { icon: XCircle, color: 'text-red-500', label: 'Failed' },
+  success: { icon: CheckCircle2, color: 'text-primary', label: 'Success' },
+  partial: { icon: AlertTriangle, color: 'text-primary/60', label: 'Partial' },
+  failed: { icon: XCircle, color: 'text-primary/40', label: 'Failed' },
 };
 
 const emptyForm = {
@@ -305,8 +305,8 @@ export default function FeedsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Feeds</CardTitle>
-            <div className="stat-card-icon bg-blue-50">
-              <Settings className="h-4 w-4 text-blue-600" />
+            <div className="stat-card-icon">
+              <Settings className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent><div className="text-2xl font-bold tracking-tight">{feeds.length}</div></CardContent>
@@ -314,17 +314,17 @@ export default function FeedsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <div className="stat-card-icon bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <div className="stat-card-icon">
+              <CheckCircle2 className="h-4 w-4" />
             </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{feeds.filter((f) => f.isActive).length}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{feeds.filter((f) => f.isActive).length}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Last Sync Total</CardTitle>
-            <div className="stat-card-icon bg-purple-50">
-              <RefreshCw className="h-4 w-4 text-purple-600" />
+            <div className="stat-card-icon">
+              <RefreshCw className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
@@ -335,12 +335,12 @@ export default function FeedsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Issues</CardTitle>
-            <div className="stat-card-icon bg-amber-50">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <div className="stat-card-icon">
+              <AlertTriangle className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-amber-600">
+            <div className="text-2xl font-bold tracking-tight">
               {feeds.filter((f) => f.lastSyncStatus && f.lastSyncStatus !== 'success').length}
             </div>
           </CardContent>

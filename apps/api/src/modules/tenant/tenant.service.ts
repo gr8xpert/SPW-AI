@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tenant, WebhookDelivery } from '../../database/entities';
-import { TenantPublic, TenantSettings } from '@spw/shared';
+import { TenantPublic, TenantSettings } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget } from '../webhook/webhook-target';

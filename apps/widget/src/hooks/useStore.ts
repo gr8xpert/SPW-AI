@@ -1,23 +1,23 @@
 import { useSyncExternalStore } from 'preact/compat';
 import { useRef } from 'preact/hooks';
 import { store } from '@/core/store';
-import type { SPWState, StateSlice } from '@/types';
+import type { SPMState, StateSlice } from '@/types';
 
 const subscribe = store.subscribe.bind(store);
 
-export function useStore(): SPWState {
+export function useStore(): SPMState {
   return useSyncExternalStore(subscribe, store.getSnapshot);
 }
 
-export function useStoreSlice<K extends StateSlice>(slice: K): SPWState[K] {
+export function useStoreSlice<K extends StateSlice>(slice: K): SPMState[K] {
   return useSyncExternalStore(
     (cb) => store.subscribeSlice(slice, cb as () => void),
     () => store.get(slice),
   );
 }
 
-export function useSelector<T>(selector: (state: SPWState) => T): T {
-  const cache = useRef<{ state: SPWState; value: T } | null>(null);
+export function useSelector<T>(selector: (state: SPMState) => T): T {
+  const cache = useRef<{ state: SPMState; value: T } | null>(null);
 
   return useSyncExternalStore(subscribe, () => {
     const state = store.getState();

@@ -112,14 +112,14 @@
   <!-- Widget Script -->
   <script type="module">
     // In development, import from source
-    // In production, use: <script src="https://widget.spw-ai.com/spw-widget.iife.js">
+    // In production, use: <script src="https://widget.spm-ai.com/spm-widget.iife.js">
 
     // For demo, we'll simulate the data
     const demoConfig = {
-      apiUrl: 'https://api.spw-ai.com',
+      apiUrl: 'https://api.spm-ai.com',
       apiKey: 'demo-api-key',
       container: '#property-widget',
-      dataPath: '/spw-data',
+      dataPath: '/spm-data',
       theme: 'light',
       layout: 'grid',
       resultsPerPage: 12,
@@ -129,7 +129,7 @@
     };
 
     // Note: In actual usage, the widget would be initialized like this:
-    // const widget = new SPW.Widget(demoConfig);
+    // const widget = new SPM.Widget(demoConfig);
     // widget.init();
 
     // For demo purposes, show placeholder
@@ -141,12 +141,12 @@
         </svg>
         <h3 style="margin-bottom: 0.5rem; color: #0f172a;">Widget Demo</h3>
         <p style="max-width: 400px; margin: 0 auto;">
-          Connect to your SPW API to see the widget in action.
-          Make sure local JSON data files are available at /spw-data/
+          Connect to your SPM API to see the widget in action.
+          Make sure local JSON data files are available at /spm-data/
         </p>
         <div style="margin-top: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 0.5rem; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
-          <code style="font-size: 0.75rem; display: block; white-space: pre-wrap;">const widget = new SPW.Widget({
-  apiUrl: 'https://api.spw-ai.com',
+          <code style="font-size: 0.75rem; display: block; white-space: pre-wrap;">const widget = new SPM.Widget({
+  apiUrl: 'https://api.spm-ai.com',
   apiKey: 'your-api-key',
   container: '#property-widget',
 });
@@ -158,7 +158,7 @@ widget.init();</code>
     // Theme toggle
     document.getElementById('theme-toggle').addEventListener('change', (e) => {
       const widget = document.getElementById('property-widget');
-      widget.classList.toggle('spw-theme-dark', e.target.value === 'dark');
+      widget.classList.toggle('spm-theme-dark', e.target.value === 'dark');
     });
   </script>
 </body>

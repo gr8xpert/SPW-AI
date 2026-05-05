@@ -8,11 +8,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { createHash } from 'crypto';
+import * as sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
-import { Property, Location, PropertyType, Feature } from '../../database/entities';
+import { Property, PropertyImage, Location, PropertyType, Feature } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
-import { ResalesAdapter, InmobaAdapter, BaseFeedAdapter, FeedProperty } from './adapters';
+import { ResalesAdapter, InmobaAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
+import { UploadService } from '../upload/upload.service';
 
 @Injectable()
 export class FeedService {
@@ -37,6 +41,7 @@ export class FeedService {
     private resalesAdapter: ResalesAdapter,
     private inmobaAdapter: InmobaAdapter,
     private readonly tenantService: TenantService,
+    private readonly uploadService: UploadService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -244,64 +249,235 @@ export class FeedService {
       },
     });
 
-    const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
-    const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
-    const featureIds = await this.findFeatureIds(tenantId, feedProperty.features);
-
-    const propertyData: Partial<Property> = {
-      tenantId,
-      reference: feedProperty.reference,
-      agentReference: feedProperty.agentReference,
-      externalId: feedProperty.externalId,
-      source: provider as any,
-      listingType: feedProperty.listingType,
-      propertyTypeId,
-      locationId,
-      title: feedProperty.title,
-      description: feedProperty.description,
-      price: feedProperty.price,
-      priceOnRequest: feedProperty.priceOnRequest || false,
-      currency: feedProperty.currency,
-      bedrooms: feedProperty.bedrooms,
-      bathrooms: feedProperty.bathrooms,
-      buildSize: feedProperty.buildSize,
-      plotSize: feedProperty.plotSize,
-      terraceSize: feedProperty.terraceSize,
-      gardenSize: feedProperty.gardenSize,
-      images: feedProperty.images,
-      features: featureIds,
-      lat: feedProperty.lat,
-      lng: feedProperty.lng,
-      videoUrl: feedProperty.videoUrl,
-      virtualTourUrl: feedProperty.virtualTourUrl,
-      importedAt: new Date(),
-    };
+    const contentHash = this.computeFeedHash(feedProperty);
 
     if (existing) {
+      if (!existing.syncEnabled) return 'skipped';
+
+      const dataChanged = existing.contentHash !== contentHash;
+      const imagesChanged = this.haveImagesChanged(
+        feedProperty.images,
+        existing.images,
+      );
+
+      if (!dataChanged && !imagesChanged) return 'skipped';
+
       const lockedFields = existing.lockedFields || [];
       const updateData: Partial<Property> = {};
 
-      for (const [key, value] of Object.entries(propertyData)) {
-        if (!lockedFields.includes(key)) {
-          (updateData as any)[key] = value;
+      if (dataChanged) {
+        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+        const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
+        const featureIds = await this.findFeatureIds(tenantId, feedProperty.features);
+
+        const propertyData: Record<string, any> = {
+          reference: feedProperty.reference,
+          agentReference: feedProperty.agentReference,
+          externalId: feedProperty.externalId,
+          source: provider,
+          listingType: feedProperty.listingType,
+          propertyTypeId,
+          locationId,
+          title: feedProperty.title,
+          description: feedProperty.description,
+          price: feedProperty.price,
+          priceOnRequest: feedProperty.priceOnRequest || false,
+          currency: feedProperty.currency,
+          bedrooms: feedProperty.bedrooms,
+          bathrooms: feedProperty.bathrooms,
+          buildSize: feedProperty.buildSize,
+          plotSize: feedProperty.plotSize,
+          terraceSize: feedProperty.terraceSize,
+          gardenSize: feedProperty.gardenSize,
+          features: featureIds,
+          lat: feedProperty.lat,
+          lng: feedProperty.lng,
+          videoUrl: feedProperty.videoUrl,
+          virtualTourUrl: feedProperty.virtualTourUrl,
+          contentHash,
+        };
+
+        for (const [key, value] of Object.entries(propertyData)) {
+          if (!lockedFields.includes(key)) {
+            (updateData as any)[key] = value;
+          }
         }
       }
 
-      if (!existing.syncEnabled) {
-        return 'skipped';
+      if (imagesChanged && !lockedFields.includes('images')) {
+        updateData.images = await this.processImages(
+          tenantId,
+          existing.reference,
+          feedProperty.images,
+          existing.images,
+        );
       }
 
+      if (Object.keys(updateData).length === 0) return 'skipped';
+
+      updateData.importedAt = new Date();
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {
+      const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+      const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
+      const featureIds = await this.findFeatureIds(tenantId, feedProperty.features);
+
+      const images = await this.processImages(
+        tenantId,
+        feedProperty.reference,
+        feedProperty.images,
+        null,
+      );
+
       const newProperty = this.propertyRepository.create({
-        ...propertyData,
+        tenantId,
+        reference: feedProperty.reference,
+        agentReference: feedProperty.agentReference,
+        externalId: feedProperty.externalId,
+        source: provider as any,
+        listingType: feedProperty.listingType,
+        propertyTypeId,
+        locationId,
+        title: feedProperty.title,
+        description: feedProperty.description,
+        price: feedProperty.price,
+        priceOnRequest: feedProperty.priceOnRequest || false,
+        currency: feedProperty.currency,
+        bedrooms: feedProperty.bedrooms,
+        bathrooms: feedProperty.bathrooms,
+        buildSize: feedProperty.buildSize,
+        plotSize: feedProperty.plotSize,
+        terraceSize: feedProperty.terraceSize,
+        gardenSize: feedProperty.gardenSize,
+        images,
+        features: featureIds,
+        lat: feedProperty.lat,
+        lng: feedProperty.lng,
+        videoUrl: feedProperty.videoUrl,
+        virtualTourUrl: feedProperty.virtualTourUrl,
+        contentHash,
+        importedAt: new Date(),
         status: 'draft',
       });
 
       await this.propertyRepository.save(newProperty);
       return 'created';
     }
+  }
+
+  private computeFeedHash(feedProperty: FeedProperty): string {
+    const { images, ...data } = feedProperty;
+    const keys = Object.keys(data).sort();
+    const sorted = JSON.stringify(data, keys);
+    return createHash('sha256').update(sorted).digest('hex');
+  }
+
+  private haveImagesChanged(
+    feedImages: FeedPropertyImage[],
+    existingImages: PropertyImage[] | null,
+  ): boolean {
+    if (!existingImages) return feedImages.length > 0;
+    if (feedImages.length !== existingImages.length) return true;
+
+    const existingSourceUrls = new Set(
+      existingImages.map((img) => img.sourceUrl || img.url),
+    );
+    return feedImages.some((img) => !existingSourceUrls.has(img.url));
+  }
+
+  private async processImages(
+    tenantId: number,
+    propertyRef: string,
+    feedImages: FeedPropertyImage[],
+    existingImages: PropertyImage[] | null,
+  ): Promise<PropertyImage[]> {
+    const existingMap = new Map<string, PropertyImage>();
+    if (existingImages) {
+      for (const img of existingImages) {
+        existingMap.set(img.sourceUrl || img.url, img);
+      }
+    }
+
+    const result: PropertyImage[] = [];
+    const newSourceUrls = new Set(feedImages.map((img) => img.url));
+    const CONCURRENCY = 5;
+
+    for (let i = 0; i < feedImages.length; i += CONCURRENCY) {
+      const batch = feedImages.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(async (feedImg): Promise<PropertyImage> => {
+          const cached = existingMap.get(feedImg.url);
+          if (cached) {
+            return { ...cached, order: feedImg.order, alt: feedImg.alt };
+          }
+
+          try {
+            const r2Url = await this.downloadAndUploadImage(
+              tenantId,
+              propertyRef,
+              feedImg.url,
+            );
+            return {
+              url: r2Url,
+              sourceUrl: feedImg.url,
+              order: feedImg.order,
+              alt: feedImg.alt,
+            };
+          } catch (err) {
+            this.logger.warn(
+              `Image processing failed for ${propertyRef}: ${(err as Error).message}`,
+            );
+            return {
+              url: feedImg.url,
+              sourceUrl: feedImg.url,
+              order: feedImg.order,
+              alt: feedImg.alt,
+            };
+          }
+        }),
+      );
+      result.push(...batchResults);
+    }
+
+    // Cleanup orphaned R2 images no longer in the feed
+    for (const [sourceUrl, img] of existingMap) {
+      if (!newSourceUrls.has(sourceUrl) && img.sourceUrl) {
+        const key = this.uploadService.extractR2Key(img.url, tenantId);
+        if (key) {
+          this.uploadService.deleteFeedImage(tenantId, key).catch(() => {});
+        }
+      }
+    }
+
+    return result;
+  }
+
+  private async downloadAndUploadImage(
+    tenantId: number,
+    propertyRef: string,
+    imageUrl: string,
+  ): Promise<string> {
+    const response = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const arrayBuffer = await response.arrayBuffer();
+    const webpBuffer = await sharp(Buffer.from(arrayBuffer))
+      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+
+    const safeRef = propertyRef.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const key = `${tenantId}/properties/${safeRef}/${uuidv4()}.webp`;
+    const r2Url = await this.uploadService.uploadFeedImage(
+      tenantId,
+      key,
+      webpBuffer,
+    );
+
+    return r2Url || imageUrl;
   }
 
   private async findOrCreateLocation(

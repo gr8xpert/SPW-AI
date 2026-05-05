@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useApi } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, RefreshCw, Check, X } from 'lucide-react';
 
 interface PlanFeatures {
@@ -76,6 +77,7 @@ const defaultFeatures: PlanFeatures = {
 
 export default function PlansPage() {
   const api = useApi();
+  const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stats, setStats] = useState<PlanStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,7 @@ export default function PlansPage() {
       fetchData();
     } catch (error: any) {
       console.error('Failed to create plan:', error);
-      alert(error.response?.data?.message || 'Failed to create plan');
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to create plan', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -209,7 +211,7 @@ export default function PlansPage() {
       fetchData();
     } catch (error: any) {
       console.error('Failed to update plan:', error);
-      alert(error.response?.data?.message || 'Failed to update plan');
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to update plan', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -223,7 +225,7 @@ export default function PlansPage() {
       fetchData();
     } catch (error: any) {
       console.error('Failed to delete plan:', error);
-      alert(error.response?.data?.message || 'Failed to delete plan');
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to delete plan', variant: 'destructive' });
     }
   };
 

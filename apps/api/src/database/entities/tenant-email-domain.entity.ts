@@ -45,10 +45,10 @@ export class TenantEmailDomain {
   domain: string;
 
   // DKIM selector — the label that appears in the TXT record
-  // "<selector>._domainkey.<domain>". We default to `spw1` so every
+  // "<selector>._domainkey.<domain>". We default to `spm1` so every
   // tenant's record lives at a predictable location; only ever different
-  // if we needed a key rotation ("spw2") while leaving spw1 valid.
-  @Column({ length: 50, default: 'spw1' })
+  // if we needed a key rotation ("spm2") while leaving spm1 valid.
+  @Column({ length: 50, default: 'spm1' })
   dkimSelector: string;
 
   // Public half of the DKIM keypair, PEM SubjectPublicKeyInfo. The

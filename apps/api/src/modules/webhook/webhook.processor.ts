@@ -12,12 +12,12 @@ import { WEBHOOK_QUEUE, WebhookJobData } from './webhook.service';
 // Receivers should reconstruct the signed body as `${timestamp}.${body}` and
 // compare the HMAC-SHA256 in constant time. We set a 5-minute-old timestamp
 // on each attempt so replays outside that window are rejectable.
-const SIGNATURE_HEADER = 'x-spw-signature';
-const EVENT_HEADER = 'x-spw-event';
-const DELIVERY_HEADER = 'x-spw-delivery-id';
-const TIMESTAMP_HEADER = 'x-spw-timestamp';
+const SIGNATURE_HEADER = 'x-spm-signature';
+const EVENT_HEADER = 'x-spm-event';
+const DELIVERY_HEADER = 'x-spm-delivery-id';
+const TIMESTAMP_HEADER = 'x-spm-timestamp';
 
-@Processor(WEBHOOK_QUEUE)
+@Processor(WEBHOOK_QUEUE, { concurrency: 5 })
 export class WebhookProcessor extends WorkerHost {
   private readonly logger = new Logger(WebhookProcessor.name);
 
@@ -71,7 +71,7 @@ export class WebhookProcessor extends WorkerHost {
           [DELIVERY_HEADER]: String(delivery.id),
           [TIMESTAMP_HEADER]: timestamp,
           [SIGNATURE_HEADER]: `t=${timestamp},v1=${signature}`,
-          'User-Agent': 'SPW-Webhook/1.0',
+          'User-Agent': 'SPM-Webhook/1.0',
         },
         // Hard timeout so a slow endpoint can't tie up the worker. Sized
         // generously enough that normal receivers ACK within budget.

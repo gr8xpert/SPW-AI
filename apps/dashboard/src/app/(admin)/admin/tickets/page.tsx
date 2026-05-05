@@ -65,10 +65,10 @@ interface TicketStats {
 /* ---------- Colour maps ---------- */
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }> = {
-  open:              { label: 'Open',            variant: 'default',     className: 'bg-blue-600 hover:bg-blue-600 text-white' },
-  in_progress:       { label: 'In Progress',     variant: 'default',     className: 'bg-amber-500 hover:bg-amber-500 text-white' },
-  waiting_customer:  { label: 'Awaiting Reply',  variant: 'default',     className: 'bg-purple-500 hover:bg-purple-500 text-white' },
-  resolved:          { label: 'Resolved',        variant: 'default',     className: 'bg-green-600 hover:bg-green-600 text-white' },
+  open:              { label: 'Open',            variant: 'default',     className: 'bg-primary hover:bg-primary text-primary-foreground' },
+  in_progress:       { label: 'In Progress',     variant: 'default',     className: 'bg-primary/70 hover:bg-primary/70 text-primary-foreground' },
+  waiting_customer:  { label: 'Awaiting Reply',  variant: 'default',     className: 'bg-primary/50 hover:bg-primary/50 text-primary-foreground' },
+  resolved:          { label: 'Resolved',        variant: 'default',     className: 'bg-primary/80 hover:bg-primary/80 text-primary-foreground' },
   closed:            { label: 'Closed',          variant: 'secondary' },
 };
 
@@ -80,11 +80,11 @@ const priorityConfig: Record<string, { label: string; variant: 'default' | 'seco
 };
 
 const statCardConfig: { key: string; statsKey: keyof TicketStats; label: string; icon: React.ReactNode }[] = [
-  { key: 'open', statsKey: 'open', label: 'Open', icon: <div className="stat-card-icon bg-blue-50"><AlertCircle className="h-4 w-4 text-blue-600" /></div> },
-  { key: 'in_progress', statsKey: 'inProgress', label: 'In Progress', icon: <div className="stat-card-icon bg-amber-50"><Clock className="h-4 w-4 text-amber-500" /></div> },
-  { key: 'waiting_customer', statsKey: 'waitingCustomer', label: 'Awaiting Reply', icon: <div className="stat-card-icon bg-purple-50"><MessageSquare className="h-4 w-4 text-purple-500" /></div> },
-  { key: 'resolved', statsKey: 'resolved', label: 'Resolved', icon: <div className="stat-card-icon bg-green-50"><CheckCircle2 className="h-4 w-4 text-green-600" /></div> },
-  { key: 'closed', statsKey: 'closed', label: 'Closed', icon: <div className="stat-card-icon bg-gray-50"><XCircle className="h-4 w-4 text-muted-foreground" /></div> },
+  { key: 'open', statsKey: 'open', label: 'Open', icon: <div className="stat-card-icon"><AlertCircle className="h-4 w-4" /></div> },
+  { key: 'in_progress', statsKey: 'inProgress', label: 'In Progress', icon: <div className="stat-card-icon"><Clock className="h-4 w-4" /></div> },
+  { key: 'waiting_customer', statsKey: 'waitingCustomer', label: 'Awaiting Reply', icon: <div className="stat-card-icon"><MessageSquare className="h-4 w-4" /></div> },
+  { key: 'resolved', statsKey: 'resolved', label: 'Resolved', icon: <div className="stat-card-icon"><CheckCircle2 className="h-4 w-4" /></div> },
+  { key: 'closed', statsKey: 'closed', label: 'Closed', icon: <div className="stat-card-icon"><XCircle className="h-4 w-4" /></div> },
 ];
 
 /* ---------- Helpers ---------- */

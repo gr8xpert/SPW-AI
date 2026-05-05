@@ -64,14 +64,15 @@ export class PropertySearchService {
   }
 
   private applySorting(query: SelectQueryBuilder<Property>, sortBy?: string): void {
-    query.addOrderBy('p.isFeatured', 'DESC');
     switch (sortBy) {
-      case 'price_asc': query.addOrderBy('p.price', 'ASC', 'NULLS LAST'); break;
-      case 'price_desc': query.addOrderBy('p.price', 'DESC', 'NULLS LAST'); break;
-      case 'date_asc': query.addOrderBy('p.createdAt', 'ASC'); break;
-      case 'date_desc': query.addOrderBy('p.createdAt', 'DESC'); break;
-      case 'beds_asc': query.addOrderBy('p.bedrooms', 'ASC', 'NULLS LAST'); break;
-      case 'beds_desc': query.addOrderBy('p.bedrooms', 'DESC', 'NULLS LAST'); break;
+      case 'create_date_desc': query.addOrderBy('p.createdAt', 'DESC'); break;
+      case 'create_date': query.addOrderBy('p.createdAt', 'ASC'); break;
+      case 'write_date_desc': query.addOrderBy('p.updatedAt', 'DESC'); break;
+      case 'write_date': query.addOrderBy('p.updatedAt', 'ASC'); break;
+      case 'list_price': query.addOrderBy('p.price', 'ASC', 'NULLS LAST'); break;
+      case 'list_price_desc': query.addOrderBy('p.price', 'DESC', 'NULLS LAST'); break;
+      case 'is_featured_desc': query.addOrderBy('p.isFeatured', 'DESC'); break;
+      case 'location_id': query.addOrderBy('p.locationId', 'ASC'); break;
       default: query.addOrderBy('p.createdAt', 'DESC');
     }
   }

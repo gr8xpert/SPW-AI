@@ -9,7 +9,7 @@ import { AiChatPromptService } from './ai-chat-prompt.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { CreateChatMessageDto } from './dto/create-chat-message.dto';
 import { SSEEvent, ChatContext } from './interfaces/chat-tool.interface';
-import { TenantSettings } from '@spw/shared';
+import { TenantSettings } from '@spm/shared';
 
 const MAX_TOOL_ITERATIONS = 3;
 const MAX_CONTEXT_MESSAGES = 20;
@@ -41,7 +41,7 @@ export class AiChatService {
     if (!tenant) throw new NotFoundException('Tenant not found');
     const settings: TenantSettings = tenant.settings || {};
 
-    if (!settings.aiChatEnabled) {
+    if (!tenant.featureFlags?.aiChatbot || !settings.aiChatEnabled) {
       yield { type: 'error', data: { message: 'AI Chat is not enabled' } };
       return;
     }

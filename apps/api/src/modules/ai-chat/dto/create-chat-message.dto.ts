@@ -1,5 +1,39 @@
-import { IsString, IsOptional, IsNumber, IsArray, MaxLength, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsArray, IsObject, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+class ChatFiltersDto {
+  @IsOptional()
+  @IsString()
+  listingType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  minPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  minBedrooms?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxBedrooms?: number;
+
+  @IsOptional()
+  @IsNumber()
+  locationId?: number;
+
+  @IsOptional()
+  @IsNumber()
+  propertyTypeId?: number;
+
+  @IsOptional()
+  @IsString()
+  query?: string;
+}
 
 class ChatContextDto {
   @IsOptional()
@@ -17,7 +51,9 @@ class ChatContextDto {
   recentlyViewed?: string[];
 
   @IsOptional()
-  currentFilters?: Record<string, any>;
+  @ValidateNested()
+  @Type(() => ChatFiltersDto)
+  currentFilters?: ChatFiltersDto;
 
   @IsOptional()
   @IsString()

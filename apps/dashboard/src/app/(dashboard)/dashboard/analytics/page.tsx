@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ import {
 } from 'recharts';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { staggerContainer, staggerItem } from '@/lib/animations';
 
 interface OverviewData {
   searches: number;
@@ -89,18 +91,18 @@ interface FunnelData {
 }
 
 const metricCards = [
-  { key: 'searches', label: 'Searches', icon: Search, color: 'bg-blue-50 text-blue-600' },
-  { key: 'views', label: 'Property Views', icon: Eye, color: 'bg-green-50 text-green-600' },
-  { key: 'cardClicks', label: 'Card Clicks', icon: MousePointerClick, color: 'bg-cyan-50 text-cyan-600' },
-  { key: 'wishlistAdds', label: 'Wishlist Adds', icon: Heart, color: 'bg-red-50 text-red-600' },
-  { key: 'inquiries', label: 'Inquiries', icon: MessageSquare, color: 'bg-purple-50 text-purple-600' },
-  { key: 'pdfDownloads', label: 'PDF Downloads', icon: FileDown, color: 'bg-gray-100 text-gray-600' },
+  { key: 'searches', label: 'Searches', icon: Search, color: 'stat-card-icon' },
+  { key: 'views', label: 'Property Views', icon: Eye, color: 'stat-card-icon' },
+  { key: 'cardClicks', label: 'Card Clicks', icon: MousePointerClick, color: 'stat-card-icon' },
+  { key: 'wishlistAdds', label: 'Wishlist Adds', icon: Heart, color: 'stat-card-icon' },
+  { key: 'inquiries', label: 'Inquiries', icon: MessageSquare, color: 'stat-card-icon' },
+  { key: 'pdfDownloads', label: 'PDF Downloads', icon: FileDown, color: 'stat-card-icon' },
 ] as const;
 
 const CHART_COLORS = {
-  searches: '#3b82f6',
-  views: '#10b981',
-  inquiries: '#f59e0b',
+  searches: '#00246B',
+  views: '#00246B',
+  inquiries: '#CADCFC',
 };
 
 const activityFilters = [
@@ -209,9 +211,9 @@ export default function AnalyticsPage() {
   const maxFunnel = funnelStages[0]?.value || 1;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header animate-fade-in">
         <div>
           <h1 className="page-title">Analytics</h1>
           <p className="page-description mt-1">
@@ -240,12 +242,18 @@ export default function AnalyticsPage() {
       ) : (
         <>
           {/* 6 Metric Cards */}
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          <motion.div
+            variants={staggerContainer}
+            initial={false}
+            animate="animate"
+            className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+          >
             {metricCards.map((metric) => {
               const Icon = metric.icon;
               const value = overview?.[metric.key as keyof OverviewData] ?? 0;
               return (
-                <Card key={metric.key}>
+                <motion.div key={metric.key} variants={staggerItem}>
+                <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                       <div className={`stat-card-icon ${metric.color}`}>
@@ -258,9 +266,10 @@ export default function AnalyticsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
           {/* Activity Over Time + Event Breakdown */}
           <div className="grid gap-6 lg:grid-cols-3">
@@ -503,7 +512,7 @@ export default function AnalyticsPage() {
                           </span>
                           <div className="flex-1 h-7 bg-muted rounded overflow-hidden">
                             <div
-                              className="h-full bg-blue-500/20 rounded flex items-center px-2"
+                              className="h-full bg-secondary rounded flex items-center px-2"
                               style={{ width: `${Math.max((loc.count / max) * 100, 8)}%` }}
                             >
                               <span className="text-xs font-medium">{loc.count}</span>
@@ -538,7 +547,7 @@ export default function AnalyticsPage() {
                           <span className="text-sm w-28 shrink-0 truncate">{type.name}</span>
                           <div className="flex-1 h-7 bg-muted rounded overflow-hidden">
                             <div
-                              className="h-full bg-green-500/20 rounded flex items-center px-2"
+                              className="h-full bg-secondary rounded flex items-center px-2"
                               style={{ width: `${Math.max((type.count / max) * 100, 8)}%` }}
                             >
                               <span className="text-xs font-medium">{type.count}</span>
@@ -568,7 +577,7 @@ export default function AnalyticsPage() {
                 {searchData?.priceRanges && searchData.priceRanges.some((p) => p.percentage > 0) ? (
                   <div className="space-y-3">
                     {searchData.priceRanges.map((item, i) => {
-                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                      const colors = ['#00246B', '#1a3d7a', '#335689', '#4d6f98', '#CADCFC'];
                       return (
                         <div key={i} className="flex items-center gap-3">
                           <div
@@ -611,7 +620,7 @@ export default function AnalyticsPage() {
                   <div className="space-y-3">
                     {funnelStages.map((stage, i) => {
                       const pct = Math.max((stage.value / maxFunnel) * 100, 2);
-                      const colors = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6'];
+                      const colors = ['#00246B', '#1a3d7a', '#335689', '#4d6f98', '#CADCFC'];
                       return (
                         <div key={stage.name} className="space-y-1">
                           <div className="flex items-center justify-between text-sm">

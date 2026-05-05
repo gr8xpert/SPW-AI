@@ -13,16 +13,17 @@ import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
 import { installLegacyAPI, setSearchHandler } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
+import { extractRefFromSegment } from './core/url-utils';
 import type { SearchFilters } from './types';
 
 let dataLoader: DataLoader | null = null;
 
 async function init(): Promise<void> {
-  console.log('[SPW] init() starting...');
+  console.log('[SPM] init() starting...');
   const config = parseConfig();
 
   if (!config.apiUrl || !config.apiKey) {
-    console.warn('[SPW] Missing apiUrl or apiKey — widget will not initialize.');
+    console.warn('[SPM] Missing apiUrl or apiKey — widget will not initialize.');
     return;
   }
 
@@ -31,7 +32,7 @@ async function init(): Promise<void> {
   registerAllComponents();
 
   const entries = scanDOM();
-  console.log('[SPW] Scan found', entries.length, 'elements:', entries.map(e => e.isTemplate ? e.templateId : e.componentType));
+  console.log('[SPM] Scan found', entries.length, 'elements:', entries.map(e => e.isTemplate ? e.templateId : e.componentType));
   for (const entry of entries) {
     if (!entry.element.children.length) {
       entry.element.innerHTML = '<div class="rs-skeleton" style="height:42px"></div>';
@@ -48,11 +49,16 @@ async function init(): Promise<void> {
   if (Object.keys(prefilled).length) actions.setFilters(prefilled);
   if (Object.keys(locked).length) actions.setLockedFilters(locked);
 
+  // Apply defaultListingType if no URL/attribute override set it
+  if (config.defaultListingType && !prefilled.listingType && !locked.listingType) {
+    actions.setFilters({ ...store.getState().filters, listingType: config.defaultListingType });
+  }
+
   dataLoader = new DataLoader(config);
   try {
-    console.log('[SPW] Loading bundle...');
+    console.log('[SPM] Loading bundle...');
     const bundle = await dataLoader.loadBundle();
-    console.log('[SPW] Bundle loaded:', {
+    console.log('[SPM] Bundle loaded:', {
       syncVersion: bundle.syncVersion,
       locations: bundle.locations?.length,
       types: bundle.types?.length,
@@ -67,16 +73,37 @@ async function init(): Promise<void> {
       applyTheme(merged);
     }
     dataLoader.hydrateStore(bundle);
-    console.log('[SPW] Store hydrated. Results:', !!store.getState().results);
+    console.log('[SPM] Store hydrated. Results:', !!store.getState().results);
   } catch (err) {
-    console.error('[SPW] Bundle load failed:', err);
+    console.error('[SPM] Bundle load failed:', err);
     actions.setError(err instanceof Error ? err.message : 'Failed to load widget data');
   }
 
   const mountEntries = scanDOM();
-  console.log('[SPW] Mounting', mountEntries.length, 'components...');
+  console.log('[SPM] Mounting', mountEntries.length, 'components...');
+
+  // Auto-load property from URL if a detail template is present
+  const hasDetailTemplate = mountEntries.some(
+    (e) => e.isTemplate && e.templateId?.startsWith('detail-template')
+  );
+  if (hasDetailTemplate && !store.getState().selectedProperty) {
+    const slug = config.propertyPageSlug || 'property';
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const slugIdx = pathSegments.indexOf(slug);
+    const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
+    const ref = segment ? extractRefFromSegment(segment, config.propertyRefPosition) : null;
+    if (ref) {
+      try {
+        const property = await dataLoader.getProperty(ref);
+        actions.setSelectedProperty(property);
+      } catch (err) {
+        console.warn('[SPM] Failed to load property from URL:', err);
+      }
+    }
+  }
+
   await mountAll(mountEntries);
-  console.log('[SPW] Mount complete');
+  console.log('[SPM] Mount complete');
 
   installLegacyAPI();
 
@@ -115,6 +142,8 @@ async function init(): Promise<void> {
       actions.setSearchLoading(false);
     }
   }
+
+  dataLoader.loadExchangeRates(config.currency || 'EUR');
 
   dataLoader.startSyncPolling(config.syncPollIntervalMs || 60_000, () => {
     unmountAll();

@@ -1,14 +1,18 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { IsIn, IsInt, Min } from 'class-validator';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
+import { Plan } from '../../database/entities';
 import { PaddleCheckoutService } from './paddle-checkout.service';
 
 // 6E — Tenant-facing checkout endpoint. Issues a Paddle hosted-checkout URL
@@ -28,7 +32,19 @@ export class CreateCheckoutDto {
 @Controller('api/billing')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class BillingCheckoutController {
-  constructor(private readonly checkout: PaddleCheckoutService) {}
+  constructor(
+    private readonly checkout: PaddleCheckoutService,
+    @InjectRepository(Plan)
+    private readonly planRepo: Repository<Plan>,
+  ) {}
+
+  @Get('plans')
+  async listPlans() {
+    return this.planRepo.find({
+      where: { isActive: true },
+      order: { priceMonthly: 'ASC' },
+    });
+  }
 
   @Post('checkout')
   @HttpCode(HttpStatus.OK)

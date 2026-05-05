@@ -49,19 +49,19 @@ interface Client {
 }
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-500',
-  grace: 'bg-yellow-500',
-  expired: 'bg-red-500',
-  manual: 'bg-blue-500',
-  internal: 'bg-purple-500',
+  active: 'bg-primary',
+  grace: 'bg-primary/60',
+  expired: 'bg-primary/30',
+  manual: 'bg-primary/80',
+  internal: 'bg-primary/50',
 };
 
 const statusIcons: Record<string, React.ReactNode> = {
-  active: <div className="stat-card-icon bg-green-50"><CheckCircle className="h-4 w-4 text-green-500" /></div>,
-  grace: <div className="stat-card-icon bg-yellow-50"><Clock className="h-4 w-4 text-yellow-500" /></div>,
-  expired: <div className="stat-card-icon bg-red-50"><AlertTriangle className="h-4 w-4 text-red-500" /></div>,
-  manual: <div className="stat-card-icon bg-blue-50"><CreditCard className="h-4 w-4 text-blue-500" /></div>,
-  internal: <div className="stat-card-icon bg-purple-50"><CreditCard className="h-4 w-4 text-purple-500" /></div>,
+  active: <div className="stat-card-icon"><CheckCircle className="h-4 w-4" /></div>,
+  grace: <div className="stat-card-icon"><Clock className="h-4 w-4" /></div>,
+  expired: <div className="stat-card-icon"><AlertTriangle className="h-4 w-4" /></div>,
+  manual: <div className="stat-card-icon"><CreditCard className="h-4 w-4" /></div>,
+  internal: <div className="stat-card-icon"><CreditCard className="h-4 w-4" /></div>,
 };
 
 export default function SubscriptionsPage() {

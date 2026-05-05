@@ -16,6 +16,7 @@ import {
   Feature,
 } from '../../database/entities';
 import { TenantModule } from '../tenant/tenant.module';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
@@ -29,9 +30,16 @@ import { TenantModule } from '../tenant/tenant.module';
     ]),
     BullModule.registerQueue({
       name: 'feed-import',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+      },
     }),
     ScheduleModule.forRoot(),
     TenantModule,
+    UploadModule,
   ],
   controllers: [FeedController],
   providers: [

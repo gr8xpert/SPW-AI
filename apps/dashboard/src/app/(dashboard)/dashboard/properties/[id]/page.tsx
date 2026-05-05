@@ -391,23 +391,10 @@ export default function PropertyDetailPage() {
               <CardHeader><CardTitle>Details</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {detailItems.map((item, idx) => {
-                    const iconColors = [
-                      'bg-blue-50 text-blue-600',
-                      'bg-green-50 text-green-600',
-                      'bg-amber-50 text-amber-600',
-                      'bg-purple-50 text-purple-600',
-                      'bg-rose-50 text-rose-600',
-                      'bg-cyan-50 text-cyan-600',
-                      'bg-indigo-50 text-indigo-600',
-                      'bg-emerald-50 text-emerald-600',
-                      'bg-orange-50 text-orange-600',
-                      'bg-teal-50 text-teal-600',
-                    ];
-                    const colorClass = iconColors[idx % iconColors.length];
+                  {detailItems.map((item) => {
                     return (
                       <div key={item.label} className="flex items-center gap-3 rounded-lg border p-3">
-                        <div className={`stat-card-icon ${colorClass}`}>
+                        <div className="stat-card-icon">
                           <item.icon className="h-5 w-5" />
                         </div>
                         <div>
@@ -619,7 +606,7 @@ export default function PropertyDetailPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Sync Enabled</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {property.syncEnabled ? (<><CheckCircle2 className="h-4 w-4 text-green-600" /><span className="text-sm">Yes</span></>) : (<><XCircle className="h-4 w-4 text-muted-foreground" /><span className="text-sm">No</span></>)}
+                  {property.syncEnabled ? (<><CheckCircle2 className="h-4 w-4 text-primary" /><span className="text-sm">Yes</span></>) : (<><XCircle className="h-4 w-4 text-muted-foreground" /><span className="text-sm">No</span></>)}
                 </div>
               </div>
               <Separator />

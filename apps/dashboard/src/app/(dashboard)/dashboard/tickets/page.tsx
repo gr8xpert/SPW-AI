@@ -98,9 +98,9 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: 'Low', color: 'text-muted-foreground' },
-  medium: { label: 'Medium', color: 'text-blue-600' },
-  high: { label: 'High', color: 'text-amber-600' },
-  urgent: { label: 'Urgent', color: 'text-red-600' },
+  medium: { label: 'Medium', color: 'text-primary/60' },
+  high: { label: 'High', color: 'text-primary/80' },
+  urgent: { label: 'Urgent', color: 'text-primary' },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -268,7 +268,7 @@ export default function TicketsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Open</CardTitle>
-            <div className="stat-card-icon bg-blue-50 text-blue-600">
+            <div className="stat-card-icon">
               <AlertCircle className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -277,16 +277,16 @@ export default function TicketsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <div className="stat-card-icon bg-amber-50 text-amber-600">
+            <div className="stat-card-icon">
               <Clock className="h-4 w-4" />
             </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold tracking-tight text-amber-600">{stats.inProgress}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.inProgress}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Awaiting Reply</CardTitle>
-            <div className="stat-card-icon bg-purple-50 text-purple-600">
+            <div className="stat-card-icon">
               <MessageSquare className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -295,11 +295,11 @@ export default function TicketsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <div className="stat-card-icon bg-green-50 text-green-600">
+            <div className="stat-card-icon">
               <CheckCircle2 className="h-4 w-4" />
             </div>
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold tracking-tight text-green-600">{stats.resolved}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold tracking-tight">{stats.resolved}</div></CardContent>
         </Card>
       </div>
 
@@ -511,7 +511,7 @@ export default function TicketsPage() {
             <div className="space-y-4">
               <div className="flex gap-2 flex-wrap">
                 <Badge variant="outline">{categoryLabels[selectedTicket.category] || selectedTicket.category}</Badge>
-                <Badge variant={priorityConfig[selectedTicket.priority]?.color === 'text-red-600' ? 'destructive' : 'secondary'}>
+                <Badge variant={priorityConfig[selectedTicket.priority]?.color === 'text-primary' ? 'destructive' : 'secondary'}>
                   {priorityConfig[selectedTicket.priority]?.label || selectedTicket.priority}
                 </Badge>
               </div>

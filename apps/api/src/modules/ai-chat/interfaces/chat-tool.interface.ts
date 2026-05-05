@@ -15,7 +15,7 @@ export interface ChatContext {
   propertyReference?: string;
   favorites?: number[];
   recentlyViewed?: string[];
-  currentFilters?: Record<string, any>;
+  currentFilters?: Record<string, unknown>;
   language?: string;
 }
 

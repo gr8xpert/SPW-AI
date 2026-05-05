@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost } from '@/lib/api';
-import { RefreshCw, CheckCircle2, Sparkles } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Sparkles, Clock, CreditCard, ShoppingCart } from 'lucide-react';
 
 interface BillingPlan {
   id: number;
@@ -44,6 +44,21 @@ interface TenantSummary {
   graceEndsAt: string | null;
 }
 
+interface CreditPackage {
+  id: number;
+  name: string;
+  hours: number;
+  pricePerHour: number;
+  totalPrice: number;
+  currency: string;
+  isActive: boolean;
+}
+
+interface CreditBalance {
+  balance: number;
+  tenantId: number;
+}
+
 type Cycle = 'monthly' | 'yearly';
 
 export default function BillingPage() {
@@ -54,22 +69,58 @@ export default function BillingPage() {
   const [cycle, setCycle] = useState<Cycle>('monthly');
   const [upgradingPlanId, setUpgradingPlanId] = useState<number | null>(null);
 
+  const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [purchasingPkgId, setPurchasingPkgId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stripeStatus = params.get('stripe');
+    if (stripeStatus === 'success') {
+      toast({ title: 'Payment successful', description: 'Your credit hours have been added to your account.' });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (stripeStatus === 'cancel') {
+      toast({ title: 'Payment cancelled', description: 'Your credit purchase was cancelled.', variant: 'destructive' });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [plansRes, tenantRes] = await Promise.all([
-          apiGet<BillingPlan[]>('/api/super-admin/plans'),
-          apiGet<TenantSummary>('/api/dashboard/tenant'),
+        const [plansResult, tenantResult, packagesResult, balanceResult] = await Promise.allSettled([
+          apiGet<{ data: BillingPlan[] }>('/api/billing/plans'),
+          apiGet<{ data: TenantSummary }>('/api/dashboard/tenant'),
+          apiGet<{ data: CreditPackage[] }>('/api/billing/credits/packages'),
+          apiGet<{ data: CreditBalance }>('/api/dashboard/credits/balance'),
         ]);
-        setPlans(plansRes.filter((p) => p.isActive));
-        setTenant(tenantRes);
-      } catch (err: any) {
-        toast({
-          title: 'Failed to load billing',
-          description: err?.response?.data?.message ?? err?.message ?? 'Unknown error',
-          variant: 'destructive',
-        });
+        if (plansResult.status === 'fulfilled') {
+          const raw = plansResult.value as { data: BillingPlan[] } | BillingPlan[];
+          const arr = Array.isArray(raw) ? raw : raw.data ?? [];
+          setPlans(arr.filter((p: BillingPlan) => p.isActive));
+        }
+        if (tenantResult.status === 'fulfilled') {
+          const raw = tenantResult.value as { data: TenantSummary } | TenantSummary;
+          setTenant('data' in raw ? raw.data : raw);
+        }
+        if (packagesResult.status === 'fulfilled') {
+          const raw = packagesResult.value as { data: CreditPackage[] } | CreditPackage[];
+          setCreditPackages(Array.isArray(raw) ? raw : raw.data ?? []);
+        }
+        if (balanceResult.status === 'fulfilled') {
+          const raw = balanceResult.value as { data: CreditBalance } | CreditBalance;
+          setCreditBalance('data' in raw ? raw.data : raw);
+        }
+
+        const failures = [plansResult, tenantResult, packagesResult, balanceResult].filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          toast({
+            title: 'Some billing data failed to load',
+            description: 'Parts of the page may be incomplete. Try refreshing.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -105,6 +156,24 @@ export default function BillingPage() {
         variant: 'destructive',
       });
       setUpgradingPlanId(null);
+    }
+  };
+
+  const handlePurchaseCredits = async (pkg: CreditPackage) => {
+    setPurchasingPkgId(pkg.id);
+    try {
+      const res = await apiPost<{ url: string; sessionId: string }>(
+        '/api/billing/credits/checkout',
+        { packageId: pkg.id },
+      );
+      window.location.href = res.url;
+    } catch (err: any) {
+      toast({
+        title: 'Checkout failed',
+        description: err?.response?.data?.message ?? err?.message ?? 'Unknown error',
+        variant: 'destructive',
+      });
+      setPurchasingPkgId(null);
     }
   };
 
@@ -176,6 +245,73 @@ export default function BillingPage() {
                   </span>
                 </div>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Credit Hours */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <CardTitle>Credit Hours</CardTitle>
+              <CardDescription>
+                Purchase credit hours for webmaster support. Credits are consumed when work is done on your tickets.
+              </CardDescription>
+            </div>
+            {creditBalance && (
+              <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Balance:</span>
+                <span className="text-lg font-bold">{Number(creditBalance.balance).toLocaleString()}h</span>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex h-32 items-center justify-center">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : creditPackages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+              <CreditCard className="h-8 w-8 mb-2" />
+              <p className="text-sm">No credit packages available at this time.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              {creditPackages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className="flex flex-col rounded-lg border p-6"
+                >
+                  <h3 className="text-lg font-semibold">{pkg.name}</h3>
+                  <div className="mt-2 text-3xl font-bold">
+                    {pkg.hours}h
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {pkg.currency} {Number(pkg.pricePerHour).toFixed(2)}/hour
+                  </div>
+                  <div className="mt-4 text-xl font-semibold">
+                    {pkg.currency} {Number(pkg.totalPrice).toFixed(2)}
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      className="w-full shadow-sm"
+                      disabled={purchasingPkgId === pkg.id}
+                      onClick={() => handlePurchaseCredits(pkg)}
+                    >
+                      {purchasingPkgId === pkg.id ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                      )}
+                      Buy {pkg.hours} Hours
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

@@ -364,8 +364,8 @@ export default function ContactsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Contacts</CardTitle>
-            <div className="stat-card-icon bg-blue-50">
-              <Users className="h-5 w-5 text-blue-600" />
+            <div className="stat-card-icon">
+              <Users className="h-5 w-5" />
             </div>
           </CardHeader>
           <CardContent>
@@ -375,12 +375,12 @@ export default function ContactsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Subscribed</CardTitle>
-            <div className="stat-card-icon bg-green-50">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div className="stat-card-icon">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-green-600">
+            <div className="text-2xl font-bold tracking-tight">
               {contacts.filter((c) => c.subscribed).length}
             </div>
           </CardContent>
@@ -388,12 +388,12 @@ export default function ContactsPage() {
         <Card className="relative overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Unsubscribed</CardTitle>
-            <div className="stat-card-icon bg-red-50">
-              <UserMinus className="h-5 w-5 text-red-600" />
+            <div className="stat-card-icon">
+              <UserMinus className="h-5 w-5" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-red-600">
+            <div className="text-2xl font-bold tracking-tight">
               {contacts.filter((c) => !c.subscribed).length}
             </div>
           </CardContent>
@@ -628,7 +628,7 @@ export default function ContactsPage() {
 
           {importResult ? (
             <div className="space-y-4 py-4">
-              <div className="flex items-center gap-2 text-green-600">
+              <div className="flex items-center gap-2 text-primary">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="font-medium">Import Complete</span>
               </div>

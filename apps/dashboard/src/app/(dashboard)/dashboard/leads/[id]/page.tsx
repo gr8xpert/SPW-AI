@@ -345,10 +345,10 @@ export default function LeadDetailPage() {
                       strokeDasharray={`${lead.score * 2.26} 226`}
                       className={
                         lead.score >= 70
-                          ? 'text-green-500'
+                          ? 'text-primary'
                           : lead.score >= 40
-                          ? 'text-amber-500'
-                          : 'text-red-500'
+                          ? 'text-primary/60'
+                          : 'text-primary/30'
                       }
                     />
                   </svg>
@@ -540,11 +540,11 @@ export default function LeadDetailPage() {
 
           {/* Next Follow-up */}
           {lead.nextFollowUp && (
-            <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20">
+            <Card className="border-primary/20 bg-secondary/20">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-amber-600" />
+                  <div className="h-10 w-10 rounded-full bg-secondary/40 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Next Follow-up</p>

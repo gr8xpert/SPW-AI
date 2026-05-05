@@ -15,7 +15,7 @@ import { CurrentTenant, CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { TicketStatus } from '../../database/entities';
-import { UserRole } from '@spw/shared';
+import { UserRole } from '@spm/shared';
 
 @Controller('api/dashboard/tickets')
 export class TicketController {

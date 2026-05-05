@@ -521,7 +521,7 @@ export default function PropertyTypesPage() {
                         onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })}
                       />
                       {form.names[lang]?.trim() ? (
-                        <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                       ) : (
                         <span className="w-3.5 shrink-0" />
                       )}

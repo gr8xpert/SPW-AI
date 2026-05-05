@@ -117,9 +117,9 @@ const statusConfig: Record<
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   low: { label: 'Low', color: 'text-muted-foreground' },
-  medium: { label: 'Medium', color: 'text-blue-600' },
-  high: { label: 'High', color: 'text-amber-600' },
-  urgent: { label: 'Urgent', color: 'text-red-600' },
+  medium: { label: 'Medium', color: 'text-primary/60' },
+  high: { label: 'High', color: 'text-primary/80' },
+  urgent: { label: 'Urgent', color: 'text-primary font-semibold' },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -359,7 +359,7 @@ export default function AdminTicketDetailPage() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`p-6 ${msg.isInternal ? 'bg-amber-50/50 dark:bg-amber-950/20' : msg.isStaff ? 'bg-muted/30' : ''}`}
+                      className={`p-6 ${msg.isInternal ? 'bg-secondary/30' : msg.isStaff ? 'bg-muted/30' : ''}`}
                     >
                       <div className="flex gap-4">
                         <Avatar>
@@ -379,7 +379,7 @@ export default function AdminTicketDetailPage() {
                                 </Badge>
                               )}
                               {msg.isInternal && (
-                                <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                                <Badge variant="outline" className="text-xs text-primary/70 border-primary/30">
                                   <Eye className="h-3 w-3 mr-1" />
                                   Internal Note
                                 </Badge>
@@ -419,7 +419,7 @@ export default function AdminTicketDetailPage() {
           </Card>
 
           {/* Reply Box */}
-          <Card className={isInternal ? 'border-amber-300' : ''}>
+          <Card className={isInternal ? 'border-primary/30' : ''}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">
@@ -437,7 +437,7 @@ export default function AdminTicketDetailPage() {
                 </div>
               </div>
               {isInternal && (
-                <p className="text-xs text-amber-600">This note is only visible to staff, not to the customer.</p>
+                <p className="text-xs text-primary/70">This note is only visible to staff, not to the customer.</p>
               )}
             </CardHeader>
             <CardContent className="space-y-4">

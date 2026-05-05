@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useApi } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import {
   Plus,
   Search,
@@ -71,17 +72,18 @@ interface PaginatedResponse {
 }
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-500',
-  grace: 'bg-yellow-500',
-  expired: 'bg-red-500',
-  manual: 'bg-blue-500',
-  internal: 'bg-purple-500',
+  active: 'bg-primary',
+  grace: 'bg-primary/60',
+  expired: 'bg-primary/30',
+  manual: 'bg-primary/80',
+  internal: 'bg-primary/50',
 };
 
 export default function ClientsPage() {
   const api = useApi();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -134,7 +136,7 @@ export default function ClientsPage() {
       fetchClients();
     } catch (error) {
       console.error('Failed to delete client:', error);
-      alert('Failed to delete client');
+      toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' });
     }
   };
 

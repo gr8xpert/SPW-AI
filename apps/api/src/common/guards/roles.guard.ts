@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtPayload, UserRoleType, hasPermission } from '@spw/shared';
+import { JwtPayload, UserRoleType, hasPermission } from '@spm/shared';
 
 export const ROLES_KEY = 'roles';
 

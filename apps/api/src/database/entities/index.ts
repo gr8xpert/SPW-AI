@@ -47,6 +47,7 @@ export * from './migration-job.entity';
 // Credit system entities
 export * from './credit-balance.entity';
 export * from './credit-transaction.entity';
+export * from './credit-package.entity';
 
 // Time tracking entities
 export * from './time-entry.entity';
@@ -68,6 +69,9 @@ export * from './tenant-email-domain.entity';
 
 // Inbound Paddle webhook idempotency
 export * from './processed-paddle-event.entity';
+
+// Inbound Stripe webhook idempotency
+export * from './processed-stripe-event.entity';
 
 // AI Chat entities
 export * from './chat-conversation.entity';

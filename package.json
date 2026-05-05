@@ -1,8 +1,8 @@
 {
-  "name": "spw",
+  "name": "spm",
   "version": "0.0.1",
   "private": true,
-  "description": "Smart Property Widget v2 - Multi-tenant Property Management SaaS",
+  "description": "Smart Property Manager v2 - Multi-tenant Property Management SaaS",
   "scripts": {
     "build": "turbo run build",
     "build:api": "pnpm --filter api build",

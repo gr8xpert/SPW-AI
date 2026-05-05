@@ -17,6 +17,7 @@ export type WebhookEvent =
   | 'property.created'
   | 'property.updated'
   | 'property.deleted'
+  | 'lead.created'
   | 'cache.invalidated'
   // Operator-triggered from the dashboard "Send test" button. Receivers may
   // ignore it; the server-side purpose is to round-trip a signed request

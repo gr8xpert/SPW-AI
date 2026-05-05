@@ -1,5 +1,5 @@
 {
-  "name": "@spw/dashboard",
+  "name": "@spm/dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -34,6 +34,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.6.0",
+    "framer-motion": "^11",
     "lucide-react": "^0.359.0",
     "next": "14.1.4",
     "next-auth": "^4.24.7",

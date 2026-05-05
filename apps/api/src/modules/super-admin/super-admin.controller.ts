@@ -15,11 +15,11 @@ import {
 import { SuperAdminService } from './super-admin.service';
 import { RateLimitHeadroomService } from './rate-limit-headroom.service';
 import { QueueDepthService } from './queue-depth.service';
-import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto } from './dto';
+import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators';
-import { UserRole, JwtPayload } from '@spw/shared';
+import { UserRole, JwtPayload } from '@spm/shared';
 
 @Controller('api/super-admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -138,6 +138,15 @@ export class SuperAdminController {
     return this.superAdminService.clearClientCache(id, user.sub);
   }
 
+  @Post('clients/:id/rotate-api-key')
+  @HttpCode(HttpStatus.OK)
+  async rotateApiKey(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.rotateApiKey(id, user.sub);
+  }
+
   // ============ LICENSE KEY MANAGEMENT ============
 
   @Get('clients/:id/license-keys')
@@ -213,6 +222,44 @@ export class SuperAdminController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.superAdminService.deletePlan(id, user.sub);
+  }
+
+  // ============ CREDIT PACKAGES ============
+
+  @Get('credit-packages')
+  async listCreditPackages() {
+    return this.superAdminService.getCreditPackages();
+  }
+
+  @Get('credit-packages/:id')
+  async getCreditPackage(@Param('id', ParseIntPipe) id: number) {
+    return this.superAdminService.getCreditPackage(id);
+  }
+
+  @Post('credit-packages')
+  async createCreditPackage(
+    @Body() dto: CreateCreditPackageDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.createCreditPackage(dto, user.sub);
+  }
+
+  @Put('credit-packages/:id')
+  async updateCreditPackage(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCreditPackageDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.updateCreditPackage(id, dto, user.sub);
+  }
+
+  @Delete('credit-packages/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCreditPackage(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.superAdminService.deleteCreditPackage(id, user.sub);
   }
 
   // ============ AUDIT LOG ============

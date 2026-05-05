@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Card,
   CardContent,
@@ -244,6 +245,12 @@ export default function CreatePropertyPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeNameEs, setNewTypeNameEs] = useState('');
+  const [newTypeLoading, setNewTypeLoading] = useState(false);
+  const [newLocName, setNewLocName] = useState('');
+  const [newLocLevel, setNewLocLevel] = useState<string>('area');
+  const [newLocLoading, setNewLocLoading] = useState(false);
 
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyTypeItem[]>([]);
@@ -318,6 +325,7 @@ export default function CreatePropertyPage() {
     deliveryDate: '',
     completionDate: '',
     propertyTypeReference: '',
+    syncEnabled: true,
   });
 
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -373,6 +381,51 @@ export default function CreatePropertyPage() {
         ? prev.features.filter((id) => id !== featureId)
         : [...prev.features, featureId],
     }));
+  };
+
+  const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const handleAddPropertyType = async () => {
+    if (!newTypeName.trim()) return;
+    setNewTypeLoading(true);
+    try {
+      const slug = slugify(newTypeName);
+      const name: Record<string, string> = { en: newTypeName.trim() };
+      if (newTypeNameEs.trim()) name.es = newTypeNameEs.trim();
+      const res = await api.post('/api/dashboard/property-types', { name, slug });
+      const created = res?.data || res;
+      setPropertyTypes((prev) => [...prev, created]);
+      handleInputChange('propertyTypeId', String(created.id));
+      setNewTypeName('');
+      setNewTypeNameEs('');
+      setIsAddTypeOpen(false);
+      toast({ title: 'Property type created' });
+    } catch {
+      toast({ title: 'Failed to create property type', variant: 'destructive' });
+    } finally {
+      setNewTypeLoading(false);
+    }
+  };
+
+  const handleAddLocation = async () => {
+    if (!newLocName.trim()) return;
+    setNewLocLoading(true);
+    try {
+      const slug = slugify(newLocName);
+      const name: Record<string, string> = { en: newLocName.trim() };
+      const res = await api.post('/api/dashboard/locations', { name, slug, level: newLocLevel });
+      const created = res?.data || res;
+      setLocations((prev) => [...prev, created]);
+      handleInputChange('locationId', String(created.id));
+      setNewLocName('');
+      setNewLocLevel('area');
+      setIsAddLocationOpen(false);
+      toast({ title: 'Location created' });
+    } catch {
+      toast({ title: 'Failed to create location', variant: 'destructive' });
+    } finally {
+      setNewLocLoading(false);
+    }
   };
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -439,6 +492,7 @@ export default function CreatePropertyPage() {
         priceOnRequest: formData.priceOnRequest,
         isFeatured: formData.isFeatured,
         isPublished: publish || formData.isPublished,
+        syncEnabled: formData.syncEnabled,
         title: formData.title,
         description: formData.description,
         features: formData.features,
@@ -562,6 +616,7 @@ export default function CreatePropertyPage() {
           <TabsTrigger value="media">Media Links</TabsTrigger>
           <TabsTrigger value="location">Location</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         {/* Basic Info Tab */}
@@ -599,12 +654,12 @@ export default function CreatePropertyPage() {
                       <DialogContent>
                         <DialogHeader><DialogTitle>Add Property Type</DialogTitle><DialogDescription>Create a new property type.</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2"><Label>Name (English)</Label><Input placeholder="e.g., Duplex" /></div>
-                          <div className="space-y-2"><Label>Name (Spanish)</Label><Input placeholder="e.g., Dúplex" /></div>
+                          <div className="space-y-2"><Label>Name (English)</Label><Input placeholder="e.g., Duplex" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} /></div>
+                          <div className="space-y-2"><Label>Name (Spanish)</Label><Input placeholder="e.g., Dúplex" value={newTypeNameEs} onChange={(e) => setNewTypeNameEs(e.target.value)} /></div>
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setIsAddTypeOpen(false)}>Cancel</Button>
-                          <Button onClick={() => setIsAddTypeOpen(false)}>Add Type</Button>
+                          <Button onClick={handleAddPropertyType} disabled={!newTypeName.trim() || newTypeLoading} loading={newTypeLoading}>Add Type</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -628,10 +683,10 @@ export default function CreatePropertyPage() {
                       <DialogContent>
                         <DialogHeader><DialogTitle>Add Location</DialogTitle><DialogDescription>Create a new location.</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g., Golden Mile" /></div>
+                          <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g., Golden Mile" value={newLocName} onChange={(e) => setNewLocName(e.target.value)} /></div>
                           <div className="space-y-2">
                             <Label>Level</Label>
-                            <Select defaultValue="area">
+                            <Select value={newLocLevel} onValueChange={setNewLocLevel}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="country">Country</SelectItem>
@@ -645,7 +700,7 @@ export default function CreatePropertyPage() {
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setIsAddLocationOpen(false)}>Cancel</Button>
-                          <Button onClick={() => setIsAddLocationOpen(false)}>Add Location</Button>
+                          <Button onClick={handleAddLocation} disabled={!newLocName.trim() || newLocLoading} loading={newLocLoading}>Add Location</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -757,23 +812,6 @@ export default function CreatePropertyPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader><CardTitle>Selection & Flags</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    ['isFeatured', 'Featured Property'],
-                    ['isOwnProperty', 'Own Property'],
-                    ['villaSelection', 'Villa Selection'],
-                    ['luxurySelection', 'Luxury Selection'],
-                    ['apartmentSelection', 'Apartment Selection'],
-                  ].map(([field, label]) => (
-                    <div key={field} className="flex items-center space-x-2">
-                      <Checkbox id={field} checked={formData[field as keyof typeof formData] as boolean} onCheckedChange={(c) => handleInputChange(field, c)} />
-                      <Label htmlFor={field}>{label}</Label>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
             </div>
           </div>
 
@@ -1038,6 +1076,54 @@ export default function CreatePropertyPage() {
               <MultilingualInput label="Meta Title" lang={seoLang} value={formData.metaTitle} onChange={(lang, val) => handleMultilingualChange('metaTitle', lang, val)} />
               <MultilingualTextarea label="Meta Description" lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => handleMultilingualChange('metaDescription', lang, val)} rows={3} />
               <MultilingualInput label="Meta Keywords" lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => handleMultilingualChange('metaKeywords', lang, val)} placeholder="Keywords separated by commas" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Visibility & Flags</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                ['isFeatured', 'Featured Property', 'Appears at top of search results'],
+                ['isPublished', 'Published', 'Visible on public website'],
+                ['isOwnProperty', 'Own Property', ''],
+                ['villaSelection', 'Villa Selection', ''],
+                ['luxurySelection', 'Luxury Selection', ''],
+                ['apartmentSelection', 'Apartment Selection', ''],
+              ].map(([field, label, desc]) => (
+                <div key={field} className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>{label}</Label>
+                    {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+                  </div>
+                  <Switch
+                    checked={formData[field as keyof typeof formData] as boolean}
+                    onCheckedChange={(c) => handleInputChange(field, c)}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feed Sync</CardTitle>
+              <CardDescription>Control whether feed imports can overwrite this property if a matching record is found.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Feed Sync</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When turned off, this property will be skipped during feed imports — your manual edits will be preserved.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.syncEnabled}
+                  onCheckedChange={(c) => handleInputChange('syncEnabled', c)}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

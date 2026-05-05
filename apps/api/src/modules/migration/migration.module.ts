@@ -25,6 +25,11 @@ import { MigrationController } from './migration.controller';
     ]),
     BullModule.registerQueue({
       name: 'migration',
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: 50,
+        removeOnFail: 100,
+      },
     }),
   ],
   controllers: [MigrationController],

@@ -151,21 +151,24 @@ export class UploadService {
       );
     }
 
-    // Always use the verified-by-mimetype extension, never the client filename's ext
-    const filename = `${uuidv4()}${safeExt}`;
+    const isImage = this.isImage(file.mimetype);
+    const ext = isImage ? '.webp' : safeExt;
+    const storedMime = isImage ? 'image/webp' : file.mimetype;
+
+    const filename = `${uuidv4()}${ext}`;
     const storedPath = `${tenantId}/${propertyId || 'unassigned'}/${filename}`;
 
     let dimensions: { width: number; height: number } | undefined;
     let processedBuffer = file.buffer;
 
-    if (this.isImage(file.mimetype)) {
+    if (isImage) {
       try {
         const metadata = await sharp(file.buffer).metadata();
         dimensions = {
           width: metadata.width || 0,
           height: metadata.height || 0,
         };
-        processedBuffer = await this.optimizeImage(file.buffer, file.mimetype);
+        processedBuffer = await this.optimizeImage(file.buffer);
       } catch (err) {
         this.logger.warn(
           `Rejected invalid image upload for tenant=${tenantId}: ${(err as Error).message}`,
@@ -177,7 +180,7 @@ export class UploadService {
     const storageType = config?.storageType || 'local';
     let url: string;
     if (storageType === 's3' && config) {
-      url = await this.uploadToS3(config, storedPath, processedBuffer, file.mimetype);
+      url = await this.uploadToS3(config, storedPath, processedBuffer, storedMime);
     } else {
       url = await this.uploadToLocal(storedPath, processedBuffer);
     }
@@ -189,10 +192,10 @@ export class UploadService {
       originalFilename: this.sanitizeOriginalName(file.originalname),
       storedPath,
       url,
-      mimeType: file.mimetype,
+      mimeType: storedMime,
       fileSize: processedBuffer.length,
       dimensions,
-      isOptimized: this.isImage(file.mimetype),
+      isOptimized: isImage,
     });
 
     const saved = await this.mediaFileRepository.save(mediaFile);
@@ -270,6 +273,51 @@ export class UploadService {
     return this.mediaFileRepository.save(file);
   }
 
+  // ============ Feed Image Methods ============
+  async uploadFeedImage(
+    tenantId: number,
+    key: string,
+    buffer: Buffer,
+  ): Promise<string | null> {
+    const config = await this.getStorageConfig(tenantId);
+    if (!config || config.storageType !== 's3' || !config.isActive) return null;
+
+    const s3Client = this.createS3Client(config);
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: config.s3Bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: 'image/webp',
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
+
+    if (config.cdnUrl) return `${config.cdnUrl}/${key}`;
+    if (config.s3Endpoint)
+      return `${config.s3Endpoint}/${config.s3Bucket}/${key}`;
+    return `https://${config.s3Bucket}.s3.${config.s3Region}.amazonaws.com/${key}`;
+  }
+
+  async deleteFeedImage(tenantId: number, key: string): Promise<void> {
+    const config = await this.getStorageConfig(tenantId);
+    if (!config || config.storageType !== 's3') return;
+
+    try {
+      const s3Client = this.createS3Client(config);
+      await s3Client.send(
+        new DeleteObjectCommand({ Bucket: config.s3Bucket, Key: key }),
+      );
+    } catch {
+      // Non-critical — orphaned objects cleaned up by R2 lifecycle rules
+    }
+  }
+
+  extractR2Key(url: string, tenantId: number): string | null {
+    const match = url.match(new RegExp(`(${tenantId}/properties/.+\\.webp)$`));
+    return match ? match[1] : null;
+  }
+
   // ============ Private Methods ============
   private isImage(mimeType: string): boolean {
     return mimeType.startsWith('image/');
@@ -281,7 +329,7 @@ export class UploadService {
     return base.slice(0, 255);
   }
 
-  private async optimizeImage(buffer: Buffer, mimeType: string): Promise<Buffer> {
+  private async optimizeImage(buffer: Buffer): Promise<Buffer> {
     const sharpInstance = sharp(buffer);
     const metadata = await sharpInstance.metadata();
     if ((metadata.width || 0) > 2000 || (metadata.height || 0) > 2000) {
@@ -290,16 +338,7 @@ export class UploadService {
         withoutEnlargement: true,
       });
     }
-    switch (mimeType) {
-      case 'image/jpeg':
-        return sharpInstance.jpeg({ quality: 85 }).toBuffer();
-      case 'image/png':
-        return sharpInstance.png({ compressionLevel: 8 }).toBuffer();
-      case 'image/webp':
-        return sharpInstance.webp({ quality: 85 }).toBuffer();
-      default:
-        return sharpInstance.toBuffer();
-    }
+    return sharpInstance.webp({ quality: 82 }).toBuffer();
   }
 
   private async uploadToLocal(storedPath: string, buffer: Buffer): Promise<string> {
@@ -350,7 +389,7 @@ export class UploadService {
         Key: storedPath,
         Body: buffer,
         ContentType: contentType,
-        ACL: 'public-read',
+        CacheControl: 'public, max-age=31536000, immutable',
       }),
     );
     if (config.cdnUrl) return `${config.cdnUrl}/${storedPath}`;

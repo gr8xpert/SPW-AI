@@ -32,6 +32,12 @@ import {
     ]),
     BullModule.registerQueue({
       name: 'email-campaign',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 200,
+        removeOnFail: 500,
+      },
     }),
   ],
   controllers: [

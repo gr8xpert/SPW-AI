@@ -8,7 +8,7 @@ import {
   MaxLength,
   IsBoolean,
 } from 'class-validator';
-import { UserRoleType, UserRole } from '@spw/shared';
+import { UserRoleType, UserRole } from '@spm/shared';
 
 export class InviteUserDto {
   @IsEmail()

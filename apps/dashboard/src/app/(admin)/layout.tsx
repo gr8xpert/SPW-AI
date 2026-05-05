@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { AdminHeader } from '@/components/admin/admin-header';
 import { SessionGate } from '@/components/admin/session-gate';
+import { AdminShell } from '@/components/admin/admin-shell';
 
 export default async function AdminLayout({
   children,
@@ -16,7 +17,6 @@ export default async function AdminLayout({
     redirect('/login');
   }
 
-  // Check if user is super admin
   if (session.user.role !== 'super_admin') {
     redirect('/dashboard');
   }
@@ -24,12 +24,12 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-background">
       <AdminSidebar />
-      <div className="pl-64">
+      <AdminShell>
         <AdminHeader />
-        <main className="p-6 lg:p-8">
+        <main className="p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">
           <SessionGate>{children}</SessionGate>
         </main>
-      </div>
+      </AdminShell>
     </div>
   );
 }

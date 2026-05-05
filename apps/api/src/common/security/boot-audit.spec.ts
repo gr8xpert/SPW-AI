@@ -135,7 +135,7 @@ describe('auditEnvironment', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
       MAIL_DKIM_DOMAIN: 'mail.example.com',
-      MAIL_DKIM_SELECTOR: 'spw1',
+      MAIL_DKIM_SELECTOR: 'spm1',
       // Missing MAIL_DKIM_PRIVATE_KEY → partial config
     } as any);
     expect(problems).toContainEqual(
@@ -147,7 +147,7 @@ describe('auditEnvironment', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
       MAIL_DKIM_DOMAIN: 'mail.example.com',
-      MAIL_DKIM_SELECTOR: 'spw1',
+      MAIL_DKIM_SELECTOR: 'spm1',
       MAIL_DKIM_PRIVATE_KEY: 'your-private-key-here',
     } as any);
     expect(problems).toContainEqual(
@@ -159,7 +159,7 @@ describe('auditEnvironment', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
       MAIL_DKIM_DOMAIN: 'mail.example.com',
-      MAIL_DKIM_SELECTOR: 'spw1',
+      MAIL_DKIM_SELECTOR: 'spm1',
       MAIL_DKIM_PRIVATE_KEY:
         '-----BEGIN PRIVATE KEY-----\\nMIIE...snip...==\\n-----END PRIVATE KEY-----',
     } as any);

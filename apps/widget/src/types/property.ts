@@ -11,6 +11,7 @@ export interface PropertyType {
   name: string;
   slug: string;
   icon?: string;
+  propertyCount?: number;
 }
 
 export interface Location {
@@ -69,6 +70,7 @@ export interface Property {
   images: PropertyImage[];
   features: Feature[];
   isFeatured: boolean;
+  isOwnProperty?: boolean;
   lat?: number;
   lng?: number;
   videoUrl?: string;
@@ -79,7 +81,7 @@ export interface Property {
   updatedAt?: string;
 }
 
-export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development';
+export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development' | 'offplan';
 
 export interface SearchResults {
   data: Property[];

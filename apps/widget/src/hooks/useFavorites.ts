@@ -4,7 +4,7 @@ import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { store } from '@/core/store';
 
-const STORAGE_KEY = 'spw_favorites';
+const STORAGE_KEY = 'spm_favorites';
 
 export function useFavorites() {
   const favorites = useSelector(selectors.getFavorites);

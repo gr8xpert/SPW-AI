@@ -64,15 +64,25 @@ module.exports = {
         },
       },
       borderRadius: {
-        xl: 'calc(var(--radius) + 4px)',
+        xl: 'var(--radius)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'var(--radius)',
+        sm: 'var(--radius)',
       },
       boxShadow: {
-        'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04)',
-        'stat': '0 1px 2px 0 rgb(0 0 0 / 0.03)',
+        'xs': 'var(--shadow-xs)',
+        'sm': 'var(--shadow-sm)',
+        'md': 'var(--shadow-md)',
+        'lg': 'var(--shadow-lg)',
+        'xl': 'var(--shadow-xl)',
+        'glow': 'var(--shadow-glow)',
+        'card': 'var(--shadow-sm)',
+        'card-hover': 'var(--shadow-lg)',
+        'stat': 'var(--shadow-xs)',
+      },
+      transitionTimingFunction: {
+        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
       },
       keyframes: {
         'accordion-down': {
@@ -84,14 +94,34 @@ module.exports = {
           to: { height: 0 },
         },
         'fade-in': {
-          from: { opacity: 0, transform: 'translateY(4px)' },
+          from: { opacity: 0, transform: 'translateY(8px)' },
           to: { opacity: 1, transform: 'translateY(0)' },
+        },
+        'shimmer': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        'pulse-ring': {
+          '0%, 100%': { transform: 'scale(1)', opacity: 1 },
+          '50%': { transform: 'scale(1.05)', opacity: 0.8 },
+        },
+        'slide-in-right': {
+          from: { transform: 'translateX(100%)', opacity: 0 },
+          to: { transform: 'translateX(0)', opacity: 1 },
+        },
+        'slide-out-right': {
+          from: { transform: 'translateX(0)', opacity: 1 },
+          to: { transform: 'translateX(100%)', opacity: 0 },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'fade-in': 'fade-in 0.3s ease-out',
+        'fade-in': 'fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        'shimmer': 'shimmer 2s infinite',
+        'pulse-ring': 'pulse-ring 2s ease-in-out infinite',
+        'slide-in-right': 'slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-out-right': 'slide-out-right 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

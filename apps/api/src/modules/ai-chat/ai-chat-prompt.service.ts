@@ -4,7 +4,7 @@ import { FeatureService } from '../feature/feature.service';
 import { PropertyTypeService } from '../property-type/property-type.service';
 import { TenantService } from '../tenant/tenant.service';
 import { ChatContext } from './interfaces/chat-tool.interface';
-import { TenantSettings } from '@spw/shared';
+import { TenantSettings } from '@spm/shared';
 
 @Injectable()
 export class AiChatPromptService {

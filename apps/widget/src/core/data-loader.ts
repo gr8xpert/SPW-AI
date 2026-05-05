@@ -22,7 +22,7 @@ interface SyncMeta {
 
 declare global {
   interface Window {
-    __SPW_DATA__?: BundleData;
+    __SPM_DATA__?: BundleData;
   }
 }
 
@@ -40,7 +40,7 @@ export class DataLoader {
     this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
-    this.dataPath = config.dataPath || '/spw-data';
+    this.dataPath = config.dataPath || '/spm-data';
   }
 
   async loadBundle(): Promise<BundleData> {
@@ -70,7 +70,7 @@ export class DataLoader {
   }
 
   private tryInlineData(): BundleData | null {
-    const data = window.__SPW_DATA__;
+    const data = window.__SPM_DATA__;
     if (!data) return null;
     return data;
   }
@@ -140,7 +140,7 @@ export class DataLoader {
   }
 
   private cacheKey(): string {
-    return `spw:${this.apiKey.slice(-8)}`;
+    return `spm:${this.apiKey.slice(-8)}`;
   }
 
   async checkFreshnessInBackground(): Promise<void> {
@@ -186,6 +186,7 @@ export class DataLoader {
     if (filters.query) params.query = filters.query;
     if (filters.listingType) params.listingType = filters.listingType;
     if (filters.locationId) params.locationId = filters.locationId;
+    if (filters.locationIds?.length) params.locationIds = filters.locationIds.join(',');
     if (filters.propertyTypeId) params.propertyTypeId = filters.propertyTypeId;
     if (filters.minPrice) params.minPrice = filters.minPrice;
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
@@ -197,6 +198,8 @@ export class DataLoader {
     if (filters.maxBuildSize) params.maxBuildSize = filters.maxBuildSize;
     if (filters.minPlotSize) params.minPlotSize = filters.minPlotSize;
     if (filters.maxPlotSize) params.maxPlotSize = filters.maxPlotSize;
+    if (filters.minTerraceSize) params.minTerraceSize = filters.minTerraceSize;
+    if (filters.maxTerraceSize) params.maxTerraceSize = filters.maxTerraceSize;
     if (filters.reference) params.reference = filters.reference;
     if (filters.isFeatured) params.isFeatured = true;
     if (filters.sortBy) params.sortBy = filters.sortBy;
@@ -211,6 +214,25 @@ export class DataLoader {
     const results = await this.api.get<SearchResults>('/v1/properties', params);
     this.setMemoryCache(cacheKey, results);
     return results;
+  }
+
+  async loadExchangeRates(baseCurrency = 'EUR'): Promise<void> {
+    const cacheKey = `rates:${baseCurrency}`;
+    const cached = this.getMemoryCache<Record<string, number>>(cacheKey);
+    if (cached) {
+      actions.setCurrencyRates(cached);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://api.frankfurter.dev/v1/latest?from=${baseCurrency}`,
+      );
+      if (!res.ok) return;
+      const data = await res.json() as { rates: Record<string, number> };
+      const rates = { [baseCurrency]: 1, ...data.rates };
+      actions.setCurrencyRates(rates);
+      this.setMemoryCache(cacheKey, rates);
+    } catch { /* exchange rates unavailable — prices show unconverted */ }
   }
 
   async getProperty(reference: string): Promise<Property> {

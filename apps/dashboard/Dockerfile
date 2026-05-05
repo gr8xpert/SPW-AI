@@ -10,7 +10,7 @@
 # local docker compose that's http://localhost:3001; for production it's
 # your public API host.
 
-FROM node:20-alpine AS base
+FROM node:20-alpine3.20 AS base
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /workspace
 
@@ -33,7 +33,7 @@ RUN pnpm --filter @spw/shared build \
 
 # Runtime uses the Next.js `output: 'standalone'` bundle so node_modules
 # is already pruned to exactly what the server needs.
-FROM node:20-alpine AS runtime
+FROM node:20-alpine3.20 AS runtime
 RUN apk add --no-cache tini curl \
  && addgroup -S spw && adduser -S -G spw spw
 WORKDIR /app
@@ -47,7 +47,9 @@ COPY --from=build --chown=spw:spw /workspace/apps/dashboard/.next/static ./.next
 
 # pnpm standalone output uses symlinks that break in multi-stage copies.
 # Install the minimal runtime deps Next.js needs with npm instead.
-RUN npm install --no-save next@14.1.4 2>/dev/null && chown -R spw:spw node_modules
+RUN corepack enable && corepack prepare pnpm@8.15.0 --activate \
+ && pnpm add --no-lockfile next@14.1.4 2>/dev/null \
+ && chown -R spw:spw node_modules
 
 USER spw
 EXPOSE 3000

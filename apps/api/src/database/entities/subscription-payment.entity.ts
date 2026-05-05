@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 import { Plan } from './plan.entity';
-import { BillingCycle } from '@spw/shared';
+import { BillingCycle } from '@spm/shared';
 
 export type PaymentType = 'new' | 'renewal' | 'upgrade' | 'downgrade';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
