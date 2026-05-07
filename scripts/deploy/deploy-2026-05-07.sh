@@ -3,7 +3,7 @@
 # Date: 2026-05-07
 set -e
 
-cd /var/www/vhosts/spw-ai.com/spw
+cd /var/www/vhosts/spw-ai.com/httpdocs/spw
 
 echo "=== 1. Pull latest ==="
 git pull origin main
