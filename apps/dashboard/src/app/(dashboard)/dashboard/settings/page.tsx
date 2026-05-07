@@ -12,6 +12,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -922,7 +923,10 @@ export default function SettingsPage() {
               Webhooks
             </TabsTrigger>
           )}
-          {/* AI tab hidden — OpenRouter key/model is infrastructure, managed by super admin */}
+          <TabsTrigger value="ai">
+            <Bot className="h-4 w-4 mr-2" />
+            AI
+          </TabsTrigger>
           {aiChatEnabled && (
             <TabsTrigger value="ai-chat">
               <MessageSquare className="h-4 w-4 mr-2" />
@@ -2099,7 +2103,72 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* AI / OpenRouter */}
-        {/* AI tab content hidden — OpenRouter config is managed by super admin */}
+        <TabsContent value="ai" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Translation</CardTitle>
+              <CardDescription>
+                Configure AI-powered label translation via OpenRouter. This key is used when translating
+                property labels and descriptions into other languages.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ai-api-key">OpenRouter API Key</Label>
+                {aiApiKeyMasked && (
+                  <p className="text-sm text-muted-foreground">
+                    Current key: <code>{aiApiKeyMasked}</code>
+                  </p>
+                )}
+                <Input
+                  id="ai-api-key"
+                  type="password"
+                  placeholder={aiApiKeyMasked ? 'Enter new key to replace' : 'sk-or-...'}
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKey(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Get your key from{' '}
+                  <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline">
+                    openrouter.ai/keys
+                  </a>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ai-model">Model</Label>
+                <select
+                  id="ai-model"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                >
+                  {AI_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {aiTestResult && (
+                <div className={`rounded-md p-3 text-sm ${aiTestResult.ok ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>
+                  {aiTestResult.ok
+                    ? `Connected successfully — model: ${aiTestResult.model}`
+                    : `Connection failed: ${aiTestResult.error}`}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex gap-2">
+              <Button onClick={onSaveAi} disabled={savingAi}>
+                {savingAi ? 'Saving…' : 'Save'}
+              </Button>
+              <Button variant="outline" onClick={onTestAi} disabled={testingAi}>
+                {testingAi ? 'Testing…' : 'Test Connection'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
 
         {/* AI Chat */}
         <TabsContent value="ai-chat" className="space-y-4">

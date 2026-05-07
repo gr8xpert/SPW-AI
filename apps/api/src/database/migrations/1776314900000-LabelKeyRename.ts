@@ -39,7 +39,7 @@ export class LabelKeyRename1776314900000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     for (const [oldKey, newKey] of KEY_RENAMES) {
       await queryRunner.query(
-        `UPDATE labels l SET l.\`key\` = ? WHERE l.\`key\` = ? AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM labels WHERE \`key\` = ? AND tenantId = l.tenantId) dup)`,
+        `UPDATE labels SET \`key\` = ? WHERE \`key\` = ? AND NOT EXISTS (SELECT 1 FROM (SELECT id, tenantId FROM labels WHERE \`key\` = ?) dup WHERE dup.tenantId = labels.tenantId)`,
         [newKey, oldKey, newKey],
       );
     }

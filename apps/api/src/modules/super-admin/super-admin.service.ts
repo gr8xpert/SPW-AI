@@ -281,7 +281,7 @@ export class SuperAdminService {
 
       const savedTenant = await queryRunner.manager.save(tenant);
 
-      // Create admin user
+      // Create admin user (pre-verified — super admin provided the email)
       const adminUser = this.userRepository.create({
         tenantId: savedTenant.id,
         email: dto.adminEmail,
@@ -289,6 +289,7 @@ export class SuperAdminService {
         name: dto.adminName || dto.name,
         role: UserRole.ADMIN,
         isActive: true,
+        emailVerifiedAt: new Date(),
       });
 
       await queryRunner.manager.save(adminUser);

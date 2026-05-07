@@ -42,8 +42,8 @@ module.exports = {
       script: 'npm',
       args: 'start',
       cwd: './apps/dashboard',
-      // Single instance; HA requires a reverse proxy (nginx/Caddy) in front.
       instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
