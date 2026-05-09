@@ -52,12 +52,12 @@ export class CreatePlanDto {
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  paddlePriceIdMonthly?: string | null;
+  stripePriceIdMonthly?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  paddlePriceIdYearly?: string | null;
+  stripePriceIdYearly?: string | null;
 
   @IsNumber()
   @Min(1)
@@ -97,12 +97,12 @@ export class UpdatePlanDto {
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  paddlePriceIdMonthly?: string | null;
+  stripePriceIdMonthly?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  paddlePriceIdYearly?: string | null;
+  stripePriceIdYearly?: string | null;
 
   @IsNumber()
   @Min(1)

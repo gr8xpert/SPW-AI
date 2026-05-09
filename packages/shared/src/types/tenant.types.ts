@@ -1,7 +1,7 @@
 // Subscription status enum
 export type SubscriptionStatus = 'active' | 'grace' | 'expired' | 'manual' | 'internal';
 export type BillingCycle = 'monthly' | 'yearly';
-export type BillingSource = 'manual' | 'paddle' | 'internal';
+export type BillingSource = 'manual' | 'stripe' | 'internal';
 export type WishlistIcon = 'heart' | 'star' | 'bookmark' | 'save';
 
 export type SlugFormat =

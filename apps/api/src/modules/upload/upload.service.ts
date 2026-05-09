@@ -155,11 +155,16 @@ export class UploadService {
     const ext = isImage ? '.webp' : safeExt;
     const storedMime = isImage ? 'image/webp' : file.mimetype;
 
-    const filename = `${uuidv4()}${ext}`;
+    const baseId = uuidv4();
+    const filename = `${baseId}${ext}`;
     const storedPath = `${tenantId}/${propertyId || 'unassigned'}/${filename}`;
+    const thumbnailPath = isImage
+      ? `${tenantId}/${propertyId || 'unassigned'}/thumbs/${baseId}.webp`
+      : null;
 
     let dimensions: { width: number; height: number } | undefined;
     let processedBuffer = file.buffer;
+    let thumbnailBuffer: Buffer | null = null;
 
     if (isImage) {
       try {
@@ -168,7 +173,9 @@ export class UploadService {
           width: metadata.width || 0,
           height: metadata.height || 0,
         };
-        processedBuffer = await this.optimizeImage(file.buffer);
+        const optimized = await this.optimizeImageWithThumbnail(file.buffer);
+        processedBuffer = optimized.main;
+        thumbnailBuffer = optimized.thumbnail;
       } catch (err) {
         this.logger.warn(
           `Rejected invalid image upload for tenant=${tenantId}: ${(err as Error).message}`,
@@ -179,10 +186,22 @@ export class UploadService {
 
     const storageType = config?.storageType || 'local';
     let url: string;
+    let thumbnailUrl: string | null = null;
     if (storageType === 's3' && config) {
       url = await this.uploadToS3(config, storedPath, processedBuffer, storedMime);
+      if (thumbnailBuffer && thumbnailPath) {
+        thumbnailUrl = await this.uploadToS3(
+          config,
+          thumbnailPath,
+          thumbnailBuffer,
+          'image/webp',
+        );
+      }
     } else {
       url = await this.uploadToLocal(storedPath, processedBuffer);
+      if (thumbnailBuffer && thumbnailPath) {
+        thumbnailUrl = await this.uploadToLocal(thumbnailPath, thumbnailBuffer);
+      }
     }
 
     const mediaFile = this.mediaFileRepository.create({
@@ -192,6 +211,8 @@ export class UploadService {
       originalFilename: this.sanitizeOriginalName(file.originalname),
       storedPath,
       url,
+      thumbnailPath,
+      thumbnailUrl,
       mimeType: storedMime,
       fileSize: processedBuffer.length,
       dimensions,
@@ -203,6 +224,7 @@ export class UploadService {
     return {
       id: saved.id,
       url: saved.url,
+      thumbnailUrl: saved.thumbnailUrl ?? undefined,
       originalFilename: saved.originalFilename,
       mimeType: saved.mimeType,
       fileSize: saved.fileSize,
@@ -219,18 +241,23 @@ export class UploadService {
     }
 
     const config = await this.getStorageConfig(tenantId);
-    try {
-      if (file.storageType === 's3' && config) {
-        await this.deleteFromS3(config, file.storedPath);
-      } else {
-        await this.deleteFromLocal(file.storedPath);
+    const paths = [file.storedPath, file.thumbnailPath].filter(
+      (p): p is string => !!p,
+    );
+    for (const p of paths) {
+      try {
+        if (file.storageType === 's3' && config) {
+          await this.deleteFromS3(config, p);
+        } else {
+          await this.deleteFromLocal(p);
+        }
+      } catch (err) {
+        // We log but still remove the DB row — otherwise a missing file in
+        // storage permanently blocks cleanup.
+        this.logger.warn(
+          `Failed to delete storage object for MediaFile#${id} (${p}): ${(err as Error).message}`,
+        );
       }
-    } catch (err) {
-      // We log but still remove the DB row — otherwise a missing file in storage
-      // permanently blocks cleanup.
-      this.logger.warn(
-        `Failed to delete storage object for MediaFile#${id}: ${(err as Error).message}`,
-      );
     }
 
     await this.mediaFileRepository.remove(file);
@@ -329,16 +356,20 @@ export class UploadService {
     return base.slice(0, 255);
   }
 
-  private async optimizeImage(buffer: Buffer): Promise<Buffer> {
-    const sharpInstance = sharp(buffer);
-    const metadata = await sharpInstance.metadata();
-    if ((metadata.width || 0) > 2000 || (metadata.height || 0) > 2000) {
-      sharpInstance.resize(2000, 2000, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
-    }
-    return sharpInstance.webp({ quality: 82 }).toBuffer();
+  private async optimizeImageWithThumbnail(
+    buffer: Buffer,
+  ): Promise<{ main: Buffer; thumbnail: Buffer }> {
+    const main = await sharp(buffer)
+      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+
+    const thumbnail = await sharp(buffer)
+      .resize(400, 400, { fit: 'cover', position: 'centre' })
+      .webp({ quality: 75 })
+      .toBuffer();
+
+    return { main, thumbnail };
   }
 
   private async uploadToLocal(storedPath: string, buffer: Buffer): Promise<string> {

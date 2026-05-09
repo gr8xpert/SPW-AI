@@ -78,6 +78,8 @@ const providerLogos: Record<string, string> = {
   inmoba: 'IM',
   infocasa: 'IC',
   redsp: 'RS',
+  kyero: 'KY',
+  odoo: 'OD',
 };
 
 const providerNames: Record<string, string> = {
@@ -85,6 +87,8 @@ const providerNames: Record<string, string> = {
   inmoba: 'Inmoba',
   infocasa: 'Infocasa',
   redsp: 'REDSP',
+  kyero: 'Kyero',
+  odoo: 'Odoo CRM',
 };
 
 const statusConfig = {
@@ -231,8 +235,25 @@ export default function FeedsPage() {
   };
 
   const showClientId = form.provider === 'resales' || form.provider === 'inmoba';
-  const showEndpoint = form.provider === 'inmoba';
+  const showEndpoint = form.provider === 'inmoba' || form.provider === 'kyero' || form.provider === 'odoo';
   const showUsernamePassword = form.provider === 'infocasa' || form.provider === 'redsp';
+  const showApiKey = form.provider !== 'kyero';
+  const endpointPlaceholder =
+    form.provider === 'kyero'
+      ? 'https://provider.example.com/feed.xml'
+      : form.provider === 'odoo'
+        ? 'https://your-odoo.example.com/api/properties'
+        : 'https://api.inmoba.com/v1';
+  const endpointLabel =
+    form.provider === 'kyero'
+      ? 'Kyero Feed URL *'
+      : form.provider === 'odoo'
+        ? 'Odoo Endpoint URL *'
+        : 'Endpoint URL';
+  const apiKeyLabel =
+    form.provider === 'odoo' ? 'Bearer Token *' : 'API Key *';
+  const apiKeyPlaceholder =
+    form.provider === 'odoo' ? 'Odoo bearer token' : 'Provider API key';
 
   const formFields = (
     <div className="space-y-4 py-4">
@@ -249,13 +270,17 @@ export default function FeedsPage() {
             <SelectItem value="inmoba">Inmoba</SelectItem>
             <SelectItem value="infocasa">Infocasa</SelectItem>
             <SelectItem value="redsp">REDSP</SelectItem>
+            <SelectItem value="kyero">Kyero</SelectItem>
+            <SelectItem value="odoo">Odoo CRM</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2">
-        <Label>API Key *</Label>
-        <Input placeholder="Provider API key" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-      </div>
+      {showApiKey && (
+        <div className="space-y-2">
+          <Label>{apiKeyLabel}</Label>
+          <Input placeholder={apiKeyPlaceholder} value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+        </div>
+      )}
       {showClientId && (
         <div className="space-y-2">
           <Label>Client ID {form.provider === 'resales' ? '(Agency Filter ID) *' : ''}</Label>
@@ -276,8 +301,8 @@ export default function FeedsPage() {
       )}
       {showEndpoint && (
         <div className="space-y-2">
-          <Label>Endpoint URL</Label>
-          <Input placeholder="https://api.inmoba.com/v1" value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} />
+          <Label>{endpointLabel}</Label>
+          <Input placeholder={endpointPlaceholder} value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} />
         </div>
       )}
       <div className="space-y-2">
@@ -457,7 +482,7 @@ export default function FeedsPage() {
               </div>
               <h3 className="font-semibold mb-2">Add Feed Source</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Connect to Resales Online, Inmoba, Infocasa, or REDSP
+                Connect to Resales Online, Inmoba, Infocasa, REDSP, Kyero, or Odoo CRM
               </p>
               <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />

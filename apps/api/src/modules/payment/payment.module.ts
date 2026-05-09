@@ -5,19 +5,16 @@ import {
   CreditPackage,
   CreditTransaction,
   Plan,
-  ProcessedPaddleEvent,
   ProcessedStripeEvent,
   SubscriptionPayment,
   Tenant,
 } from '../../database/entities';
 import { BillingCheckoutController } from './billing-checkout.controller';
-import { PaddleCheckoutService } from './paddle-checkout.service';
-import { PaddleWebhookController } from './paddle-webhook.controller';
-import { PaddleWebhookService } from './paddle-webhook.service';
+import { StripeBillingController } from './stripe-billing.controller';
 import { StripeCheckoutService } from './stripe-checkout.service';
+import { StripeSubscriptionService } from './stripe-subscription.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeWebhookService } from './stripe-webhook.service';
-import { StripeBillingController } from './stripe-billing.controller';
 
 @Module({
   imports: [
@@ -25,7 +22,6 @@ import { StripeBillingController } from './stripe-billing.controller';
       Tenant,
       Plan,
       SubscriptionPayment,
-      ProcessedPaddleEvent,
       CreditPackage,
       ProcessedStripeEvent,
       CreditBalance,
@@ -33,21 +29,18 @@ import { StripeBillingController } from './stripe-billing.controller';
     ]),
   ],
   controllers: [
-    PaddleWebhookController,
     BillingCheckoutController,
-    StripeWebhookController,
     StripeBillingController,
+    StripeWebhookController,
   ],
   providers: [
-    PaddleWebhookService,
-    PaddleCheckoutService,
     StripeCheckoutService,
+    StripeSubscriptionService,
     StripeWebhookService,
   ],
   exports: [
-    PaddleWebhookService,
-    PaddleCheckoutService,
     StripeCheckoutService,
+    StripeSubscriptionService,
     StripeWebhookService,
   ],
 })

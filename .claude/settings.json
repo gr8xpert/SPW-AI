@@ -1,4 +1,16 @@
 {
+  "importPaths": ["D:\\VirtualOffice\\3-FullStack"],
+  "enabledPlugins": {
+    "claude-mem@thedotmack": true,
+    "github@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  },
+  "env": {
+    "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "15",
+    "CLAUDE_MEM_CONTEXT_FULL_COUNT": "3",
+    "CLAUDE_MEM_CONTEXT_SESSION_COUNT": "5"
+  },
   "hooks": {
     "PreToolUse": [
       {

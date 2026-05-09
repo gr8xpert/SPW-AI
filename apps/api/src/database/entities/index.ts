@@ -67,9 +67,6 @@ export * from './subscription-payment.entity';
 // Per-tenant sender-domain verification (DKIM/SPF/DMARC)
 export * from './tenant-email-domain.entity';
 
-// Inbound Paddle webhook idempotency
-export * from './processed-paddle-event.entity';
-
 // Inbound Stripe webhook idempotency
 export * from './processed-stripe-event.entity';
 

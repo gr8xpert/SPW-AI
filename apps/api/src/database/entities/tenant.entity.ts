@@ -105,7 +105,7 @@ export class Tenant {
 
   @Column({
     type: 'enum',
-    enum: ['manual', 'paddle', 'internal'],
+    enum: ['manual', 'stripe', 'internal'],
     nullable: true,
   })
   billingSource: BillingSource | null;

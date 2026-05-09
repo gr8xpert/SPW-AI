@@ -11,7 +11,7 @@ import {
 import { FeedProvider, FeedCredentials, FeedFieldMapping } from '../../../database/entities/feed-config.entity';
 
 export class CreateFeedConfigDto {
-  @IsIn(['resales', 'inmoba', 'infocasa', 'redsp'])
+  @IsIn(['resales', 'inmoba', 'infocasa', 'redsp', 'kyero', 'odoo'])
   provider: FeedProvider;
 
   @IsString()

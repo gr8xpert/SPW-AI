@@ -145,7 +145,7 @@ export class CreditService {
   }
 
   /**
-   * Add credits from a purchase (Paddle webhook)
+   * Add credits from a purchase (Stripe webhook)
    */
   async addPurchasedCredits(
     tenantId: number,

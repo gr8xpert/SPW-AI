@@ -64,16 +64,14 @@ services:
       MAIL_DKIM_DOMAIN: ${MAIL_DKIM_DOMAIN-}
       MAIL_DKIM_SELECTOR: ${MAIL_DKIM_SELECTOR-}
       MAIL_DKIM_PRIVATE_KEY: ${MAIL_DKIM_PRIVATE_KEY-}
-      # Paddle inbound webhook (6A). Optional — empty disables. Boot-audit
-      # rejects a placeholder secret in prod.
-      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET-}
-      PADDLE_GRACE_DAYS: ${PADDLE_GRACE_DAYS-7}
-      # Paddle outbound checkout (6E). Optional — empty disables the
-      # /api/billing/checkout endpoint with a 503. Boot-audit rejects
-      # placeholder values in prod, and warns if the inbound secret is
-      # set but the API key is missing (half-configured).
-      PADDLE_API_KEY: ${PADDLE_API_KEY-}
-      PADDLE_API_URL: ${PADDLE_API_URL-https://api.paddle.com}
+      # Stripe (plan subscriptions + credit hours). Optional — empty
+      # disables checkout. Boot-audit rejects placeholder values in prod
+      # and warns if the inbound secret is set but the API key is missing.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET-}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL-}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL-}
+      STRIPE_GRACE_DAYS: ${STRIPE_GRACE_DAYS-7}
       # Seed (used by `node dist/database/seed.js` — optional).
       SEED_SUPER_ADMIN_EMAIL: ${SEED_SUPER_ADMIN_EMAIL-}
       SEED_SUPER_ADMIN_PASSWORD: ${SEED_SUPER_ADMIN_PASSWORD-}

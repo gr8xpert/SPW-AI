@@ -24,9 +24,9 @@ async function bootstrap() {
   runBootSecurityAudit();
 
   // rawBody: true makes req.rawBody available on incoming requests. The
-  // Paddle webhook controller (6A) needs the unmodified bytes to recompute
-  // the HMAC signature — any re-serialization through the JSON parser would
-  // change whitespace/escaping and invalidate the signature.
+  // Stripe webhook controller needs the unmodified bytes to recompute
+  // the HMAC signature — any re-serialization through the JSON parser
+  // would change whitespace/escaping and invalidate the signature.
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const configService = app.get(ConfigService);

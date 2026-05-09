@@ -54,7 +54,7 @@ const createClientSchema = z.object({
   planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
   billingCycle: z.enum(['monthly', 'yearly']).optional(),
-  billingSource: z.enum(['manual', 'paddle', 'internal']).optional(),
+  billingSource: z.enum(['manual', 'stripe', 'internal']).optional(),
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
@@ -460,7 +460,7 @@ export default function CreateClientPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="manual">Manual</SelectItem>
-                              <SelectItem value="paddle">Paddle</SelectItem>
+                              <SelectItem value="stripe">Stripe</SelectItem>
                               <SelectItem value="internal">Internal</SelectItem>
                             </SelectContent>
                           </Select>

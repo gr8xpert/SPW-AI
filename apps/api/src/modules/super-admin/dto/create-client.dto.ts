@@ -65,7 +65,7 @@ export class CreateClientDto {
   @IsOptional()
   billingCycle?: BillingCycle;
 
-  @IsEnum(['manual', 'paddle', 'internal'])
+  @IsEnum(['manual', 'stripe', 'internal'])
   @IsOptional()
   billingSource?: BillingSource;
 

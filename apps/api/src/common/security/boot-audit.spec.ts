@@ -83,51 +83,50 @@ describe('auditEnvironment', () => {
     );
   });
 
-  it('flags PADDLE_WEBHOOK_SECRET that looks like a placeholder (6A)', () => {
+  it('flags STRIPE_WEBHOOK_SECRET that looks like a placeholder', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
-      PADDLE_WEBHOOK_SECRET: 'your-paddle-webhook-secret-goes-here',
+      STRIPE_WEBHOOK_SECRET: 'your-stripe-webhook-secret-goes-here',
     } as any);
     expect(problems).toContainEqual(
-      expect.stringContaining('PADDLE_WEBHOOK_SECRET'),
+      expect.stringContaining('STRIPE_WEBHOOK_SECRET'),
     );
   });
 
-  it('allows a real-looking PADDLE_WEBHOOK_SECRET in production (6A)', () => {
+  it('allows a real-looking STRIPE_WEBHOOK_SECRET in production', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
-      PADDLE_WEBHOOK_SECRET: 'pdl_ntfset_01h9ae4c1bcb67e43a0df0b2',
+      STRIPE_WEBHOOK_SECRET: 'whsec_01h9ae4c1bcb67e43a0df0b2',
     } as any);
     expect(problems).toEqual([]);
   });
 
-  it('flags PADDLE_API_KEY that looks like a placeholder (6E)', () => {
+  it('flags STRIPE_SECRET_KEY that looks like a placeholder', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
-      PADDLE_API_KEY: 'your-paddle-api-key-here',
+      STRIPE_SECRET_KEY: 'your-stripe-secret-key-here',
     } as any);
     expect(problems).toContainEqual(
-      expect.stringContaining('PADDLE_API_KEY'),
+      expect.stringContaining('STRIPE_SECRET_KEY'),
     );
   });
 
-  it('allows a real-looking PADDLE_API_KEY in production (6E)', () => {
+  it('allows a real-looking STRIPE_SECRET_KEY in production', () => {
     const { problems } = auditEnvironment({
       ...SAFE_PROD_ENV,
-      PADDLE_API_KEY: 'pdl_live_apikey_01h9ae4c1bcb67e43a0df0b2',
+      STRIPE_SECRET_KEY: 'sk_live_apikey_01h9ae4c1bcb67e43a0df0b2',
     } as any);
     expect(problems).toEqual([]);
   });
 
-  it('warns when PADDLE_WEBHOOK_SECRET is set but PADDLE_API_KEY is missing (6E)', () => {
+  it('warns when STRIPE_WEBHOOK_SECRET is set but STRIPE_SECRET_KEY is missing', () => {
     const { problems, warnings } = auditEnvironment({
       ...SAFE_PROD_ENV,
-      PADDLE_WEBHOOK_SECRET: 'pdl_ntfset_01h9ae4c1bcb67e43a0df0b2',
-      // PADDLE_API_KEY intentionally omitted
+      STRIPE_WEBHOOK_SECRET: 'whsec_01h9ae4c1bcb67e43a0df0b2',
     } as any);
     expect(problems).toEqual([]);
     expect(warnings).toContainEqual(
-      expect.stringContaining('PADDLE_API_KEY'),
+      expect.stringContaining('STRIPE_SECRET_KEY'),
     );
   });
 

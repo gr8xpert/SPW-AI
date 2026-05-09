@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 
-export type FeedProvider = 'resales' | 'inmoba' | 'infocasa' | 'redsp';
+export type FeedProvider = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'kyero' | 'odoo';
 export type FeedSyncStatus = 'success' | 'partial' | 'failed';
 
 export interface FeedCredentials {
@@ -40,7 +40,7 @@ export class FeedConfig {
 
   @Column({
     type: 'enum',
-    enum: ['resales', 'inmoba', 'infocasa', 'redsp'],
+    enum: ['resales', 'inmoba', 'infocasa', 'redsp', 'kyero', 'odoo'],
   })
   provider: FeedProvider;
 

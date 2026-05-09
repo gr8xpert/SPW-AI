@@ -50,6 +50,12 @@ export class MediaFile {
   @Column({ length: 500 })
   url: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  thumbnailPath: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  thumbnailUrl: string | null;
+
   @Column({ length: 100 })
   mimeType: string;
 

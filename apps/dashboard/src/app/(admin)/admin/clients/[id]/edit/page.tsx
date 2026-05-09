@@ -40,7 +40,7 @@ const clientSchema = z.object({
   planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
   billingCycle: z.enum(['monthly', 'yearly']).optional().nullable(),
-  billingSource: z.enum(['manual', 'paddle', 'internal']).optional().nullable(),
+  billingSource: z.enum(['manual', 'stripe', 'internal']).optional().nullable(),
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
@@ -399,7 +399,7 @@ export default function EditClientPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="manual">Manual</SelectItem>
-                              <SelectItem value="paddle">Paddle</SelectItem>
+                              <SelectItem value="stripe">Stripe</SelectItem>
                               <SelectItem value="internal">Internal</SelectItem>
                             </SelectContent>
                           </Select>

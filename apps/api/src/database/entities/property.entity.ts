@@ -15,7 +15,7 @@ import { User } from './user.entity';
 
 export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development';
 export type PropertyStatus = 'draft' | 'active' | 'sold' | 'rented' | 'archived';
-export type PropertySource = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'manual';
+export type PropertySource = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'kyero' | 'odoo' | 'manual';
 
 export interface PropertyImage {
   url: string;
@@ -54,7 +54,7 @@ export class Property {
 
   @Column({
     type: 'enum',
-    enum: ['resales', 'inmoba', 'infocasa', 'redsp', 'manual'],
+    enum: ['resales', 'inmoba', 'infocasa', 'redsp', 'kyero', 'odoo', 'manual'],
     default: 'manual',
   })
   source: PropertySource;

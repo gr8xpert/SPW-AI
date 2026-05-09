@@ -1,12 +1,36 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+// MySQL 8 doesn't support `ADD COLUMN IF NOT EXISTS` or
+// `CREATE INDEX IF NOT EXISTS` — those are PostgreSQL syntax. We
+// emulate idempotency by checking INFORMATION_SCHEMA first so the
+// migration is safe to re-run after partial application.
 export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
   name = 'ContentHashAndIndexes1776315900000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE \`properties\` ADD COLUMN IF NOT EXISTS \`contentHash\` varchar(64) NULL`,
-    );
+    const columnExists = async (table: string, column: string): Promise<boolean> => {
+      const rows: { c: number }[] = await queryRunner.query(
+        `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [table, column],
+      );
+      return (rows[0]?.c ?? 0) > 0;
+    };
+
+    const indexExists = async (table: string, name: string): Promise<boolean> => {
+      const rows: { c: number }[] = await queryRunner.query(
+        `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+        [table, name],
+      );
+      return (rows[0]?.c ?? 0) > 0;
+    };
+
+    if (!(await columnExists('properties', 'contentHash'))) {
+      await queryRunner.query(
+        `ALTER TABLE \`properties\` ADD COLUMN \`contentHash\` varchar(64) NULL`,
+      );
+    }
 
     const indexes: [string, string, string][] = [
       ['IDX_leads_contactId', 'leads', 'contactId'],
@@ -26,41 +50,66 @@ export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
     ];
 
     for (const [name, table, column] of indexes) {
-      await queryRunner.query(
-        `CREATE INDEX IF NOT EXISTS \`${name}\` ON \`${table}\` (\`${column}\`)`,
-      );
+      if (!(await indexExists(table, name))) {
+        await queryRunner.query(
+          `CREATE INDEX \`${name}\` ON \`${table}\` (\`${column}\`)`,
+        );
+      }
     }
 
-    // Composite indexes
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS \`IDX_contacts_tenantId_subscribed\` ON \`contacts\` (\`tenantId\`, \`subscribed\`)`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS \`IDX_leads_tenantId_assignedTo\` ON \`leads\` (\`tenantId\`, \`assignedTo\`)`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS \`IDX_leads_tenantId_status_createdAt\` ON \`leads\` (\`tenantId\`, \`status\`, \`createdAt\`)`,
-    );
+    const composites: [string, string, string][] = [
+      ['IDX_contacts_tenantId_subscribed', 'contacts', '`tenantId`, `subscribed`'],
+      ['IDX_leads_tenantId_assignedTo', 'leads', '`tenantId`, `assignedTo`'],
+      ['IDX_leads_tenantId_status_createdAt', 'leads', '`tenantId`, `status`, `createdAt`'],
+    ];
+    for (const [name, table, cols] of composites) {
+      if (!(await indexExists(table, name))) {
+        await queryRunner.query(`CREATE INDEX \`${name}\` ON \`${table}\` (${cols})`);
+      }
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_leads_tenantId_status_createdAt\` ON \`leads\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_leads_tenantId_assignedTo\` ON \`leads\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_contacts_tenantId_subscribed\` ON \`contacts\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_property_views_propertyId\` ON \`property_views\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_media_files_propertyId\` ON \`media_files\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_refresh_tokens_userId\` ON \`refresh_tokens\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_feed_import_logs_feedConfigId\` ON \`feed_import_logs\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_subscription_payments_planId\` ON \`subscription_payments\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_credit_transactions_ticketId\` ON \`credit_transactions\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_contacts_sourcePropertyId\` ON \`contacts\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_tickets_userId\` ON \`tickets\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_tenants_planId\` ON \`tenants\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_properties_salesAgentId\` ON \`properties\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_properties_agentId\` ON \`properties\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_leads_wonPropertyId\` ON \`leads\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_leads_propertyId\` ON \`leads\``);
-    await queryRunner.query(`DROP INDEX IF EXISTS \`IDX_leads_contactId\` ON \`leads\``);
-    await queryRunner.query(`ALTER TABLE \`properties\` DROP COLUMN IF EXISTS \`contentHash\``);
+    const indexExists = async (table: string, name: string): Promise<boolean> => {
+      const rows: { c: number }[] = await queryRunner.query(
+        `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+        [table, name],
+      );
+      return (rows[0]?.c ?? 0) > 0;
+    };
+
+    const drops: [string, string][] = [
+      ['IDX_leads_tenantId_status_createdAt', 'leads'],
+      ['IDX_leads_tenantId_assignedTo', 'leads'],
+      ['IDX_contacts_tenantId_subscribed', 'contacts'],
+      ['IDX_property_views_propertyId', 'property_views'],
+      ['IDX_media_files_propertyId', 'media_files'],
+      ['IDX_refresh_tokens_userId', 'refresh_tokens'],
+      ['IDX_feed_import_logs_feedConfigId', 'feed_import_logs'],
+      ['IDX_subscription_payments_planId', 'subscription_payments'],
+      ['IDX_credit_transactions_ticketId', 'credit_transactions'],
+      ['IDX_contacts_sourcePropertyId', 'contacts'],
+      ['IDX_tickets_userId', 'tickets'],
+      ['IDX_tenants_planId', 'tenants'],
+      ['IDX_properties_salesAgentId', 'properties'],
+      ['IDX_properties_agentId', 'properties'],
+      ['IDX_leads_wonPropertyId', 'leads'],
+      ['IDX_leads_propertyId', 'leads'],
+      ['IDX_leads_contactId', 'leads'],
+    ];
+    for (const [name, table] of drops) {
+      if (await indexExists(table, name)) {
+        await queryRunner.query(`DROP INDEX \`${name}\` ON \`${table}\``);
+      }
+    }
+
+    const colExists: { c: number }[] = await queryRunner.query(
+      `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'properties' AND COLUMN_NAME = 'contentHash'`,
+    );
+    if ((colExists[0]?.c ?? 0) > 0) {
+      await queryRunner.query(`ALTER TABLE \`properties\` DROP COLUMN \`contentHash\``);
+    }
   }
 }

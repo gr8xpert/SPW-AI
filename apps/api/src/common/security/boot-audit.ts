@@ -82,37 +82,35 @@ export function auditEnvironment(
     problems.push('JWT_REFRESH_SECRET looks like a placeholder/example value');
   }
 
-  // 6A — Paddle inbound webhook secret. Only enforced in prod because dev
-  // runs don't exercise Paddle. Empty is treated as "Paddle disabled" and
-  // skipped; a placeholder, however, is a strong signal someone copied
-  // .env.production.example without filling the real value.
-  if (isProduction && env.PADDLE_WEBHOOK_SECRET) {
-    if (looksLikePlaceholder(env.PADDLE_WEBHOOK_SECRET)) {
+  // Stripe inbound webhook secret. Empty is treated as "Stripe disabled".
+  // A placeholder is a strong signal someone copied .env.production.example
+  // without filling the real value.
+  if (isProduction && env.STRIPE_WEBHOOK_SECRET) {
+    if (looksLikePlaceholder(env.STRIPE_WEBHOOK_SECRET)) {
       problems.push(
-        'PADDLE_WEBHOOK_SECRET looks like a placeholder/example value',
+        'STRIPE_WEBHOOK_SECRET looks like a placeholder/example value',
       );
     }
   }
 
-  // 6E — Paddle outbound API key. Symmetric check to the inbound secret.
-  // A placeholder value here means checkout calls will 401 from Paddle the
-  // first time a tenant clicks Upgrade — catching it at boot is better.
-  // Additionally, inbound-set + outbound-missing is a half-config (webhooks
-  // work but the dashboard can't start a checkout) — warn so the operator
-  // finishes the loop.
-  if (isProduction && env.PADDLE_API_KEY) {
-    if (looksLikePlaceholder(env.PADDLE_API_KEY)) {
-      problems.push('PADDLE_API_KEY looks like a placeholder/example value');
+  // Stripe outbound API key. Symmetric check to the inbound secret. A
+  // placeholder value here means checkout calls will 401 from Stripe the
+  // first time a tenant clicks Upgrade. Additionally, inbound-set +
+  // outbound-missing is a half-config (webhooks work but the dashboard
+  // can't start a checkout) — warn so the operator finishes the loop.
+  if (isProduction && env.STRIPE_SECRET_KEY) {
+    if (looksLikePlaceholder(env.STRIPE_SECRET_KEY)) {
+      problems.push('STRIPE_SECRET_KEY looks like a placeholder/example value');
     }
   }
   if (
     isProduction &&
-    env.PADDLE_WEBHOOK_SECRET &&
-    !looksLikePlaceholder(env.PADDLE_WEBHOOK_SECRET) &&
-    !env.PADDLE_API_KEY
+    env.STRIPE_WEBHOOK_SECRET &&
+    !looksLikePlaceholder(env.STRIPE_WEBHOOK_SECRET) &&
+    !env.STRIPE_SECRET_KEY
   ) {
     warnings.push(
-      'PADDLE_WEBHOOK_SECRET is set but PADDLE_API_KEY is not — tenants cannot start a Paddle checkout',
+      'STRIPE_WEBHOOK_SECRET is set but STRIPE_SECRET_KEY is not — tenants cannot start a Stripe checkout',
     );
   }
 

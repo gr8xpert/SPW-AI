@@ -26,8 +26,8 @@ interface BillingPlan {
   slug: string;
   priceMonthly: number | null;
   priceYearly: number | null;
-  paddlePriceIdMonthly: string | null;
-  paddlePriceIdYearly: string | null;
+  stripePriceIdMonthly: string | null;
+  stripePriceIdYearly: string | null;
   maxProperties: number;
   maxUsers: number;
   isActive: boolean;
@@ -39,7 +39,7 @@ interface TenantSummary {
   planId: number;
   subscriptionStatus: 'active' | 'grace' | 'expired' | 'manual' | 'internal';
   billingCycle: 'monthly' | 'yearly' | null;
-  billingSource: 'manual' | 'paddle' | 'internal' | null;
+  billingSource: 'manual' | 'stripe' | 'internal' | null;
   expiresAt: string | null;
   graceEndsAt: string | null;
 }
@@ -130,7 +130,7 @@ export default function BillingPage() {
 
   const handleUpgrade = async (plan: BillingPlan) => {
     const priceId =
-      cycle === 'yearly' ? plan.paddlePriceIdYearly : plan.paddlePriceIdMonthly;
+      cycle === 'yearly' ? plan.stripePriceIdYearly : plan.stripePriceIdMonthly;
     if (!priceId) {
       toast({
         title: 'Checkout unavailable',
@@ -141,13 +141,10 @@ export default function BillingPage() {
     }
     setUpgradingPlanId(plan.id);
     try {
-      const res = await apiPost<{ url: string; transactionId: string }>(
+      const res = await apiPost<{ url: string; sessionId: string }>(
         '/api/billing/checkout',
         { planId: plan.id, billingCycle: cycle },
       );
-      // Redirect to Paddle's hosted checkout. A full navigation is the
-      // simplest path — Paddle handles card capture + 3DS, then returns
-      // the user to the success URL configured in the Paddle dashboard.
       window.location.href = res.url;
     } catch (err: any) {
       toast({
@@ -178,7 +175,7 @@ export default function BillingPage() {
   };
 
   const currentPlanId = tenant?.planId ?? null;
-  const onPaddle = tenant?.billingSource === 'paddle';
+  const onStripe = tenant?.billingSource === 'stripe';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -323,7 +320,7 @@ export default function BillingPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <CardTitle>Available plans</CardTitle>
-              <CardDescription>Upgrade via Paddle secure checkout</CardDescription>
+              <CardDescription>Upgrade via Stripe secure checkout</CardDescription>
             </div>
             <Tabs value={cycle} onValueChange={(v) => setCycle(v as Cycle)}>
               <TabsList>
@@ -347,11 +344,11 @@ export default function BillingPage() {
                   cycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
                 const priceId =
                   cycle === 'yearly'
-                    ? plan.paddlePriceIdYearly
-                    : plan.paddlePriceIdMonthly;
+                    ? plan.stripePriceIdYearly
+                    : plan.stripePriceIdMonthly;
                 const isCurrent =
                   plan.id === currentPlanId &&
-                  onPaddle &&
+                  onStripe &&
                   tenant?.billingCycle === cycle &&
                   tenant?.subscriptionStatus === 'active';
                 const canCheckout = !!priceId && !isCurrent;

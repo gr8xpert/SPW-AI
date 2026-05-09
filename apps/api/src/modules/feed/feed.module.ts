@@ -6,7 +6,7 @@ import { FeedController } from './feed.controller';
 import { FeedService } from './feed.service';
 import { FeedSchedulerService } from './feed-scheduler.service';
 import { FeedImportProcessor } from './feed-import.processor';
-import { ResalesAdapter, InmobaAdapter } from './adapters';
+import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter } from './adapters';
 import {
   FeedConfig,
   FeedImportLog,
@@ -48,6 +48,8 @@ import { UploadModule } from '../upload/upload.module';
     FeedImportProcessor,
     ResalesAdapter,
     InmobaAdapter,
+    KyeroAdapter,
+    OdooAdapter,
   ],
   exports: [FeedService],
 })

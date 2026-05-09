@@ -9,12 +9,10 @@ import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { createHash } from 'crypto';
-import * as sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
 import { Property, PropertyImage, Location, PropertyType, Feature } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
-import { ResalesAdapter, InmobaAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
+import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 
@@ -40,12 +38,16 @@ export class FeedService {
     private feedImportQueue: Queue,
     private resalesAdapter: ResalesAdapter,
     private inmobaAdapter: InmobaAdapter,
+    private kyeroAdapter: KyeroAdapter,
+    private odooAdapter: OdooAdapter,
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
       ['inmoba', this.inmobaAdapter],
+      ['kyero', this.kyeroAdapter],
+      ['odoo', this.odooAdapter],
     ]);
   }
 
@@ -386,9 +388,16 @@ export class FeedService {
     return feedImages.some((img) => !existingSourceUrls.has(img.url));
   }
 
+  // Feed images: keep the provider's CDN URL as-is. We do NOT re-host
+  // images that come from a feed — the provider already serves them and
+  // re-hosting wastes bandwidth + R2 storage. R2 is reserved for
+  // client-uploaded images (handled in UploadService.uploadFile).
+  //
+  // If a property previously had R2-hosted images (from before this
+  // policy change), they're cleaned up here when no longer in the feed.
   private async processImages(
     tenantId: number,
-    propertyRef: string,
+    _propertyRef: string,
     feedImages: FeedPropertyImage[],
     existingImages: PropertyImage[] | null,
   ): Promise<PropertyImage[]> {
@@ -399,48 +408,18 @@ export class FeedService {
       }
     }
 
-    const result: PropertyImage[] = [];
     const newSourceUrls = new Set(feedImages.map((img) => img.url));
-    const CONCURRENCY = 5;
 
-    for (let i = 0; i < feedImages.length; i += CONCURRENCY) {
-      const batch = feedImages.slice(i, i + CONCURRENCY);
-      const batchResults = await Promise.all(
-        batch.map(async (feedImg): Promise<PropertyImage> => {
-          const cached = existingMap.get(feedImg.url);
-          if (cached) {
-            return { ...cached, order: feedImg.order, alt: feedImg.alt };
-          }
+    const result: PropertyImage[] = feedImages.map((feedImg) => ({
+      url: feedImg.url,
+      sourceUrl: feedImg.url,
+      order: feedImg.order,
+      alt: feedImg.alt,
+    }));
 
-          try {
-            const r2Url = await this.downloadAndUploadImage(
-              tenantId,
-              propertyRef,
-              feedImg.url,
-            );
-            return {
-              url: r2Url,
-              sourceUrl: feedImg.url,
-              order: feedImg.order,
-              alt: feedImg.alt,
-            };
-          } catch (err) {
-            this.logger.warn(
-              `Image processing failed for ${propertyRef}: ${(err as Error).message}`,
-            );
-            return {
-              url: feedImg.url,
-              sourceUrl: feedImg.url,
-              order: feedImg.order,
-              alt: feedImg.alt,
-            };
-          }
-        }),
-      );
-      result.push(...batchResults);
-    }
-
-    // Cleanup orphaned R2 images no longer in the feed
+    // Best-effort cleanup of any orphaned R2 objects from before the
+    // "keep CDN URL" policy. Safe no-op for new tenants whose feed
+    // images were never in R2.
     for (const [sourceUrl, img] of existingMap) {
       if (!newSourceUrls.has(sourceUrl) && img.sourceUrl) {
         const key = this.uploadService.extractR2Key(img.url, tenantId);
@@ -451,33 +430,6 @@ export class FeedService {
     }
 
     return result;
-  }
-
-  private async downloadAndUploadImage(
-    tenantId: number,
-    propertyRef: string,
-    imageUrl: string,
-  ): Promise<string> {
-    const response = await fetch(imageUrl, {
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const arrayBuffer = await response.arrayBuffer();
-    const webpBuffer = await sharp(Buffer.from(arrayBuffer))
-      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-
-    const safeRef = propertyRef.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const key = `${tenantId}/properties/${safeRef}/${uuidv4()}.webp`;
-    const r2Url = await this.uploadService.uploadFeedImage(
-      tenantId,
-      key,
-      webpBuffer,
-    );
-
-    return r2Url || imageUrl;
   }
 
   private async findOrCreateLocation(

@@ -17,7 +17,7 @@ export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'c
 
 @Entity('subscription_payments')
 @Index(['tenantId'])
-@Index(['paddleTransactionId'])
+@Index(['stripeSubscriptionId'])
 @Index(['status'])
 @Index(['createdAt'])
 export class SubscriptionPayment {
@@ -57,13 +57,13 @@ export class SubscriptionPayment {
   billingCycle: BillingCycle;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  paddleTransactionId: string | null;
+  stripePaymentIntentId: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  paddleSubscriptionId: string | null;
+  stripeSubscriptionId: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  paddleCustomerId: string | null;
+  stripeCustomerId: string | null;
 
   @Column({
     type: 'enum',
@@ -73,7 +73,7 @@ export class SubscriptionPayment {
   status: PaymentStatus;
 
   @Column({ type: 'json', nullable: true })
-  paddleWebhookData: Record<string, any> | null;
+  stripeWebhookData: Record<string, any> | null;
 
   @Column({ type: 'text', nullable: true })
   failureReason: string | null;

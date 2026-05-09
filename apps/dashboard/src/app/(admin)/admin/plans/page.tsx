@@ -52,8 +52,8 @@ interface Plan {
   slug: string;
   priceMonthly: number | null;
   priceYearly: number | null;
-  paddlePriceIdMonthly: string | null;
-  paddlePriceIdYearly: string | null;
+  stripePriceIdMonthly: string | null;
+  stripePriceIdYearly: string | null;
   maxProperties: number;
   maxUsers: number;
   features: PlanFeatures | null;
@@ -95,8 +95,8 @@ export default function PlansPage() {
     slug: '',
     priceMonthly: '',
     priceYearly: '',
-    paddlePriceIdMonthly: '',
-    paddlePriceIdYearly: '',
+    stripePriceIdMonthly: '',
+    stripePriceIdYearly: '',
     maxProperties: '100',
     maxUsers: '5',
     features: { ...defaultFeatures },
@@ -130,8 +130,8 @@ export default function PlansPage() {
       slug: '',
       priceMonthly: '',
       priceYearly: '',
-      paddlePriceIdMonthly: '',
-      paddlePriceIdYearly: '',
+      stripePriceIdMonthly: '',
+      stripePriceIdYearly: '',
       maxProperties: '100',
       maxUsers: '5',
       features: { ...defaultFeatures },
@@ -155,8 +155,8 @@ export default function PlansPage() {
         slug: formData.slug,
         priceMonthly: formData.priceMonthly ? parseFloat(formData.priceMonthly) : null,
         priceYearly: formData.priceYearly ? parseFloat(formData.priceYearly) : null,
-        paddlePriceIdMonthly: formData.paddlePriceIdMonthly.trim() || null,
-        paddlePriceIdYearly: formData.paddlePriceIdYearly.trim() || null,
+        stripePriceIdMonthly: formData.stripePriceIdMonthly.trim() || null,
+        stripePriceIdYearly: formData.stripePriceIdYearly.trim() || null,
         maxProperties: parseInt(formData.maxProperties),
         maxUsers: parseInt(formData.maxUsers),
         features: formData.features,
@@ -180,8 +180,8 @@ export default function PlansPage() {
       slug: plan.slug,
       priceMonthly: plan.priceMonthly?.toString() || '',
       priceYearly: plan.priceYearly?.toString() || '',
-      paddlePriceIdMonthly: plan.paddlePriceIdMonthly || '',
-      paddlePriceIdYearly: plan.paddlePriceIdYearly || '',
+      stripePriceIdMonthly: plan.stripePriceIdMonthly || '',
+      stripePriceIdYearly: plan.stripePriceIdYearly || '',
       maxProperties: plan.maxProperties.toString(),
       maxUsers: plan.maxUsers.toString(),
       features: plan.features || { ...defaultFeatures },
@@ -198,8 +198,8 @@ export default function PlansPage() {
         name: formData.name,
         priceMonthly: formData.priceMonthly ? parseFloat(formData.priceMonthly) : null,
         priceYearly: formData.priceYearly ? parseFloat(formData.priceYearly) : null,
-        paddlePriceIdMonthly: formData.paddlePriceIdMonthly.trim() || null,
-        paddlePriceIdYearly: formData.paddlePriceIdYearly.trim() || null,
+        stripePriceIdMonthly: formData.stripePriceIdMonthly.trim() || null,
+        stripePriceIdYearly: formData.stripePriceIdYearly.trim() || null,
         maxProperties: parseInt(formData.maxProperties),
         maxUsers: parseInt(formData.maxUsers),
         features: formData.features,
@@ -285,25 +285,25 @@ export default function PlansPage() {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="paddlePriceIdMonthly">Paddle Price ID (monthly)</Label>
+          <Label htmlFor="stripePriceIdMonthly">Stripe Price ID (monthly)</Label>
           <Input
-            id="paddlePriceIdMonthly"
-            value={formData.paddlePriceIdMonthly}
+            id="stripePriceIdMonthly"
+            value={formData.stripePriceIdMonthly}
             onChange={(e) =>
-              setFormData({ ...formData, paddlePriceIdMonthly: e.target.value })
+              setFormData({ ...formData, stripePriceIdMonthly: e.target.value })
             }
-            placeholder="pri_01h9ae..."
+            placeholder="price_1ABC..."
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="paddlePriceIdYearly">Paddle Price ID (yearly)</Label>
+          <Label htmlFor="stripePriceIdYearly">Stripe Price ID (yearly)</Label>
           <Input
-            id="paddlePriceIdYearly"
-            value={formData.paddlePriceIdYearly}
+            id="stripePriceIdYearly"
+            value={formData.stripePriceIdYearly}
             onChange={(e) =>
-              setFormData({ ...formData, paddlePriceIdYearly: e.target.value })
+              setFormData({ ...formData, stripePriceIdYearly: e.target.value })
             }
-            placeholder="pri_01h9ae..."
+            placeholder="price_1ABC..."
           />
         </div>
       </div>
