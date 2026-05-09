@@ -129,42 +129,42 @@ env_set() {
 CURRENT_KEY=$(env_get STRIPE_SECRET_KEY)
 CURRENT_WHSEC=$(env_get STRIPE_WEBHOOK_SECRET)
 
-if [ -z "$CURRENT_KEY" ] || [ -z "$CURRENT_WHSEC" ]; then
-  echo "  Stripe keys missing or empty. Get them from:"
-  echo "    https://dashboard.stripe.com/apikeys           (secret key)"
-  echo "    https://dashboard.stripe.com/webhooks          (signing secret)"
-  echo ""
-  cp "$ENV_FILE" "$ENV_FILE.bak-$TS"
-  echo "  Backed up .env to $ENV_FILE.bak-$TS"
-  echo ""
-
-  if [ -z "$CURRENT_KEY" ]; then
-    read -r -p "  STRIPE_SECRET_KEY (sk_live_... or sk_test_...): " STRIPE_KEY
-    if [ -z "$STRIPE_KEY" ]; then
-      echo "  [FAIL] STRIPE_SECRET_KEY required. Aborting."
-      exit 1
-    fi
-    env_set STRIPE_SECRET_KEY "$STRIPE_KEY"
-  fi
-
-  if [ -z "$CURRENT_WHSEC" ]; then
-    read -r -p "  STRIPE_WEBHOOK_SECRET (whsec_...): " STRIPE_WHSEC
-    if [ -z "$STRIPE_WHSEC" ]; then
-      echo "  [FAIL] STRIPE_WEBHOOK_SECRET required. Aborting."
-      exit 1
-    fi
-    env_set STRIPE_WEBHOOK_SECRET "$STRIPE_WHSEC"
-  fi
-
-  echo "  [OK] .env updated"
-else
+if [ -n "$CURRENT_KEY" ] && [ -n "$CURRENT_WHSEC" ]; then
   echo "  [OK] STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET both set"
+else
+  echo "  STRIPE_SECRET_KEY=${CURRENT_KEY:+(set)}${CURRENT_KEY:-(empty)}"
+  echo "  STRIPE_WEBHOOK_SECRET=${CURRENT_WHSEC:+(set)}${CURRENT_WHSEC:-(empty)}"
+  echo ""
+  echo "  Empty Stripe keys = Stripe disabled mode."
+  echo "  Plan checkout + credit purchase return 503; everything else works."
+  echo "  Boot audit accepts empty values (only rejects placeholders)."
+  echo ""
+  read -r -p "  Configure Stripe now? [y/N]: " CONFIGURE_STRIPE
+  if [[ "$CONFIGURE_STRIPE" =~ ^[Yy]$ ]]; then
+    cp "$ENV_FILE" "$ENV_FILE.bak-$TS"
+    echo "  Backed up .env to $ENV_FILE.bak-$TS"
+
+    if [ -z "$CURRENT_KEY" ]; then
+      read -r -p "  STRIPE_SECRET_KEY (sk_live_... or sk_test_...): " STRIPE_KEY
+      [ -n "$STRIPE_KEY" ] && env_set STRIPE_SECRET_KEY "$STRIPE_KEY"
+    fi
+    if [ -z "$CURRENT_WHSEC" ]; then
+      read -r -p "  STRIPE_WEBHOOK_SECRET (whsec_...): " STRIPE_WHSEC
+      [ -n "$STRIPE_WHSEC" ] && env_set STRIPE_WEBHOOK_SECRET "$STRIPE_WHSEC"
+    fi
+    echo "  [OK] .env updated"
+  else
+    echo "  Skipping Stripe setup. Re-run this script anytime to configure."
+  fi
 fi
 
-# Default the optional vars if absent (idempotent)
+# Default the optional vars if absent (idempotent). Empty values are OK
+# at runtime — Stripe checkout returns 503 with a clear message.
 [ -z "$(env_get STRIPE_SUCCESS_URL)" ] && env_set STRIPE_SUCCESS_URL "https://dashboard.spw-ai.com"
 [ -z "$(env_get STRIPE_CANCEL_URL)"  ] && env_set STRIPE_CANCEL_URL  "https://dashboard.spw-ai.com"
 [ -z "$(env_get STRIPE_GRACE_DAYS)"  ] && env_set STRIPE_GRACE_DAYS  "7"
+grep -q "^STRIPE_SECRET_KEY=" "$ENV_FILE" || echo "STRIPE_SECRET_KEY=" >> "$ENV_FILE"
+grep -q "^STRIPE_WEBHOOK_SECRET=" "$ENV_FILE" || echo "STRIPE_WEBHOOK_SECRET=" >> "$ENV_FILE"
 
 # Strip stale PADDLE_* lines (Paddle removed)
 if grep -q "^PADDLE_" "$ENV_FILE"; then
@@ -231,7 +231,7 @@ WH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: appli
 
 printf "  API   /api/health         : %s  (expect 200)\n" "$API_CODE"
 printf "  Dash  /                   : %s  (expect 200 or 307 redirect)\n" "$DASH_CODE"
-printf "  Webhook /api/webhooks/stripe: %s  (expect 401 — handler exists, signature missing on empty body)\n" "$WH_CODE"
+printf "  Webhook /api/webhooks/stripe: %s  (expect 401 if Stripe configured, 401/503 if disabled)\n" "$WH_CODE"
 
 # Boot audit success line should appear within last 100 log lines
 echo ""
