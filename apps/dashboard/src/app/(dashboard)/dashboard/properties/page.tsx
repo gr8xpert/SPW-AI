@@ -45,10 +45,13 @@ import {
   Loader2,
   ChevronUp,
   ChevronDown,
+  Lock,
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
+import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
 
 interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
 
@@ -93,6 +96,8 @@ function displayName(name: Record<string, string> | string): string {
 
 export default function PropertiesPage() {
   const { toast } = useToast();
+  const { addons } = useDashboardAddons();
+  const [lockOpen, setLockOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -237,14 +242,32 @@ export default function PropertiesPage() {
               )}
             </Button>
           )}
-          <Button asChild className="shadow-sm">
-            <Link href="/dashboard/properties/create">
-              <Plus className="h-4 w-4 mr-2" />
+          {addons.addProperty ? (
+            <Button asChild className="shadow-sm">
+              <Link href="/dashboard/properties/create">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Property
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="shadow-sm"
+              onClick={() => setLockOpen(true)}
+              title="Add Property is a paid add-on"
+            >
+              <Lock className="h-4 w-4 mr-2" />
               Add Property
-            </Link>
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
+
+      <LockedFeatureDialog
+        open={lockOpen}
+        onOpenChange={setLockOpen}
+        featureName="Add Property"
+      />
 
       {/* Search & Filters */}
       <Card>
@@ -378,12 +401,23 @@ export default function PropertiesPage() {
           ) : properties.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No properties found</p>
-              <Button asChild className="mt-4">
-                <Link href="/dashboard/properties/create">
-                  <Plus className="h-4 w-4 mr-2" />
+              {addons.addProperty ? (
+                <Button asChild className="mt-4">
+                  <Link href="/dashboard/properties/create">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add your first property
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="mt-4"
+                  onClick={() => setLockOpen(true)}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
                   Add your first property
-                </Link>
-              </Button>
+                </Button>
+              )}
             </div>
           ) : (
             <>

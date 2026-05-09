@@ -86,7 +86,7 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
-export default function TeamPage() {
+function TeamPageInner() {
   const { toast } = useToast();
   const api = useApi();
 
@@ -479,5 +479,15 @@ export default function TeamPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+
+export default function TeamPage() {
+  return (
+    <LockedRouteGuard addon="team" featureName="Team Management">
+      <TeamPageInner />
+    </LockedRouteGuard>
   );
 }

@@ -69,7 +69,7 @@ function formatDate(d: string): string {
   try { return new Date(d).toLocaleString(); } catch { return d; }
 }
 
-export default function FeedExportPage() {
+function FeedExportPageInner() {
   const [config, setConfig] = useState<ExportConfig | null>(null);
   const [logs, setLogs] = useState<ExportLog[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -361,5 +361,15 @@ export default function FeedExportPage() {
         </>
       )}
     </div>
+  );
+}
+
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+
+export default function FeedExportPage() {
+  return (
+    <LockedRouteGuard addon="feedExport" featureName="Feed Export">
+      <FeedExportPageInner />
+    </LockedRouteGuard>
   );
 }

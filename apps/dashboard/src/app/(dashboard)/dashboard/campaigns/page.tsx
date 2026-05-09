@@ -96,7 +96,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 const emptyForm = { name: '', subject: '', bodyHtml: '' };
 const emptyTemplateForm = { name: '', subject: '', bodyHtml: '' };
 
-export default function CampaignsPage() {
+function CampaignsPageInner() {
   const [search, setSearch] = useState('');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -669,4 +669,14 @@ export default function CampaignsPage() {
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
+}
+
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+
+export default function CampaignsPage() {
+  return (
+    <LockedRouteGuard addon="emailCampaign" featureName="Email Campaigns">
+      <CampaignsPageInner />
+    </LockedRouteGuard>
+  );
 }

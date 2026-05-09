@@ -62,7 +62,7 @@ const LANG_LABELS: Record<string, string> = {
   no: 'Norwegian', da: 'Danish', pl: 'Polish', cs: 'Czech',
 };
 
-export default function AiChatPage() {
+function AiChatPageInner() {
   const [dateRange, setDateRange] = useState('30d');
   const [stats, setStats] = useState<StatsData | null>(null);
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -361,5 +361,15 @@ export default function AiChatPage() {
         </>
       )}
     </div>
+  );
+}
+
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+
+export default function AiChatPage() {
+  return (
+    <LockedRouteGuard addon="aiChat" featureName="AI Chat">
+      <AiChatPageInner />
+    </LockedRouteGuard>
   );
 }

@@ -16,6 +16,8 @@ import {
   DEFAULT_TENANT_SETTINGS,
   TenantFeatureFlags,
   DEFAULT_FEATURE_FLAGS,
+  DashboardAddons,
+  DEFAULT_DASHBOARD_ADDONS,
   SubscriptionStatus,
   BillingCycle,
   BillingSource,
@@ -142,6 +144,11 @@ export class Tenant {
 
   @Column({ type: 'json', default: () => `'${JSON.stringify(DEFAULT_FEATURE_FLAGS)}'` })
   featureFlags: TenantFeatureFlags;
+
+  // Dashboard-side add-ons sold per-client. Default all locked; super-admin
+  // unlocks individually from the Clients edit page.
+  @Column({ type: 'json', default: () => `'${JSON.stringify(DEFAULT_DASHBOARD_ADDONS)}'` })
+  dashboardAddons: DashboardAddons;
 
   @CreateDateColumn()
   createdAt: Date;

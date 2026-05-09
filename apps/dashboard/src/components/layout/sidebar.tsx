@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,9 +26,22 @@ import {
   Timer,
   PanelLeftClose,
   PanelLeftOpen,
+  Lock,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useDashboardAddons, type DashboardAddonKey } from '@/hooks/use-dashboard-addons';
+import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  // When set, the item locks automatically based on the tenant's
+  // dashboardAddons. Click on a locked item opens the upgrade dialog
+  // instead of navigating.
+  addon?: DashboardAddonKey;
+}
 
 interface SidebarState {
   collapsed: boolean;
@@ -44,7 +58,7 @@ export const useSidebarStore = create<SidebarState>()(
   )
 );
 
-const navigation = [
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Properties', href: '/dashboard/properties', icon: Building2 },
   { name: 'Locations', href: '/dashboard/locations', icon: MapPin },
@@ -53,30 +67,30 @@ const navigation = [
   { name: 'Labels', href: '/dashboard/labels', icon: Languages },
 ];
 
-const marketing = [
+const marketing: NavItem[] = [
   { name: 'Contacts', href: '/dashboard/contacts', icon: Users },
   { name: 'Leads', href: '/dashboard/leads', icon: UserCircle },
-  { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail },
+  { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign' },
 ];
 
-const integrations = [
+const integrations: NavItem[] = [
   { name: 'Feed Sources', href: '/dashboard/feeds', icon: Upload },
-  { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput },
+  { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport' },
 ];
 
-const management = [
-  { name: 'Team', href: '/dashboard/team', icon: Users },
+const management: NavItem[] = [
+  { name: 'Team', href: '/dashboard/team', icon: Users, addon: 'team' },
 ];
 
-const other = [
+const other: NavItem[] = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare },
+  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat' },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
-const webmasterWork = [
+const webmasterWork: NavItem[] = [
   { name: 'Time Tracking', href: '/dashboard/time-tracking', icon: Timer },
   { name: 'Assigned Tickets', href: '/dashboard/tickets', icon: Ticket },
 ];
@@ -86,11 +100,15 @@ function NavSection({
   items,
   pathname,
   collapsed,
+  addons,
+  onLockedClick,
 }: {
   title: string;
-  items: typeof navigation;
+  items: NavItem[];
   pathname: string;
   collapsed: boolean;
+  addons: ReturnType<typeof useDashboardAddons>['addons'];
+  onLockedClick: (name: string) => void;
 }) {
   return (
     <div className="space-y-0.5">
@@ -109,30 +127,32 @@ function NavSection({
       </AnimatePresence>
       {items.map((item) => {
         const isActive = pathname === item.href || (item.href.split('/').length > 2 && pathname.startsWith(item.href + '/'));
-        return (
-          <Link
-            key={item.name}
-            href={item.href}
-            className={cn(
-              'group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150',
-              collapsed && 'justify-center px-2',
-              !isActive && 'text-muted-foreground hover:text-foreground'
-            )}
-            title={collapsed ? item.name : undefined}
-          >
-            {isActive && (
+        const locked = !!item.addon && !addons[item.addon];
+
+        const baseClass = cn(
+          'group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150',
+          collapsed && 'justify-center px-2',
+          !isActive && !locked && 'text-muted-foreground hover:text-foreground',
+          locked && 'cursor-pointer text-muted-foreground/50 hover:text-muted-foreground/70',
+        );
+
+        const inner = (
+          <>
+            {isActive && !locked && (
               <motion.div
                 layoutId="nav-active"
                 className="absolute inset-0 rounded-lg bg-primary shadow-sm"
-                transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 24 }}
               />
             )}
             <item.icon
               className={cn(
                 'h-4 w-4 shrink-0 relative z-10 transition-transform duration-150',
-                isActive
+                isActive && !locked
                   ? 'text-primary-foreground'
-                  : 'text-muted-foreground/70 group-hover:text-foreground group-hover:scale-105'
+                  : locked
+                    ? 'text-muted-foreground/40'
+                    : 'text-muted-foreground/70 group-hover:text-foreground group-hover:scale-105',
               )}
             />
             <AnimatePresence>
@@ -143,14 +163,42 @@ function NavSection({
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.15 }}
                   className={cn(
-                    'relative z-10 whitespace-nowrap overflow-hidden',
-                    isActive ? 'text-primary-foreground' : ''
+                    'relative z-10 flex-1 whitespace-nowrap overflow-hidden',
+                    isActive && !locked ? 'text-primary-foreground' : '',
                   )}
                 >
                   {item.name}
                 </motion.span>
               )}
             </AnimatePresence>
+            {locked && !collapsed && (
+              <Lock className="h-3 w-3 shrink-0 relative z-10 text-muted-foreground/40" />
+            )}
+          </>
+        );
+
+        if (locked) {
+          return (
+            <button
+              type="button"
+              key={item.name}
+              onClick={() => onLockedClick(item.name)}
+              className={baseClass}
+              title={collapsed ? `${item.name} (locked)` : undefined}
+            >
+              {inner}
+            </button>
+          );
+        }
+
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={baseClass}
+            title={collapsed ? item.name : undefined}
+          >
+            {inner}
           </Link>
         );
       })}
@@ -165,6 +213,8 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   const role = userRole || session?.user?.role;
   const isSuperAdmin = role === 'super_admin';
   const isWebmaster = role === 'webmaster';
+  const { addons } = useDashboardAddons();
+  const [lockedDialogFor, setLockedDialogFor] = useState<string | null>(null);
 
   return (
     <aside
@@ -199,17 +249,23 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {isWebmaster ? (
-          <NavSection title="Work" items={webmasterWork} pathname={pathname} collapsed={collapsed} />
+          <NavSection title="Work" items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
         ) : (
           <>
-            <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} />
-            <NavSection title="Marketing" items={marketing} pathname={pathname} collapsed={collapsed} />
-            <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} />
-            <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} />
-            <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} />
+            <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+            <NavSection title="Marketing" items={marketing} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+            <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+            <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+            <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
           </>
         )}
       </nav>
+
+      <LockedFeatureDialog
+        open={lockedDialogFor !== null}
+        onOpenChange={(open) => !open && setLockedDialogFor(null)}
+        featureName={lockedDialogFor ?? ''}
+      />
 
       {/* Admin Link for Super Admins */}
       {isSuperAdmin && (

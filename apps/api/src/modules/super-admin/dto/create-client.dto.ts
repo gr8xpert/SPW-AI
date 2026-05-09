@@ -12,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags } from '@spm/shared';
+import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons } from '@spm/shared';
 
 export class CreateClientDto {
   @IsString()
@@ -104,4 +104,7 @@ export class CreateClientDto {
 
   @IsOptional()
   featureFlags?: Partial<TenantFeatureFlags>;
+
+  @IsOptional()
+  dashboardAddons?: Partial<DashboardAddons>;
 }

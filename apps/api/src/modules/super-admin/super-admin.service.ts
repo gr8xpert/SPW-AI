@@ -18,7 +18,7 @@ import {
   EmailSuppression,
   CreditPackage,
 } from '../../database/entities';
-import { UserRole, DEFAULT_TENANT_SETTINGS, DEFAULT_FEATURE_FLAGS, TenantFull } from '@spm/shared';
+import { UserRole, DEFAULT_TENANT_SETTINGS, DEFAULT_FEATURE_FLAGS, DEFAULT_DASHBOARD_ADDONS, TenantFull } from '@spm/shared';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
 import { TenantService, CacheClearResult } from '../tenant/tenant.service';
@@ -207,6 +207,7 @@ export class SuperAdminService {
       feedImagesToR2: tenant.feedImagesToR2,
       widgetFeatures: tenant.widgetFeatures,
       featureFlags: tenant.featureFlags || DEFAULT_FEATURE_FLAGS,
+      dashboardAddons: tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS,
       planId: tenant.planId,
       lastCacheClearedAt: tenant.lastCacheClearedAt,
       adminUser,
@@ -279,6 +280,7 @@ export class SuperAdminService {
         feedImagesToR2: dto.feedImagesToR2 ?? false,
         widgetFeatures: dto.widgetFeatures || ['search', 'detail', 'wishlist'],
         featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...dto.featureFlags },
+        dashboardAddons: { ...DEFAULT_DASHBOARD_ADDONS, ...dto.dashboardAddons },
       });
 
       const savedTenant = await queryRunner.manager.save(tenant);
@@ -399,6 +401,13 @@ export class SuperAdminService {
       if (dto.featureFlags.aiSearch !== undefined) {
         tenant.aiSearchEnabled = dto.featureFlags.aiSearch;
       }
+    }
+
+    // Merge dashboard add-ons (super-admin per-client unlocks)
+    if (dto.dashboardAddons) {
+      const current = tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS;
+      changes.dashboardAddons = { before: current, after: { ...current, ...dto.dashboardAddons } };
+      tenant.dashboardAddons = { ...current, ...dto.dashboardAddons };
     }
 
     // Auto-calculate grace period if expiresAt changed

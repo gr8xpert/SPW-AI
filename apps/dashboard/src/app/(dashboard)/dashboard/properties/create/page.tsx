@@ -237,7 +237,7 @@ function MultilingualTextarea({
   );
 }
 
-export default function CreatePropertyPage() {
+function CreatePropertyPageInner() {
   const router = useRouter();
   const { toast } = useToast();
   const api = useApi();
@@ -1129,5 +1129,15 @@ export default function CreatePropertyPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+
+export default function CreatePropertyPage() {
+  return (
+    <LockedRouteGuard addon="addProperty" featureName="Add Property">
+      <CreatePropertyPageInner />
+    </LockedRouteGuard>
   );
 }

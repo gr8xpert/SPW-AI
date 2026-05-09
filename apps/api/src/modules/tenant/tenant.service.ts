@@ -337,6 +337,13 @@ export class TenantService {
       domain: tenant.domain,
       settings,
       isActive: tenant.isActive,
+      dashboardAddons: tenant.dashboardAddons ?? {
+        addProperty: false,
+        emailCampaign: false,
+        feedExport: false,
+        team: false,
+        aiChat: false,
+      },
     };
   }
 }

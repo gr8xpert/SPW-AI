@@ -146,6 +146,9 @@ export interface TenantPublic {
   domain: string | null;
   settings: TenantSettings;
   isActive: boolean;
+  // Dashboard add-on flags (per-client). Locked features grey out
+  // their entry points and gate page content.
+  dashboardAddons: DashboardAddons;
 }
 
 export interface TenantWithApiKey extends TenantPublic {
@@ -180,6 +183,7 @@ export interface TenantFull extends TenantWithApiKey {
 
   // Super-admin add-on flags
   featureFlags: TenantFeatureFlags;
+  dashboardAddons: DashboardAddons;
 
   planId: number;
 
@@ -235,6 +239,36 @@ export const ALL_ENABLED_FEATURE_FLAGS: TenantFeatureFlags = {
   aiChatbot: true,
   mortgageCalculator: true,
   currencyConverter: true,
+};
+
+// Dashboard-side add-ons sold per-client. Super-admin toggles each
+// individually from the Clients page. Locked features render greyed in
+// the dashboard with an upgrade prompt; unlocked ones behave normally.
+//
+// These are distinct from TenantFeatureFlags (which gate widget-side
+// behavior). DashboardAddons gate dashboard pages and admin actions.
+export interface DashboardAddons {
+  addProperty: boolean;     // Properties → Add property
+  emailCampaign: boolean;   // /dashboard/campaigns
+  feedExport: boolean;      // /dashboard/feed-export
+  team: boolean;            // /dashboard/team
+  aiChat: boolean;          // /dashboard/ai-chat
+}
+
+export const DEFAULT_DASHBOARD_ADDONS: DashboardAddons = {
+  addProperty: false,
+  emailCampaign: false,
+  feedExport: false,
+  team: false,
+  aiChat: false,
+};
+
+export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
+  addProperty: true,
+  emailCampaign: true,
+  feedExport: true,
+  team: true,
+  aiChat: true,
 };
 
 // Currency options supported by the widget

@@ -54,6 +54,13 @@ const clientSchema = z.object({
     mortgageCalculator: z.boolean(),
     currencyConverter: z.boolean(),
   }),
+  dashboardAddons: z.object({
+    addProperty: z.boolean(),
+    emailCampaign: z.boolean(),
+    feedExport: z.boolean(),
+    team: z.boolean(),
+    aiChat: z.boolean(),
+  }),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
@@ -99,6 +106,13 @@ export default function EditClientPage() {
         mortgageCalculator: false,
         currencyConverter: false,
       },
+      dashboardAddons: {
+        addProperty: false,
+        emailCampaign: false,
+        feedExport: false,
+        team: false,
+        aiChat: false,
+      },
     },
   });
 
@@ -134,6 +148,13 @@ export default function EditClientPage() {
             aiChatbot: false,
             mortgageCalculator: false,
             currencyConverter: false,
+          },
+          dashboardAddons: client.dashboardAddons || {
+            addProperty: false,
+            emailCampaign: false,
+            feedExport: false,
+            team: false,
+            aiChat: false,
           },
         });
       } catch (error) {
@@ -513,6 +534,39 @@ export default function EditClientPage() {
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">{feature.label}</FormLabel>
                             <FormDescription>{feature.description}</FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Dashboard Add-ons</CardTitle>
+                  <CardDescription>Per-client paid add-ons. When OFF the entry point is greyed out in the dashboard with an upgrade prompt; direct URLs render a locked screen.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    { name: 'dashboardAddons.addProperty' as const, label: 'Add Property', description: 'Allow this client to manually create properties from the dashboard' },
+                    { name: 'dashboardAddons.emailCampaign' as const, label: 'Email Campaigns', description: 'Send marketing emails and manage campaigns' },
+                    { name: 'dashboardAddons.feedExport' as const, label: 'Feed Export', description: 'Generate XML/JSON feeds to syndicate to portals' },
+                    { name: 'dashboardAddons.team' as const, label: 'Team Management', description: 'Invite team members and assign roles' },
+                    { name: 'dashboardAddons.aiChat' as const, label: 'AI Chat', description: 'Conversational AI analytics and chat history' },
+                  ].map((addon) => (
+                    <FormField
+                      key={addon.name}
+                      control={form.control}
+                      name={addon.name}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">{addon.label}</FormLabel>
+                            <FormDescription>{addon.description}</FormDescription>
                           </div>
                           <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
