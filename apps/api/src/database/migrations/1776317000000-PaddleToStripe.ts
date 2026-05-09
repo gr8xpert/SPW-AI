@@ -31,7 +31,7 @@ export class PaddleToStripe1776317000000 implements MigrationInterface {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
         [table, oldName],
       );
-      if (rows[0]?.c > 0) {
+      if (Number(rows[0]?.c ?? 0) > 0) {
         await queryRunner.query(
           `ALTER TABLE \`${table}\` CHANGE \`${oldName}\` \`${newName}\` ${typeDef}`,
         );
@@ -44,7 +44,7 @@ export class PaddleToStripe1776317000000 implements MigrationInterface {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
         [table, name],
       );
-      return (rows[0]?.c ?? 0) > 0;
+      return Number(rows[0]?.c ?? 0) > 0;
     };
 
     // 1. Widen the enum first to allow 'stripe' (still keeping 'paddle' for
@@ -111,10 +111,10 @@ export class PaddleToStripe1776317000000 implements MigrationInterface {
          AND COLUMN_NAME = 'stripePriceIdMonthly'`,
     );
 
-    if ((paddleMonthly[0]?.c ?? 0) > 0) {
+    if (Number(paddleMonthly[0]?.c ?? 0) > 0) {
       await renameIfExists('plans', 'paddlePriceIdMonthly', 'stripePriceIdMonthly', 'VARCHAR(100) NULL');
       await renameIfExists('plans', 'paddlePriceIdYearly', 'stripePriceIdYearly', 'VARCHAR(100) NULL');
-    } else if ((stripeMonthly[0]?.c ?? 0) === 0) {
+    } else if (Number(stripeMonthly[0]?.c ?? 0) === 0) {
       await queryRunner.query(
         `ALTER TABLE plans
            ADD COLUMN stripePriceIdMonthly VARCHAR(100) NULL,

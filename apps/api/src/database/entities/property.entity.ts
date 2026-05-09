@@ -20,6 +20,9 @@ export type PropertySource = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'kyer
 export interface PropertyImage {
   url: string;
   sourceUrl?: string;
+  // Present when the image is stored in R2 via media_blobs dedup.
+  // On feed re-sync or property delete we use this to releaseBlob().
+  contentHash?: string;
   order: number;
   alt?: string;
 }

@@ -14,6 +14,7 @@ import {
   Location,
   PropertyType,
   Feature,
+  Tenant,
 } from '../../database/entities';
 import { TenantModule } from '../tenant/tenant.module';
 import { UploadModule } from '../upload/upload.module';
@@ -27,6 +28,7 @@ import { UploadModule } from '../upload/upload.module';
       Location,
       PropertyType,
       Feature,
+      Tenant,
     ]),
     BullModule.registerQueue({
       name: 'feed-import',

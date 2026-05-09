@@ -14,7 +14,7 @@ export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
         [table, column],
       );
-      return (rows[0]?.c ?? 0) > 0;
+      return Number(rows[0]?.c ?? 0) > 0;
     };
 
     const indexExists = async (table: string, name: string): Promise<boolean> => {
@@ -23,7 +23,7 @@ export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
         [table, name],
       );
-      return (rows[0]?.c ?? 0) > 0;
+      return Number(rows[0]?.c ?? 0) > 0;
     };
 
     if (!(await columnExists('properties', 'contentHash'))) {
@@ -76,7 +76,7 @@ export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
         [table, name],
       );
-      return (rows[0]?.c ?? 0) > 0;
+      return Number(rows[0]?.c ?? 0) > 0;
     };
 
     const drops: [string, string][] = [
@@ -108,7 +108,7 @@ export class ContentHashAndIndexes1776315900000 implements MigrationInterface {
       `SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'properties' AND COLUMN_NAME = 'contentHash'`,
     );
-    if ((colExists[0]?.c ?? 0) > 0) {
+    if (Number(colExists[0]?.c ?? 0) > 0) {
       await queryRunner.query(`ALTER TABLE \`properties\` DROP COLUMN \`contentHash\``);
     }
   }

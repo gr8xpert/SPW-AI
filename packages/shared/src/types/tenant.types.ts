@@ -174,6 +174,8 @@ export interface TenantFull extends TenantWithApiKey {
   // Widget toggles
   widgetEnabled: boolean;
   aiSearchEnabled: boolean;
+  // Super-admin: download feed images to R2 with dedup. Default false.
+  feedImagesToR2: boolean;
   widgetFeatures: string[];
 
   // Super-admin add-on flags

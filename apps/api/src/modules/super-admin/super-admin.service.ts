@@ -204,6 +204,7 @@ export class SuperAdminService {
       isInternal: tenant.isInternal,
       widgetEnabled: tenant.widgetEnabled,
       aiSearchEnabled: tenant.aiSearchEnabled,
+      feedImagesToR2: tenant.feedImagesToR2,
       widgetFeatures: tenant.widgetFeatures,
       featureFlags: tenant.featureFlags || DEFAULT_FEATURE_FLAGS,
       planId: tenant.planId,
@@ -275,6 +276,7 @@ export class SuperAdminService {
         isInternal: dto.isInternal || false,
         widgetEnabled: dto.widgetEnabled !== false,
         aiSearchEnabled: dto.featureFlags?.aiSearch ?? dto.aiSearchEnabled ?? false,
+        feedImagesToR2: dto.feedImagesToR2 ?? false,
         widgetFeatures: dto.widgetFeatures || ['search', 'detail', 'wishlist'],
         featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...dto.featureFlags },
       });
@@ -371,7 +373,7 @@ export class SuperAdminService {
       'name', 'domain', 'ownerEmail', 'siteName', 'apiUrl', 'planId',
       'subscriptionStatus', 'billingCycle', 'billingSource',
       'expiresAt', 'graceEndsAt', 'adminOverride', 'isInternal',
-      'widgetEnabled', 'aiSearchEnabled', 'widgetFeatures', 'isActive',
+      'widgetEnabled', 'aiSearchEnabled', 'feedImagesToR2', 'widgetFeatures', 'isActive',
     ];
 
     for (const field of updateFields) {

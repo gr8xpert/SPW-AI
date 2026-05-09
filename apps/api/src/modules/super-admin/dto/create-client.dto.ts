@@ -88,6 +88,10 @@ export class CreateClientDto {
   @IsOptional()
   aiSearchEnabled?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  feedImagesToR2?: boolean;
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

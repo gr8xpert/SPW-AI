@@ -77,6 +77,10 @@ export class UpdateClientDto {
   @IsOptional()
   aiSearchEnabled?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  feedImagesToR2?: boolean;
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

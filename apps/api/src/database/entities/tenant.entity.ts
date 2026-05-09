@@ -129,6 +129,14 @@ export class Tenant {
   @Column({ default: false })
   aiSearchEnabled: boolean;
 
+  // Super-admin toggle. When true, feed importers download property images,
+  // re-encode to WebP, and push them to this tenant's R2 bucket (with
+  // content-hash deduplication). When false, feed images keep the
+  // provider's CDN URL — no re-hosting. Default off because most clients
+  // don't need it (and it costs R2 storage).
+  @Column({ default: false })
+  feedImagesToR2: boolean;
+
   @Column({ type: 'json', default: () => "'[\"search\", \"detail\", \"wishlist\"]'" })
   widgetFeatures: string[];
 

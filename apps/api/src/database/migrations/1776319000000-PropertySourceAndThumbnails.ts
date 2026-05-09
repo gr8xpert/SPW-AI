@@ -25,7 +25,7 @@ export class PropertySourceAndThumbnails1776319000000 implements MigrationInterf
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'media_files'
          AND COLUMN_NAME = 'thumbnailPath'`,
     );
-    if ((hasThumbPath[0]?.c ?? 0) === 0) {
+    if (Number(hasThumbPath[0]?.c ?? 0) === 0) {
       await queryRunner.query(
         `ALTER TABLE media_files
            ADD COLUMN thumbnailPath VARCHAR(500) NULL AFTER url,
@@ -40,7 +40,7 @@ export class PropertySourceAndThumbnails1776319000000 implements MigrationInterf
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'media_files'
          AND COLUMN_NAME = 'thumbnailPath'`,
     );
-    if ((hasThumbPath[0]?.c ?? 0) > 0) {
+    if (Number(hasThumbPath[0]?.c ?? 0) > 0) {
       await queryRunner.query(
         `ALTER TABLE media_files
            DROP COLUMN thumbnailUrl,

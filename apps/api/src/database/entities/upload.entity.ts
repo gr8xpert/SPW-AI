@@ -56,6 +56,14 @@ export class MediaFile {
   @Column({ type: 'varchar', length: 500, nullable: true })
   thumbnailUrl: string | null;
 
+  // Hashes for media_blobs refcount on delete. Null means not deduped
+  // (legacy uploads or non-image files that bypass storeBlob).
+  @Column({ type: 'char', length: 64, nullable: true })
+  contentHash: string | null;
+
+  @Column({ type: 'char', length: 64, nullable: true })
+  thumbnailContentHash: string | null;
+
   @Column({ length: 100 })
   mimeType: string;
 

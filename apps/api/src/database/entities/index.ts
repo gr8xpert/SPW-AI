@@ -37,6 +37,7 @@ export * from './email-campaign.entity';
 
 // Upload/Media entities
 export * from './upload.entity';
+export * from './media-blob.entity';
 
 // Feed export entities
 export * from './feed-export.entity';

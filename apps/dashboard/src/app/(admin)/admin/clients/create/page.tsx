@@ -58,6 +58,7 @@ const createClientSchema = z.object({
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
+  feedImagesToR2: z.boolean(),
   featureFlags: z.object({
     mapSearch: z.boolean(),
     mapView: z.boolean(),
@@ -106,6 +107,7 @@ export default function CreateClientPage() {
       adminOverride: false,
       isInternal: false,
       widgetEnabled: true,
+      feedImagesToR2: false,
       featureFlags: {
         mapSearch: false,
         mapView: false,
@@ -527,6 +529,24 @@ export default function CreateClientPage() {
                           <FormLabel className="text-base">Widget Enabled</FormLabel>
                           <FormDescription>
                             Allow this client to embed the property widget
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="feedImagesToR2"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Download Feed Images to R2</FormLabel>
+                          <FormDescription>
+                            When ON, feed importers download property photos, convert to WebP, and store in R2 with content-hash deduplication. When OFF, feed images keep the provider&apos;s CDN URL.
                           </FormDescription>
                         </div>
                         <FormControl>

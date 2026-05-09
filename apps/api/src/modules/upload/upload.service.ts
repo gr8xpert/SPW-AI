@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -17,7 +17,12 @@ import { promises as fs, mkdirSync } from 'fs';
 import * as path from 'path';
 import * as sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
-import { MediaFile, TenantStorageConfig } from '../../database/entities';
+import { createHash } from 'crypto';
+import {
+  MediaBlob,
+  MediaFile,
+  TenantStorageConfig,
+} from '../../database/entities';
 import { CreateStorageConfigDto, UpdateStorageConfigDto } from './dto';
 
 export interface UploadedFile {
@@ -59,9 +64,12 @@ export class UploadService {
   constructor(
     @InjectRepository(MediaFile)
     private mediaFileRepository: Repository<MediaFile>,
+    @InjectRepository(MediaBlob)
+    private mediaBlobRepository: Repository<MediaBlob>,
     @InjectRepository(TenantStorageConfig)
     private storageConfigRepository: Repository<TenantStorageConfig>,
     private configService: ConfigService,
+    private dataSource: DataSource,
   ) {
     this.uploadDir = path.resolve(
       this.configService.get<string>('UPLOAD_DIR') || './uploads',
@@ -152,21 +160,11 @@ export class UploadService {
     }
 
     const isImage = this.isImage(file.mimetype);
-    const ext = isImage ? '.webp' : safeExt;
-    const storedMime = isImage ? 'image/webp' : file.mimetype;
-
-    const baseId = uuidv4();
-    const filename = `${baseId}${ext}`;
-    const storedPath = `${tenantId}/${propertyId || 'unassigned'}/${filename}`;
-    const thumbnailPath = isImage
-      ? `${tenantId}/${propertyId || 'unassigned'}/thumbs/${baseId}.webp`
-      : null;
-
-    let dimensions: { width: number; height: number } | undefined;
-    let processedBuffer = file.buffer;
-    let thumbnailBuffer: Buffer | null = null;
 
     if (isImage) {
+      let dimensions: { width: number; height: number };
+      let main: Buffer;
+      let thumbnail: Buffer;
       try {
         const metadata = await sharp(file.buffer).metadata();
         dimensions = {
@@ -174,35 +172,58 @@ export class UploadService {
           height: metadata.height || 0,
         };
         const optimized = await this.optimizeImageWithThumbnail(file.buffer);
-        processedBuffer = optimized.main;
-        thumbnailBuffer = optimized.thumbnail;
+        main = optimized.main;
+        thumbnail = optimized.thumbnail;
       } catch (err) {
         this.logger.warn(
           `Rejected invalid image upload for tenant=${tenantId}: ${(err as Error).message}`,
         );
         throw new BadRequestException('Uploaded file is not a valid image');
       }
+
+      // Both main + thumb deduped via media_blobs. If the same image is
+      // uploaded twice (e.g. tenant re-uploads an existing photo), refCount
+      // bumps and we skip the R2 PUT.
+      const mainBlob = await this.storeBlob(tenantId, main, 'image/webp', config);
+      const thumbBlob = await this.storeBlob(tenantId, thumbnail, 'image/webp', config);
+
+      const mediaFile = this.mediaFileRepository.create({
+        tenantId,
+        propertyId,
+        storageType: mainBlob.storageType,
+        originalFilename: this.sanitizeOriginalName(file.originalname),
+        storedPath: mainBlob.storageKey,
+        url: mainBlob.url,
+        thumbnailPath: thumbBlob.storageKey,
+        thumbnailUrl: thumbBlob.url,
+        contentHash: mainBlob.hash,
+        thumbnailContentHash: thumbBlob.hash,
+        mimeType: 'image/webp',
+        fileSize: main.length,
+        dimensions,
+        isOptimized: true,
+      });
+      const saved = await this.mediaFileRepository.save(mediaFile);
+      return {
+        id: saved.id,
+        url: saved.url,
+        thumbnailUrl: saved.thumbnailUrl ?? undefined,
+        originalFilename: saved.originalFilename,
+        mimeType: saved.mimeType,
+        fileSize: saved.fileSize,
+        dimensions: saved.dimensions,
+      };
     }
 
+    // Non-image (PDF etc): keep the per-upload uuid path. Dedup gives no
+    // win for documents tenants typically upload once.
+    const filename = `${uuidv4()}${safeExt}`;
+    const storedPath = `${tenantId}/${propertyId || 'unassigned'}/${filename}`;
     const storageType = config?.storageType || 'local';
-    let url: string;
-    let thumbnailUrl: string | null = null;
-    if (storageType === 's3' && config) {
-      url = await this.uploadToS3(config, storedPath, processedBuffer, storedMime);
-      if (thumbnailBuffer && thumbnailPath) {
-        thumbnailUrl = await this.uploadToS3(
-          config,
-          thumbnailPath,
-          thumbnailBuffer,
-          'image/webp',
-        );
-      }
-    } else {
-      url = await this.uploadToLocal(storedPath, processedBuffer);
-      if (thumbnailBuffer && thumbnailPath) {
-        thumbnailUrl = await this.uploadToLocal(thumbnailPath, thumbnailBuffer);
-      }
-    }
+    const url =
+      storageType === 's3' && config
+        ? await this.uploadToS3(config, storedPath, file.buffer, file.mimetype)
+        : await this.uploadToLocal(storedPath, file.buffer);
 
     const mediaFile = this.mediaFileRepository.create({
       tenantId,
@@ -211,24 +232,17 @@ export class UploadService {
       originalFilename: this.sanitizeOriginalName(file.originalname),
       storedPath,
       url,
-      thumbnailPath,
-      thumbnailUrl,
-      mimeType: storedMime,
-      fileSize: processedBuffer.length,
-      dimensions,
-      isOptimized: isImage,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      isOptimized: false,
     });
-
     const saved = await this.mediaFileRepository.save(mediaFile);
-
     return {
       id: saved.id,
       url: saved.url,
-      thumbnailUrl: saved.thumbnailUrl ?? undefined,
       originalFilename: saved.originalFilename,
       mimeType: saved.mimeType,
       fileSize: saved.fileSize,
-      dimensions: saved.dimensions,
     };
   }
 
@@ -241,21 +255,27 @@ export class UploadService {
     }
 
     const config = await this.getStorageConfig(tenantId);
-    const paths = [file.storedPath, file.thumbnailPath].filter(
-      (p): p is string => !!p,
-    );
-    for (const p of paths) {
+
+    // Deduped uploads: decrement refcount via releaseBlob (deletes the R2
+    // object only when no other MediaFile/PropertyImage references it).
+    if (file.contentHash) {
+      await this.releaseBlob(tenantId, file.contentHash, config);
+    }
+    if (file.thumbnailContentHash) {
+      await this.releaseBlob(tenantId, file.thumbnailContentHash, config);
+    }
+
+    // Non-deduped paths (legacy or non-image files) still get direct delete.
+    if (!file.contentHash) {
       try {
         if (file.storageType === 's3' && config) {
-          await this.deleteFromS3(config, p);
+          await this.deleteFromS3(config, file.storedPath);
         } else {
-          await this.deleteFromLocal(p);
+          await this.deleteFromLocal(file.storedPath);
         }
       } catch (err) {
-        // We log but still remove the DB row — otherwise a missing file in
-        // storage permanently blocks cleanup.
         this.logger.warn(
-          `Failed to delete storage object for MediaFile#${id} (${p}): ${(err as Error).message}`,
+          `Failed to delete storage object for MediaFile#${id}: ${(err as Error).message}`,
         );
       }
     }
@@ -301,48 +321,171 @@ export class UploadService {
   }
 
   // ============ Feed Image Methods ============
-  async uploadFeedImage(
+
+  // Called from FeedService when tenant.feedImagesToR2 is ON. Downloads
+  // the provider image, re-encodes to WebP, deduplicates against
+  // media_blobs (skip the R2 PUT if an identical image is already in
+  // the tenant's bucket), returns the public URL + content hash for the
+  // PropertyImage record.
+  async downloadAndStoreFeedImage(
     tenantId: number,
-    key: string,
-    buffer: Buffer,
-  ): Promise<string | null> {
+    sourceUrl: string,
+  ): Promise<{ url: string; contentHash: string } | null> {
     const config = await this.getStorageConfig(tenantId);
-    if (!config || config.storageType !== 's3' || !config.isActive) return null;
+    if (!config || !config.isActive) return null;
 
-    const s3Client = this.createS3Client(config);
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: config.s3Bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: 'image/webp',
-        CacheControl: 'public, max-age=31536000, immutable',
-      }),
-    );
+    const response = await fetch(sourceUrl, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-    if (config.cdnUrl) return `${config.cdnUrl}/${key}`;
-    if (config.s3Endpoint)
-      return `${config.s3Endpoint}/${config.s3Bucket}/${key}`;
-    return `https://${config.s3Bucket}.s3.${config.s3Region}.amazonaws.com/${key}`;
+    const arrayBuffer = await response.arrayBuffer();
+    const webpBuffer = await sharp(Buffer.from(arrayBuffer))
+      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+
+    const blob = await this.storeBlob(tenantId, webpBuffer, 'image/webp', config);
+    return { url: blob.url, contentHash: blob.hash };
   }
 
-  async deleteFeedImage(tenantId: number, key: string): Promise<void> {
-    const config = await this.getStorageConfig(tenantId);
-    if (!config || config.storageType !== 's3') return;
+  // ============ Content-Hash Dedup ============
+
+  // Deduplicates by sha256(buffer). Same content = same R2 object across
+  // every property/upload that references it. Atomic refcount: insert if
+  // new, increment if existing; under concurrency the unique key on
+  // (tenantId, contentHash) makes the loser increment the winner's row.
+  async storeBlob(
+    tenantId: number,
+    buffer: Buffer,
+    mimeType: string,
+    config: TenantStorageConfig | null,
+  ): Promise<{
+    url: string;
+    hash: string;
+    storageKey: string;
+    storageType: 'local' | 's3';
+    isNew: boolean;
+  }> {
+    const hash = createHash('sha256').update(buffer).digest('hex');
+    const ext = mimeType === 'image/webp' ? '.webp' : '';
+    const storageKey = `blobs/${tenantId}/${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash}${ext}`;
+    const storageType: 'local' | 's3' =
+      config?.storageType === 's3' ? 's3' : 'local';
+
+    // Fast path: already-stored content. Bump refcount, return existing URL.
+    const existing = await this.mediaBlobRepository.findOne({
+      where: { tenantId, contentHash: hash },
+    });
+    if (existing) {
+      await this.mediaBlobRepository.increment(
+        { id: existing.id },
+        'refCount',
+        1,
+      );
+      return {
+        url: this.urlForKey(config, existing.storageKey, existing.storageType),
+        hash,
+        storageKey: existing.storageKey,
+        storageType: existing.storageType,
+        isNew: false,
+      };
+    }
+
+    // Cold path: upload first so a crash doesn't leave a refcount-1 row
+    // pointing at nothing. The unique key on (tenantId, hash) catches a
+    // concurrent insert and we just bump the winner instead.
+    const url =
+      storageType === 's3' && config
+        ? await this.uploadToS3(config, storageKey, buffer, mimeType)
+        : await this.uploadToLocal(storageKey, buffer);
 
     try {
-      const s3Client = this.createS3Client(config);
-      await s3Client.send(
-        new DeleteObjectCommand({ Bucket: config.s3Bucket, Key: key }),
-      );
-    } catch {
-      // Non-critical — orphaned objects cleaned up by R2 lifecycle rules
+      await this.mediaBlobRepository.insert({
+        tenantId,
+        contentHash: hash,
+        storageKey,
+        storageType,
+        size: buffer.length,
+        mimeType,
+        refCount: 1,
+      });
+      return { url, hash, storageKey, storageType, isNew: true };
+    } catch (err: any) {
+      // ER_DUP_ENTRY: someone inserted the same hash between our SELECT
+      // and INSERT. Increment the winner's refcount; our just-uploaded
+      // object is identical bytes overwriting the same key — harmless.
+      if (err?.code === 'ER_DUP_ENTRY' || err?.errno === 1062) {
+        await this.mediaBlobRepository.increment(
+          { tenantId, contentHash: hash },
+          'refCount',
+          1,
+        );
+        return { url, hash, storageKey, storageType, isNew: false };
+      }
+      throw err;
     }
   }
 
-  extractR2Key(url: string, tenantId: number): string | null {
-    const match = url.match(new RegExp(`(${tenantId}/properties/.+\\.webp)$`));
-    return match ? match[1] : null;
+  // Decrement refcount; if hit zero, delete from storage and remove the
+  // row. The conditional DELETE protects against a concurrent storeBlob
+  // bumping the count back up between our decrement and our delete.
+  async releaseBlob(
+    tenantId: number,
+    contentHash: string,
+    config: TenantStorageConfig | null,
+  ): Promise<void> {
+    const blob = await this.mediaBlobRepository.findOne({
+      where: { tenantId, contentHash },
+    });
+    if (!blob) return;
+
+    if (blob.refCount > 1) {
+      await this.dataSource.query(
+        `UPDATE media_blobs SET refCount = refCount - 1
+           WHERE id = ? AND refCount > 1`,
+        [blob.id],
+      );
+      return;
+    }
+
+    // Last reference — atomic "delete if still last" so we don't race.
+    const result: { affectedRows?: number } = await this.dataSource.query(
+      `DELETE FROM media_blobs WHERE id = ? AND refCount = 1`,
+      [blob.id],
+    );
+    if ((result.affectedRows ?? 0) !== 1) {
+      // Someone bumped refCount between our SELECT and DELETE; let them keep it.
+      return;
+    }
+
+    try {
+      if (blob.storageType === 's3' && config) {
+        await this.deleteFromS3(config, blob.storageKey);
+      } else {
+        await this.deleteFromLocal(blob.storageKey);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to delete storage object for blob ${blob.contentHash}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private urlForKey(
+    config: TenantStorageConfig | null,
+    storageKey: string,
+    storageType: 'local' | 's3',
+  ): string {
+    if (storageType === 'local' || !config) {
+      return `${this.baseUrl}/uploads/${storageKey}`;
+    }
+    if (config.cdnUrl) return `${config.cdnUrl}/${storageKey}`;
+    if (config.s3Endpoint)
+      return `${config.s3Endpoint}/${config.s3Bucket}/${storageKey}`;
+    return `https://${config.s3Bucket}.s3.${config.s3Region}.amazonaws.com/${storageKey}`;
   }
 
   // ============ Private Methods ============

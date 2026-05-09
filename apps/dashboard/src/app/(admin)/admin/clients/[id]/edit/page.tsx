@@ -44,6 +44,7 @@ const clientSchema = z.object({
   adminOverride: z.boolean(),
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
+  feedImagesToR2: z.boolean(),
   isActive: z.boolean(),
   featureFlags: z.object({
     mapSearch: z.boolean(),
@@ -88,6 +89,7 @@ export default function EditClientPage() {
       adminOverride: false,
       isInternal: false,
       widgetEnabled: true,
+      feedImagesToR2: false,
       isActive: true,
       featureFlags: {
         mapSearch: false,
@@ -123,6 +125,7 @@ export default function EditClientPage() {
           adminOverride: client.adminOverride,
           isInternal: client.isInternal,
           widgetEnabled: client.widgetEnabled,
+          feedImagesToR2: client.feedImagesToR2 ?? false,
           isActive: client.isActive,
           featureFlags: client.featureFlags || {
             mapSearch: false,
@@ -466,6 +469,24 @@ export default function EditClientPage() {
                           <FormLabel className="text-base">Widget Enabled</FormLabel>
                           <FormDescription>
                             Allow this client to embed the property widget
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="feedImagesToR2"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Download Feed Images to R2</FormLabel>
+                          <FormDescription>
+                            When ON, feed importers download property photos, convert to WebP, and store in R2 with content-hash deduplication. When OFF, feed images keep the provider&apos;s CDN URL (no extra storage cost).
                           </FormDescription>
                         </div>
                         <FormControl>

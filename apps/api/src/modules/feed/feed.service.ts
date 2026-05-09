@@ -10,7 +10,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { createHash } from 'crypto';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
-import { Property, PropertyImage, Location, PropertyType, Feature } from '../../database/entities';
+import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
@@ -34,6 +34,8 @@ export class FeedService {
     private propertyTypeRepository: Repository<PropertyType>,
     @InjectRepository(Feature)
     private featureRepository: Repository<Feature>,
+    @InjectRepository(Tenant)
+    private tenantRepository: Repository<Tenant>,
     @InjectQueue('feed-import')
     private feedImportQueue: Queue,
     private resalesAdapter: ResalesAdapter,
@@ -388,44 +390,105 @@ export class FeedService {
     return feedImages.some((img) => !existingSourceUrls.has(img.url));
   }
 
-  // Feed images: keep the provider's CDN URL as-is. We do NOT re-host
-  // images that come from a feed — the provider already serves them and
-  // re-hosting wastes bandwidth + R2 storage. R2 is reserved for
-  // client-uploaded images (handled in UploadService.uploadFile).
+  // Branches on tenant.feedImagesToR2:
+  //   OFF (default): keep the provider's CDN URL — no download, no R2.
+  //   ON: download from CDN → re-encode to WebP → push to R2 with
+  //       content-hash deduplication. Identical bytes across listings
+  //       (or across feed re-syncs) consume one R2 object total.
   //
-  // If a property previously had R2-hosted images (from before this
-  // policy change), they're cleaned up here when no longer in the feed.
+  // Either way, orphans from a previous run (images no longer in the
+  // feed) are released so refcount tracks reality.
   private async processImages(
     tenantId: number,
     _propertyRef: string,
     feedImages: FeedPropertyImage[],
     existingImages: PropertyImage[] | null,
   ): Promise<PropertyImage[]> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'feedImagesToR2'],
+    });
+    const downloadToR2 = !!tenant?.feedImagesToR2;
+
     const existingMap = new Map<string, PropertyImage>();
     if (existingImages) {
       for (const img of existingImages) {
         existingMap.set(img.sourceUrl || img.url, img);
       }
     }
-
     const newSourceUrls = new Set(feedImages.map((img) => img.url));
 
-    const result: PropertyImage[] = feedImages.map((feedImg) => ({
-      url: feedImg.url,
-      sourceUrl: feedImg.url,
-      order: feedImg.order,
-      alt: feedImg.alt,
-    }));
+    const result: PropertyImage[] = [];
+    if (downloadToR2) {
+      const CONCURRENCY = 5;
+      for (let i = 0; i < feedImages.length; i += CONCURRENCY) {
+        const batch = feedImages.slice(i, i + CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(async (feedImg): Promise<PropertyImage> => {
+            const cached = existingMap.get(feedImg.url);
+            if (cached?.contentHash) {
+              return { ...cached, order: feedImg.order, alt: feedImg.alt };
+            }
+            try {
+              const stored = await this.uploadService.downloadAndStoreFeedImage(
+                tenantId,
+                feedImg.url,
+              );
+              if (!stored) {
+                return {
+                  url: feedImg.url,
+                  sourceUrl: feedImg.url,
+                  order: feedImg.order,
+                  alt: feedImg.alt,
+                };
+              }
+              return {
+                url: stored.url,
+                sourceUrl: feedImg.url,
+                contentHash: stored.contentHash,
+                order: feedImg.order,
+                alt: feedImg.alt,
+              };
+            } catch (err) {
+              this.logger.warn(
+                `Feed image download failed for ${feedImg.url}: ${(err as Error).message}`,
+              );
+              // Fall back to provider URL so the property isn't image-less.
+              return {
+                url: feedImg.url,
+                sourceUrl: feedImg.url,
+                order: feedImg.order,
+                alt: feedImg.alt,
+              };
+            }
+          }),
+        );
+        result.push(...batchResults);
+      }
+    } else {
+      for (const feedImg of feedImages) {
+        result.push({
+          url: feedImg.url,
+          sourceUrl: feedImg.url,
+          order: feedImg.order,
+          alt: feedImg.alt,
+        });
+      }
+    }
 
-    // Best-effort cleanup of any orphaned R2 objects from before the
-    // "keep CDN URL" policy. Safe no-op for new tenants whose feed
-    // images were never in R2.
+    // Release orphaned blobs from previous syncs. Safe no-op when there
+    // are no contentHashes (the toggle was OFF then, or this is a first
+    // import).
+    const config = await this.uploadService.getStorageConfig(tenantId);
     for (const [sourceUrl, img] of existingMap) {
-      if (!newSourceUrls.has(sourceUrl) && img.sourceUrl) {
-        const key = this.uploadService.extractR2Key(img.url, tenantId);
-        if (key) {
-          this.uploadService.deleteFeedImage(tenantId, key).catch(() => {});
-        }
+      if (!newSourceUrls.has(sourceUrl) && img.contentHash) {
+        await this.uploadService
+          .releaseBlob(tenantId, img.contentHash, config)
+          .catch((err) =>
+            this.logger.warn(
+              `Failed to releaseBlob for orphan ${img.contentHash}: ${(err as Error).message}`,
+            ),
+          );
       }
     }
 
