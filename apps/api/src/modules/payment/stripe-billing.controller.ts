@@ -9,7 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
@@ -21,6 +21,15 @@ class CreateCreditCheckoutDto {
   @IsInt()
   @Min(1)
   packageId: number;
+
+  // Multiplier for the package — 3 × "5h pack" = 15h credited. Capped
+  // at 99 to keep accidental fat-finger purchases from creating a
+  // five-figure Stripe charge.
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Max(99)
+  quantity?: number;
 }
 
 @Controller('api/billing/credits')
@@ -46,7 +55,11 @@ export class StripeBillingController {
     @CurrentTenant() tenantId: number,
     @Body() dto: CreateCreditCheckoutDto,
   ) {
-    const result = await this.checkout.createCheckout(tenantId, dto.packageId);
+    const result = await this.checkout.createCheckout(
+      tenantId,
+      dto.packageId,
+      dto.quantity ?? 1,
+    );
     return { url: result.url, sessionId: result.sessionId };
   }
 }

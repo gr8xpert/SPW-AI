@@ -10,19 +10,22 @@ import {
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
 
-// Odoo CRM property feed adapter. Per-tenant: each client provides a URL
-// + bearer token in credentials (endpoint + apiKey). Format auto-detects
-// between JSON and XML responses so the same adapter handles both Odoo
-// custom REST endpoints and Odoo XML exports.
+// Odoo CRM property feed adapter. Per-tenant: each client provides a base
+// API URL + access token in credentials (endpoint + apiKey).
 //
-// Field mapping is permissive: tries multiple common field names for each
-// FeedProperty attribute since real-estate Odoo modules vary widely
-// (Odoo Enterprise estate module, third-party odoo-real-estate addons,
-// or custom x_ fields on crm.lead). Once a sample feed is supplied, the
-// mapping can be tightened or moved to FeedFieldMapping per tenant.
+// Auth follows the convention used by the existing SmartPropertyWidget
+// integrations: header `access_token: <token>` (and `access-token:
+// <token>` with a hyphen — some Odoo middlewares normalize one or the
+// other, so we send both for compatibility).
 //
-// Image policy (Task #4): URLs are kept as-is — we don't re-host feed
-// images, only client-uploaded ones go to R2.
+// Endpoint shape: `<endpoint>/v1/property` with `?ln=<lang>` (Odoo CRM
+// uses `ln`, not `lang`). If the configured endpoint already ends in
+// `/property` we use it as-is; otherwise we append the path.
+//
+// Field mapping is permissive: real-estate Odoo modules vary widely
+// (Enterprise estate, third-party addons, custom x_ fields on
+// crm.lead), so we fall back through several common field names. Per
+// tenant, FeedFieldMapping in feed_configs lets you tighten this.
 @Injectable()
 export class OdooAdapter extends BaseFeedAdapter {
   readonly provider = 'odoo';
@@ -40,7 +43,7 @@ export class OdooAdapter extends BaseFeedAdapter {
   });
 
   async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
-    const url = credentials.endpoint;
+    const url = this.buildUrl(credentials.endpoint);
     const token = credentials.apiKey;
     if (!url) {
       return { valid: false, error: 'Odoo: endpoint URL is required' };
@@ -49,6 +52,7 @@ export class OdooAdapter extends BaseFeedAdapter {
       const response = await axios.get(url, {
         timeout: 15000,
         headers: this.headers(token),
+        params: { ln: 'en_US' },
         responseType: 'text',
         maxContentLength: 50 * 1024 * 1024,
       });
@@ -70,7 +74,7 @@ export class OdooAdapter extends BaseFeedAdapter {
     page: number = 1,
     limit: number = 100,
   ): Promise<FeedImportResult> {
-    const url = credentials.endpoint;
+    const url = this.buildUrl(credentials.endpoint);
     const token = credentials.apiKey;
     if (!url) {
       throw new Error('Odoo: endpoint URL is required');
@@ -79,6 +83,7 @@ export class OdooAdapter extends BaseFeedAdapter {
     const response = await axios.get(url, {
       timeout: 120000,
       headers: this.headers(token),
+      params: { ln: 'en_US' },
       responseType: 'text',
       maxContentLength: 200 * 1024 * 1024,
     });
@@ -100,9 +105,27 @@ export class OdooAdapter extends BaseFeedAdapter {
     };
   }
 
+  // Build the property-list URL from the configured base URL. Odoo
+  // exposes properties at /v1/property; if the operator already pasted
+  // a URL ending in /property (or /v1/property) we use it as-is.
+  private buildUrl(base: string | undefined): string | null {
+    if (!base) return null;
+    const trimmed = base.replace(/\/+$/, '');
+    if (/\/v1\/property$/i.test(trimmed)) return trimmed;
+    if (/\/property$/i.test(trimmed)) return trimmed;
+    return `${trimmed}/v1/property`;
+  }
+
   private headers(token: string | undefined): Record<string, string> {
-    const h: Record<string, string> = { Accept: 'application/json, application/xml' };
-    if (token) h['Authorization'] = `Bearer ${token}`;
+    const h: Record<string, string> = { Accept: 'application/json' };
+    if (token) {
+      // Send both header variants — Odoo middlewares normalize headers
+      // differently; some accept `access_token` (underscore), others
+      // require `access-token` (hyphen). Sending both is harmless and
+      // sidesteps the per-client toggle the legacy code carried.
+      h['access_token'] = token;
+      h['access-token'] = token;
+    }
     return h;
   }
 

@@ -42,6 +42,7 @@ export class StripeCheckoutService {
   async createCheckout(
     tenantId: number,
     packageId: number,
+    quantity: number = 1,
   ): Promise<StripeCheckoutResult> {
     const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
     if (!secretKey) {
@@ -78,8 +79,13 @@ export class StripeCheckoutService {
     params.append('mode', 'payment');
     params.append('success_url', `${successUrl}/dashboard/billing?stripe=success`);
     params.append('cancel_url', `${cancelUrl}/dashboard/billing?stripe=cancel`);
+    // Total hours credited = pkg.hours × quantity. Stripe's line_item
+    // quantity charges price × quantity automatically, so we keep the
+    // unit_amount per-pack and let Stripe do the multiplication on cost.
+    const totalHours = Number(pkg.hours) * quantity;
+
     params.append('currency', pkg.currency.toLowerCase());
-    params.append('line_items[0][quantity]', '1');
+    params.append('line_items[0][quantity]', String(quantity));
     params.append(
       'line_items[0][price_data][currency]',
       pkg.currency.toLowerCase(),
@@ -94,7 +100,8 @@ export class StripeCheckoutService {
     );
     params.append('metadata[tenantId]', String(tenantId));
     params.append('metadata[packageId]', String(pkg.id));
-    params.append('metadata[hours]', String(Number(pkg.hours)));
+    params.append('metadata[hours]', String(totalHours));
+    params.append('metadata[quantity]', String(quantity));
 
     let response: Response;
     try {

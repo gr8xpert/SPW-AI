@@ -72,6 +72,7 @@ export default function BillingPage() {
   const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [purchasingPkgId, setPurchasingPkgId] = useState<number | null>(null);
+  const [pkgQuantity, setPkgQuantity] = useState<Record<number, number>>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -157,11 +158,12 @@ export default function BillingPage() {
   };
 
   const handlePurchaseCredits = async (pkg: CreditPackage) => {
+    const quantity = Math.max(1, Math.min(99, pkgQuantity[pkg.id] ?? 1));
     setPurchasingPkgId(pkg.id);
     try {
       const res = await apiPost<{ url: string; sessionId: string }>(
         '/api/billing/credits/checkout',
-        { packageId: pkg.id },
+        { packageId: pkg.id, quantity },
       );
       window.location.href = res.url;
     } catch (err: any) {
@@ -278,37 +280,71 @@ export default function BillingPage() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
-              {creditPackages.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  className="flex flex-col rounded-lg border p-6"
-                >
-                  <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                  <div className="mt-2 text-3xl font-bold">
-                    {pkg.hours}h
+              {creditPackages.map((pkg) => {
+                const qty = Math.max(1, Math.min(99, pkgQuantity[pkg.id] ?? 1));
+                const totalHours = Number(pkg.hours) * qty;
+                const totalCost = Number(pkg.totalPrice) * qty;
+                return (
+                  <div
+                    key={pkg.id}
+                    className="flex flex-col rounded-lg border p-6"
+                  >
+                    <h3 className="text-lg font-semibold">{pkg.name}</h3>
+                    <div className="mt-2 text-3xl font-bold">{pkg.hours}h</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {pkg.currency} {Number(pkg.pricePerHour).toFixed(2)}/hour
+                    </div>
+                    <div className="mt-4 text-xl font-semibold">
+                      {pkg.currency} {Number(pkg.totalPrice).toFixed(2)} / pack
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2">
+                      <label
+                        htmlFor={`qty-${pkg.id}`}
+                        className="text-sm text-muted-foreground"
+                      >
+                        Qty
+                      </label>
+                      <input
+                        id={`qty-${pkg.id}`}
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={qty}
+                        onChange={(e) =>
+                          setPkgQuantity((prev) => ({
+                            ...prev,
+                            [pkg.id]: Math.max(
+                              1,
+                              Math.min(99, parseInt(e.target.value, 10) || 1),
+                            ),
+                          }))
+                        }
+                        className="w-20 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        = {totalHours}h, {pkg.currency}{' '}
+                        {totalCost.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="mt-4">
+                      <Button
+                        className="w-full shadow-sm"
+                        disabled={purchasingPkgId === pkg.id}
+                        onClick={() => handlePurchaseCredits(pkg)}
+                      >
+                        {purchasingPkgId === pkg.id ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                        )}
+                        Buy {totalHours} Hours
+                      </Button>
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {pkg.currency} {Number(pkg.pricePerHour).toFixed(2)}/hour
-                  </div>
-                  <div className="mt-4 text-xl font-semibold">
-                    {pkg.currency} {Number(pkg.totalPrice).toFixed(2)}
-                  </div>
-                  <div className="mt-4">
-                    <Button
-                      className="w-full shadow-sm"
-                      disabled={purchasingPkgId === pkg.id}
-                      onClick={() => handlePurchaseCredits(pkg)}
-                    >
-                      {purchasingPkgId === pkg.id ? (
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                      )}
-                      Buy {pkg.hours} Hours
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
