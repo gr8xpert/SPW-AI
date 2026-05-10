@@ -141,20 +141,21 @@ export default function EditClientPage() {
           widgetEnabled: client.widgetEnabled,
           feedImagesToR2: client.feedImagesToR2 ?? false,
           isActive: client.isActive,
-          featureFlags: client.featureFlags || {
-            mapSearch: false,
-            mapView: false,
-            aiSearch: false,
-            aiChatbot: false,
-            mortgageCalculator: false,
-            currencyConverter: false,
+          featureFlags: {
+            mapSearch: !!client.featureFlags?.mapSearch,
+            mapView: !!client.featureFlags?.mapView,
+            aiSearch: !!client.featureFlags?.aiSearch,
+            aiChatbot: !!client.featureFlags?.aiChatbot,
+            mortgageCalculator: !!client.featureFlags?.mortgageCalculator,
+            currencyConverter: !!client.featureFlags?.currencyConverter,
           },
-          dashboardAddons: client.dashboardAddons || {
-            addProperty: false,
-            emailCampaign: false,
-            feedExport: false,
-            team: false,
-            aiChat: false,
+          dashboardAddons: {
+            // Coerce to boolean — MySQL JSON columns may store as 0/1.
+            addProperty: !!client.dashboardAddons?.addProperty,
+            emailCampaign: !!client.dashboardAddons?.emailCampaign,
+            feedExport: !!client.dashboardAddons?.feedExport,
+            team: !!client.dashboardAddons?.team,
+            aiChat: !!client.dashboardAddons?.aiChat,
           },
         });
       } catch (error) {
