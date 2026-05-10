@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEnum,
   IsArray,
+  IsObject,
   MinLength,
   MaxLength,
   IsUrl,
@@ -96,9 +97,11 @@ export class UpdateClientDto {
   settings?: Partial<TenantSettings>;
 
   @IsOptional()
+  @IsObject()
   featureFlags?: Partial<TenantFeatureFlags>;
 
   @IsOptional()
+  @IsObject()
   dashboardAddons?: Partial<DashboardAddons>;
 }
 
