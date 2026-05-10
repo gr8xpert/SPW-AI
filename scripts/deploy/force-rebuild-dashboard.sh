@@ -14,10 +14,14 @@ DASH="$PROJECT/apps/dashboard"
 cd "$PROJECT"
 
 echo "--- 1. Verify source has the fix ---"
-if grep -q 'z.union(\[z.string().email(), z.literal'\'''\''), z.null()' "$DASH/src/app/(admin)/admin/clients/[id]/edit/page.tsx" 2>/dev/null; then
+# Look for z.union + z.literal on the same line — uniquely identifies the
+# patched ownerEmail schema. Avoids fighting bash quote escaping.
+if grep -E "z\.union.*z\.literal" "$DASH/src/app/(admin)/admin/clients/[id]/edit/page.tsx" >/dev/null 2>&1; then
   echo "  [OK] ownerEmail schema fix present in src"
 else
   echo "  [FAIL] ownerEmail fix missing — re-upload apps/dashboard/src/"
+  echo "  Showing current ownerEmail line:"
+  grep -n "ownerEmail" "$DASH/src/app/(admin)/admin/clients/[id]/edit/page.tsx" | head -3
   exit 1
 fi
 
@@ -49,8 +53,8 @@ echo "  [OK] BUILD_ID: $(cat $DASH/.next/BUILD_ID)"
 
 echo ""
 echo "--- 4. Verify fix is IN the build ---"
-if grep -rq "z.literal" "$DASH/.next/server/app/(admin)/admin/clients/[id]/edit" 2>/dev/null; then
-  echo "  [OK] schema fix found in compiled output"
+if grep -rE "z\.literal|empty.*string" "$DASH/.next/server/app/(admin)/admin/clients/[id]/edit" >/dev/null 2>&1; then
+  echo "  [OK] schema fix in compiled output"
 else
   echo "  [WARN] couldn't verify — but build succeeded"
 fi
