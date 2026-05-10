@@ -180,6 +180,10 @@ export default function CreateClientPage() {
       setCreatedClientId(body.id);
       setRawApiKey(body.rawApiKey || null);
       if (!body.rawApiKey) {
+        toast({
+          title: 'Client created',
+          description: `${data.name} has been added.`,
+        });
         router.push(`/admin/clients/${body.id}`);
       }
     } catch (error: any) {

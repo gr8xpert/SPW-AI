@@ -180,6 +180,10 @@ export default function EditClientPage() {
       };
 
       await api.put(`/api/super-admin/clients/${clientId}`, cleanData);
+      toast({
+        title: 'Changes saved',
+        description: `${data.name} has been updated.`,
+      });
       router.push(`/admin/clients/${clientId}`);
     } catch (error) {
       console.error('Failed to save client:', error);
