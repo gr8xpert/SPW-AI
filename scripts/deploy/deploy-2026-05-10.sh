@@ -76,28 +76,29 @@ if [ $missing -gt 0 ]; then
 fi
 echo "  [OK] all required files present"
 
-# Stale Paddle files: warn but don't abort. NestJS doesn't load them
-# anymore (payment.module.ts no longer imports them) but they should
-# be deleted via FTP for cleanliness.
+# Stale Paddle files. payment.module.ts no longer imports these and
+# the source .ts files were deleted in commit 1a25bd2. Removing the
+# compiled .js + .d.ts + .map artifacts so the dist/ tree matches
+# what the running app actually loads.
 echo ""
-echo "--- 1b. Stale Paddle files (delete via FTP after deploy) ---"
-stale_count=0
-for f in \
-    "apps/api/dist/modules/payment/paddle-checkout.service.js" \
-    "apps/api/dist/modules/payment/paddle-signature.js" \
-    "apps/api/dist/modules/payment/paddle-webhook.controller.js" \
-    "apps/api/dist/modules/payment/paddle-webhook.service.js" \
-    "apps/api/dist/database/entities/processed-paddle-event.entity.js" \
-    "apps/api/dist/database/migrations/1776304900000-ProcessedPaddleEvents.js" \
-    "apps/api/dist/database/migrations/1776305900000-PlanPaddlePriceIds.js"; do
-  if [ -f "$PROJECT/$f" ]; then
-    echo "  [WARN] stale: $f"
-    stale_count=$((stale_count+1))
-  fi
+echo "--- 1b. Removing stale Paddle dist files ---"
+removed=0
+for path in \
+    "apps/api/dist/modules/payment/paddle-checkout.service" \
+    "apps/api/dist/modules/payment/paddle-signature" \
+    "apps/api/dist/modules/payment/paddle-webhook.controller" \
+    "apps/api/dist/modules/payment/paddle-webhook.service" \
+    "apps/api/dist/database/entities/processed-paddle-event.entity" \
+    "apps/api/dist/database/migrations/1776304900000-ProcessedPaddleEvents" \
+    "apps/api/dist/database/migrations/1776305900000-PlanPaddlePriceIds"; do
+  for ext in ".js" ".d.ts" ".js.map"; do
+    if [ -f "$PROJECT/${path}${ext}" ]; then
+      rm -f "$PROJECT/${path}${ext}"
+      removed=$((removed+1))
+    fi
+  done
 done
-if [ $stale_count -eq 0 ]; then
-  echo "  [OK] no stale Paddle files"
-fi
+echo "  [OK] removed $removed stale Paddle file(s)"
 
 # ---------------------------------------------------------------------
 # 2. Stripe env vars (interactive prompt if missing)
