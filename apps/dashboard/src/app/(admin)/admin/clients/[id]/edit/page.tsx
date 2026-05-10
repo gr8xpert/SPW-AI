@@ -216,7 +216,16 @@ export default function EditClientPage() {
             <p className="page-description mt-1">Update client settings and configuration</p>
           </div>
         </div>
-        <Button onClick={form.handleSubmit(onSubmit)} disabled={saving} className="shadow-sm">
+        <Button onClick={form.handleSubmit(onSubmit, (errors) => {
+              const fields = Object.keys(errors).join(', ');
+              const first = Object.values(errors)[0] as { message?: string } | undefined;
+              toast({
+                title: `Validation failed: ${fields}`,
+                description: first?.message ?? 'Check the highlighted fields.',
+                variant: 'destructive',
+              });
+              console.warn('[edit] validation errors:', errors);
+            })} disabled={saving} className="shadow-sm">
           {saving ? (
             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -227,7 +236,16 @@ export default function EditClientPage() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+              const fields = Object.keys(errors).join(', ');
+              const first = Object.values(errors)[0] as { message?: string } | undefined;
+              toast({
+                title: `Validation failed: ${fields}`,
+                description: first?.message ?? 'Check the highlighted fields.',
+                variant: 'destructive',
+              });
+              console.warn('[edit] validation errors:', errors);
+            })} className="space-y-6">
           <Tabs defaultValue="basic" className="space-y-4">
             <TabsList>
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
