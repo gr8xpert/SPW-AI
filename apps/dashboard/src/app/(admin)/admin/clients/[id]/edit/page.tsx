@@ -35,7 +35,7 @@ import { ArrowLeft, Save, RefreshCw } from 'lucide-react';
 const clientSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   domain: z.string().optional().nullable(),
-  ownerEmail: z.string().email().optional().nullable(),
+  ownerEmail: z.union([z.string().email(), z.literal(''), z.null()]).optional(),
   siteName: z.string().optional().nullable(),
   planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
