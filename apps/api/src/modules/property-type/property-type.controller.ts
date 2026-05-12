@@ -34,6 +34,16 @@ export class PropertyTypeController {
     return this.reorderService.reorderPropertyTypes(tenantId, dto);
   }
 
+  @Put('bulk-move')
+  async bulkMove(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[]; parentId: number | null }) {
+    return this.propertyTypeService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
+  }
+
+  @Put('bulk-delete')
+  async bulkDelete(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[] }) {
+    return this.propertyTypeService.bulkDelete(tenantId, dto.ids || []);
+  }
+
   @Get(':id')
   async findOne(
     @CurrentTenant() tenantId: number,

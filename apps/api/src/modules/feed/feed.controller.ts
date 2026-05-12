@@ -84,4 +84,12 @@ export class FeedController {
   ) {
     return this.feedService.triggerSync(tenantId, id);
   }
+
+  @Get(':id/sync-status')
+  async getSyncStatus(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.feedService.getSyncStatus(tenantId, id);
+  }
 }

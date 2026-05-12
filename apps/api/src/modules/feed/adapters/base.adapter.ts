@@ -6,11 +6,19 @@ export interface FeedPropertyImage {
   alt?: string;
 }
 
+// Levels match the canonical 6-step hierarchy used throughout the system:
+// Region > Province > Area > Municipality > Town > Urbanization.
+// `country` is metadata only — it's not stored as a level (tenants are
+// country-scoped). `region` is usually empty in feeds and filled by AI
+// enrichment from the province (e.g. Málaga → Andalucía).
 export interface FeedPropertyLocation {
   name: string;
+  region?: string;
   province?: string;
+  area?: string;
   municipality?: string;
   town?: string;
+  urbanization?: string;
   country?: string;
   externalId?: string;
 }
@@ -34,12 +42,20 @@ export interface FeedProperty {
   gardenSize?: number;
   images: FeedPropertyImage[];
   features: string[];
+  // Optional per-feature category hint (lowercase feature name -> internal category).
+  // Adapters can populate this to drive proper categorization during import; missing
+  // entries fall back to 'other'.
+  featureCategories?: Record<string, string>;
   location: FeedPropertyLocation;
   lat?: number;
   lng?: number;
   videoUrl?: string;
   virtualTourUrl?: string;
   deliveryDate?: string;
+  communityFees?: number;
+  ibiFees?: number;
+  basuraTax?: number;
+  builtYear?: number;
 }
 
 export interface FeedImportResult {

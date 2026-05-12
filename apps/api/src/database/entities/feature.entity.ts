@@ -50,6 +50,10 @@ export class Feature {
   @Column({ default: true })
   isActive: boolean;
 
+  // True when AI enrichment set category on this row. Skips user-manual edits on re-runs.
+  @Column({ default: false })
+  aiAssigned: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

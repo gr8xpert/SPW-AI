@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { Property } from '../../database/entities';
+import { Property, Location, PropertyType } from '../../database/entities';
 import { SearchPropertyDto } from './dto';
 
 export interface SearchResult {
@@ -14,6 +14,10 @@ export class PropertySearchService {
   constructor(
     @InjectRepository(Property)
     private propertyRepository: Repository<Property>,
+    @InjectRepository(Location)
+    private locationRepository: Repository<Location>,
+    @InjectRepository(PropertyType)
+    private propertyTypeRepository: Repository<PropertyType>,
   ) {}
 
   async search(tenantId: number, dto: SearchPropertyDto): Promise<SearchResult> {
@@ -25,7 +29,7 @@ export class PropertySearchService {
       .andWhere('p.status = :status', { status: 'active' })
       .andWhere('p.isPublished = :published', { published: true });
 
-    this.applyFilters(query, dto);
+    await this.applyFilters(query, dto, tenantId);
     this.applySorting(query, dto.sortBy);
 
     const total = await query.getCount();
@@ -37,9 +41,48 @@ export class PropertySearchService {
     return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
 
-  private applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto): void {
-    if (dto.locationId) query.andWhere('p.locationId = :locationId', { locationId: dto.locationId });
-    if (dto.propertyTypeId) query.andWhere('p.propertyTypeId = :typeId', { typeId: dto.propertyTypeId });
+  // Expands a selected parent id (location or type) to itself + all descendants.
+  // Used so picking "Marbella" returns properties in every child town/area.
+  private async expandDescendants(
+    tenantId: number,
+    rootId: number,
+    table: 'locations' | 'property_types',
+  ): Promise<number[]> {
+    const rows: Array<{ id: number; parentId: number | null }> = await this.propertyRepository.manager.query(
+      `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
+      [tenantId],
+    );
+    const childrenOf = new Map<number, number[]>();
+    for (const r of rows) {
+      if (r.parentId != null) {
+        const arr = childrenOf.get(Number(r.parentId)) || [];
+        arr.push(Number(r.id));
+        childrenOf.set(Number(r.parentId), arr);
+      }
+    }
+    const result = new Set<number>([rootId]);
+    const stack = [rootId];
+    while (stack.length) {
+      const id = stack.pop()!;
+      for (const child of childrenOf.get(id) || []) {
+        if (!result.has(child)) {
+          result.add(child);
+          stack.push(child);
+        }
+      }
+    }
+    return [...result];
+  }
+
+  private async applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto, tenantId: number): Promise<void> {
+    if (dto.locationId) {
+      const ids = await this.expandDescendants(tenantId, dto.locationId, 'locations');
+      query.andWhere('p.locationId IN (:...locationIds)', { locationIds: ids });
+    }
+    if (dto.propertyTypeId) {
+      const ids = await this.expandDescendants(tenantId, dto.propertyTypeId, 'property_types');
+      query.andWhere('p.propertyTypeId IN (:...typeIds)', { typeIds: ids });
+    }
     if (dto.listingType) query.andWhere('p.listingType = :listingType', { listingType: dto.listingType });
     if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });
     if (dto.maxPrice !== undefined) query.andWhere('p.price <= :maxPrice', { maxPrice: dto.maxPrice });

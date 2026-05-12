@@ -16,6 +16,7 @@ export type FeedSyncStatus = 'success' | 'partial' | 'failed';
 export interface FeedCredentials {
   apiKey?: string;
   clientId?: string;
+  filterId?: string;
   username?: string;
   password?: string;
   endpoint?: string;

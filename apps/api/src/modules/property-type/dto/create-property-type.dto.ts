@@ -1,6 +1,10 @@
 import { IsObject, IsString, IsOptional, IsNumber, IsBoolean, MinLength, MaxLength } from 'class-validator';
 
 export class CreatePropertyTypeDto {
+  @IsNumber()
+  @IsOptional()
+  parentId?: number;
+
   @IsObject()
   name: Record<string, string>; // { en: "Villa", es: "Villa" }
 

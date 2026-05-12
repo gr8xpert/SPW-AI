@@ -59,6 +59,7 @@ import {
   EyeOff,
   Settings2,
   Save,
+  Sparkles,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -70,11 +71,12 @@ interface Location {
   id: number;
   name: Record<string, string>;
   slug: string;
-  level: 'country' | 'province' | 'municipality' | 'town' | 'area';
+  level: 'region' | 'province' | 'area' | 'municipality' | 'town' | 'urbanization';
   parentId: number | null;
   propertyCount?: number;
   sortOrder?: number;
   isActive?: boolean;
+  aiAssigned?: boolean;
   children?: Location[];
 }
 
@@ -95,22 +97,23 @@ interface LocationSearchConfig {
 }
 
 const defaultSearchConfig: LocationSearchConfig = {
-  dropdown1: { levels: ['municipality'], visible: true },
-  dropdown2: { levels: ['town'], visible: true },
-  dropdown3: { levels: ['area'], visible: false },
+  dropdown1: { levels: ['area'], visible: true },
+  dropdown2: { levels: ['municipality'], visible: true },
+  dropdown3: { levels: ['town'], visible: false },
 };
 
 const levelColors: Record<string, string> = {
-  country: 'bg-secondary text-primary',
-  province: 'bg-secondary/80 text-primary',
-  municipality: 'bg-secondary/70 text-primary',
-  town: 'bg-secondary/60 text-primary',
-  area: 'bg-secondary/50 text-primary',
+  region: 'bg-secondary text-primary',
+  province: 'bg-secondary/85 text-primary',
+  area: 'bg-secondary/70 text-primary',
+  municipality: 'bg-secondary/60 text-primary',
+  town: 'bg-secondary/50 text-primary',
+  urbanization: 'bg-secondary/40 text-primary',
 };
 
-const levels = ['country', 'province', 'municipality', 'town', 'area'] as const;
+const levels = ['region', 'province', 'area', 'municipality', 'town', 'urbanization'] as const;
 
-const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'country' as string, parentId: null as number | null };
+const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'region' as string, parentId: null as number | null };
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('');
@@ -124,16 +127,74 @@ export default function LocationsPage() {
   const [form, setForm] = useState(emptyForm);
   const [searchConfig, setSearchConfig] = useState<LocationSearchConfig>(defaultSearchConfig);
   const [savingConfig, setSavingConfig] = useState(false);
+  // Lift expand state to parent so reorder/refresh doesn't collapse open branches.
+  // LocationItem is defined inside this component (closes over many vars) so it
+  // remounts on every parent render — local useState would reset each time.
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const toggleExpand = useCallback((id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkMoveOpen, setIsBulkMoveOpen] = useState(false);
+  const [bulkParentId, setBulkParentId] = useState<number | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [isAiOrganizing, setIsAiOrganizing] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
 
-  const fetchLocations = useCallback(async () => {
+  const runAiOrganize = async () => {
+    setIsAiOrganizing(true);
+    try {
+      const res: any = await api.post('/api/dashboard/ai-enrichment/run', { scope: 'locations' });
+      const r = res?.data?.locations ?? res?.locations;
+      if (r) {
+        toast({
+          title: 'AI organize complete',
+          description: `+${r.regionsCreated} regions, ${r.provincesAttached} provinces grouped, ${r.skipped} skipped`,
+        });
+      } else {
+        toast({ title: 'AI organize finished', description: 'No changes needed' });
+      }
+      fetchLocations();
+    } catch (e: any) {
+      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setIsAiOrganizing(false);
+    }
+  };
+
+  // Silent retry on first failure — hard-refresh hits this page before the
+  // auth/tenant context is fully hydrated about 1 in 5 times; one retry
+  // after 800ms is enough to get past the race without a noisy toast.
+  const fetchLocations = useCallback(async (retriesLeft = 1) => {
     try {
       const res = await api.get('/api/dashboard/locations/tree?includeInactive=true');
       const data: Location[] = res?.data || [];
       setLocations(data);
+      setExpandedIds((prev) => {
+        if (prev.size > 0) return prev;
+        const next = new Set<number>();
+        const walk = (nodes: Location[], depth: number) => {
+          for (const n of nodes) {
+            if (depth < 2) next.add(n.id);
+            if (n.children?.length) walk(n.children, depth + 1);
+          }
+        };
+        walk(data, 0);
+        return next;
+      });
     } catch {
+      if (retriesLeft > 0) {
+        setTimeout(() => fetchLocations(retriesLeft - 1), 800);
+        return;
+      }
       toast({ title: 'Failed to load locations', variant: 'destructive' });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,7 +230,7 @@ export default function LocationsPage() {
         name: buildName(),
         slug: form.slug,
         level: form.level,
-        ...(form.parentId ? { parentId: form.parentId } : {}),
+        parentId: form.parentId ?? null,
       });
       toast({ title: 'Location created' });
       setIsAddOpen(false);
@@ -187,7 +248,7 @@ export default function LocationsPage() {
         name: buildName(),
         slug: form.slug,
         level: form.level,
-        ...(form.parentId ? { parentId: form.parentId } : {}),
+        parentId: form.parentId ?? null,
       });
       toast({ title: 'Location updated' });
       setIsEditOpen(false);
@@ -196,6 +257,34 @@ export default function LocationsPage() {
       fetchLocations();
     } catch (e: any) {
       toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBulkMove = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.put('/api/dashboard/locations/bulk-move', { ids, parentId: bulkParentId });
+      toast({ title: `Moved ${ids.length} location${ids.length === 1 ? '' : 's'}` });
+      setIsBulkMoveOpen(false);
+      setSelectedIds(new Set());
+      fetchLocations();
+    } catch (e: any) {
+      toast({ title: 'Bulk move failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.put('/api/dashboard/locations/bulk-delete', { ids });
+      toast({ title: `Deleted ${ids.length} location${ids.length === 1 ? '' : 's'}` });
+      setIsBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      fetchLocations();
+    } catch (e: any) {
+      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -215,7 +304,7 @@ export default function LocationsPage() {
   const openAdd = (parentId?: number, level?: string) => {
     const nextLevel = level
       ? levels[Math.min(levels.indexOf(level as typeof levels[number]) + 1, levels.length - 1)]
-      : 'country';
+      : 'region';
     setForm({ ...emptyForm, parentId: parentId || null, level: nextLevel });
     setIsAddOpen(true);
   };
@@ -228,16 +317,56 @@ export default function LocationsPage() {
     setIsEditOpen(true);
   };
 
-  const handleReorderSiblings = async (siblings: Location[], fromIndex: number, toIndex: number, parentArray: Location[], setParentArray: (arr: Location[]) => void) => {
+  // Reorders siblings within the same parent. Updates state in place so the
+  // accordion's local expand state doesn't reset. Only refetches on error.
+  const handleReorderSiblings = async (
+    _siblings: Location[],
+    fromIndex: number,
+    toIndex: number,
+    parentId: number | null,
+  ) => {
     if (fromIndex === toIndex) return;
-    const reordered = [...siblings];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    const items = reordered.map((loc, i) => ({ id: loc.id, sortOrder: i }));
+
+    const reorderInTree = (nodes: Location[]): Location[] =>
+      nodes.map((n) => {
+        if (n.id === parentId) {
+          const children = [...(n.children || [])];
+          const [moved] = children.splice(fromIndex, 1);
+          children.splice(toIndex, 0, moved);
+          return { ...n, children };
+        }
+        if (n.children?.length) return { ...n, children: reorderInTree(n.children) };
+        return n;
+      });
+
+    let updated: Location[];
+    if (parentId === null) {
+      const top = [...locations];
+      const [moved] = top.splice(fromIndex, 1);
+      top.splice(toIndex, 0, moved);
+      updated = top;
+    } else {
+      updated = reorderInTree(locations);
+    }
+    setLocations(updated);
+
+    // Build items from the reordered set so the persisted sortOrder matches what the user sees.
+    const findSiblings = (nodes: Location[]): Location[] | null => {
+      if (parentId === null) return nodes;
+      for (const n of nodes) {
+        if (n.id === parentId) return n.children || [];
+        if (n.children?.length) {
+          const found = findSiblings(n.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    const finalSiblings = findSiblings(updated) || [];
+    const items = finalSiblings.map((loc, i) => ({ id: loc.id, sortOrder: i }));
+
     try {
       await api.put('/api/dashboard/locations/reorder', { items });
-      toast({ title: 'Order updated' });
-      fetchLocations();
     } catch {
       toast({ title: 'Failed to reorder', variant: 'destructive' });
       fetchLocations();
@@ -293,15 +422,17 @@ export default function LocationsPage() {
     setIsDeleteOpen(true);
   };
 
-  const countLocations = (locs: Location[]): { total: number; countries: number; provinces: number; towns: number; areas: number } => {
-    const stats = { total: 0, countries: 0, provinces: 0, towns: 0, areas: 0 };
+  const countLocations = (locs: Location[]): { total: number; regions: number; provinces: number; areas: number; municipalities: number; towns: number; urbanizations: number } => {
+    const stats = { total: 0, regions: 0, provinces: 0, areas: 0, municipalities: 0, towns: 0, urbanizations: 0 };
     const walk = (list: Location[]) => {
       for (const l of list) {
         stats.total++;
-        if (l.level === 'country') stats.countries++;
+        if (l.level === 'region') stats.regions++;
         if (l.level === 'province') stats.provinces++;
-        if (l.level === 'town') stats.towns++;
         if (l.level === 'area') stats.areas++;
+        if (l.level === 'municipality') stats.municipalities++;
+        if (l.level === 'town') stats.towns++;
+        if (l.level === 'urbanization') stats.urbanizations++;
         if (l.children) walk(l.children);
       }
     };
@@ -311,10 +442,18 @@ export default function LocationsPage() {
 
   const stats = countLocations(locations);
 
+  // hideEmpty filter: a node is visible if it has properties OR any descendant does.
+  const hasAnyProperties = (loc: Location): boolean => {
+    if ((loc.propertyCount ?? 0) > 0) return true;
+    if (loc.children?.length) return loc.children.some((c) => hasAnyProperties(c));
+    return false;
+  };
+
   function LocationItem({ location, depth = 0, siblings, siblingIndex }: { location: Location; depth?: number; siblings?: Location[]; siblingIndex?: number }) {
-    const [isExpanded, setIsExpanded] = useState(depth < 2);
+    const isExpanded = expandedIds.has(location.id);
     const [dragOverThis, setDragOverThis] = useState(false);
     const hasChildren = location.children && location.children.length > 0;
+    const isSelected = selectedIds.has(location.id);
 
     return (
       <div>
@@ -337,7 +476,7 @@ export default function LocationsPage() {
             try {
               const data = JSON.parse(e.dataTransfer.getData('text/plain'));
               if (data.parentId === location.parentId && siblings && siblingIndex !== undefined && data.siblingIndex !== undefined) {
-                handleReorderSiblings(siblings, data.siblingIndex, siblingIndex, locations, setLocations);
+                handleReorderSiblings(siblings, data.siblingIndex, siblingIndex, location.parentId);
               }
             } catch { /* ignore invalid drag data */ }
           }}
@@ -345,14 +484,27 @@ export default function LocationsPage() {
             'flex items-center justify-between py-3 px-4 hover:bg-muted/50 rounded-md transition-colors',
             depth > 0 && 'border-l-2 border-muted ml-4',
             dragOverThis && 'ring-2 ring-primary',
+            isSelected && 'bg-primary/5',
             location.isActive === false && 'opacity-50'
           )}
           style={{ paddingLeft: `${depth * 16 + 16}px` }}
         >
           <div className="flex items-center gap-3">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(location.id)) next.delete(location.id);
+                  else next.add(location.id);
+                  return next;
+                });
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
             <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab flex-shrink-0" />
             {hasChildren ? (
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsExpanded(!isExpanded)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleExpand(location.id)}>
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
             ) : (
@@ -416,14 +568,30 @@ export default function LocationsPage() {
         </div>
         {isExpanded && hasChildren && (
           <div>
-            {location.children!.map((child, ci) => (
-              <LocationItem key={child.id} location={child} depth={depth + 1} siblings={location.children!} siblingIndex={ci} />
-            ))}
+            {location.children!
+              .filter((c) => !hideEmpty || hasAnyProperties(c))
+              .map((child, ci, arr) => (
+                <LocationItem key={child.id} location={child} depth={depth + 1} siblings={arr} siblingIndex={ci} />
+              ))}
           </div>
         )}
       </div>
     );
   }
+
+  // Flatten the tree for the parent picker; indent the label by depth so the
+  // hierarchy is visible inside the dropdown.
+  const flatLocations = (() => {
+    const out: Array<{ id: number; label: string; level: string }> = [];
+    const walk = (nodes: Location[], depth: number) => {
+      for (const n of nodes) {
+        out.push({ id: n.id, label: `${'  '.repeat(depth)}${n.name.en || Object.values(n.name)[0] || `#${n.id}`}`, level: n.level });
+        if (n.children?.length) walk(n.children, depth + 1);
+      }
+    };
+    walk(locations, 0);
+    return out;
+  })();
 
   const formFields = (
     <div className="space-y-4 py-4">
@@ -448,6 +616,23 @@ export default function LocationsPage() {
           </SelectContent>
         </Select>
       </div>
+      <div className="space-y-2">
+        <Label>Parent Location <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+        <Select
+          value={form.parentId == null ? 'none' : String(form.parentId)}
+          onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
+        >
+          <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="none">— No parent (top level) —</SelectItem>
+            {flatLocations
+              .filter((l) => !editingLocation || l.id !== editingLocation.id)
+              .map((l) => (
+                <SelectItem key={l.id} value={String(l.id)}>{l.label}</SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 
@@ -458,19 +643,27 @@ export default function LocationsPage() {
           <h1 className="page-title">Locations</h1>
           <p className="page-description mt-1">Manage your location hierarchy for property filtering</p>
         </div>
-        <Button className="shadow-sm" onClick={() => openAdd()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Location
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
+            {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            AI Organize
+          </Button>
+          <Button className="shadow-sm" onClick={() => openAdd()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Location
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-7">
         {[
-          ['Total Locations', stats.total],
-          ['Countries', stats.countries],
+          ['Total', stats.total],
+          ['Regions', stats.regions],
           ['Provinces', stats.provinces],
-          ['Towns', stats.towns],
           ['Areas', stats.areas],
+          ['Municipalities', stats.municipalities],
+          ['Towns', stats.towns],
+          ['Urbanizations', stats.urbanizations],
         ].map(([label, value]) => (
           <Card key={label as string}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -487,21 +680,78 @@ export default function LocationsPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search locations..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
+            Hide locations with 0 properties
+          </label>
         </CardContent>
       </Card>
 
+      {selectedIds.size > 0 && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="py-3 flex items-center justify-between gap-4">
+            <div className="text-sm">
+              <strong>{selectedIds.size}</strong> location{selectedIds.size === 1 ? '' : 's'} selected
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+              <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>
+                Move under parent…
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <FolderTree className="h-5 w-5" />
-            <CardTitle>Location Hierarchy</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FolderTree className="h-5 w-5" />
+              <CardTitle>Location Hierarchy</CardTitle>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={(() => {
+                  const visible: number[] = [];
+                  const walk = (nodes: Location[]) => {
+                    for (const n of nodes) {
+                      if (!hideEmpty || hasAnyProperties(n)) {
+                        visible.push(n.id);
+                        if (n.children?.length) walk(n.children);
+                      }
+                    }
+                  };
+                  walk(locations);
+                  return visible.length > 0 && visible.every((id) => selectedIds.has(id));
+                })()}
+                onCheckedChange={(v) => {
+                  const visible = new Set<number>();
+                  const walk = (nodes: Location[]) => {
+                    for (const n of nodes) {
+                      if (!hideEmpty || hasAnyProperties(n)) {
+                        visible.add(n.id);
+                        if (n.children?.length) walk(n.children);
+                      }
+                    }
+                  };
+                  walk(locations);
+                  if (v) setSelectedIds(visible);
+                  else setSelectedIds(new Set());
+                }}
+              />
+              Select all visible
+            </label>
           </div>
-          <CardDescription>Click the chevron to expand/collapse</CardDescription>
+          <CardDescription>Click the chevron to expand/collapse. Tick checkboxes to bulk-move or bulk-delete.</CardDescription>
         </CardHeader>
         <CardContent>
           {api.isLoading && locations.length === 0 ? (
@@ -512,9 +762,11 @@ export default function LocationsPage() {
             <p className="text-center py-8 text-muted-foreground">No locations yet. Click &quot;Add Location&quot; to create one.</p>
           ) : (
             <div className="space-y-1">
-              {locations.map((location, i) => (
-                <LocationItem key={location.id} location={location} siblings={locations} siblingIndex={i} />
-              ))}
+              {locations
+                .filter((l) => !hideEmpty || hasAnyProperties(l))
+                .map((location, i, arr) => (
+                  <LocationItem key={location.id} location={location} siblings={arr} siblingIndex={i} />
+                ))}
             </div>
           )}
         </CardContent>
@@ -610,6 +862,53 @@ export default function LocationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Move Dialog */}
+      <Dialog open={isBulkMoveOpen} onOpenChange={setIsBulkMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move {selectedIds.size} location{selectedIds.size === 1 ? '' : 's'} under a parent</DialogTitle>
+            <DialogDescription>Pick a parent location. Selected items become its children. Choose &quot;No parent&quot; to move them back to the top level.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label>Parent Location</Label>
+            <Select
+              value={bulkParentId == null ? 'none' : String(bulkParentId)}
+              onValueChange={(v) => setBulkParentId(v === 'none' ? null : Number(v))}
+            >
+              <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="none">— No parent (top level) —</SelectItem>
+                {flatLocations
+                  .filter((l) => !selectedIds.has(l.id))
+                  .map((l) => (<SelectItem key={l.id} value={String(l.id)}>{l.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkMove}>Move {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} location{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Child locations will become top-level. Properties referencing these will have their location cleared. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

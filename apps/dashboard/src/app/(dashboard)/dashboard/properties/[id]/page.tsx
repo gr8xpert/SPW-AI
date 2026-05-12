@@ -191,6 +191,7 @@ export default function PropertyDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [descLang, setDescLang] = useState('en');
   const [seoLang, setSeoLang] = useState('en');
+  const [featuresMap, setFeaturesMap] = useState<Record<number, string>>({});
 
   const id = params.id as string;
 
@@ -218,8 +219,22 @@ export default function PropertyDetailPage() {
         setLoading(false);
       }
     }
-    if (id) fetchProperty();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    async function fetchFeatures() {
+      try {
+        const res = await api.get('/api/dashboard/features');
+        const body = res?.data || res;
+        const list: any[] = Array.isArray(body) ? body : body?.data || [];
+        const map: Record<number, string> = {};
+        for (const f of list) {
+          map[f.id] = f.name?.en || f.name?.es || `Feature #${f.id}`;
+        }
+        setFeaturesMap(map);
+      } catch { /* ignore */ }
+    }
+    if (id) {
+      fetchProperty();
+      fetchFeatures();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, api.isReady]);
 
@@ -481,7 +496,7 @@ export default function PropertyDetailPage() {
               <CardHeader><CardTitle>Features</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {property.features.map((featureId) => (<Badge key={featureId} variant="outline">Feature #{featureId}</Badge>))}
+                  {property.features.map((featureId) => (<Badge key={featureId} variant="outline">{featuresMap[featureId] || `Feature #${featureId}`}</Badge>))}
                 </div>
               </CardContent>
             </Card>

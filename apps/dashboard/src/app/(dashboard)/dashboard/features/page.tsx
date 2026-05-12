@@ -65,6 +65,8 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 
 interface Feature {
   id: number;
@@ -124,9 +126,34 @@ export default function FeaturesPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isAiOrganizing, setIsAiOrganizing] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
+
+  const runAiOrganize = async () => {
+    setIsAiOrganizing(true);
+    try {
+      const res: any = await api.post('/api/dashboard/ai-enrichment/run', { scope: 'features' });
+      const r = res?.data?.features ?? res?.features;
+      if (r) {
+        toast({
+          title: 'AI organize complete',
+          description: `${r.recategorised} features recategorised, ${r.skipped} skipped`,
+        });
+      } else {
+        toast({ title: 'AI organize finished', description: 'No changes needed' });
+      }
+      fetchFeatures();
+    } catch (e: any) {
+      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setIsAiOrganizing(false);
+    }
+  };
 
   useEffect(() => {
     if (!api.isReady) return;
@@ -139,12 +166,30 @@ export default function FeaturesPage() {
     fetchFeatures();
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchFeatures = async () => {
+  const fetchFeatures = async (retriesLeft = 1) => {
     try {
       const res = await api.get('/api/dashboard/features');
       setFeatures(res?.data || []);
     } catch {
+      if (retriesLeft > 0) {
+        setTimeout(() => fetchFeatures(retriesLeft - 1), 800);
+        return;
+      }
       toast({ title: 'Failed to load features', variant: 'destructive' });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.put('/api/dashboard/features/bulk-delete', { ids });
+      toast({ title: `Deleted ${ids.length} feature${ids.length === 1 ? '' : 's'}` });
+      setIsBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      fetchFeatures();
+    } catch (e: any) {
+      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -318,7 +363,8 @@ export default function FeaturesPage() {
       Object.values(feature.name).some((v) => v?.toLowerCase().includes(search.toLowerCase()));
     const matchesCategory =
       activeCategory === 'all' || feature.category === activeCategory;
-    return matchesSearch && matchesCategory;
+    const matchesEmpty = !hideEmpty || (feature.propertyCount ?? 0) > 0;
+    return matchesSearch && matchesCategory && matchesEmpty;
   });
 
   const handleDrop = async (toIndex: number) => {
@@ -363,6 +409,10 @@ export default function FeaturesPage() {
           <p className="page-description mt-1">Manage property features and amenities</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
+            {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            AI Organize
+          </Button>
           {languages.length > 1 && (
             <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
               <Sparkles className="h-4 w-4 mr-2" />
@@ -407,13 +457,31 @@ export default function FeaturesPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search features..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
+            Hide features with 0 properties
+          </label>
         </CardContent>
       </Card>
+
+      {selectedIds.size > 0 && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="py-3 flex items-center justify-between gap-4">
+            <div className="text-sm"><strong>{selectedIds.size}</strong> feature{selectedIds.size === 1 ? '' : 's'} selected</div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+              <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs value={activeCategory} onValueChange={setActiveCategory}>
         <TabsList className="flex-wrap h-auto gap-2 bg-transparent p-0">
@@ -449,9 +517,20 @@ export default function FeaturesPage() {
                         onDragLeave={() => setDragOverIndex(null)}
                         onDrop={() => handleDrop(i)}
                         onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''}`}
+                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''} ${selectedIds.has(feature.id) ? 'bg-primary/5 border-primary/40' : ''}`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
+                          <Checkbox
+                            checked={selectedIds.has(feature.id)}
+                            onCheckedChange={() => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(feature.id)) next.delete(feature.id);
+                                else next.add(feature.id);
+                                return next;
+                              });
+                            }}
+                          />
                           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab flex-shrink-0" />
                           <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                             {iconMap[feature.icon || ''] || <Home className="h-4 w-4" />}
@@ -623,6 +702,24 @@ export default function FeaturesPage() {
             <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Start Translation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} feature{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Properties referencing these features will keep their other tags. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

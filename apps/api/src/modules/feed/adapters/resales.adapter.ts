@@ -23,13 +23,15 @@ export class ResalesAdapter extends BaseFeedAdapter {
   });
 
   async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
+    if (!credentials.clientId || !credentials.apiKey || !credentials.filterId) {
+      return { valid: false, error: 'Resales Online requires Client ID, API Key, and Filter ID.' };
+    }
     try {
       const response = await axios.get(`${this.baseUrl}/SearchProperties`, {
         params: {
-          p_agency_filterid: credentials.clientId,
-          p1: 1,
-          p2: 1,
           ...this.getAuthParams(credentials),
+          P_PageNo: 1,
+          P_PageSize: 1,
         },
         timeout: 10000,
       });
@@ -70,81 +72,170 @@ export class ResalesAdapter extends BaseFeedAdapter {
     page: number = 1,
     limit: number = 100,
   ): Promise<FeedImportResult> {
-    const startIndex = (page - 1) * limit + 1;
-    const endIndex = startIndex + limit - 1;
+    if (!credentials.clientId || !credentials.apiKey || !credentials.filterId) {
+      throw new Error('Resales Online requires Client ID, API Key, and Filter ID.');
+    }
 
     const response = await axios.get(`${this.baseUrl}/SearchProperties`, {
       params: {
-        p_agency_filterid: credentials.clientId,
-        p1: startIndex,
-        p2: endIndex,
         ...this.getAuthParams(credentials),
+        P_PageNo: page,
+        P_PageSize: limit,
       },
       timeout: 60000,
     });
 
-    const data = this.parser.parse(response.data);
+    const data = typeof response.data === 'string'
+      ? this.parser.parse(response.data)
+      : response.data;
     const root = data.root || data;
 
+    if (root?.transaction?.status === 'error') {
+      const desc = root.transaction.errordescription || {};
+      const messages = Object.values(desc).filter(Boolean).join('; ');
+      throw new Error(`Resales Online: ${messages || 'unknown error'}`);
+    }
+
     const queryInfo = root.QueryInfo || {};
-    const totalCount = parseInt(queryInfo.PropertyCount || '0', 10);
+    const totalCount = parseInt(String(queryInfo.PropertyCount || '0'), 10);
+    const searchType = String(queryInfo.SearchType || 'Sale');
 
     const rawProperties = root.Property || [];
     const propertyArray = Array.isArray(rawProperties) ? rawProperties : [rawProperties];
+    const validProperties = propertyArray.filter((p: any) => p && p.Reference);
 
-    const properties = propertyArray
-      .filter((p: any) => p && p.Reference)
-      .map((p: any) => this.mapProperty(p));
+    // Enrich each property with PropertyDetails (financial fields not in list view)
+    const CONCURRENCY = 5;
+    const enriched: FeedProperty[] = [];
+    for (let i = 0; i < validProperties.length; i += CONCURRENCY) {
+      const batch = validProperties.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map((p: any) => this.fetchPropertyDetailsAndMerge(credentials, p, searchType)),
+      );
+      enriched.push(...batchResults);
+    }
 
     return {
-      properties,
+      properties: enriched,
       totalCount,
-      hasMore: endIndex < totalCount,
+      hasMore: page * limit < totalCount,
       page,
     };
   }
 
-  private getAuthParams(credentials: FeedCredentials): Record<string, string> {
-    const params: Record<string, string> = {};
-    if (credentials.apiKey) {
-      params['p_apikey'] = credentials.apiKey;
+  private async fetchPropertyDetailsAndMerge(
+    credentials: FeedCredentials,
+    listProperty: any,
+    searchType: string,
+  ): Promise<FeedProperty> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/PropertyDetails`, {
+        params: {
+          ...this.getAuthParams(credentials),
+          P_RefId: listProperty.Reference,
+          P_Lang: 'EN',
+          P_Dimension: 1,
+        },
+        timeout: 15000,
+      });
+
+      const data = typeof response.data === 'string'
+        ? this.parser.parse(response.data)
+        : response.data;
+      const root = data.root || data;
+      const detailRaw = Array.isArray(root.Property) ? root.Property[0] : root.Property;
+
+      if (detailRaw && root?.transaction?.status !== 'error') {
+        const merged = { ...listProperty, ...detailRaw };
+        return this.mapProperty(merged, searchType);
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `PropertyDetails failed for ${listProperty.Reference}: ${err?.message || err}`,
+      );
     }
-    return params;
+
+    return this.mapProperty(listProperty, searchType);
   }
 
-  private mapProperty(raw: any): FeedProperty {
+  private getAuthParams(credentials: FeedCredentials): Record<string, string> {
+    return {
+      p_agency_filterid: credentials.filterId || '',
+      p1: credentials.clientId || '',
+      p2: credentials.apiKey || '',
+    };
+  }
+
+  private mapProperty(raw: any, searchType: string = 'Sale'): FeedProperty {
+    // Use NameType (the specific subtype like "Detached Villa") rather than Type.
+    // Users group these manually under custom parent types in the dashboard.
+    const propertyTypeName = raw.PropertyType?.NameType || raw.PropertyType?.Type || 'Unknown';
+    const locationName = typeof raw.Location === 'string' ? raw.Location : (raw.Location?.LocationName || '');
+    const titleText = locationName ? `${propertyTypeName} in ${locationName}` : propertyTypeName;
+    const { names: featureNames, categories: featureCategories } = this.mapFeatures(raw.PropertyFeatures?.Category);
+
     return {
       externalId: String(raw.Reference || ''),
       reference: String(raw.Reference || ''),
-      agentReference: raw.AgentRef || null,
-      title: this.extractMultilingual(raw.PropertyTitle),
+      agentReference: raw.AgencyRef || raw.AgentRef || null,
+      title: { en: titleText },
       description: this.extractMultilingual(raw.Description),
-      listingType: this.normalizeListingType(raw.Transaction || 'sale'),
-      propertyType: raw.PropertyType?.TypeName || 'Unknown',
+      listingType: this.mapResalesListingType(searchType),
+      propertyType: propertyTypeName,
       price: this.parsePrice(raw.Price),
-      priceOnRequest: raw.Price === 'POA' || raw.PriceOnApplication === 'Yes',
+      priceOnRequest: raw.Price === 'POA' || raw.Price === '0' || raw.PriceOnApplication === 'Yes',
       currency: raw.Currency || 'EUR',
       bedrooms: this.parseInt(raw.Bedrooms),
       bathrooms: this.parseInt(raw.Bathrooms),
-      buildSize: this.parseFloat(raw.Built),
-      plotSize: this.parseFloat(raw.Plot),
+      buildSize: this.parseFloat(raw.Built ?? raw.BuiltArea),
+      plotSize: this.parseFloat(raw.GardenPlot ?? raw.Plot),
       terraceSize: this.parseFloat(raw.Terrace),
-      gardenSize: this.parseFloat(raw.Garden),
+      // raw.Garden is a boolean flag (has garden), not a size — skip
       images: this.mapImages(raw.Pictures?.Picture),
-      features: this.mapFeatures(raw.Features?.Feature),
+      features: featureNames,
+      featureCategories,
       location: {
-        name: raw.Location?.LocationName || '',
-        province: raw.Location?.Province || '',
-        municipality: raw.Location?.Municipality || '',
-        town: raw.Location?.Town || '',
-        country: raw.Location?.Country || 'Spain',
-        externalId: raw.Location?.LocationId || '',
+        // Resales sends 5 fields. Mapped to our 6-level hierarchy:
+        //   Country     → context only (not a level)
+        //   Province    → province       (e.g. Málaga)
+        //   Area        → area           (e.g. Costa del Sol — coastal/comarca region)
+        //   Location    → municipality   (e.g. Marbella — formal administrative municipio)
+        //   SubLocation → town           (e.g. Nueva Andalucía — pueblo/neighborhood)
+        // Region (e.g. Andalucía) and Urbanization are NOT in the feed.
+        // AI enrichment fills Region after import from the province. Urbanization
+        // is rare and added manually by clients when needed.
+        name: locationName,
+        province: raw.Province || '',
+        area: raw.Area || '',
+        municipality: locationName,
+        town: raw.SubLocation || '',
+        country: raw.Country || 'Spain',
+        externalId: raw.LocationId || '',
       },
       lat: this.parseFloat(raw.Latitude),
       lng: this.parseFloat(raw.Longitude),
       videoUrl: raw.VideoURL || null,
       virtualTourUrl: raw.VirtualTourURL || null,
+      communityFees: this.toMonthly(raw.Community_Fees_Year ?? raw.CommunityFees),
+      ibiFees: this.parseMoney(raw.IBI_Fees_Year ?? raw.IBI),
+      basuraTax: this.parseMoney(raw.Basura_Tax_Year ?? raw.Basura),
+      builtYear: this.parseInt(raw.BuiltYear),
     };
+  }
+
+  private parseMoney(value: any): number | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    // Strip currency symbols, thousand separators, etc. Keep digits, dot, minus.
+    const cleaned = String(value).replace(/[^0-9.-]/g, '');
+    if (!cleaned) return undefined;
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? undefined : parsed;
+  }
+
+  private toMonthly(yearlyValue: any): number | undefined {
+    const yearly = this.parseMoney(yearlyValue);
+    if (yearly === undefined) return undefined;
+    return Math.round((yearly / 12) * 100) / 100;
   }
 
   private mapImages(pictures: any): FeedPropertyImage[] {
@@ -161,14 +252,68 @@ export class ResalesAdapter extends BaseFeedAdapter {
       }));
   }
 
-  private mapFeatures(features: any): string[] {
-    if (!features) return [];
+  private mapResalesListingType(searchType: string): 'sale' | 'rent' | 'holiday_rent' | 'development' {
+    const t = searchType.toLowerCase();
+    if (t.includes('short term')) return 'holiday_rent';
+    if (t.includes('long term') || t.includes('rental') || t.includes('rent')) return 'rent';
+    if (t.includes('new') || t.includes('development') || t.includes('obra')) return 'development';
+    return 'sale';
+  }
 
-    const featureArray = Array.isArray(features) ? features : [features];
+  // Maps Resales-Online category names to our internal feature categories.
+  // Resales groups features under headings like "Setting", "Orientation", "Climate
+  // Control", "Views", "Features" (interior), "Furniture", "Kitchen", "Garden",
+  // "Pool", "Security", "Parking", "Utilities", "Category".
+  private static readonly RESALES_CATEGORY_MAP: Record<string, string> = {
+    setting: 'exterior',
+    orientation: 'exterior',
+    condition: 'other',
+    'climate control': 'climate',
+    climate: 'climate',
+    views: 'views',
+    features: 'interior',
+    furniture: 'interior',
+    kitchen: 'interior',
+    garden: 'exterior',
+    pool: 'community',
+    security: 'security',
+    parking: 'parking',
+    utilities: 'other',
+    category: 'other',
+  };
 
-    return featureArray
-      .filter((f: any) => f && f.FeatureName)
-      .map((f: any) => f.FeatureName);
+  private mapFeatures(categories: any): { names: string[]; categories: Record<string, string> } {
+    if (!categories) return { names: [], categories: {} };
+
+    const categoryArray = Array.isArray(categories) ? categories : [categories];
+    const names: string[] = [];
+    const featureCategoryMap: Record<string, string> = {};
+
+    for (const cat of categoryArray) {
+      if (!cat) continue;
+      const headingRaw = cat['@_Type'] ?? cat.Type ?? cat.CategoryName ?? cat.Name ?? '';
+      const heading = String(headingRaw).toLowerCase().trim();
+      const internalCategory = ResalesAdapter.RESALES_CATEGORY_MAP[heading] || 'other';
+
+      const collect = (val: any) => {
+        if (typeof val === 'string' && val.trim()) {
+          const name = val.trim();
+          names.push(name);
+          featureCategoryMap[name.toLowerCase()] = internalCategory;
+        }
+      };
+
+      const values = cat.Value;
+      if (Array.isArray(values)) {
+        for (const v of values) collect(v);
+      } else if (typeof values === 'string') {
+        collect(values);
+      } else if (typeof cat.FeatureName === 'string') {
+        collect(cat.FeatureName);
+      }
+    }
+
+    return { names, categories: featureCategoryMap };
   }
 
   private parsePrice(value: any): number | null {

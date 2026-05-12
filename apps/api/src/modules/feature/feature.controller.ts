@@ -25,6 +25,11 @@ export class FeatureController {
     return this.reorderService.reorderFeatures(tenantId, dto);
   }
 
+  @Put('bulk-delete')
+  async bulkDelete(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[] }) {
+    return this.featureService.bulkDelete(tenantId, dto.ids || []);
+  }
+
   @Get(':id')
   async findOne(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number) {
     return this.featureService.findOne(tenantId, id);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 interface UseApiOptions {
   onSuccess?: (data: any) => void;
@@ -15,7 +15,7 @@ interface ApiState<T> {
 }
 
 export function useApi<T = any>(options: UseApiOptions = {}) {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     error: null,
@@ -50,10 +50,29 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
             `Bearer ${session.accessToken}`;
         }
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
+        let response = await fetch(`${apiUrl}${endpoint}`, {
           ...requestOptions,
           headers,
         });
+
+        // On 401, force next-auth to refresh the session and retry once.
+        // Common cause: cached token has expired after a long idle period.
+        if (response.status === 401 && session?.accessToken) {
+          try {
+            const refreshed = await update();
+            const newToken = (refreshed as any)?.accessToken;
+            if (newToken && newToken !== session.accessToken) {
+              (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+              response = await fetch(`${apiUrl}${endpoint}`, { ...requestOptions, headers });
+            }
+          } catch {
+            // Refresh failed — fall through to throw below so the caller can react.
+          }
+          if (response.status === 401) {
+            // Persistent 401 → session is unrecoverable; bounce user to login.
+            signOut({ callbackUrl: '/login' });
+          }
+        }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));

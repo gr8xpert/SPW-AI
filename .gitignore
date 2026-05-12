@@ -45,10 +45,15 @@ uploads/
 # Development tools
 graphify-out/
 .graphify_python
+.graphify_uncached.txt
+
+# Deploy artifacts (build tarballs uploaded to server, not source)
+upload.tar.gz
 
 # One-off PHP ops scripts must never be committed — use `pnpm pm2:*` over SSH instead.
 # They previously leaked admin credentials and ran unauthenticated on the public webroot.
-/*.php
+# (Includes archived installer step*.php scripts which prompt for DB/JWT secrets.)
+*.php
 
 # Per-user Claude Code settings (project-level settings.json is fine to share)
 .claude/settings.local.json

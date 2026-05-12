@@ -150,6 +150,12 @@ export class Tenant {
   @Column({ type: 'json', default: () => `'${JSON.stringify(DEFAULT_DASHBOARD_ADDONS)}'` })
   dashboardAddons: DashboardAddons;
 
+  // Optional per-tenant OpenRouter key for AI enrichment. NULL → falls back
+  // to the platform key (OPENROUTER_API_KEY env var). Encrypted at rest via
+  // the same AES-256-GCM transformer used for webhookSecret.
+  @Column({ type: 'varchar', length: 500, nullable: true, transformer: encryptedColumn })
+  openrouterApiKey: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

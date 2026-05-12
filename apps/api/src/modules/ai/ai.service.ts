@@ -6,6 +6,10 @@ import { Tenant } from '../../database/entities';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514';
+// Cheap, accurate model for structured classification work (location
+// hierarchy filling, feature categorisation). Used by the enrichment
+// service via { model: ENRICHMENT_MODEL }.
+export const ENRICHMENT_MODEL = 'anthropic/claude-haiku-4-5';
 
 export interface ToolCall {
   id: string;
@@ -165,12 +169,17 @@ export class AiService {
   private async resolveKeyAndModel(
     tenantId: number,
     modelOverride?: string,
+    allowPlatformFallback: boolean = false,
   ): Promise<{ apiKey: string; model: string }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
-      select: ['id', 'settings'],
+      select: ['id', 'settings', 'openrouterApiKey'],
     });
-    const apiKey = tenant?.settings?.openRouterApiKey;
+    // Priority: dedicated encrypted column → legacy settings field → platform key.
+    const apiKey =
+      tenant?.openrouterApiKey ||
+      tenant?.settings?.openRouterApiKey ||
+      (allowPlatformFallback ? process.env.OPENROUTER_API_KEY : null);
     if (!apiKey) {
       throw new BadRequestException(
         'OpenRouter API key not configured. Go to Settings → AI to add your key.',
@@ -178,8 +187,19 @@ export class AiService {
     }
     return {
       apiKey,
-      model: modelOverride || tenant.settings.openRouterModel || DEFAULT_MODEL,
+      model: modelOverride || tenant?.settings?.openRouterModel || DEFAULT_MODEL,
     };
+  }
+
+  // Public wrapper used by background services (e.g. AI enrichment) that
+  // should silently fall back to the platform key when a tenant hasn't
+  // configured their own. Returns null if no key is available anywhere.
+  async resolveBackgroundKey(tenantId: number, modelOverride?: string): Promise<{ apiKey: string; model: string } | null> {
+    try {
+      return await this.resolveKeyAndModel(tenantId, modelOverride, true);
+    } catch {
+      return null;
+    }
   }
 
   async testConnection(tenantId: number): Promise<{ ok: boolean; model: string; error?: string }> {

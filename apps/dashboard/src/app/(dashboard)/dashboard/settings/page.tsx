@@ -227,7 +227,7 @@ export default function SettingsPage() {
   // AI / OpenRouter state
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiApiKeyMasked, setAiApiKeyMasked] = useState('');
-  const [aiModel, setAiModel] = useState('anthropic/claude-sonnet-4-20250514');
+  const [aiModel, setAiModel] = useState('google/gemini-2.0-flash-001');
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; error?: string } | null>(null);
@@ -283,11 +283,11 @@ export default function SettingsPage() {
   const [savingLangs, setSavingLangs] = useState(false);
 
   const AI_MODELS = [
-    { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Recommended)' },
-    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+    { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash (Recommended)' },
     { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
     { value: 'openai/gpt-4o', label: 'GPT-4o' },
-    { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+    { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
   ];
 
   useEffect(() => {

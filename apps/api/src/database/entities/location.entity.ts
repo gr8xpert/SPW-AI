@@ -11,10 +11,16 @@ import {
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
 
-export type LocationLevel = 'country' | 'province' | 'municipality' | 'town' | 'area';
+export type LocationLevel =
+  | 'region'
+  | 'province'
+  | 'area'
+  | 'municipality'
+  | 'town'
+  | 'urbanization';
 
 @Entity('locations')
-@Index(['tenantId', 'slug'], { unique: true })
+@Index('uq_locations_tenant_parent_slug', ['tenantId', 'parentId', 'slug'], { unique: true })
 @Index(['tenantId', 'level'])
 @Index(['parentId'])
 export class Location {
@@ -40,7 +46,7 @@ export class Location {
 
   @Column({
     type: 'enum',
-    enum: ['country', 'province', 'municipality', 'town', 'area'],
+    enum: ['region', 'province', 'area', 'municipality', 'town', 'urbanization'],
   })
   level: LocationLevel;
 
@@ -67,6 +73,11 @@ export class Location {
 
   @Column({ default: true })
   isActive: boolean;
+
+  // True when AI enrichment created or reparented this row. Lets the
+  // enrichment job skip rows the user manually edited on re-runs.
+  @Column({ default: false })
+  aiAssigned: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

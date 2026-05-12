@@ -6,7 +6,7 @@ export class CreateLocationDto {
   @IsOptional()
   parentId?: number;
 
-  @IsIn(['country', 'province', 'municipality', 'town', 'area'])
+  @IsIn(['region', 'province', 'area', 'municipality', 'town', 'urbanization'])
   level: LocationLevel;
 
   @IsObject()

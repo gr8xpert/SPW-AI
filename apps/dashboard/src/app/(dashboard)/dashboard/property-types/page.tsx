@@ -41,6 +41,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import {
   Plus,
   Search,
   MoreHorizontal,
@@ -62,6 +71,7 @@ interface PropertyType {
   name: Record<string, string>;
   slug: string;
   icon?: string;
+  parentId?: number | null;
   propertyCount?: number;
   sortOrder?: number;
 }
@@ -89,15 +99,42 @@ export default function PropertyTypesPage() {
   const [languages, setLanguages] = useState<string[]>(['en']);
   const [editingType, setEditingType] = useState<PropertyType | null>(null);
   const [deletingType, setDeletingType] = useState<PropertyType | null>(null);
-  const [form, setForm] = useState({ names: {} as Record<string, string>, slug: '', icon: '' });
+  const [form, setForm] = useState({ names: {} as Record<string, string>, slug: '', icon: '', parentId: null as number | null });
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkMoveOpen, setIsBulkMoveOpen] = useState(false);
+  const [bulkParentId, setBulkParentId] = useState<number | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isAiOrganizing, setIsAiOrganizing] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
+
+  const runAiOrganize = async () => {
+    setIsAiOrganizing(true);
+    try {
+      const res: any = await api.post('/api/dashboard/ai-enrichment/run', { scope: 'property-types' });
+      const r = res?.data?.propertyTypes ?? res?.propertyTypes;
+      if (r) {
+        toast({
+          title: 'AI organize complete',
+          description: `+${r.parentsCreated} parent groups, ${r.childrenAttached} types grouped, ${r.skipped} skipped`,
+        });
+      } else {
+        toast({ title: 'AI organize finished', description: 'No changes needed' });
+      }
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+    } finally {
+      setIsAiOrganizing(false);
+    }
+  };
 
   useEffect(() => {
     if (!api.isReady) return;
@@ -110,11 +147,15 @@ export default function PropertyTypesPage() {
     fetchTypes();
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchTypes = async () => {
+  const fetchTypes = async (retriesLeft = 1) => {
     try {
       const res = await api.get('/api/dashboard/property-types');
       setTypes(res?.data || []);
     } catch {
+      if (retriesLeft > 0) {
+        setTimeout(() => fetchTypes(retriesLeft - 1), 800);
+        return;
+      }
       toast({ title: 'Failed to load property types', variant: 'destructive' });
     }
   };
@@ -132,11 +173,12 @@ export default function PropertyTypesPage() {
       await api.post('/api/dashboard/property-types', {
         name: buildName(),
         slug: form.slug,
+        parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
       });
       toast({ title: 'Property type created' });
       setIsAddOpen(false);
-      setForm({ names: {}, slug: '', icon: '' });
+      setForm({ names: {}, slug: '', icon: '', parentId: null });
       fetchTypes();
     } catch (e: any) {
       toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
@@ -149,12 +191,13 @@ export default function PropertyTypesPage() {
       await api.put(`/api/dashboard/property-types/${editingType.id}`, {
         name: buildName(),
         slug: form.slug,
+        parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
       });
       toast({ title: 'Property type updated' });
       setIsEditOpen(false);
       setEditingType(null);
-      setForm({ names: {}, slug: '', icon: '' });
+      setForm({ names: {}, slug: '', icon: '', parentId: null });
       fetchTypes();
     } catch (e: any) {
       toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
@@ -178,7 +221,7 @@ export default function PropertyTypesPage() {
     setEditingType(type);
     const names: Record<string, string> = {};
     languages.forEach((lang) => { names[lang] = type.name[lang] || ''; });
-    setForm({ names, slug: type.slug, icon: type.icon || '' });
+    setForm({ names, slug: type.slug, icon: type.icon || '', parentId: type.parentId ?? null });
     setIsEditOpen(true);
   };
 
@@ -284,9 +327,68 @@ export default function PropertyTypesPage() {
     }
   };
 
-  const filteredTypes = types.filter((type) =>
-    Object.values(type.name).some((v) => v?.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Build a tree-ordered flat list: parents first, children indented underneath.
+  // Search still filters but preserves the parent-child grouping.
+  const orderedTypes = (() => {
+    const byParent = new Map<number | null, PropertyType[]>();
+    for (const t of types) {
+      const key = t.parentId ?? null;
+      const arr = byParent.get(key) || [];
+      arr.push(t);
+      byParent.set(key, arr);
+    }
+    byParent.forEach((arr) => arr.sort((a: PropertyType, b: PropertyType) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+    const out: Array<PropertyType & { _depth: number }> = [];
+    const walk = (parentId: number | null, depth: number) => {
+      for (const t of byParent.get(parentId) || []) {
+        out.push({ ...t, _depth: depth });
+        walk(t.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return out;
+  })();
+
+  const filteredTypes = orderedTypes.filter((type) => {
+    const matchesSearch = Object.values(type.name).some((v) => v?.toLowerCase().includes(search.toLowerCase()));
+    if (!matchesSearch) return false;
+    // Hide empties: skip types with 0 properties UNLESS they have children with properties.
+    if (hideEmpty) {
+      const hasDescendantWithProps = (parentId: number): boolean => {
+        return orderedTypes.some((t) => t.parentId === parentId && ((t.propertyCount ?? 0) > 0 || hasDescendantWithProps(t.id)));
+      };
+      if ((type.propertyCount ?? 0) === 0 && !hasDescendantWithProps(type.id)) return false;
+    }
+    return true;
+  });
+
+  const handleBulkMove = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.put('/api/dashboard/property-types/bulk-move', { ids, parentId: bulkParentId });
+      toast({ title: `Moved ${ids.length} type${ids.length === 1 ? '' : 's'}` });
+      setIsBulkMoveOpen(false);
+      setSelectedIds(new Set());
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: 'Bulk move failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.put('/api/dashboard/property-types/bulk-delete', { ids });
+      toast({ title: `Deleted ${ids.length} type${ids.length === 1 ? '' : 's'}` });
+      setIsBulkDeleteOpen(false);
+      setSelectedIds(new Set());
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
+    }
+  };
 
   const handleDrop = async (toIndex: number) => {
     if (dragIndex === null || dragIndex === toIndex) {
@@ -330,13 +432,17 @@ export default function PropertyTypesPage() {
           <p className="page-description mt-1">Manage property type classifications</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
+            {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            AI Organize
+          </Button>
           {languages.length > 1 && (
             <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
               <Sparkles className="h-4 w-4 mr-2" />
               AI Translate All
             </Button>
           )}
-          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '' }); }}>
+          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '', parentId: null }); }}>
             <DialogTrigger asChild>
               <Button className="shadow-sm"><Plus className="h-4 w-4 mr-2" />Add Type</Button>
             </DialogTrigger>
@@ -358,6 +464,21 @@ export default function PropertyTypesPage() {
                   <Label>Icon</Label>
                   <Input placeholder="home, building, castle" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
                 </div>
+                <div className="space-y-2">
+                  <Label>Parent Type <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+                  <Select
+                    value={form.parentId == null ? 'none' : String(form.parentId)}
+                    onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="none">— No parent (top level) —</SelectItem>
+                      {orderedTypes.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>{'  '.repeat(t._depth)}{t.name.en || Object.values(t.name)[0]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
@@ -372,13 +493,34 @@ export default function PropertyTypesPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search property types..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
+              Hide types with 0 properties
+            </label>
+          </div>
         </CardContent>
       </Card>
+
+      {selectedIds.size > 0 && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="py-3 flex items-center justify-between gap-4">
+            <div className="text-sm"><strong>{selectedIds.size}</strong> type{selectedIds.size === 1 ? '' : 's'} selected</div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+              <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>Move under parent…</Button>
+              <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -395,6 +537,15 @@ export default function PropertyTypesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={selectedIds.size > 0 && filteredTypes.every((t) => selectedIds.has(t.id))}
+                      onCheckedChange={(v) => {
+                        if (v) setSelectedIds(new Set(filteredTypes.map((t) => t.id)));
+                        else setSelectedIds(new Set());
+                      }}
+                    />
+                  </TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Slug</TableHead>
@@ -415,13 +566,27 @@ export default function PropertyTypesPage() {
                       onDragLeave={() => setDragOverIndex(null)}
                       onDrop={() => handleDrop(i)}
                       onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                      className={dragOverIndex === i ? 'border-t-2 border-primary' : ''}
+                      className={`${dragOverIndex === i ? 'border-t-2 border-primary' : ''} ${selectedIds.has(type.id) ? 'bg-primary/5' : ''}`}
                     >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(type.id)}
+                          onCheckedChange={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(type.id)) next.delete(type.id);
+                              else next.add(type.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3" style={{ paddingLeft: `${(type._depth || 0) * 24}px` }}>
+                          {type._depth > 0 && <span className="text-muted-foreground">↳</span>}
                           <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
                             {iconMap[type.icon || ''] || <Home className="h-4 w-4" />}
                           </div>
@@ -478,7 +643,7 @@ export default function PropertyTypesPage() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm({ names: {}, slug: '', icon: '' }); } }}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm({ names: {}, slug: '', icon: '', parentId: null }); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Property Type</DialogTitle>
@@ -498,6 +663,23 @@ export default function PropertyTypesPage() {
                 <Label>Icon</Label>
                 <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Parent Type <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Select
+                value={form.parentId == null ? 'none' : String(form.parentId)}
+                onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
+              >
+                <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="none">— No parent (top level) —</SelectItem>
+                  {orderedTypes
+                    .filter((t) => !editingType || t.id !== editingType.id)
+                    .map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>{'  '.repeat(t._depth)}{t.name.en || Object.values(t.name)[0]}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             {languages.filter(l => l !== 'en').length > 0 && (
               <div className="border rounded-md">
@@ -555,6 +737,53 @@ export default function PropertyTypesPage() {
             <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Start Translation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Move Dialog */}
+      <Dialog open={isBulkMoveOpen} onOpenChange={setIsBulkMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move {selectedIds.size} type{selectedIds.size === 1 ? '' : 's'} under a parent</DialogTitle>
+            <DialogDescription>Choose a parent type. Selected items become its children. Select &quot;No parent&quot; to make them top-level.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label>Parent Type</Label>
+            <Select
+              value={bulkParentId == null ? 'none' : String(bulkParentId)}
+              onValueChange={(v) => setBulkParentId(v === 'none' ? null : Number(v))}
+            >
+              <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="none">— No parent (top level) —</SelectItem>
+                {orderedTypes
+                  .filter((t) => !selectedIds.has(t.id))
+                  .map((t) => (<SelectItem key={t.id} value={String(t.id)}>{'  '.repeat(t._depth)}{t.name.en || Object.values(t.name)[0]}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkMove}>Move {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} type{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Properties using these types will have their type cleared. Child types will become top-level. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

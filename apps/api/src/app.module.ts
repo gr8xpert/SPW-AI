@@ -59,6 +59,7 @@ import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { AiModule } from './modules/ai/ai.module';
+import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
 import { TranslationModule } from './modules/translation/translation.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 
@@ -179,6 +180,7 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 
     // ============ Phase 6: AI & Translation ============
     AiModule,
+    AiEnrichmentModule,
     TranslationModule,
     AiChatModule,
   ],

@@ -60,7 +60,7 @@ const GET_LOCATIONS_TOOL: ToolDefinition = {
     parameters: {
       type: 'object',
       properties: {
-        level: { type: 'string', enum: ['country', 'province', 'municipality', 'town', 'area'], description: 'Filter by location level' },
+        level: { type: 'string', enum: ['region', 'province', 'area', 'municipality', 'town', 'urbanization'], description: 'Filter by location level' },
       },
     },
   },

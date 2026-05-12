@@ -18,6 +18,7 @@ import {
 } from '../../database/entities';
 import { TenantModule } from '../tenant/tenant.module';
 import { UploadModule } from '../upload/upload.module';
+import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UploadModule } from '../upload/upload.module';
     ScheduleModule.forRoot(),
     TenantModule,
     UploadModule,
+    AiEnrichmentModule,
   ],
   controllers: [FeedController],
   providers: [

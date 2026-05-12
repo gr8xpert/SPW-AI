@@ -102,6 +102,7 @@ const emptyForm = {
   provider: 'resales',
   apiKey: '',
   clientId: '',
+  filterId: '',
   username: '',
   password: '',
   endpoint: '',
@@ -112,6 +113,17 @@ function formatDate(d: string): string {
   try { return new Date(d).toLocaleDateString(); } catch { return d; }
 }
 
+interface SyncStatus {
+  isRunning: boolean;
+  totalFetched: number;
+  targetCount: number;
+  createdCount?: number;
+  updatedCount?: number;
+  skippedCount?: number;
+  errorCount?: number;
+  status?: string | null;
+}
+
 export default function FeedsPage() {
   const [feeds, setFeeds] = useState<FeedConfig[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -120,6 +132,7 @@ export default function FeedsPage() {
   const [editingFeed, setEditingFeed] = useState<FeedConfig | null>(null);
   const [deletingFeed, setDeletingFeed] = useState<FeedConfig | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [syncStatuses, setSyncStatuses] = useState<Record<number, SyncStatus>>({});
 
   const api = useApi();
   const { toast } = useToast();
@@ -137,6 +150,39 @@ export default function FeedsPage() {
 
   useEffect(() => { fetchFeeds(); }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll sync status for each feed every 3s; if any was running and stops, refresh the feeds list once
+  useEffect(() => {
+    if (!api.isReady || feeds.length === 0) return;
+    let cancelled = false;
+    const tick = async () => {
+      const results = await Promise.all(
+        feeds.map(async (f) => {
+          try {
+            const res = await api.get(`/api/dashboard/feeds/${f.id}/sync-status`);
+            const body = (res?.data || res) as SyncStatus;
+            return [f.id, body] as const;
+          } catch {
+            return [f.id, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<number, SyncStatus> = {};
+      let anyJustFinished = false;
+      for (const [id, status] of results) {
+        if (!status) continue;
+        next[id] = status;
+        const prev = syncStatuses[id];
+        if (prev?.isRunning && !status.isRunning) anyJustFinished = true;
+      }
+      setSyncStatuses(next);
+      if (anyJustFinished) fetchFeeds();
+    };
+    tick();
+    const handle = setInterval(tick, 3000);
+    return () => { cancelled = true; clearInterval(handle); };
+  }, [api.isReady, feeds.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCreate = async () => {
     try {
       await api.post('/api/dashboard/feeds', {
@@ -145,6 +191,7 @@ export default function FeedsPage() {
         credentials: {
           ...(form.apiKey ? { apiKey: form.apiKey } : {}),
           ...(form.clientId ? { clientId: form.clientId } : {}),
+          ...(form.filterId ? { filterId: form.filterId } : {}),
           ...(form.username ? { username: form.username } : {}),
           ...(form.password ? { password: form.password } : {}),
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
@@ -170,6 +217,7 @@ export default function FeedsPage() {
         credentials: {
           ...(form.apiKey ? { apiKey: form.apiKey } : {}),
           ...(form.clientId ? { clientId: form.clientId } : {}),
+          ...(form.filterId ? { filterId: form.filterId } : {}),
           ...(form.username ? { username: form.username } : {}),
           ...(form.password ? { password: form.password } : {}),
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
@@ -226,6 +274,7 @@ export default function FeedsPage() {
       provider: feed.provider,
       apiKey: feed.credentials?.apiKey || '',
       clientId: feed.credentials?.clientId || '',
+      filterId: feed.credentials?.filterId || '',
       username: feed.credentials?.username || '',
       password: feed.credentials?.password || '',
       endpoint: feed.credentials?.endpoint || '',
@@ -283,8 +332,15 @@ export default function FeedsPage() {
       )}
       {showClientId && (
         <div className="space-y-2">
-          <Label>Client ID {form.provider === 'resales' ? '(Agency Filter ID) *' : ''}</Label>
-          <Input placeholder={form.provider === 'resales' ? 'e.g. 1029727' : 'Client identifier'} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
+          <Label>Client ID {form.provider === 'resales' ? '*' : ''}</Label>
+          <Input placeholder={form.provider === 'resales' ? 'Agency ID, e.g. 1029727' : 'Client identifier'} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
+        </div>
+      )}
+      {form.provider === 'resales' && (
+        <div className="space-y-2">
+          <Label>Filter Alias *</Label>
+          <Input placeholder="e.g. 1" value={form.filterId} onChange={(e) => setForm({ ...form, filterId: e.target.value })} />
+          <p className="text-xs text-muted-foreground">Filter Alias from Resales-Online portal &gt; API Filters (e.g. 1 = Sale, 2 = Short Term Rental). NOT the Filter Id column.</p>
         </div>
       )}
       {showUsernamePassword && (
@@ -385,9 +441,22 @@ export default function FeedsPage() {
             const statusColor = feed.lastSyncStatus
               ? statusConfig[feed.lastSyncStatus].color
               : 'text-muted-foreground';
+            const sync = syncStatuses[feed.id];
+            const isSyncing = sync?.isRunning;
+            const progressPct = isSyncing && sync.targetCount > 0
+              ? Math.min(100, Math.round((sync.totalFetched / sync.targetCount) * 100))
+              : 0;
 
             return (
-              <Card key={feed.id}>
+              <Card key={feed.id} className={isSyncing ? 'ring-2 ring-primary/50 ring-offset-2 transition-all' : ''}>
+                {isSyncing && (
+                  <div className="h-1.5 w-full bg-primary/10 rounded-t-lg overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-500"
+                      style={{ width: sync.targetCount > 0 ? `${progressPct}%` : '40%' }}
+                    />
+                  </div>
+                )}
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -436,10 +505,27 @@ export default function FeedsPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Status</span>
-                    <Badge variant={feed.isActive ? 'success' : 'secondary'}>
-                      {feed.isActive ? 'Active' : 'Paused'}
-                    </Badge>
+                    {isSyncing ? (
+                      <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20">
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        Syncing
+                      </Badge>
+                    ) : (
+                      <Badge variant={feed.isActive ? 'success' : 'secondary'}>
+                        {feed.isActive ? 'Active' : 'Paused'}
+                      </Badge>
+                    )}
                   </div>
+
+                  {isSyncing && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Progress</span>
+                      <span className="text-sm font-medium">
+                        {sync.totalFetched.toLocaleString()}
+                        {sync.targetCount > 0 && ` / ~${sync.targetCount.toLocaleString()} (${progressPct}%)`}
+                      </span>
+                    </div>
+                  )}
 
                   {feed.lastSyncAt && (
                     <>
@@ -465,9 +551,12 @@ export default function FeedsPage() {
                   )}
 
                   <div className="pt-2 border-t">
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => handleSync(feed)}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Sync Now
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => handleSync(feed)} disabled={isSyncing}>
+                      {isSyncing ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing…</>
+                      ) : (
+                        <><RefreshCw className="h-4 w-4 mr-2" />Sync Now</>
+                      )}
                     </Button>
                   </div>
                 </CardContent>

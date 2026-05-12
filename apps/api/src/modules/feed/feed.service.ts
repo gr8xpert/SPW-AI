@@ -15,6 +15,7 @@ import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
+import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 
 @Injectable()
 export class FeedService {
@@ -44,6 +45,7 @@ export class FeedService {
     private odooAdapter: OdooAdapter,
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
+    private readonly aiEnrichmentService: AiEnrichmentService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -189,6 +191,14 @@ export class FeedService {
           }
         }
 
+        // Persist progress after each page so the dashboard can poll status
+        importLog.totalFetched = totalFetched;
+        importLog.createdCount = createdCount;
+        importLog.updatedCount = updatedCount;
+        importLog.skippedCount = skippedCount;
+        importLog.errorCount = errors.length;
+        await this.importLogRepository.save(importLog);
+
         hasMore = result.hasMore;
         page++;
       }
@@ -219,6 +229,26 @@ export class FeedService {
         } catch (err) {
           this.logger.warn(
             `Cache invalidation failed after feed import for tenant=${config.tenantId}: ${(err as Error).message}`,
+          );
+        }
+
+        // Auto-enrich newly-imported data with AI: fill location regions,
+        // group property-type subtypes, recategorise features still in 'other'.
+        // Failures are non-fatal — the import already succeeded and the user
+        // can always click "✨ AI organize" manually from the dashboard.
+        try {
+          const enrichment = await this.aiEnrichmentService.enrichAll(config.tenantId);
+          this.logger.log(
+            `AI enrichment for tenant=${config.tenantId}: ` +
+              `+${enrichment.locations.regionsCreated} regions, ` +
+              `${enrichment.locations.provincesAttached} provinces attached, ` +
+              `+${enrichment.propertyTypes.parentsCreated} type parents, ` +
+              `${enrichment.propertyTypes.childrenAttached} children attached, ` +
+              `${enrichment.features.recategorised} features recategorised`,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `AI enrichment failed after import for tenant=${config.tenantId}: ${(err as Error).message}`,
           );
         }
       }
@@ -263,16 +293,38 @@ export class FeedService {
         feedProperty.images,
         existing.images,
       );
+      const promoteFromDraft = existing.status === 'draft';
+      const neverPublished = !existing.isPublished && !existing.publishedAt;
+      const missingPropertyType = !existing.propertyTypeId && !!feedProperty.propertyType && feedProperty.propertyType !== 'Unknown';
+      const missingFeatures = (!existing.features || existing.features.length === 0) && feedProperty.features.length > 0;
 
-      if (!dataChanged && !imagesChanged) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures) return 'skipped';
 
       const lockedFields = existing.lockedFields || [];
       const updateData: Partial<Property> = {};
 
+      if (promoteFromDraft && !lockedFields.includes('status')) {
+        updateData.status = 'active';
+      }
+
+      if (neverPublished && !lockedFields.includes('isPublished')) {
+        updateData.isPublished = true;
+        updateData.publishedAt = new Date();
+      }
+
+      if (missingPropertyType && !lockedFields.includes('propertyTypeId')) {
+        const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
+        if (propertyTypeId !== null) updateData.propertyTypeId = propertyTypeId;
+      }
+
+      if (missingFeatures && !lockedFields.includes('features')) {
+        updateData.features = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
+      }
+
       if (dataChanged) {
         const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
         const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
-        const featureIds = await this.findFeatureIds(tenantId, feedProperty.features);
+        const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
         const propertyData: Record<string, any> = {
           reference: feedProperty.reference,
@@ -298,6 +350,10 @@ export class FeedService {
           lng: feedProperty.lng,
           videoUrl: feedProperty.videoUrl,
           virtualTourUrl: feedProperty.virtualTourUrl,
+          communityFees: feedProperty.communityFees ?? null,
+          ibiFees: feedProperty.ibiFees ?? null,
+          basuraTax: feedProperty.basuraTax ?? null,
+          builtYear: feedProperty.builtYear ?? null,
           contentHash,
         };
 
@@ -325,7 +381,7 @@ export class FeedService {
     } else {
       const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
       const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
-      const featureIds = await this.findFeatureIds(tenantId, feedProperty.features);
+      const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
       const images = await this.processImages(
         tenantId,
@@ -360,9 +416,15 @@ export class FeedService {
         lng: feedProperty.lng,
         videoUrl: feedProperty.videoUrl,
         virtualTourUrl: feedProperty.virtualTourUrl,
+        communityFees: feedProperty.communityFees ?? null,
+        ibiFees: feedProperty.ibiFees ?? null,
+        basuraTax: feedProperty.basuraTax ?? null,
+        builtYear: feedProperty.builtYear ?? null,
         contentHash,
         importedAt: new Date(),
-        status: 'draft',
+        status: 'active',
+        isPublished: true,
+        publishedAt: new Date(),
       });
 
       await this.propertyRepository.save(newProperty);
@@ -495,49 +557,98 @@ export class FeedService {
     return result;
   }
 
+  // Builds (or attaches) a Region → Province → Area → Municipality → Town →
+  // Urbanization chain. Returns the leaf id (deepest available level).
+  // Region and Urbanization are usually absent in feeds — AI enrichment fills
+  // Region from the province; Urbanization is manual-only.
+  // Same-name children under different parents are kept distinct via the
+  // (tenantId, parentId, slug) unique index.
   private async findOrCreateLocation(
     tenantId: number,
     location: FeedProperty['location'],
   ): Promise<number | null> {
-    if (!location.name) return null;
+    const region = (location.region || '').trim();
+    const province = (location.province || '').trim();
+    const area = (location.area || '').trim();
+    const municipality = (location.municipality || '').trim();
+    const town = (location.town || '').trim();
+    const urbanization = (location.urbanization || '').trim();
 
-    const existing = await this.locationRepository.findOne({
-      where: {
-        tenantId,
-        slug: this.slugify(location.name),
-      },
-    });
+    const steps: Array<{ name: string; level: 'region' | 'province' | 'area' | 'municipality' | 'town' | 'urbanization' }> = [];
+    if (region) steps.push({ name: region, level: 'region' });
+    if (province) steps.push({ name: province, level: 'province' });
+    if (area && area.toLowerCase() !== province.toLowerCase()) {
+      steps.push({ name: area, level: 'area' });
+    }
+    if (municipality && municipality.toLowerCase() !== area.toLowerCase()) {
+      steps.push({ name: municipality, level: 'municipality' });
+    }
+    if (town && town.toLowerCase() !== municipality.toLowerCase()) {
+      steps.push({ name: town, level: 'town' });
+    }
+    if (urbanization && urbanization.toLowerCase() !== town.toLowerCase()) {
+      steps.push({ name: urbanization, level: 'urbanization' });
+    }
 
-    if (existing) return existing.id;
+    if (steps.length === 0) return null;
 
-    const newLocation = this.locationRepository.create({
-      tenantId,
-      name: { en: location.name, es: location.name },
-      slug: this.slugify(location.name),
-      level: 'town',
-      externalId: location.externalId,
-    });
+    let parentId: number | null = null;
+    let leafId: number | null = null;
 
-    const saved = await this.locationRepository.save(newLocation);
-    return saved.id;
+    for (const step of steps) {
+      const slug = this.slugify(step.name);
+      // Scoped lookup: same slug can exist under different parents.
+      let node = await this.locationRepository.findOne({
+        where: { tenantId, slug, parentId: parentId as any },
+      });
+
+      if (!node) {
+        node = await this.locationRepository.save(
+          this.locationRepository.create({
+            tenantId,
+            name: { en: step.name, es: step.name },
+            slug,
+            level: step.level,
+            parentId,
+            externalId: step.level === steps[steps.length - 1].level ? location.externalId : null,
+          }),
+        );
+      }
+      // No parentId backfill — the lookup already matched on parentId, so
+      // existing nodes are by definition correctly parented.
+
+      parentId = node.id;
+      leafId = node.id;
+    }
+
+    return leafId;
   }
 
   private async findPropertyTypeId(
     tenantId: number,
     typeName: string,
   ): Promise<number | null> {
-    if (!typeName) return null;
+    if (!typeName || typeName === 'Unknown') return null;
 
+    const slug = this.slugify(typeName);
     const existing = await this.propertyTypeRepository.findOne({
-      where: { tenantId, slug: this.slugify(typeName) },
+      where: { tenantId, slug },
     });
+    if (existing) return existing.id;
 
-    return existing?.id || null;
+    const created = this.propertyTypeRepository.create({
+      tenantId,
+      name: { en: typeName, es: typeName },
+      slug,
+    });
+    const saved = await this.propertyTypeRepository.save(created);
+    return saved.id;
   }
 
   private async findFeatureIds(
     tenantId: number,
     featureNames: string[],
+    categoryMap: Record<string, string> = {},
   ): Promise<number[]> {
     if (!featureNames.length) return [];
 
@@ -545,15 +656,45 @@ export class FeedService {
       where: { tenantId },
     });
 
-    const featureMap = new Map<string, number>();
+    const featureMap = new Map<string, typeof features[number]>();
     for (const f of features) {
       const enName = (f.name.en || '').toLowerCase();
-      featureMap.set(enName, f.id);
+      if (enName) featureMap.set(enName, f);
     }
 
-    return featureNames
-      .map((name) => featureMap.get(name.toLowerCase()))
-      .filter((id): id is number => id !== undefined);
+    const resolved: number[] = [];
+    const toCreate: string[] = [];
+
+    for (const name of featureNames) {
+      const key = name.toLowerCase();
+      const existing = featureMap.get(key);
+      const hintedCategory = categoryMap[key];
+
+      if (existing) {
+        resolved.push(existing.id);
+        // Upgrade existing 'other' → real category when feed provides a hint.
+        if (hintedCategory && hintedCategory !== 'other' && existing.category === 'other') {
+          await this.featureRepository.update(existing.id, { category: hintedCategory as any });
+          existing.category = hintedCategory as any;
+        }
+      } else if (!toCreate.includes(name)) {
+        toCreate.push(name);
+      }
+    }
+
+    for (const name of toCreate) {
+      const category = categoryMap[name.toLowerCase()] || 'other';
+      const created = this.featureRepository.create({
+        tenantId,
+        name: { en: name, es: name },
+        category: category as any,
+      });
+      const saved = await this.featureRepository.save(created);
+      resolved.push(saved.id);
+      featureMap.set(name.toLowerCase(), saved);
+    }
+
+    return resolved;
   }
 
   private slugify(text: string): string {
@@ -574,5 +715,31 @@ export class FeedService {
       order: { startedAt: 'DESC' },
       take: 50,
     });
+  }
+
+  async getSyncStatus(tenantId: number, configId: number) {
+    const config = await this.findConfigById(tenantId, configId);
+    const latest = await this.importLogRepository.findOne({
+      where: { tenantId, feedConfigId: configId },
+      order: { startedAt: 'DESC' },
+    });
+
+    if (!latest) {
+      return { isRunning: false, totalFetched: 0, targetCount: 0, status: null, startedAt: null };
+    }
+
+    return {
+      isRunning: latest.status === 'running',
+      status: latest.status,
+      totalFetched: latest.totalFetched,
+      createdCount: latest.createdCount,
+      updatedCount: latest.updatedCount,
+      skippedCount: latest.skippedCount,
+      errorCount: latest.errorCount,
+      startedAt: latest.startedAt,
+      completedAt: latest.completedAt,
+      // Best-effort target: last successful sync's count gives a rough total to render percentage
+      targetCount: config.lastSyncCount || 0,
+    };
   }
 }

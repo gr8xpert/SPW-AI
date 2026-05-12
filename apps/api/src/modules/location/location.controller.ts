@@ -30,6 +30,16 @@ export class LocationController {
     return this.reorderService.reorderLocations(tenantId, dto);
   }
 
+  @Put('bulk-move')
+  async bulkMove(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[]; parentId: number | null }) {
+    return this.locationService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
+  }
+
+  @Put('bulk-delete')
+  async bulkDelete(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[] }) {
+    return this.locationService.bulkDelete(tenantId, dto.ids || []);
+  }
+
   @Get(':id')
   async findOne(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number) {
     return this.locationService.findOne(tenantId, id);
