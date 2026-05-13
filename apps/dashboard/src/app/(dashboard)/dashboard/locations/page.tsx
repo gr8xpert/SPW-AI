@@ -264,8 +264,14 @@ export default function LocationsPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     try {
-      await api.put('/api/dashboard/locations/bulk-move', { ids, parentId: bulkParentId });
-      toast({ title: `Moved ${ids.length} location${ids.length === 1 ? '' : 's'}` });
+      const res = await api.put('/api/dashboard/locations/bulk-move', { ids, parentId: bulkParentId });
+      const body = res?.data || res;
+      const mergedCount = Number(body?.merged ?? 0);
+      const reparentedCount = ids.length - mergedCount;
+      const parts: string[] = [];
+      if (reparentedCount > 0) parts.push(`Moved ${reparentedCount} location${reparentedCount === 1 ? '' : 's'}`);
+      if (mergedCount > 0) parts.push(`merged ${mergedCount} duplicate${mergedCount === 1 ? '' : 's'}`);
+      toast({ title: parts.join(' · ') || `Moved ${ids.length} location${ids.length === 1 ? '' : 's'}` });
       setIsBulkMoveOpen(false);
       setSelectedIds(new Set());
       fetchLocations();

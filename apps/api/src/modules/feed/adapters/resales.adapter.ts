@@ -170,7 +170,17 @@ export class ResalesAdapter extends BaseFeedAdapter {
     // Use NameType (the specific subtype like "Detached Villa") rather than Type.
     // Users group these manually under custom parent types in the dashboard.
     const propertyTypeName = raw.PropertyType?.NameType || raw.PropertyType?.Type || 'Unknown';
-    const locationName = typeof raw.Location === 'string' ? raw.Location : (raw.Location?.LocationName || '');
+
+    // SearchProperties returns Location/SubLocation as siblings at root; PropertyDetails nests them
+    // inside a Location object. After the list+detail merge we may have either form, so read both.
+    const locObj = (raw.Location && typeof raw.Location === 'object') ? raw.Location : null;
+    const locationName = locObj?.LocationName || (typeof raw.Location === 'string' ? raw.Location : '');
+    const subLocation = locObj?.SubLocation || raw.SubLocation || '';
+    const province = locObj?.Province || raw.Province || '';
+    const area = locObj?.Area || raw.Area || '';
+    const country = locObj?.Country || raw.Country || 'Spain';
+    const locationExternalId = locObj?.LocationId || raw.LocationId || '';
+
     const titleText = locationName ? `${propertyTypeName} in ${locationName}` : propertyTypeName;
     const { names: featureNames, categories: featureCategories } = this.mapFeatures(raw.PropertyFeatures?.Category);
 
@@ -205,12 +215,12 @@ export class ResalesAdapter extends BaseFeedAdapter {
         // AI enrichment fills Region after import from the province. Urbanization
         // is rare and added manually by clients when needed.
         name: locationName,
-        province: raw.Province || '',
-        area: raw.Area || '',
+        province,
+        area,
         municipality: locationName,
-        town: raw.SubLocation || '',
-        country: raw.Country || 'Spain',
-        externalId: raw.LocationId || '',
+        town: subLocation,
+        country,
+        externalId: locationExternalId,
       },
       lat: this.parseFloat(raw.Latitude),
       lng: this.parseFloat(raw.Longitude),

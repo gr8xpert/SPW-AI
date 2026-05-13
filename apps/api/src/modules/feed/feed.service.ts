@@ -144,6 +144,39 @@ export class FeedService {
     return importLog;
   }
 
+  // Destructive: nukes every location for this tenant, then re-imports from the
+  // feed. Use this after a hierarchy/mapping fix so the chain rebuilds cleanly
+  // instead of mixing old + new rows. property.locationId is set to NULL first
+  // (so the FK doesn't block) and the next import re-attaches each property to
+  // its newly-built location chain.
+  async wipeLocationsAndSync(
+    tenantId: number,
+    configId: number,
+  ): Promise<{ wiped: number; importLog: FeedImportLog }> {
+    const config = await this.findConfigById(tenantId, configId);
+
+    const beforeCount = await this.locationRepository.count({ where: { tenantId } });
+
+    // FK-safe wipe scoped to this tenant. Disable FK checks for the wipe so
+    // the self-referential parentId cascade doesn't slow this down on tenants
+    // with thousands of rows.
+    const qr = this.locationRepository.manager.connection.createQueryRunner();
+    try {
+      await qr.connect();
+      await qr.query('UPDATE properties SET locationId = NULL WHERE tenantId = ? AND locationId IS NOT NULL', [tenantId]);
+      await qr.query('SET FOREIGN_KEY_CHECKS = 0');
+      await qr.query('DELETE FROM locations WHERE tenantId = ?', [tenantId]);
+      await qr.query('SET FOREIGN_KEY_CHECKS = 1');
+    } finally {
+      await qr.release();
+    }
+
+    this.logger.log(`Wiped ${beforeCount} locations for tenant=${tenantId}, triggering re-import`);
+
+    const importLog = await this.triggerSync(tenantId, config.id);
+    return { wiped: beforeCount, importLog };
+  }
+
   async processImport(configId: number, importLogId: number): Promise<void> {
     const config = await this.feedConfigRepository.findOne({ where: { id: configId } });
     if (!config) {
@@ -297,8 +330,17 @@ export class FeedService {
       const neverPublished = !existing.isPublished && !existing.publishedAt;
       const missingPropertyType = !existing.propertyTypeId && !!feedProperty.propertyType && feedProperty.propertyType !== 'Unknown';
       const missingFeatures = (!existing.features || existing.features.length === 0) && feedProperty.features.length > 0;
+      const hasIncomingLocation = !!(
+        feedProperty.location.province ||
+        feedProperty.location.area ||
+        feedProperty.location.municipality ||
+        feedProperty.location.town ||
+        feedProperty.location.region ||
+        feedProperty.location.urbanization
+      );
+      const missingLocation = !existing.locationId && hasIncomingLocation;
 
-      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation) return 'skipped';
 
       const lockedFields = existing.lockedFields || [];
       const updateData: Partial<Property> = {};
@@ -319,6 +361,14 @@ export class FeedService {
 
       if (missingFeatures && !lockedFields.includes('features')) {
         updateData.features = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
+      }
+
+      if (missingLocation && !lockedFields.includes('locationId') && !dataChanged) {
+        // dataChanged covers location via the full propertyData block below.
+        // This branch only fires when feed content is unchanged but the row lost
+        // its locationId (e.g. after a wipe-and-sync).
+        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+        if (locationId !== null) updateData.locationId = locationId;
       }
 
       if (dataChanged) {

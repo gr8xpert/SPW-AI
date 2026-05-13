@@ -56,6 +56,7 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Eraser,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -129,8 +130,10 @@ export default function FeedsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isWipeOpen, setIsWipeOpen] = useState(false);
   const [editingFeed, setEditingFeed] = useState<FeedConfig | null>(null);
   const [deletingFeed, setDeletingFeed] = useState<FeedConfig | null>(null);
+  const [wipingFeed, setWipingFeed] = useState<FeedConfig | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [syncStatuses, setSyncStatuses] = useState<Record<number, SyncStatus>>({});
 
@@ -264,6 +267,23 @@ export default function FeedsPage() {
       fetchFeeds();
     } catch (e: any) {
       toast({ title: 'Failed to sync', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleWipeAndSync = async () => {
+    if (!wipingFeed) return;
+    try {
+      const res = await api.post(`/api/dashboard/feeds/${wipingFeed.id}/wipe-and-sync`);
+      const body = res?.data || res;
+      toast({
+        title: 'Wipe & re-import triggered',
+        description: `Wiped ${body?.wiped ?? 0} locations. Re-import running...`,
+      });
+      setIsWipeOpen(false);
+      setWipingFeed(null);
+      fetchFeeds();
+    } catch (e: any) {
+      toast({ title: 'Failed to wipe & re-import', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -479,6 +499,10 @@ export default function FeedsPage() {
                           <RefreshCw className="h-4 w-4 mr-2" />
                           Sync Now
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setWipingFeed(feed); setIsWipeOpen(true); }}>
+                          <Eraser className="h-4 w-4 mr-2" />
+                          Wipe & Re-import
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(feed)}>
                           <Settings className="h-4 w-4 mr-2" />
                           Configure
@@ -631,6 +655,30 @@ export default function FeedsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Wipe & Re-import Confirmation */}
+      <AlertDialog open={isWipeOpen} onOpenChange={setIsWipeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Wipe locations & re-import?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will <strong>delete every location</strong> for this tenant and rebuild the
+              hierarchy from a fresh feed import. Properties stay intact — they&apos;ll just
+              lose their location link until the import re-attaches them.
+              <br /><br />
+              Use this after a feed-mapping fix so the new chain isn&apos;t mixed with stale rows.
+              Property types and features are <strong>not</strong> wiped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleWipeAndSync} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Eraser className="h-4 w-4 mr-2" />
+              Wipe & Re-import
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

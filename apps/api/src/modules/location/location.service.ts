@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Location, LocationLevel } from '../../database/entities';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
 
@@ -119,6 +119,31 @@ export class LocationService {
     if (dto.parentId === id) {
       throw new ConflictException('Location cannot be its own parent');
     }
+
+    // Reparent path: if the new parent already has a same-slug sibling, fold
+    // this location into that twin (children + properties) and delete this row.
+    // Avoids manual cleanup of duplicates (e.g. two "Costa del Sol" nodes
+    // imported under Málaga and Cádiz that the user now wants merged).
+    const parentChanging = dto.parentId !== undefined && dto.parentId !== location.parentId;
+    if (parentChanging) {
+      const targetParentId = dto.parentId ?? null;
+      const slugToCheck = dto.slug || location.slug;
+      const twin = await this.findSibling(tenantId, targetParentId, slugToCheck, id);
+      if (twin) {
+        await this.mergeInto(tenantId, location, twin);
+        // Apply any non-parentId updates (name, sortOrder, etc.) to the kept row.
+        const otherUpdates: Partial<Location> = {};
+        for (const key of Object.keys(dto) as Array<keyof UpdateLocationDto>) {
+          if (key === 'parentId' || key === 'slug') continue;
+          (otherUpdates as any)[key] = (dto as any)[key];
+        }
+        if (Object.keys(otherUpdates).length > 0) {
+          await this.locationRepository.update({ id: twin.id, tenantId }, otherUpdates);
+        }
+        return this.findOne(tenantId, twin.id);
+      }
+    }
+
     // Use repository.update() (column-level) instead of save() because findOne
     // loads the `parent` relation — save() prefers the stale relation object's
     // id over a freshly set parentId column, which silently drops the change.
@@ -156,21 +181,80 @@ export class LocationService {
   }
 
   // Bulk move: re-parent many locations under one parent (or null for top-level).
-  async bulkMove(tenantId: number, ids: number[], parentId: number | null): Promise<{ count: number }> {
-    if (!ids.length) return { count: 0 };
+  // Each moved node is first checked for a same-slug twin under the new parent;
+  // if a twin exists the moved node is merged into it (children + properties
+  // re-pointed, source deleted). Returns counts so the UI can report what happened.
+  async bulkMove(tenantId: number, ids: number[], parentId: number | null): Promise<{ count: number; merged: number }> {
+    if (!ids.length) return { count: 0, merged: 0 };
     if (parentId != null) {
       if (ids.includes(parentId)) throw new ConflictException('A location cannot be moved into itself');
       const parent = await this.locationRepository.findOne({ where: { id: parentId, tenantId } });
       if (!parent) throw new NotFoundException('Parent location not found');
     }
-    await this.locationRepository
-      .createQueryBuilder()
-      .update()
-      .set({ parentId })
-      .where('tenantId = :tenantId', { tenantId })
-      .andWhere('id IN (:...ids)', { ids })
-      .execute();
-    return { count: ids.length };
+
+    let merged = 0;
+    for (const id of ids) {
+      const node = await this.locationRepository.findOne({ where: { id, tenantId } });
+      if (!node) continue;
+
+      const twin = await this.findSibling(tenantId, parentId, node.slug, id);
+      if (twin) {
+        await this.mergeInto(tenantId, node, twin);
+        merged++;
+        continue;
+      }
+      await this.locationRepository.update({ id, tenantId }, { parentId });
+    }
+    return { count: ids.length, merged };
+  }
+
+  // Looks for a sibling under `parentId` with the same slug, excluding self.
+  // parentId === null searches top-level rows. Returns the row to merge into,
+  // or null when no collision exists.
+  private async findSibling(
+    tenantId: number,
+    parentId: number | null,
+    slug: string,
+    excludeId: number,
+  ): Promise<Location | null> {
+    const where: any = { tenantId, slug };
+    where.parentId = parentId === null ? IsNull() : parentId;
+    const row = await this.locationRepository.findOne({ where });
+    if (!row || row.id === excludeId) return null;
+    return row;
+  }
+
+  // Recursively folds `source` into `target`:
+  //   1. Re-points properties from source.id → target.id
+  //   2. For each source child: if target has a same-slug child, recurse;
+  //      otherwise reparent the child to target.
+  //   3. Deletes source.
+  // Recursion handles cases like merging "Costa del Sol Cádiz" → "Costa del
+  // Sol Málaga" where both sides also have an overlapping sub-municipality.
+  private async mergeInto(tenantId: number, source: Location, target: Location): Promise<void> {
+    if (source.id === target.id) return;
+
+    await this.locationRepository.manager.query(
+      'UPDATE properties SET locationId = ? WHERE tenantId = ? AND locationId = ?',
+      [target.id, tenantId, source.id],
+    );
+
+    const sourceChildren = await this.locationRepository.find({
+      where: { tenantId, parentId: source.id },
+    });
+
+    for (const child of sourceChildren) {
+      const twin = await this.locationRepository.findOne({
+        where: { tenantId, parentId: target.id, slug: child.slug },
+      });
+      if (twin && twin.id !== child.id) {
+        await this.mergeInto(tenantId, child, twin);
+      } else {
+        await this.locationRepository.update({ id: child.id, tenantId }, { parentId: target.id });
+      }
+    }
+
+    await this.locationRepository.delete({ id: source.id, tenantId });
   }
 
   async incrementPropertyCount(tenantId: number, locationId: number): Promise<void> {

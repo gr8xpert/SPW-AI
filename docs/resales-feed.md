@@ -140,6 +140,42 @@ Resales only sends **5 fields**, none labelled "Region" or "Urbanization":
 
 If you map Resales' field names to internal levels by name alone, the data ends up at the wrong layer. Use the explicit table above.
 
+### `SearchProperties` vs `PropertyDetails` — Location shape differs
+
+The two endpoints return Location differently. After merging list + detail responses, the same field can live in two places:
+
+- **SearchProperties** (list view): flat siblings at root
+  ```json
+  { "Province": "Málaga", "Area": "Costa del Sol", "Location": "Marbella", "SubLocation": "Nueva Andalucía" }
+  ```
+- **PropertyDetails** (detail view): nested inside `Location`
+  ```json
+  { "Location": { "LocationName": "Marbella", "Province": "Málaga", "Area": "Costa del Sol", "SubLocation": "Nueva Andalucía" } }
+  ```
+
+The adapter merge (`{ ...listProperty, ...detailRaw }`) replaces `raw.Location` with the object form. Read every location field from **both** places:
+
+```ts
+const locObj = (raw.Location && typeof raw.Location === 'object') ? raw.Location : null;
+const locationName = locObj?.LocationName || (typeof raw.Location === 'string' ? raw.Location : '');
+const subLocation  = locObj?.SubLocation || raw.SubLocation || '';
+const province     = locObj?.Province    || raw.Province    || '';
+const area         = locObj?.Area        || raw.Area        || '';
+```
+
+Reading only the root-level `raw.SubLocation` silently drops every town after the detail merge — properties end up under their municipality with no town level created.
+
+### Cross-province areas are valid duplicates (Costa del Sol)
+
+The hierarchy is a strict tree, so an Area that spans multiple provinces gets a separate node per province. **Costa del Sol** is the textbook case — it covers parts of both Málaga (Marbella, Estepona) and Cádiz (Sotogrande), so the importer correctly creates:
+
+```
+Andalucía → Málaga → Costa del Sol → Marbella, ...
+Andalucía → Cádiz  → Costa del Sol → Sotogrande, ...
+```
+
+This is **not** a bug — it's the price of a tree where Area is a child of Province. To collapse them, the user re-parents one onto a province that already has a same-slug Area; the system auto-merges (see *Auto-merge on reparent* below).
+
 ### Walking the chain
 
 `findOrCreateLocation` builds the chain top-down, creating each missing level and pointing its `parentId` at the previous one. Skip a level when its value equals the parent's value (e.g. some properties have `SubLocation == Location`).
@@ -156,6 +192,18 @@ Spain → Málaga → Costa del Sol → Marbella    → Centro    ✓ (same slug
 If you index on `(tenantId, slug)` only, the second "Centro" import silently reuses the first one and ends up attached to the wrong municipality.
 
 When looking up an existing node, scope by parent: `findOne({ where: { tenantId, slug, parentId } })`.
+
+### Auto-merge on reparent
+
+When the user (or any code path) moves a location to a new parent that **already has a same-slug sibling**, the system folds the moved node into its twin:
+
+1. Re-points every property from `source.id` → `target.id`
+2. Reparents each source child under target — recursively merging if the children also collide
+3. Deletes the source row
+
+This lets the dashboard's bulk-move dialog also act as a "merge tool": select **Costa del Sol (Cádiz)**, move it under **Málaga**, and the system silently merges it into the existing Costa del Sol there along with any overlapping sub-municipalities. The API returns `{ count, merged }` so the toast can say *"Moved 2 · merged 1 duplicate"*.
+
+The unique index `(tenantId, parentId, slug)` would otherwise reject the move with a constraint violation, so the merge path is the only way for users to consolidate duplicates without manual SQL.
 
 ## Property types
 
@@ -239,6 +287,35 @@ After mapping each property to our internal shape, compute a SHA-256 of the sort
 
 Always include enrichment fields (financial values, featureCategories, etc.) in the hashed payload so changes to mapping logic trigger a full re-link on next sync.
 
+### `missingX` re-attach branches
+
+`contentHash` matching is the right default — but it makes the importer skip rows even when **the row lost a link to a related taxonomy** (e.g. its `locationId` was nulled). Each related link needs an explicit "missing" check that bypasses the hash skip:
+
+```ts
+const missingPropertyType = !existing.propertyTypeId && !!feedProperty.propertyType && feedProperty.propertyType !== 'Unknown';
+const missingFeatures     = (!existing.features?.length) && feedProperty.features.length > 0;
+const missingLocation     = !existing.locationId && hasIncomingLocation;
+
+if (!dataChanged && !imagesChanged && !promote && !neverPublished
+    && !missingPropertyType && !missingFeatures && !missingLocation) return 'skipped';
+```
+
+Then each branch only writes the single column it owns. Without `missingLocation`, the "Wipe & Re-import" flow nulls every `locationId` but the resync sees "hash unchanged" and skips — the locations table stays empty.
+
+## Wipe & Re-import
+
+Destructive operational button on the feeds page: `POST /api/dashboard/feeds/:id/wipe-and-sync`. Used after a hierarchy/mapping fix when you want a clean rebuild instead of mixing old and new rows.
+
+What it does:
+
+1. `UPDATE properties SET locationId = NULL WHERE tenantId = ?`
+2. `SET FOREIGN_KEY_CHECKS = 0; DELETE FROM locations WHERE tenantId = ?; SET FOREIGN_KEY_CHECKS = 1;`
+3. Queues a normal feed sync — the `missingLocation` branch in `importProperty` re-attaches every property to its newly-built chain.
+
+Property types and features are **not** wiped — they import correctly by `slug` and don't suffer from the SubLocation-style mapping bug.
+
+`FOREIGN_KEY_CHECKS = 0` is required because `locations.parentId` references `locations.id` with `ON DELETE SET NULL`. The self-referential cascade would slow the delete to a crawl on large tenants (thousands of rows × per-row update).
+
 ## Sync progress
 
 Persist counters (`totalFetched`, `createdCount`, `updatedCount`, `skippedCount`, `errorCount`) to the `feed_import_logs` row after every page. The dashboard polls `GET /:configId/sync-status` every 3 seconds while a sync is running to drive the progress bar.
@@ -266,6 +343,11 @@ Persist counters (`totalFetched`, `createdCount`, `updatedCount`, `skippedCount`
 | AI Organize button does nothing | No OpenRouter key resolved | Set `OPENROUTER_API_KEY` env var on the API and `pm2 restart spm-api --update-env` |
 | AI re-overwrites user's manual parent choice | Skipping `aiAssigned` flag check on re-run | Only re-evaluate rows where `aiAssigned=true` |
 | API error after migration | Orphaned dist files from removed feature (e.g. Paddle → Stripe) | Delete corresponding files from `apps/api/dist` |
+| 0 towns imported | Adapter reads `raw.SubLocation` only from root, missing the nested form in PropertyDetails | Read SubLocation from both `raw.Location?.SubLocation` and `raw.SubLocation` |
+| Wipe ran but locations still 0 after resync | `contentHash` matches → `importProperty` returned `skipped` → `findOrCreateLocation` never called | Add `missingLocation` to the skip-condition + an "if missing only" re-attach branch |
+| Two "Costa del Sol" nodes — one per province | Tree hierarchy forces duplication for areas spanning multiple provinces | Expected. User merges via bulk-move (auto-merge on slug collision) |
+| Bulk move fails with unique-constraint violation | Target parent already has a child with the same slug as the moved node | The move path must run the merge logic instead of a raw `parentId` update |
+| Next.js chunk 404 / MIME error after deploy | `.next/static/`, `.next/server/`, and `.next/BUILD_ID` uploaded out of sync | Replace all three together from the same build; hard-refresh the browser |
 
 ## Re-implementation checklist
 
@@ -285,6 +367,8 @@ If porting this to another project:
    - `findOrCreateLocation` builds the 6-level parent chain, looking up by `(tenantId, parentId, slug)`
    - `findPropertyTypeId` auto-creates the leaf type
    - `findFeatureIds` auto-creates with category hint and upgrades 'other' on resync
+   - `importProperty` must include `missingLocation` / `missingPropertyType` / `missingFeatures` branches that bypass the `contentHash` skip when a relationship was orphaned (e.g. after a wipe)
+   - `wipeLocationsAndSync` for clean rebuilds: nulls `properties.locationId`, deletes locations under `FOREIGN_KEY_CHECKS = 0`, then queues a normal sync
 5. **Queue**: BullMQ job that calls `fetchProperties` in a paginated loop, importing each property via `importProperty`, persisting progress after each page.
 6. **AI enrichment module**:
    - Calls OpenRouter (Claude Haiku 4.5) with platform-key fallback
@@ -294,5 +378,25 @@ If porting this to another project:
 7. **Sync-status endpoint** for the dashboard to poll.
 8. **Widget search**: when filtering by parent `locationId` or `propertyTypeId`, expand to include all descendant ids before applying the IN clause.
 9. **Reset/lock fields**: support per-property `lockedFields[]` so users can pin a field and prevent the feed from overwriting it.
+10. **Location service** must implement auto-merge on reparent (`update` + `bulkMove`): when moving a node to a parent that already has a same-slug sibling, re-point properties + reparent children (recursively) + delete the source. Without this, every duplicate-area cleanup hits the `(tenantId, parentId, slug)` unique-constraint wall.
 
-That covers the integration end-to-end. Live behavior is in `apps/api/src/modules/feed/adapters/resales.adapter.ts`, `apps/api/src/modules/feed/feed.service.ts`, and `apps/api/src/modules/ai-enrichment/ai-enrichment.service.ts`.
+That covers the integration end-to-end. Live behavior is in:
+
+- `apps/api/src/modules/feed/adapters/resales.adapter.ts` — field mapping + list/detail merge
+- `apps/api/src/modules/feed/feed.service.ts` — `importProperty`, `findOrCreateLocation`, `wipeLocationsAndSync`
+- `apps/api/src/modules/location/location.service.ts` — auto-merge on reparent (`update` + `bulkMove` + `mergeInto`)
+- `apps/api/src/modules/ai-enrichment/ai-enrichment.service.ts` — Region / type-group / feature-category enrichment
+
+## Next.js deploy gotcha
+
+The dashboard is Next.js App Router. Hot-deployed bundles use **hash-named chunks** that all reference each other. When you change one page:
+
+- `BUILD_ID` is regenerated
+- Many chunk filenames change
+- The server-rendered HTML embeds the new chunk hashes verbatim
+
+If you upload `.next/server/` and `.next/BUILD_ID` but skip a chunk in `.next/static/` (or vice versa), the browser asks for a hash that doesn't exist and gets the Nginx 404 HTML body, which fails with `MIME type ('text/html') is not executable`.
+
+**Safe pattern**: always replace `.next/server/`, `.next/static/`, `.next/BUILD_ID`, and `.next/*.json` together from the same build. `.next/cache/` is build-only — never upload it (it's ~440 MB of webpack cache).
+
+Route-group folders use **parentheses** (`(dashboard)`, `(admin)`). Some FTP clients (notably Plesk's web file manager) mangle these to `%28dashboard%29`. If parens disappear from the server paths, switch to FileZilla/WinSCP or upload a zip and unzip via SSH.
