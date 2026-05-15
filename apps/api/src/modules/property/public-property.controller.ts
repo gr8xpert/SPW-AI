@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Headers, UnauthorizedException, NotFoundException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Headers, UnauthorizedException, NotFoundException, UseGuards, UseInterceptors } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PropertyService } from './property.service';
 import { PropertySearchService } from './property-search.service';
@@ -7,6 +7,7 @@ import { TenantService } from '../tenant/tenant.service';
 import { SetMetadata } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
+import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -17,6 +18,7 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 // per-request limit from tenant.plan.ratePerMinute.
 @Controller('api/v1/properties')
 @UseGuards(ApiKeyThrottlerGuard)
+@UseInterceptors(ResolveNameInterceptor)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
 export class PublicPropertyController {
   constructor(
