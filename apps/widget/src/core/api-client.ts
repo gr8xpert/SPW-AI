@@ -48,6 +48,11 @@ export class ApiClient {
     }
 
     const json = await res.json();
+    // Preserve paginated envelopes ({ data, meta }) — callers like searchProperties
+    // need meta.{page,total,pages,limit}. Plain { data: T } envelopes get unwrapped.
+    if (json && typeof json === 'object' && 'data' in json && 'meta' in json) {
+      return json as T;
+    }
     return (json.data !== undefined ? json.data : json) as T;
   }
 

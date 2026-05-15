@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { PropertyService } from './property.service';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto, LockFieldsDto, UnlockFieldsDto } from './dto';
-import { JwtAuthGuard, TenantGuard } from '../../common/guards';
-import { CurrentTenant, CurrentUser } from '../../common/decorators';
+import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
+import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
 
 @Controller('api/dashboard/properties')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
 export class PropertyController {
   constructor(private readonly propertyService: PropertyService) {}
 
@@ -24,7 +24,12 @@ export class PropertyController {
     return this.propertyService.findOne(tenantId, id);
   }
 
+  // Only the manual-create path is gated by the `addProperty` add-on.
+  // Reads/updates/deletes/lock toggles stay unguarded so a downgraded tenant
+  // can still manage the rows they already have (and that feed imports
+  // continue to maintain).
   @Post()
+  @RequiresAddon('addProperty')
   async create(@CurrentTenant() tenantId: number, @Body() dto: CreatePropertyDto) {
     return this.propertyService.create(tenantId, dto);
   }

@@ -13,6 +13,13 @@ export type WebhookDeliveryStatus =
   | 'failed'
   | 'skipped';
 
+// Which tenant-owned URL this delivery targets. 'main' uses tenant.webhookUrl
+// (the dashboard-managed primary webhook). 'inquiry' uses tenant.inquiryWebhookUrl
+// (the dedicated lead-capture URL — Zapier/HubSpot/Make-style integration).
+// Both channels share the tenant's webhookSecret for signing — same trust
+// boundary, no benefit in doubling the rotation surface.
+export type WebhookDeliveryChannel = 'main' | 'inquiry';
+
 export type WebhookEvent =
   | 'property.created'
   | 'property.updated'
@@ -54,6 +61,13 @@ export class WebhookDelivery {
     default: 'pending',
   })
   status: WebhookDeliveryStatus;
+
+  @Column({
+    type: 'enum',
+    enum: ['main', 'inquiry'],
+    default: 'main',
+  })
+  channel: WebhookDeliveryChannel;
 
   @Column({ type: 'int', default: 0 })
   attemptCount: number;

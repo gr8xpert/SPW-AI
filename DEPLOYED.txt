@@ -1,0 +1,7 @@
+deployed_at:   2026-05-15T18:40 (local build time)
+git_head:      e774044388c8e1c8f0a21c7ad8aca06db2b69d4f
+git_message:   Fix Resales location import + add wipe/merge tooling
+wip_files:     66 files uncommitted, +1724/-657 lines (WIP bundle, not on a branch)
+dashboard_id:  u2s2fdZjomEeE657wkC34
+new_deps:      cron-parser (added to apps/api)
+includes:      API Keys UI (client + super admin), security hardening, webhook changes, license module edits, encryption migrations (already applied to prod), tests

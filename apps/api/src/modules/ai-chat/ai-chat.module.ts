@@ -14,6 +14,7 @@ import { AiChatPromptService } from './ai-chat-prompt.service';
 import { AiChatAnalyticsController } from './ai-chat-analytics.controller';
 import { AiChatAnalyticsService } from './ai-chat-analytics.service';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guar
     AiChatPromptService,
     AiChatAnalyticsService,
     ApiKeyThrottlerGuard,
+    DashboardAddonGuard,
   ],
   exports: [AiChatService],
 })

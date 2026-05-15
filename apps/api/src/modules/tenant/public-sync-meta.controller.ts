@@ -35,7 +35,7 @@ export class PublicSyncMetaController {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
-    const tenant = await this.tenantService.findByApiKey(apiKey);
+    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }

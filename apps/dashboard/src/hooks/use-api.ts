@@ -99,7 +99,11 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         throw err;
       }
     },
-    [apiUrl, session?.accessToken]
+    // `update` is required so the 401-retry path captures the latest
+    // session-refresh function — without it, a stale `update` from the
+    // first render could fail to actually refresh the token across long
+    // idle periods.
+    [apiUrl, session?.accessToken, update]
   );
 
   const get = useCallback(

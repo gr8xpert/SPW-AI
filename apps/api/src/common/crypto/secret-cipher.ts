@@ -76,3 +76,30 @@ export const encryptedColumn: ValueTransformer = {
     return decryptSecret(value);
   },
 };
+
+// Transformer for JSON-shaped secrets (e.g. FeedConfig.credentials). Stored as
+// AES-GCM ciphertext in a TEXT column; deserialised back into the original
+// object on read. Pre-encryption legacy rows (raw JSON or already-parsed
+// objects from MySQL JSON columns) are tolerated.
+export const encryptedJsonColumn: ValueTransformer = {
+  to(value: unknown): string | null {
+    if (value === null || value === undefined) return null;
+    const json = typeof value === 'string' ? value : JSON.stringify(value);
+    if (!json || json === 'null') return null;
+    return encryptSecret(json);
+  },
+  from(value: unknown): unknown {
+    if (value === null || value === undefined) return null;
+    // MySQL JSON columns hand us a parsed object; encrypted TEXT columns hand
+    // us a string. Treat anything non-string as an already-parsed legacy row.
+    if (typeof value !== 'string') return value;
+    if (value === '') return null;
+    const plain = decryptSecret(value);
+    if (!plain) return null;
+    try {
+      return JSON.parse(plain);
+    } catch {
+      return null;
+    }
+  },
+};

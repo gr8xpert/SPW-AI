@@ -57,3 +57,10 @@ upload.tar.gz
 
 # Per-user Claude Code settings (project-level settings.json is fine to share)
 .claude/settings.local.json
+
+# Local dev secrets — never commit
+.local-dev-key.txt
+.codex/
+
+# Windows accidental file
+/nul

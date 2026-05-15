@@ -13,12 +13,13 @@ import {
 } from '@nestjs/common';
 import { TeamService } from './team.service';
 import { InviteUserDto, UpdateUserDto, ChangePasswordDto, ResetPasswordDto } from './dto';
-import { JwtAuthGuard, TenantGuard } from '../../common/guards';
-import { CurrentTenant, CurrentUser } from '../../common/decorators';
+import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
+import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
 import { JwtPayload } from '@spm/shared';
 
 @Controller('api/dashboard/team')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('team')
 export class TeamController {
   constructor(private readonly teamService: TeamService) {}
 

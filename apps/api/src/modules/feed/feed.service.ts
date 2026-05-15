@@ -10,12 +10,36 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { createHash } from 'crypto';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
+import type { FeedCredentials } from '../../database/entities/feed-config.entity';
 import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
+import { PropertyQuotaService } from '../property/property-quota.service';
+import { isValidCronExpression } from './cron-validator';
+
+// Returns a credentials object safe to send to API consumers — secret fields
+// are reduced to a "last 4 chars" hint so the dashboard can re-render the
+// configured state without exposing the underlying value.
+function maskFeedCredentials(creds: FeedCredentials | null | undefined): FeedCredentials {
+  if (!creds) return {};
+  const masked: FeedCredentials = { ...creds };
+  for (const key of ['apiKey', 'password'] as const) {
+    const value = masked[key];
+    if (typeof value === 'string' && value.length > 0) {
+      masked[key] = value.length > 4
+        ? '••••' + value.slice(-4)
+        : '••••';
+    }
+  }
+  return masked;
+}
+
+function maskedFeedConfig(config: FeedConfig): FeedConfig {
+  return { ...config, credentials: maskFeedCredentials(config.credentials) };
+}
 
 @Injectable()
 export class FeedService {
@@ -46,6 +70,7 @@ export class FeedService {
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
     private readonly aiEnrichmentService: AiEnrichmentService,
+    private readonly propertyQuotaService: PropertyQuotaService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -64,10 +89,11 @@ export class FeedService {
   }
 
   async findAllConfigs(tenantId: number): Promise<FeedConfig[]> {
-    return this.feedConfigRepository.find({
+    const configs = await this.feedConfigRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
     });
+    return configs.map(maskedFeedConfig);
   }
 
   async findConfigById(tenantId: number, id: number): Promise<FeedConfig> {
@@ -79,6 +105,20 @@ export class FeedService {
       throw new NotFoundException('Feed config not found');
     }
 
+    return maskedFeedConfig(config);
+  }
+
+  // Internal-only accessor used by the import worker and adapters. Returns the
+  // full decrypted credentials object. NEVER pass the result to a controller —
+  // dashboard-facing reads must go through findConfigById / findAllConfigs which
+  // mask secrets.
+  private async findConfigWithCredentials(tenantId: number, id: number): Promise<FeedConfig> {
+    const config = await this.feedConfigRepository.findOne({
+      where: { id, tenantId },
+    });
+    if (!config) {
+      throw new NotFoundException('Feed config not found');
+    }
     return config;
   }
 
@@ -90,12 +130,23 @@ export class FeedService {
       throw new BadRequestException(result.error || 'Invalid feed credentials');
     }
 
+    // Validate cron expression at save time so a typo doesn't silently fall
+    // through to the scheduler's 24h fallback.
+    if (dto.syncSchedule && !isValidCronExpression(dto.syncSchedule)) {
+      throw new BadRequestException({
+        message: 'syncSchedule is not a valid cron expression',
+        code: 'INVALID_CRON',
+        value: dto.syncSchedule,
+      });
+    }
+
     const config = this.feedConfigRepository.create({
       ...dto,
       tenantId,
     });
 
-    return this.feedConfigRepository.save(config);
+    const saved = await this.feedConfigRepository.save(config);
+    return maskedFeedConfig(saved);
   }
 
   async updateConfig(
@@ -103,19 +154,39 @@ export class FeedService {
     id: number,
     dto: UpdateFeedConfigDto,
   ): Promise<FeedConfig> {
-    const config = await this.findConfigById(tenantId, id);
+    const config = await this.findConfigWithCredentials(tenantId, id);
 
     if (dto.credentials) {
+      // Dashboard re-saves typically send back the masked values we returned
+      // ("••••abcd"). Preserve the existing stored value for any field whose
+      // incoming value still contains the mask sentinel, so unedited fields
+      // don't get clobbered to "••••abcd" on disk.
+      const merged: FeedCredentials = { ...(config.credentials || {}) };
+      for (const [key, value] of Object.entries(dto.credentials) as Array<[keyof FeedCredentials, string | undefined]>) {
+        if (typeof value === 'string' && value.includes('••••')) continue;
+        merged[key] = value;
+      }
+      dto.credentials = merged;
+
       const adapter = this.getAdapter(config.provider);
-      const result = await adapter.validateCredentials(dto.credentials);
+      const result = await adapter.validateCredentials(merged);
 
       if (!result.valid) {
         throw new BadRequestException(result.error || 'Invalid feed credentials');
       }
     }
 
+    if (dto.syncSchedule && !isValidCronExpression(dto.syncSchedule)) {
+      throw new BadRequestException({
+        message: 'syncSchedule is not a valid cron expression',
+        code: 'INVALID_CRON',
+        value: dto.syncSchedule,
+      });
+    }
+
     Object.assign(config, dto);
-    return this.feedConfigRepository.save(config);
+    const saved = await this.feedConfigRepository.save(config);
+    return maskedFeedConfig(saved);
   }
 
   async deleteConfig(tenantId: number, id: number): Promise<void> {
@@ -123,8 +194,46 @@ export class FeedService {
     await this.feedConfigRepository.remove(config);
   }
 
-  async triggerSync(tenantId: number, configId: number): Promise<FeedImportLog> {
-    const config = await this.findConfigById(tenantId, configId);
+  // `scheduledWindow` is supplied by the scheduler (hour bucket like 2026051310).
+  // When present, the BullMQ jobId is deterministic — duplicate scheduler ticks
+  // across replicas collapse to a single queued job. When absent (manual
+  // dashboard trigger), a unique jobId is generated so the operator can re-run
+  // even within the same window.
+  async triggerSync(
+    tenantId: number,
+    configId: number,
+    options?: { scheduledWindow?: string },
+  ): Promise<FeedImportLog> {
+    const config = await this.findConfigWithCredentials(tenantId, configId);
+
+    // Refuse to start a second import while one is already running for the
+    // same tenant/config. The window-aware caller (scheduler) already collapses
+    // duplicate ticks via the deterministic jobId, but a manual operator click
+    // followed by a scheduler tick still needs catching here.
+    const running = await this.importLogRepository.findOne({
+      where: { feedConfigId: config.id, tenantId: config.tenantId, status: 'running' },
+      order: { id: 'DESC' },
+    });
+    if (running) {
+      const ageMs = Date.now() - new Date(running.startedAt).getTime();
+      // A run that's been "running" for >2h is almost certainly a worker that
+      // died without writing back. We surface that as a regular start so a
+      // jammed import isn't permanent — the scheduler/operator can move forward.
+      const STALE_MS = 2 * 60 * 60 * 1000;
+      if (ageMs < STALE_MS) {
+        this.logger.log(
+          `Refusing duplicate triggerSync for config=${config.id} (existing running log #${running.id}, age=${ageMs}ms)`,
+        );
+        return running;
+      }
+      this.logger.warn(
+        `Found stale running log #${running.id} for config=${config.id} (age=${ageMs}ms); marking failed and continuing`,
+      );
+      running.status = 'failed';
+      running.completedAt = new Date();
+      running.errors = [{ ref: 'system', error: 'stale running log — superseded' }];
+      await this.importLogRepository.save(running);
+    }
 
     const importLog = this.importLogRepository.create({
       feedConfigId: config.id,
@@ -135,11 +244,19 @@ export class FeedService {
 
     await this.importLogRepository.save(importLog);
 
-    await this.feedImportQueue.add('import', {
-      configId: config.id,
-      importLogId: importLog.id,
-      tenantId,
-    });
+    const jobId = options?.scheduledWindow
+      ? `feed-import:${config.id}:${options.scheduledWindow}`
+      : `feed-import:${config.id}:${importLog.id}`;
+
+    await this.feedImportQueue.add(
+      'import',
+      {
+        configId: config.id,
+        importLogId: importLog.id,
+        tenantId,
+      },
+      { jobId },
+    );
 
     return importLog;
   }
@@ -198,6 +315,15 @@ export class FeedService {
     let page = 1;
     let hasMore = true;
 
+    // Quota budget for new properties this import. We snapshot remaining
+    // slots once per page so the importer makes progress on an already-full
+    // tenant (updates still happen) without doing a count query per row.
+    // Updates and skips don't consume the budget — only fresh inserts do.
+    let quotaRemaining = await this.propertyQuotaService
+      .checkQuota(config.tenantId)
+      .then((q) => q.remaining)
+      .catch(() => Number.POSITIVE_INFINITY);
+
     try {
       while (hasMore) {
         const result = await adapter.fetchProperties(config.credentials, page, 100);
@@ -211,11 +337,23 @@ export class FeedService {
               config.provider,
               feedProperty,
               config.fieldMapping,
+              quotaRemaining,
             );
 
-            if (outcome === 'created') createdCount++;
-            else if (outcome === 'updated') updatedCount++;
-            else skippedCount++;
+            if (outcome === 'created') {
+              createdCount++;
+              if (Number.isFinite(quotaRemaining)) quotaRemaining--;
+            } else if (outcome === 'updated') {
+              updatedCount++;
+            } else if (outcome === 'quota_skipped') {
+              skippedCount++;
+              errors.push({
+                ref: feedProperty.reference,
+                error: 'PLAN_QUOTA_EXCEEDED — upgrade plan to import this property',
+              });
+            } else {
+              skippedCount++;
+            }
           } catch (error) {
             errors.push({
               ref: feedProperty.reference,
@@ -307,7 +445,8 @@ export class FeedService {
     provider: string,
     feedProperty: FeedProperty,
     fieldMapping: any,
-  ): Promise<'created' | 'updated' | 'skipped'> {
+    quotaRemaining: number,
+  ): Promise<'created' | 'updated' | 'skipped' | 'quota_skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
         tenantId,
@@ -429,6 +568,13 @@ export class FeedService {
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {
+      // Quota gate for new rows. Updates above already ran — keeping existing
+      // listings in sync is more important than refusing the whole batch
+      // when a tenant is over budget. Caller (processImport) flags this with
+      // a PLAN_QUOTA_EXCEEDED error row so the dashboard surfaces it.
+      if (quotaRemaining <= 0) {
+        return 'quota_skipped';
+      }
       const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
       const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
       const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);

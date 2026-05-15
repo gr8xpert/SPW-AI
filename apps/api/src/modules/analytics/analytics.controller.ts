@@ -10,12 +10,15 @@ import {
   ParseIntPipe,
   Req,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AnalyticsService } from './analytics.service';
 import { TenantService } from '../tenant/tenant.service';
 import { TrackViewDto, TrackSearchDto, TrackPdfDto } from './dto';
 import { CurrentTenant, CurrentUser, Public } from '../../common/decorators';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Controller('api/dashboard/analytics')
 export class AnalyticsController {
@@ -102,7 +105,13 @@ export class AnalyticsController {
   }
 }
 
+// Widget tracking firehose. Per-tenant API-key bucket with a higher cap than
+// the inquiry/share endpoints since a single page view can fire several
+// track events legitimately (view + favorite-add + pdf-download).
 @Controller('api/v1/track')
+@UseGuards(ApiKeyThrottlerGuard)
+@SkipThrottle({ default: true, short: true, medium: true, long: true })
+@Throttle({ 'api-key': { limit: 300, ttl: 60_000 } })
 export class TrackingController {
   constructor(
     private readonly analyticsService: AnalyticsService,
@@ -111,7 +120,7 @@ export class TrackingController {
 
   private async resolveTenant(apiKey: string): Promise<number> {
     if (!apiKey) throw new UnauthorizedException('API key required');
-    const tenant = await this.tenantService.findByApiKey(apiKey);
+    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
     return tenant.id;
   }
@@ -155,6 +164,9 @@ export class TrackingController {
 }
 
 @Controller('api/v1/favorites')
+@UseGuards(ApiKeyThrottlerGuard)
+@SkipThrottle({ default: true, short: true, medium: true, long: true })
+@Throttle({ 'api-key': { limit: 120, ttl: 60_000 } })
 export class FavoritesController {
   constructor(
     private readonly analyticsService: AnalyticsService,
@@ -163,7 +175,7 @@ export class FavoritesController {
 
   private async resolveTenant(apiKey: string): Promise<number> {
     if (!apiKey) throw new UnauthorizedException('API key required');
-    const tenant = await this.tenantService.findByApiKey(apiKey);
+    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
     return tenant.id;
   }

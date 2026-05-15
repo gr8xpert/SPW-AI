@@ -15,6 +15,7 @@
  */
 import 'reflect-metadata';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { DataSource } from 'typeorm';
 import dataSource from '../config/database.config';
 import { Plan } from './entities/plan.entity';
@@ -163,7 +164,7 @@ async function seedSuperAdmin(ds: DataSource): Promise<void> {
         isInternal: true,
         apiKeyHash: platformKey.hash,
         apiKeyLast4: platformKey.last4,
-        webhookSecret: require('crypto').randomBytes(32).toString('hex'),
+        webhookSecret: randomBytes(32).toString('hex'),
       }),
     );
     console.log('[tenant] platform (internal) created');

@@ -3,13 +3,24 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { Tenant, WebhookDelivery, WebhookEvent } from '../../database/entities';
+import {
+  Tenant,
+  WebhookDelivery,
+  WebhookDeliveryChannel,
+  WebhookEvent,
+} from '../../database/entities';
 import { validateWebhookTarget } from './webhook-target';
 
 export const WEBHOOK_QUEUE = 'webhook-dispatch';
 
 export interface WebhookJobData {
   deliveryId: number;
+}
+
+export interface EmitOptions {
+  // 'main' (default) uses tenant.webhookUrl. 'inquiry' uses
+  // tenant.inquiryWebhookUrl — the dedicated lead-capture URL.
+  channel?: WebhookDeliveryChannel;
 }
 
 @Injectable()
@@ -26,40 +37,50 @@ export class WebhookService {
   ) {}
 
   // Emit an event for a tenant. Creates a delivery row + enqueues a job.
-  // No-ops (with status='skipped') if the tenant has no webhookUrl or the URL
-  // fails the SSRF pre-flight — we still record the row so the dashboard can
-  // surface "tried to deliver, dropped because no URL configured".
+  // No-ops (with status='skipped') if the tenant has no URL configured for the
+  // channel or the URL fails the SSRF pre-flight — we still record the row so
+  // the dashboard can surface "tried to deliver, dropped because no URL".
   async emit(
     tenantId: number,
     event: WebhookEvent,
     payload: Record<string, unknown>,
+    options: EmitOptions = {},
   ): Promise<WebhookDelivery> {
+    const channel: WebhookDeliveryChannel = options.channel ?? 'main';
     const tenant = await this.tenantRepo.findOne({
       where: { id: tenantId },
-      select: ['id', 'webhookUrl', 'webhookSecret'],
+      select: ['id', 'webhookUrl', 'webhookSecret', 'inquiryWebhookUrl'],
     });
 
-    if (!tenant || !tenant.webhookUrl) {
+    // Resolve the target URL for the channel. Inquiry channel uses the
+    // dedicated column; main uses the legacy webhookUrl. Both share
+    // webhookSecret for signing (same tenant trust boundary).
+    const targetUrl =
+      channel === 'inquiry' ? tenant?.inquiryWebhookUrl : tenant?.webhookUrl;
+
+    if (!tenant || !targetUrl) {
       const delivery = this.deliveryRepo.create({
         tenantId,
         event,
+        channel,
         targetUrl: '',
         payload,
         status: 'skipped',
-        lastError: 'no webhookUrl configured',
+        lastError: `no ${channel} webhookUrl configured`,
       });
       return this.deliveryRepo.save(delivery);
     }
 
-    const check = validateWebhookTarget(tenant.webhookUrl);
+    const check = validateWebhookTarget(targetUrl);
     if (!check.ok) {
       this.logger.warn(
-        `webhook target rejected for tenant ${tenantId}: ${check.reason}`,
+        `webhook target rejected for tenant ${tenantId} (${channel}): ${check.reason}`,
       );
       const delivery = this.deliveryRepo.create({
         tenantId,
         event,
-        targetUrl: tenant.webhookUrl,
+        channel,
+        targetUrl,
         payload,
         status: 'skipped',
         lastError: `ssrf_block:${check.reason}`,
@@ -71,7 +92,8 @@ export class WebhookService {
       this.deliveryRepo.create({
         tenantId,
         event,
-        targetUrl: tenant.webhookUrl,
+        channel,
+        targetUrl,
         payload,
         status: 'pending',
       }),

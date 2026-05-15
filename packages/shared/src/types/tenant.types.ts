@@ -75,6 +75,11 @@ export interface TenantSettings {
   // Customization
   wishlistIcon?: WishlistIcon;
   recaptchaSiteKey?: string;
+  /**
+   * @deprecated Moved to encrypted `tenants.recaptchaSecretKey` column. Not returned
+   * by API responses. Reads still tolerate this field for legacy callers, but
+   * new code should use the dedicated column.
+   */
   recaptchaSecretKey?: string;
   extraConfigJson?: Record<string, any>;
 
@@ -105,6 +110,10 @@ export interface TenantSettings {
   locationSearchConfig?: LocationSearchConfig;
 
   // AI / OpenRouter
+  /**
+   * @deprecated Moved to encrypted `tenants.openrouterApiKey` column. Not returned
+   * by API responses.
+   */
   openRouterApiKey?: string;
   openRouterModel?: string;
 
@@ -118,7 +127,11 @@ export interface TenantSettings {
 
   // Inquiry notifications
   inquiryNotificationEmails?: string[];  // Recipients for new inquiry alerts
-  inquiryWebhookUrl?: string;            // POST new inquiries to this URL (Zapier/HubSpot/etc)
+  /**
+   * @deprecated Moved to validated `tenants.inquiryWebhookUrl` column with SSRF
+   * pre-flight on save. Not returned by API responses.
+   */
+  inquiryWebhookUrl?: string;
   inquiryAutoReplyEnabled?: boolean;     // Send confirmation email to the inquirer
 
   // AI Chat — master toggle
@@ -149,6 +162,12 @@ export interface TenantPublic {
   // Dashboard add-on flags (per-client). Locked features grey out
   // their entry points and gate page content.
   dashboardAddons: DashboardAddons;
+  // "Configured" booleans for secrets stored in dedicated encrypted columns.
+  // The dashboard renders a "Configured" indicator from these — the raw values
+  // are never returned by the API.
+  recaptchaSecretKeyConfigured: boolean;
+  openRouterApiKeyConfigured: boolean;
+  inquiryWebhookUrlConfigured: boolean;
 }
 
 export interface TenantWithApiKey extends TenantPublic {

@@ -14,6 +14,7 @@ import {
   FeedExportConfigController,
   FeedExportController,
 } from './feed-export.controller';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import {
     ]),
   ],
   controllers: [FeedExportConfigController, FeedExportController],
-  providers: [FeedExportService],
+  providers: [FeedExportService, DashboardAddonGuard],
   exports: [FeedExportService],
 })
 export class FeedExportModule {}

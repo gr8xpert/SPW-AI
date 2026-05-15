@@ -717,13 +717,18 @@ Server: Ubuntu 22.04+ / VPS (24-core, 128GB RAM target for 500+ tenants)
 ### Deploy Process
 
 > **Important:** There is no git on the production server. Code is uploaded via FTP/SFTP.
+> See `DEPLOYMENT.md` for the full pre/post-deploy checklist and rollback.
 
 1. Build locally: `pnpm deploy:build`
-2. Upload built artifacts via FTP/SFTP
-3. SSH into server
-4. Install dependencies: `pnpm install --frozen-lockfile`
-5. Run migrations: `pnpm migration:run`
-6. Restart PM2: `pm2 restart ecosystem.config.js --env production`
+2. Upload built artifacts (`apps/api/dist/`, `apps/dashboard/.next/`,
+   `apps/widget/dist/`, `packages/shared/dist/`) via FTP/SFTP. Upload
+   new migration source files too (`apps/api/src/database/migrations/*.ts`).
+3. SSH into server.
+4. `pnpm install --frozen-lockfile` (only if lockfile changed).
+5. `pnpm db:migrate` (only if migrations changed). Equivalent to
+   `pnpm --filter api migration:run`.
+6. `pm2 restart api dashboard` (omit `dashboard` if its build didn't change).
+7. `pm2 logs api --lines 100` — confirm boot audit passes.
 
 ### Docker Alternative
 
@@ -893,14 +898,14 @@ GET /api/health/ready  →  DB + Redis + BullMQ all healthy
 
 | Area | Suggestion |
 |---|---|
-| Testing | Add Jest unit tests for services, Playwright E2E for dashboard, Vitest for widget |
-| CI/CD | GitHub Actions pipeline: lint → test → build → deploy (SFTP or Docker push) |
+| Testing | API has a Jest unit suite (~56 tests covering security/crypto/quota/SSRF/subscription/cron) and an e2e Jest suite (`apps/api/test/`) that requires MySQL + Redis. Coverage is partial — dashboard has no automated tests, widget has typecheck-only. Add Playwright E2E for dashboard and Vitest for widget. |
+| CI/CD | GitHub Actions pipeline: lint → test → build → deploy (SFTP or Docker push). Today the deploy is operator-driven via SFTP+PM2 — see `DEPLOYMENT.md`. |
 | Database | Add read replicas for query-heavy tenants. Consider tenant-aware connection pooling |
 | Caching | Add Redis caching layer for property listings (cache invalidation on update) |
 | WebSocket | Replace polling with WebSocket for real-time property updates and chat |
 | Widget code splitting | Lazy-load chat, map, and detail components to reduce initial bundle |
 | Monitoring | Add Sentry for error tracking, Prometheus + Grafana for metrics |
-| Rate limiting | Per-tenant rate limits (not just per-IP) to prevent API abuse |
+| Rate limiting | ~~Per-tenant rate limits (not just per-IP)~~ — done via `ApiKeyThrottlerGuard` on every `/api/v1/*` widget endpoint plus per-endpoint @Throttle ceilings on write paths. |
 
 ---
 

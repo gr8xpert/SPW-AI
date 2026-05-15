@@ -19,6 +19,7 @@ import {
 import { TenantModule } from '../tenant/tenant.module';
 import { UploadModule } from '../upload/upload.module';
 import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
+import { PropertyModule } from '../property/property.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
     TenantModule,
     UploadModule,
     AiEnrichmentModule,
+    PropertyModule,
   ],
   controllers: [FeedController],
   providers: [

@@ -41,6 +41,48 @@ export class PropertySearchService {
     return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
 
+  // Returns up to `limit` properties that share location and/or property type
+  // with the given reference (active + published only). Self is excluded.
+  // Used by the widget's "Similar properties" carousel on the detail page.
+  async findSimilar(
+    tenantId: number,
+    reference: string,
+    limit: number,
+  ): Promise<Property[]> {
+    const source = await this.propertyRepository.findOne({
+      where: { tenantId, reference },
+      select: ['id', 'locationId', 'propertyTypeId', 'price'],
+    });
+    if (!source) return [];
+
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+
+    const qb = this.propertyRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.location', 'location')
+      .leftJoinAndSelect('p.propertyType', 'propertyType')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.id != :id', { id: source.id })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true });
+
+    if (source.locationId || source.propertyTypeId) {
+      qb.andWhere('(p.locationId = :locationId OR p.propertyTypeId = :propertyTypeId)', {
+        locationId: source.locationId,
+        propertyTypeId: source.propertyTypeId,
+      });
+    }
+    // Sort by price proximity when available — visually closer to the source
+    // listing than raw createdAt order.
+    if (source.price != null) {
+      qb.addOrderBy('ABS(p.price - :basePrice)', 'ASC').setParameter('basePrice', source.price);
+    } else {
+      qb.addOrderBy('p.createdAt', 'DESC');
+    }
+
+    return qb.take(safeLimit).getMany();
+  }
+
   // Expands a selected parent id (location or type) to itself + all descendants.
   // Used so picking "Marbella" returns properties in every child town/area.
   private async expandDescendants(
@@ -75,13 +117,56 @@ export class PropertySearchService {
   }
 
   private async applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto, tenantId: number): Promise<void> {
-    if (dto.locationId) {
+    if (dto.reference) {
+      query.andWhere('p.reference = :reference', { reference: dto.reference });
+    }
+    // Multi-location: union of expanded subtrees so picking several cities
+    // returns properties across all of them.
+    if (dto.locationIds?.length) {
+      const all = new Set<number>();
+      for (const id of dto.locationIds) {
+        for (const expanded of await this.expandDescendants(tenantId, id, 'locations')) {
+          all.add(expanded);
+        }
+      }
+      if (all.size > 0) {
+        query.andWhere('p.locationId IN (:...locationIdsExpanded)', {
+          locationIdsExpanded: [...all],
+        });
+      }
+    } else if (dto.locationId) {
       const ids = await this.expandDescendants(tenantId, dto.locationId, 'locations');
       query.andWhere('p.locationId IN (:...locationIds)', { locationIds: ids });
     }
     if (dto.propertyTypeId) {
       const ids = await this.expandDescendants(tenantId, dto.propertyTypeId, 'property_types');
       query.andWhere('p.propertyTypeId IN (:...typeIds)', { typeIds: ids });
+    }
+    // Geo filters. `bounds` (SW/NE box) takes priority over lat/lng/radius
+    // because the map drag-to-search is the more deliberate query shape.
+    if (dto.bounds) {
+      const parts = dto.bounds.split(',').map((s) => Number(s.trim()));
+      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+        const [swLat, swLng, neLat, neLng] = parts;
+        query.andWhere('p.lat BETWEEN :swLat AND :neLat', { swLat, neLat });
+        // Crosses-antimeridian bounding boxes are pathological — we treat
+        // them as an empty result rather than wrapping; the widget doesn't
+        // emit those.
+        query.andWhere('p.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
+      }
+    } else if (dto.lat !== undefined && dto.lng !== undefined && dto.radius) {
+      // Haversine in km. ratio = degrees per km at the search latitude
+      // (latitude ~111km/deg; longitude shrinks by cos(lat)). Good enough
+      // for property search radii without a spatial index.
+      query.andWhere(
+        '(' +
+          '6371 * 2 * ASIN(SQRT(' +
+          'POWER(SIN(RADIANS(p.lat - :lat) / 2), 2) + ' +
+          'COS(RADIANS(:lat)) * COS(RADIANS(p.lat)) * ' +
+          'POWER(SIN(RADIANS(p.lng - :lng) / 2), 2)' +
+          ')) <= :radius)',
+        { lat: dto.lat, lng: dto.lng, radius: dto.radius },
+      );
     }
     if (dto.listingType) query.andWhere('p.listingType = :listingType', { listingType: dto.listingType });
     if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });

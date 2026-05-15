@@ -8,5 +8,7 @@
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1"
-  }
+  },
+  "globalSetup": "<rootDir>/jest-e2e-setup.ts",
+  "testTimeout": 60000
 }

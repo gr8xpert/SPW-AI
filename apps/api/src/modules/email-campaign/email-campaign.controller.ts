@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { EmailCampaignService } from './email-campaign.service';
 import {
@@ -17,9 +18,12 @@ import {
   CreateCampaignDto,
   UpdateCampaignDto,
 } from './dto';
-import { CurrentTenant } from '../../common/decorators';
+import { CurrentTenant, RequiresAddon } from '../../common/decorators';
+import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 
 @Controller('api/dashboard/email-config')
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('emailCampaign')
 export class EmailConfigController {
   constructor(private readonly service: EmailCampaignService) {}
 
@@ -43,6 +47,8 @@ export class EmailConfigController {
 }
 
 @Controller('api/dashboard/email-templates')
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('emailCampaign')
 export class EmailTemplateController {
   constructor(private readonly service: EmailCampaignService) {}
 
@@ -95,6 +101,8 @@ export class EmailTemplateController {
 }
 
 @Controller('api/dashboard/campaigns')
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('emailCampaign')
 export class CampaignController {
   constructor(private readonly service: EmailCampaignService) {}
 

@@ -197,18 +197,26 @@ sudo certbot --nginx -d api.yourdomain.com -d dashboard.yourdomain.com
 
 ## Widget Deployment
 
-After building, the widget files are in `apps/widget/dist/`:
+After building, the widget files are in `apps/widget/dist/` (Vite outputs
+them as `spm-widget.<format>.js` — keep this name everywhere; the WP
+plugin's `<script src>` and tenant snippets all expect it):
 
-- `spw-widget.iife.js` - For `<script>` tag inclusion
-- `spw-widget.es.js` - For ES module imports
-- `spw-widget.umd.js` - Universal module
+- `spm-widget.iife.js` — For `<script>` tag inclusion
+- `spm-widget.es.js` — For ES module imports
+- `spm-widget.umd.js` — Universal module
+- `spm-widget.css` — Extracted styles (the IIFE/UMD also inject their
+  styles via `vite-plugin-css-injected-by-js`, so this file is only
+  needed when consuming the ES build manually).
 
 ### CDN Deployment
 
-Upload the dist folder to your CDN or serve from your API:
+Upload the `dist/` folder to your CDN (or copy to the API public folder):
 
 ```bash
-# Example: Copy to API public folder
+# Local → CDN (example: cdn.spw-ai.com served from apps/widget/dist on the host)
+rsync -av apps/widget/dist/ user@cdn-host:/var/www/cdn.spw-ai.com/
+
+# Or: serve from the API host
 cp -r apps/widget/dist/* apps/api/public/widget/
 ```
 
@@ -216,7 +224,7 @@ cp -r apps/widget/dist/* apps/api/public/widget/
 
 ```html
 <!-- Include the widget script -->
-<script src="https://api.yourdomain.com/widget/spw-widget.iife.js"></script>
+<script src="https://cdn.yourdomain.com/spm-widget.iife.js"></script>
 
 <!-- Or use auto-initialization with data attributes -->
 <div
@@ -248,15 +256,100 @@ pm2 logs
 pm2 monit
 ```
 
-## Updating
+## Updating (production — current spw-ai.com process)
+
+> **Production has no git checkout.** Build locally, upload artifacts via
+> SFTP/FTP, restart PM2. Do **not** `git pull` on the server — it's the
+> wrong process for this deploy. See the matching note at the top of this
+> file under "Current Production Environment".
+
+### Pre-deploy checklist
+
+- [ ] Latest `main` pulled locally; tree clean.
+- [ ] `pnpm typecheck` (4 packages green).
+- [ ] `pnpm --filter api exec jest --runInBand` (unit suite green).
+- [ ] `pnpm --filter api lint` exits 0 (warnings OK).
+- [ ] Any new migrations reviewed for destructive operations.
+- [ ] **Database backup taken** if migrations modify data — see
+      `BACKUP_RESTORE.md`.
+- [ ] `ENCRYPTION_KEY` on the server matches the key used to encrypt
+      existing `enc:v1:` rows (never rotate without the procedure in
+      `BACKUP_RESTORE.md`).
+
+### Deploy
 
 ```bash
-cd /var/www/spw
-git pull
+# On your dev machine:
+cd /path/to/spw
 pnpm install
-pnpm deploy:build
-pm2 restart all
+pnpm deploy:build       # builds api/dashboard/widget into dist + .next + dist
+
+# Upload the built artifacts. Adjust paths to your SFTP client of choice:
+#   apps/api/dist/             →   /var/www/vhosts/spw-ai.com/spw/apps/api/dist/
+#   apps/dashboard/.next/      →   /var/www/vhosts/spw-ai.com/spw/apps/dashboard/.next/
+#   apps/widget/dist/          →   /var/www/vhosts/spw-ai.com/spw/apps/widget/dist/
+#   packages/shared/dist/      →   /var/www/vhosts/spw-ai.com/spw/packages/shared/dist/
+#
+# If you added/changed migrations, also upload the source files under
+#   apps/api/src/database/migrations/
+# so the migration runner picks them up.
+
+# On the server (SSH):
+cd /var/www/vhosts/spw-ai.com/spw
+
+# Only if package.json / pnpm-lock.yaml changed locally:
+pnpm install --frozen-lockfile
+
+# Only if migrations changed. `pnpm db:migrate` is the canonical command
+# (root-level); equivalent to `pnpm --filter api migration:run`. Both
+# invoke `typeorm migration:run -d apps/api/dist/config/database.config.js`.
+pnpm db:migrate
+
+pm2 restart api
+pm2 restart dashboard  # only if the dashboard build changed
+pm2 logs api --lines 100   # confirm boot audit passes
 ```
+
+### Post-deploy verification
+
+- [ ] `pm2 status` shows `online` for `api` and `dashboard`.
+- [ ] `pm2 logs api --lines 200` — no boot-audit failures, no migration
+      retry loops.
+- [ ] `curl https://api.spw-ai.com/api/health` returns
+      `{status: ok, checks: {database: ok, redis: ok}}`.
+- [ ] Dashboard login works against a known account.
+- [ ] One widget request against a real tenant API key returns 200
+      (`GET /api/v1/sync-meta` is the cheapest probe).
+- [ ] Stripe webhook (if you changed payment code) ping in the Stripe
+      dashboard returns 200.
+
+### Rollback
+
+If post-deploy verification fails:
+
+1. `pm2 stop api dashboard`
+2. Replace `apps/api/dist/`, `apps/dashboard/.next/`, `apps/widget/dist/`,
+   `packages/shared/dist/` with the previous version (keep a tarball of
+   the prior artifacts on the build host for exactly this).
+3. If migrations ran and need to be undone, restore from the pre-deploy
+   `mysqldump` (`migration:revert` only reverses the last migration's
+   schema changes; destructive data migrations like the encryption-split
+   ones in 5Q explicitly refuse to round-trip).
+4. `pm2 restart api dashboard`.
+
+### Docker / docker-compose deploy (alternative)
+
+If running via `docker-compose.prod.yml` instead of bare-metal PM2:
+
+```bash
+# On the build host:
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec api pnpm db:migrate
+```
+
+This path needs a populated `.env.production` at the repo root — copy
+`.env.production.example` and fill in every value before the first start.
 
 ## Environment Variables Reference
 
@@ -519,7 +612,7 @@ Update DNS A records to point to new server IP:
 
 - [ ] API responds: `curl https://api.spw-ai.com/health`
 - [ ] Dashboard login works: https://dashboard.spw-ai.com/login
-- [ ] Widget loads: https://cdn.spw-ai.com/spw-widget.iife.js
+- [ ] Widget loads: https://cdn.spw-ai.com/spm-widget.iife.js
 - [ ] Database queries work (check dashboard data)
 - [ ] SSL certificates valid (check browser)
 - [ ] PM2 processes stable: `pm2 list`

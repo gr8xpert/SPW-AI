@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
+import { encryptedJsonColumn } from '../../common/crypto/secret-cipher';
 
 export type FeedProvider = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'kyero' | 'odoo';
 export type FeedSyncStatus = 'success' | 'partial' | 'failed';
@@ -48,7 +49,11 @@ export class FeedConfig {
   @Column({ length: 100 })
   name: string;
 
-  @Column({ type: 'json' })
+  // Encrypted at rest (AES-256-GCM via encryptedJsonColumn). Column type widened
+  // to TEXT in EncryptFeedCredentials migration so ciphertext fits comfortably.
+  // Legacy rows (plaintext JSON written before that migration) decrypt to
+  // themselves via the cipher's passthrough.
+  @Column({ type: 'text', transformer: encryptedJsonColumn })
   credentials: FeedCredentials;
 
   @Column({ type: 'json', nullable: true })

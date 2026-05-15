@@ -1,0 +1,46 @@
+.spw-wrap .spw-tagline { color:#646970; margin:0 0 24px; font-size:14px; }
+.spw-grid { display:grid; grid-template-columns: minmax(0,1fr) 320px; gap:24px; }
+@media (max-width: 960px) { .spw-grid { grid-template-columns:1fr; } }
+.spw-card { background:#fff; border:1px solid #c3c4c7; padding:16px; margin-bottom:16px; border-radius:4px; }
+.spw-card h3 { margin-top:0; }
+.spw-card ul { margin:0 0 12px; padding-left:18px; }
+.spw-files { list-style:none; padding:0 !important; }
+.spw-files li { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #f0f0f1; }
+.spw-files .ok { color:#00a32a; font-weight:600; }
+.spw-files .warn { color:#dba617; }
+.spw-codes code { background:#f0f0f1; padding:2px 6px; border-radius:3px; font-size:12px; }
+.spw-status { margin-left:8px; font-weight:600; }
+.spw-status.ok { color:#00a32a; }
+.spw-status.err { color:#d63638; }
+.required { color:#d63638; }
+.spw-wrap label + label { margin-left:14px; }
+
+/* Tab nav */
+.spw-nav-tabs { margin: 12px 0 20px; }
+
+/* Shortcodes reference */
+.spw-ref { max-width: 1100px; }
+.spw-ref-toc {
+    position: sticky; top: 32px; z-index: 5;
+    background:#fff; border:1px solid #c3c4c7; border-radius:4px;
+    padding:10px 14px; margin-bottom:16px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.spw-ref-toc a { text-decoration:none; font-size:13px; }
+.spw-ref-toc strong { color:#1d2327; }
+.spw-ref section { scroll-margin-top: 80px; }
+.spw-ref h2 { margin-top:0; border-bottom:1px solid #f0f0f1; padding-bottom:8px; }
+.spw-ref h3 { margin-top:18px; margin-bottom:6px; font-size:14px; }
+.spw-ref pre {
+    background:#1d2327; color:#e8eaed; padding:12px 14px;
+    border-radius:4px; overflow-x:auto; font-size:13px; line-height:1.5;
+}
+.spw-ref pre code { background:none; color:inherit; padding:0; }
+.spw-ref code { background:#f0f0f1; padding:2px 6px; border-radius:3px; font-size:12px; }
+.spw-ref-table { margin-bottom: 8px; }
+.spw-ref-table th { font-weight:600; }
+.spw-ref-table td code { word-break: break-word; }
+.spw-ref .ok { color:#00a32a; }
+.spw-ref .warn { color:#8c8f94; }
+.spw-ref p { line-height:1.6; }

@@ -7,6 +7,7 @@ import { LeadController, InquiryController, ShareFavoritesController } from './l
 import { ContactModule } from '../contact/contact.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { WebhookModule } from '../webhook/webhook.module';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { WebhookModule } from '../webhook/webhook.module';
     WebhookModule,
   ],
   controllers: [LeadController, InquiryController, ShareFavoritesController],
-  providers: [LeadService, LeadScoringService],
+  providers: [LeadService, LeadScoringService, ApiKeyThrottlerGuard],
   exports: [LeadService],
 })
 export class LeadModule {}

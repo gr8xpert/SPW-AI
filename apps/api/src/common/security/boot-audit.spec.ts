@@ -165,6 +165,41 @@ describe('auditEnvironment', () => {
     expect(problems).toEqual([]);
   });
 
+  it('flags TRUST_PROXY=true in production (wildcard footgun)', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      TRUST_PROXY: 'true',
+    } as any);
+    expect(problems).toContainEqual(
+      expect.stringContaining('TRUST_PROXY=true is unsafe in production'),
+    );
+  });
+
+  it('allows TRUST_PROXY=loopback in production', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      TRUST_PROXY: 'loopback',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
+  it('allows TRUST_PROXY with an explicit CIDR list in production', () => {
+    const { problems } = auditEnvironment({
+      ...SAFE_PROD_ENV,
+      TRUST_PROXY: '10.0.0.0/8,172.16.0.0/12',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
+  it('allows TRUST_PROXY=true outside production', () => {
+    const { problems } = auditEnvironment({
+      NODE_ENV: 'development',
+      ENCRYPTION_KEY: 'a'.repeat(32),
+      TRUST_PROXY: 'true',
+    } as any);
+    expect(problems).toEqual([]);
+  });
+
   it('tolerates dev-style env without problems', () => {
     const { problems } = auditEnvironment({
       NODE_ENV: 'development',

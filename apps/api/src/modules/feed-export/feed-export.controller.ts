@@ -9,15 +9,19 @@ import {
   Headers,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { FeedExportService } from './feed-export.service';
 import { UpdateFeedExportConfigDto } from './dto';
-import { CurrentTenant, Public } from '../../common/decorators';
+import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
 import { ExportFormat } from '../../database/entities';
+import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 
 // Dashboard controller for managing feed export config
 @Controller('api/dashboard/feed-export')
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('feedExport')
 export class FeedExportConfigController {
   constructor(private readonly service: FeedExportService) {}
 

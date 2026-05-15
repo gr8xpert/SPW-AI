@@ -17,6 +17,36 @@ export class LeadService {
     private scoringService: LeadScoringService,
   ) {}
 
+  // Duplicate-inquiry guard used by the public widget endpoints (review
+  // P1-09). Returns an existing lead created within `windowMs` for the same
+  // (tenantId, email, propertyId) so a refresh-spamming visitor or a
+  // double-clicked submit button doesn't pile up identical leads — and the
+  // tenant doesn't get N copies of the same notification email.
+  //
+  // propertyId is part of the dedupe key, so the same visitor can legitimately
+  // inquire about two different listings within the window.
+  async findRecentDuplicateInquiry(
+    tenantId: number,
+    email: string,
+    propertyId: number | null | undefined,
+    windowMs: number,
+  ): Promise<Lead | null> {
+    if (!email) return null;
+    const threshold = new Date(Date.now() - windowMs);
+    const qb = this.leadRepository
+      .createQueryBuilder('lead')
+      .innerJoin('lead.contact', 'contact')
+      .where('lead.tenantId = :tenantId', { tenantId })
+      .andWhere('contact.email = :email', { email: email.toLowerCase() })
+      .andWhere('lead.createdAt >= :threshold', { threshold });
+    if (propertyId == null) {
+      qb.andWhere('lead.propertyId IS NULL');
+    } else {
+      qb.andWhere('lead.propertyId = :propertyId', { propertyId });
+    }
+    return qb.orderBy('lead.createdAt', 'DESC').getOne();
+  }
+
   async create(
     tenantId: number,
     userId: number,

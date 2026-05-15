@@ -9,6 +9,7 @@ import {
   EmailSend,
   Contact,
   Property,
+  Tenant,
 } from '../../database/entities';
 import { EmailCampaignService } from './email-campaign.service';
 import { EmailSenderService } from './email-sender.service';
@@ -18,6 +19,7 @@ import {
   EmailTemplateController,
   CampaignController,
 } from './email-campaign.controller';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import {
       EmailSend,
       Contact,
       Property,
+      Tenant,
     ]),
     BullModule.registerQueue({
       name: 'email-campaign',
@@ -45,7 +48,7 @@ import {
     EmailTemplateController,
     CampaignController,
   ],
-  providers: [EmailCampaignService, EmailSenderService, EmailCampaignProcessor],
+  providers: [EmailCampaignService, EmailSenderService, EmailCampaignProcessor, DashboardAddonGuard],
   exports: [EmailCampaignService, EmailSenderService],
 })
 export class EmailCampaignModule {}

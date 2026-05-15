@@ -15,6 +15,7 @@ import {
   FavoritesController,
 } from './analytics.controller';
 import { TenantModule } from '../tenant/tenant.module';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { TenantModule } from '../tenant/tenant.module';
     ]),
   ],
   controllers: [AnalyticsController, TrackingController, FavoritesController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, ApiKeyThrottlerGuard],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

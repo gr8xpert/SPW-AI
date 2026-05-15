@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { parseTrustProxy } from './trust-proxy';
 
 // Boot-time security audit. Catches the #1 cause of "deployed API is crashing"
 // incidents: operator forgot to replace a placeholder env, or left a dev-only
@@ -166,6 +167,19 @@ export function auditEnvironment(
     if (!env.DASHBOARD_URL) {
       problems.push(
         'DASHBOARD_URL must be set in production (used for CORS allowlist + verification email links)',
+      );
+    }
+
+    // Trust-proxy guard. `TRUST_PROXY=true` (wildcard) tells Express to trust
+    // the LAST entry of X-Forwarded-For unconditionally. If anything in front
+    // of the API accepts arbitrary X-Forwarded-For from the public internet,
+    // a client can forge their req.ip — which would defeat the
+    // ApiKeyThrottlerGuard's per-IP probe budget. Force the operator to be
+    // explicit about which proxy(ies) are trusted.
+    const tp = parseTrustProxy(env.TRUST_PROXY, true);
+    if (tp.wildcardInProduction) {
+      problems.push(
+        'TRUST_PROXY=true is unsafe in production — set it to "loopback" (nginx-on-same-host) or an explicit CIDR list of trusted proxies. Wildcard trust lets clients spoof X-Forwarded-For.',
       );
     }
   }

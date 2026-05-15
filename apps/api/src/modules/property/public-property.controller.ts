@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query, Headers, UnauthorizedException, NotFoundException, UseGuards } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PropertyService } from './property.service';
+import { PropertySearchService } from './property-search.service';
 import { SearchPropertyDto } from './dto';
 import { TenantService } from '../tenant/tenant.service';
 import { SetMetadata } from '@nestjs/common';
@@ -20,14 +21,18 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 export class PublicPropertyController {
   constructor(
     private readonly propertyService: PropertyService,
+    private readonly propertySearchService: PropertySearchService,
     private readonly tenantService: TenantService,
   ) {}
 
+  // Resolves the tenant + verifies entitlement (active subscription + widget
+  // enabled). Returns 401 either way so a probe can't distinguish "wrong key"
+  // from "expired subscription".
   private async getTenantIdFromApiKey(apiKey: string): Promise<number> {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
-    const tenant = await this.tenantService.findByApiKey(apiKey);
+    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
@@ -39,6 +44,21 @@ export class PublicPropertyController {
   async search(@Headers('x-api-key') apiKey: string, @Query() dto: SearchPropertyDto) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey);
     return this.propertyService.search(tenantId, dto);
+  }
+
+  // Similar properties for the widget detail page. Declared BEFORE `:reference`
+  // so the route matcher doesn't treat "FOO/similar" as a single reference
+  // segment.
+  @Public()
+  @Get(':reference/similar')
+  async findSimilar(
+    @Headers('x-api-key') apiKey: string,
+    @Param('reference') reference: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const tenantId = await this.getTenantIdFromApiKey(apiKey);
+    const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 6, 1), 50) : 6;
+    return this.propertySearchService.findSimilar(tenantId, reference, limit);
   }
 
   @Public()

@@ -7,6 +7,7 @@ import axios, { AxiosError } from 'axios';
 import { createHmac } from 'crypto';
 import { Tenant, WebhookDelivery } from '../../database/entities';
 import { WEBHOOK_QUEUE, WebhookJobData } from './webhook.service';
+import { validateWebhookTargetAsync } from './webhook-target';
 
 // Signature format: `t=<unix>,v1=<hex>` (loosely modeled on Stripe's).
 // Receivers should reconstruct the signed body as `${timestamp}.${body}` and
@@ -39,15 +40,37 @@ export class WebhookProcessor extends WorkerHost {
       return;
     }
 
-    // Tenant could have removed the URL between emit and dispatch.
+    // Tenant could have removed the URL between emit and dispatch. We compare
+    // against the channel-specific URL — the inquiry webhook uses
+    // tenant.inquiryWebhookUrl, the main webhook uses tenant.webhookUrl.
+    // Both channels share webhookSecret for signing (same trust boundary).
     const tenant = await this.tenantRepo.findOne({
       where: { id: delivery.tenantId },
-      select: ['id', 'webhookUrl', 'webhookSecret'],
+      select: ['id', 'webhookUrl', 'webhookSecret', 'inquiryWebhookUrl'],
     });
-    if (!tenant || !tenant.webhookUrl || tenant.webhookUrl !== delivery.targetUrl) {
+    const currentUrl =
+      delivery.channel === 'inquiry' ? tenant?.inquiryWebhookUrl : tenant?.webhookUrl;
+    if (!tenant || !currentUrl || currentUrl !== delivery.targetUrl) {
       await this.deliveryRepo.update(deliveryId, {
         status: 'skipped',
-        lastError: 'webhookUrl changed or removed after emit',
+        lastError: `${delivery.channel} webhookUrl changed or removed after emit`,
+      });
+      return;
+    }
+
+    // DNS re-check immediately before dispatch. The URL was validated at
+    // save time, but a domain that resolves to a public IP then can return
+    // a private IP now (DNS rebinding or operator misconfig). Skip dispatch
+    // rather than letting axios send the request — `skipped` is a soft
+    // outcome BullMQ doesn't retry forever.
+    const dnsCheck = await validateWebhookTargetAsync(currentUrl);
+    if (!dnsCheck.ok) {
+      this.logger.warn(
+        `webhook dispatch blocked for tenant=${tenant.id}: ${dnsCheck.reason}`,
+      );
+      await this.deliveryRepo.update(deliveryId, {
+        status: 'skipped',
+        lastError: `ssrf_block:${dnsCheck.reason}`,
       });
       return;
     }
@@ -64,7 +87,7 @@ export class WebhookProcessor extends WorkerHost {
     const attempt = (delivery.attemptCount ?? 0) + 1;
 
     try {
-      const res = await axios.post(tenant.webhookUrl, body, {
+      const res = await axios.post(currentUrl, body, {
         headers: {
           'Content-Type': 'application/json',
           [EVENT_HEADER]: delivery.event,

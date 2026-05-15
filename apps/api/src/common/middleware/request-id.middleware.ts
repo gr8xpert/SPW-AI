@@ -13,6 +13,7 @@ export const REQUEST_ID_HEADER = 'X-Request-Id';
 // the canonical Express v4 pattern; @types/express re-exports Request from
 // the global Express namespace.
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       requestId?: string;

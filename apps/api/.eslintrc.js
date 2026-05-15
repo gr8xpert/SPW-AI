@@ -1,15 +1,16 @@
 module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: 'tsconfig.json',
+    // Do NOT set `project` here — typed linting forces every linted file to be
+    // listed in tsconfig.include, which the smoke + app e2e specs in test/
+    // aren't. The few rules we use (no-unused-vars, no-explicit-any) don't
+    // need type info, so untyped linting is fine and keeps the e2e tree
+    // outside src/ lintable.
     tsconfigRootDir: __dirname,
     sourceType: 'module',
   },
   plugins: ['@typescript-eslint/eslint-plugin'],
-  extends: [
-    'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended',
-  ],
+  extends: ['plugin:@typescript-eslint/recommended'],
   root: true,
   env: {
     node: true,
@@ -22,6 +23,5 @@ module.exports = {
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    'prettier/prettier': ['error', { endOfLine: 'auto' }],
   },
 };

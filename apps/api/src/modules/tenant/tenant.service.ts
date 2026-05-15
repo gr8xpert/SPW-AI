@@ -6,7 +6,7 @@ import { Tenant, WebhookDelivery } from '../../database/entities';
 import { TenantPublic, TenantSettings } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { WebhookService } from '../webhook/webhook.service';
-import { validateWebhookTarget } from '../webhook/webhook-target';
+import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
 
 export interface CacheClearResult {
   tenantId: number;
@@ -57,6 +57,18 @@ export class TenantService {
     });
   }
 
+  // Like findByApiKey but additionally enforces the entitlements required for
+  // public widget API access: active subscription (with grace window respected)
+  // and widgetEnabled. Returns null when any check fails so the caller can
+  // throw the appropriate 401/403 without leaking which condition tripped.
+  async findActiveWidgetTenantByApiKey(rawApiKey: string): Promise<Tenant | null> {
+    const tenant = await this.findByApiKey(rawApiKey);
+    if (!tenant) return null;
+    if (!tenant.widgetEnabled) return null;
+    if (!isTenantSubscriptionValid(tenant)) return null;
+    return tenant;
+  }
+
   // Rotates the tenant's API key. Returns the raw key exactly once; callers
   // must persist it immediately (e.g. in the dashboard flash message).
   async rotateApiKey(tenantId: number): Promise<{ apiKey: string; apiKeyLast4: string }> {
@@ -83,10 +95,69 @@ export class TenantService {
       throw new NotFoundException('Tenant not found');
     }
 
-    if (settings.openRouterApiKey && settings.openRouterApiKey.includes('••••')) {
-      delete settings.openRouterApiKey;
+    // Pull secrets/SSRF-relevant fields out of the JSON payload and route them
+    // to the dedicated encrypted/validated columns. Masked values (e.g.
+    // "abc••••xyz" from a re-save where the user didn't retype the key) are
+    // silently ignored so the existing column is preserved.
+    const {
+      recaptchaSecretKey,
+      openRouterApiKey,
+      inquiryWebhookUrl,
+      ...publicSettings
+    } = settings as Partial<TenantSettings> & {
+      recaptchaSecretKey?: string;
+      openRouterApiKey?: string;
+      inquiryWebhookUrl?: string;
+    };
+
+    if (recaptchaSecretKey !== undefined) {
+      const trimmed = typeof recaptchaSecretKey === 'string' ? recaptchaSecretKey.trim() : '';
+      if (trimmed === '') {
+        tenant.recaptchaSecretKey = null;
+      } else if (!trimmed.includes('••••')) {
+        tenant.recaptchaSecretKey = trimmed;
+      }
     }
-    tenant.settings = { ...tenant.settings, ...settings };
+
+    if (openRouterApiKey !== undefined) {
+      const trimmed = typeof openRouterApiKey === 'string' ? openRouterApiKey.trim() : '';
+      if (trimmed === '') {
+        tenant.openrouterApiKey = null;
+      } else if (!trimmed.includes('••••')) {
+        tenant.openrouterApiKey = trimmed;
+      }
+    }
+
+    if (inquiryWebhookUrl !== undefined) {
+      const trimmed = typeof inquiryWebhookUrl === 'string' ? inquiryWebhookUrl.trim() : '';
+      if (trimmed === '') {
+        tenant.inquiryWebhookUrl = null;
+      } else if (trimmed.includes('••••')) {
+        // Re-save from dashboard where the user didn't retype the URL —
+        // keep the stored value unchanged.
+      } else {
+        // Async variant resolves DNS so a domain that points at a private IP
+        // is rejected even when the host part of the URL is non-literal.
+        const check = await validateWebhookTargetAsync(trimmed);
+        if (!check.ok) {
+          throw new BadRequestException({
+            message: 'inquiryWebhookUrl rejected',
+            code: 'INQUIRY_WEBHOOK_URL_INVALID',
+            reason: check.reason,
+          });
+        }
+        tenant.inquiryWebhookUrl = trimmed;
+      }
+    }
+
+    const merged = { ...tenant.settings, ...publicSettings } as Record<string, any>;
+    // Belt and braces: if a legacy caller (or a prior migration) left secret
+    // values in the JSON blob, scrub them so they can't be returned.
+    delete merged.recaptchaSecretKey;
+    delete merged.openRouterApiKey;
+    delete merged.inquiryWebhookUrl;
+    tenant.settings = merged as TenantSettings;
+
     await this.tenantRepository.save(tenant);
 
     return this.toPublic(tenant);
@@ -173,9 +244,14 @@ export class TenantService {
     return { syncVersion: tenant.syncVersion, tenantSlug: tenant.slug };
   }
 
-  // Returns non-secret API-key metadata. The raw key itself is never
-  // retrievable after generation — admins rotate if they lose it.
-  async getApiCredentials(tenantId: number): Promise<{ apiKeyLast4: string; webhookSecret: string }> {
+  // Returns non-secret API-key metadata. The raw API key and the full webhook
+  // signing secret are never retrievable after generation — admins rotate if
+  // they lose either. Only the last 4 chars are returned so the dashboard can
+  // confirm which credential is active without exposing enough to forge a
+  // signature or re-use the API key.
+  async getApiCredentials(
+    tenantId: number,
+  ): Promise<{ apiKeyLast4: string; webhookSecretLast4: string }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       select: ['apiKeyLast4', 'webhookSecret'],
@@ -187,7 +263,7 @@ export class TenantService {
 
     return {
       apiKeyLast4: tenant.apiKeyLast4,
-      webhookSecret: tenant.webhookSecret,
+      webhookSecretLast4: (tenant.webhookSecret || '').slice(-4),
     };
   }
 
@@ -228,10 +304,12 @@ export class TenantService {
     const normalized = trimmed === '' ? null : trimmed;
 
     if (normalized !== null) {
-      const check = validateWebhookTarget(normalized);
+      const check = await validateWebhookTargetAsync(normalized);
       if (!check.ok) {
         // Surface the SSRF guard's reason so the user knows why
         // http://10.0.0.1/hook got rejected without having to guess.
+        // Async variant catches both literal-private-IP URLs AND domains
+        // that resolve to private IPs.
         throw new BadRequestException({
           message: 'webhookUrl rejected',
           code: 'WEBHOOK_URL_INVALID',
@@ -323,19 +401,20 @@ export class TenantService {
   }
 
   private toPublic(tenant: Tenant): TenantPublic {
-    const settings = { ...tenant.settings };
-    if (settings.openRouterApiKey) {
-      const key = settings.openRouterApiKey;
-      settings.openRouterApiKey = key.length > 8
-        ? key.slice(0, 5) + '••••' + key.slice(-4)
-        : '••••••••';
-    }
+    const settings = { ...(tenant.settings || {}) } as Record<string, any>;
+    // Drop any secrets that may still live in the JSON blob from before the
+    // 5Q split migration. The dashboard reads the *Configured booleans below
+    // to render "Configured" indicators instead of the raw secret.
+    delete settings.recaptchaSecretKey;
+    delete settings.openRouterApiKey;
+    delete settings.inquiryWebhookUrl;
+
     return {
       id: tenant.id,
       name: tenant.name,
       slug: tenant.slug,
       domain: tenant.domain,
-      settings,
+      settings: settings as TenantSettings,
       isActive: tenant.isActive,
       dashboardAddons: tenant.dashboardAddons ?? {
         addProperty: false,
@@ -344,6 +423,24 @@ export class TenantService {
         team: false,
         aiChat: false,
       },
+      recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
+      openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
+      inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
     };
   }
+}
+
+// Subscription validity check used by both the public widget API entitlement
+// path and the license validator. Kept here (not in license.service) so the
+// public/widget hot path doesn't pull in license-specific dependencies.
+export function isTenantSubscriptionValid(tenant: Tenant): boolean {
+  if (tenant.adminOverride) return true;
+  if (tenant.isInternal) return true;
+  if (tenant.subscriptionStatus === 'expired') return false;
+  if (tenant.expiresAt) {
+    const now = new Date();
+    if (tenant.graceEndsAt && now <= tenant.graceEndsAt) return true;
+    if (now > tenant.expiresAt) return false;
+  }
+  return true;
 }

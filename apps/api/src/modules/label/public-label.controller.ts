@@ -1,12 +1,16 @@
-import { Controller, Get, Headers, Query, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { LabelService } from './label.service';
 import { TenantService } from '../tenant/tenant.service';
 import { SetMetadata } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
+import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @Controller('api/v1/labels')
+@UseGuards(ApiKeyThrottlerGuard)
+@SkipThrottle({ default: true, short: true, medium: true, long: true })
 export class PublicLabelController {
   constructor(
     private readonly labelService: LabelService,
@@ -22,7 +26,7 @@ export class PublicLabelController {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
-    const tenant = await this.tenantService.findByApiKey(apiKey);
+    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }

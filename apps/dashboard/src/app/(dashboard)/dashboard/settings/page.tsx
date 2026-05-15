@@ -313,8 +313,13 @@ export default function SettingsPage() {
         if (settings?.languages?.length) {
           setEnabledLanguages(settings.languages);
         }
-        if (settings?.openRouterApiKey) {
-          setAiApiKeyMasked(settings.openRouterApiKey);
+        // Secrets are no longer returned in settings; the API exposes top-level
+        // *Configured booleans on the tenant payload instead. Set masked
+        // placeholders so the UI continues to render a "configured" state, and
+        // the save handler (which skips masked values) won't overwrite.
+        const tenantData = res.data as unknown as { openRouterApiKeyConfigured?: boolean; recaptchaSecretKeyConfigured?: boolean; inquiryWebhookUrlConfigured?: boolean };
+        if (tenantData.openRouterApiKeyConfigured) {
+          setAiApiKeyMasked('••••••••••••');
         }
         if (settings?.openRouterModel) {
           setAiModel(settings.openRouterModel);
@@ -340,10 +345,10 @@ export default function SettingsPage() {
         if (settings?.wishlistIcon) setWishlistIcon(settings.wishlistIcon);
         if (settings?.mapVariation) setMapVariation(settings.mapVariation);
         if (settings?.recaptchaSiteKey) setRecaptchaSiteKey(settings.recaptchaSiteKey);
-        if (settings?.recaptchaSecretKey) setRecaptchaSecretKey(settings.recaptchaSecretKey);
+        if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
         if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
         if (Array.isArray(settings?.inquiryNotificationEmails)) setInquiryNotificationEmails(settings.inquiryNotificationEmails);
-        if (settings?.inquiryWebhookUrl) setInquiryWebhookUrl(settings.inquiryWebhookUrl);
+        if (tenantData.inquiryWebhookUrlConfigured) setInquiryWebhookUrl('••••••••');
         if (typeof settings?.inquiryAutoReplyEnabled === 'boolean') setInquiryAutoReplyEnabled(settings.inquiryAutoReplyEnabled);
       })
       .catch(() => {});
@@ -379,9 +384,9 @@ export default function SettingsPage() {
       })
       .catch(() => {});
 
-    apiGet<{ apiKeyLast4: string }>('/api/dashboard/tenant/api-credentials')
+    apiGet<{ data: { apiKeyLast4: string } }>('/api/dashboard/tenant/api-credentials')
       .then((res) => {
-        setApiKeyLast4(res.apiKeyLast4);
+        setApiKeyLast4(res.data?.apiKeyLast4 ?? null);
       })
       .catch(() => {});
   }, [session?.accessToken]);
@@ -870,11 +875,11 @@ export default function SettingsPage() {
     if (!confirmed) return;
     setRotatingApiKey(true);
     try {
-      const res = await apiPost<{ apiKey: string; apiKeyLast4: string }>(
+      const res = await apiPost<{ data: { apiKey: string; apiKeyLast4: string } }>(
         '/api/dashboard/tenant/api-key/rotate',
       );
-      setRevealedApiKey(res.apiKey);
-      setApiKeyLast4(res.apiKeyLast4);
+      setRevealedApiKey(res.data.apiKey);
+      setApiKeyLast4(res.data.apiKeyLast4);
       toast({
         title: 'API key regenerated',
         description: 'Copy the new key now — it will not be shown again.',
@@ -915,6 +920,10 @@ export default function SettingsPage() {
           <TabsTrigger value="email">
             <Mail className="h-4 w-4 mr-2" />
             Email
+          </TabsTrigger>
+          <TabsTrigger value="api-keys">
+            <Key className="h-4 w-4 mr-2" />
+            API Keys
           </TabsTrigger>
           {/* Webhook tab hidden — only used internally for WP plugin sync, configured by support team */}
           {webhookUrl && (
@@ -1829,7 +1838,79 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* API Keys tab hidden — not needed by clients yet */}
+        {/* API Keys */}
+        <TabsContent value="api-keys" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>API Keys</CardTitle>
+              <CardDescription>
+                Use this key in the <code>x-api-key</code> header to call the public widget API
+                (e.g. <code>GET /api/v1/properties</code>) from your website. Keep it on your server
+                if possible — anyone with the key can read your published listings within your plan&apos;s
+                rate limit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">Widget API Key</p>
+                    <p className="text-sm text-muted-foreground">
+                      {apiKeyLast4
+                        ? `Ends in …${apiKeyLast4}. Rotate if it has been leaked — any integration using the old key will stop working immediately.`
+                        : 'No key generated yet. Click "Regenerate" to create one.'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRotateApiKey}
+                    disabled={rotatingApiKey}
+                  >
+                    {rotatingApiKey ? 'Regenerating…' : apiKeyLast4 ? 'Regenerate' : 'Generate'}
+                  </Button>
+                </div>
+                {revealedApiKey && (
+                  <div className="mt-3 rounded-md border border-primary/20 bg-secondary/20 p-3">
+                    <p className="text-sm font-medium text-primary">
+                      New API key — copy it now. It will not be shown again.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <code className="flex-1 px-2 py-1 bg-muted rounded text-xs break-all">
+                        {revealedApiKey}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(revealedApiKey);
+                          toast({ title: 'Copied to clipboard' });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRevealedApiKey(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-2">
+                <p className="font-medium text-sm">Quick usage</p>
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto"><code>{`fetch('https://api.spw-ai.com/api/v1/properties?limit=20', {
+  headers: { 'x-api-key': 'YOUR_KEY' }
+}).then(r => r.json()).then(({ data }) => console.log(data));`}</code></pre>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
 
         {/* Webhooks */}
         <TabsContent value="webhooks" className="space-y-4">

@@ -156,6 +156,17 @@ export class Tenant {
   @Column({ type: 'varchar', length: 500, nullable: true, transformer: encryptedColumn })
   openrouterApiKey: string | null;
 
+  // Encrypted reCAPTCHA v2/v3 secret. Used server-side to verify tokens
+  // submitted by the widget; never returned by GET endpoints (the public
+  // `recaptchaSiteKey` lives in settings and stays public).
+  @Column({ type: 'varchar', length: 500, nullable: true, transformer: encryptedColumn })
+  recaptchaSecretKey: string | null;
+
+  // Tenant-specific webhook URL receiving inquiry events (Zapier/HubSpot/etc).
+  // SSRF-validated at save time via the same guard the main webhookUrl uses.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  inquiryWebhookUrl: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

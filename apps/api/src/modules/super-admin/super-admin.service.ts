@@ -210,6 +210,9 @@ export class SuperAdminService {
       dashboardAddons: tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS,
       planId: tenant.planId,
       lastCacheClearedAt: tenant.lastCacheClearedAt,
+      recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
+      openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
+      inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       adminUser,
     };
   }

@@ -81,16 +81,6 @@ interface ClientDetail {
   };
 }
 
-interface LicenseKey {
-  id: number;
-  key: string;
-  status: string;
-  domain: string | null;
-  activatedAt: string | null;
-  lastUsedAt: string | null;
-  createdAt: string;
-}
-
 const statusColors: Record<string, string> = {
   active: 'bg-primary',
   grace: 'bg-primary/60',
@@ -107,7 +97,6 @@ export default function ClientDetailPage() {
   const clientId = params.id as string;
 
   const [client, setClient] = useState<ClientDetail | null>(null);
-  const [licenseKeys, setLicenseKeys] = useState<LicenseKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [rotatedApiKey, setRotatedApiKey] = useState<string | null>(null);
@@ -116,12 +105,8 @@ export default function ClientDetailPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clientRes, keysRes] = await Promise.all([
-          api.get(`/api/super-admin/clients/${clientId}`),
-          api.get(`/api/super-admin/clients/${clientId}/license-keys`),
-        ]);
+        const clientRes = await api.get(`/api/super-admin/clients/${clientId}`);
         setClient(clientRes.data);
-        setLicenseKeys(keysRes.data);
       } catch (error) {
         console.error('Failed to fetch client:', error);
       } finally {
@@ -202,30 +187,6 @@ export default function ClientDetailPage() {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const handleGenerateLicenseKey = async () => {
-    try {
-      const response = await api.post(`/api/super-admin/clients/${clientId}/license-keys`, {
-        domain: client?.domain,
-      });
-      setLicenseKeys([response.data, ...licenseKeys]);
-    } catch (error) {
-      console.error('Failed to generate license key:', error);
-    }
-  };
-
-  const handleRevokeLicenseKey = async (keyId: number) => {
-    try {
-      await api.post(`/api/super-admin/clients/${clientId}/license-keys/${keyId}/revoke`);
-      setLicenseKeys(licenseKeys.map(k => k.id === keyId ? { ...k, status: 'revoked' } : k));
-    } catch (error) {
-      console.error('Failed to revoke license key:', error);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
   };
 
   const handleRotateApiKey = async () => {
@@ -322,7 +283,7 @@ export default function ClientDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="license">Widget Keys</TabsTrigger>
+          <TabsTrigger value="license">API Key</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -588,61 +549,27 @@ export default function ClientDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Widget License Keys</CardTitle>
+                <CardTitle>Widget API Key</CardTitle>
                 <CardDescription>
-                  These keys are used by the client on their website to connect the widget or WordPress plugin to this account.
+                  Single key per client. Used by the website widget and WordPress plugin in the <code>x-api-key</code> header. Format: <code>spm_…</code>
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleRotateApiKey} disabled={actionLoading}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
-                  Regenerate Key
-                </Button>
-                <Button onClick={handleGenerateLicenseKey} className="shadow-sm">
-                  <Key className="mr-2 h-4 w-4" />
-                  Add Key
-                </Button>
-              </div>
+              <Button variant="outline" onClick={handleRotateApiKey} disabled={actionLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
+                Regenerate Key
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {licenseKeys.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No license keys generated yet</p>
-                ) : (
-                  licenseKeys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <code className="font-mono font-bold">{key.key}</code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => copyToClipboard(key.key)}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                          <Badge variant={key.status === 'active' ? 'default' : 'destructive'}>
-                            {key.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Domain: {key.domain || 'Any'} • Created: {format(new Date(key.createdAt), 'PP')}
-                          {key.lastUsedAt && ` • Last used: ${format(new Date(key.lastUsedAt), 'PP')}`}
-                        </p>
-                      </div>
-                      {key.status === 'active' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRevokeLicenseKey(key.id)}
-                        >
-                          Revoke
-                        </Button>
-                      )}
-                    </div>
-                  ))
-                )}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono font-bold">{client.apiKey || '— not generated —'}</code>
+                    <Badge variant="default">active</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    The raw key is shown only at generation time. Regenerate to issue a new one — the old key stops working immediately.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

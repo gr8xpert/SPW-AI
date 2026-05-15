@@ -3,11 +3,14 @@ import { AiChatAnalyticsService } from './ai-chat-analytics.service';
 import { AiChatService } from './ai-chat.service';
 import { ChatAnalyticsQueryDto, ChatConversationListDto } from './dto/chat-analytics-query.dto';
 import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { RequiresAddon } from '../../common/decorators/requires-addon.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Controller('api/dashboard/ai-chat')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('aiChat')
 export class AiChatAnalyticsController {
   constructor(
     private readonly analyticsService: AiChatAnalyticsService,

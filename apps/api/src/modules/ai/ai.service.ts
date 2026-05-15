@@ -5,11 +5,23 @@ import axios from 'axios';
 import { Tenant } from '../../database/entities';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514';
+
+// Default model is read from env so operators can swap to a newer Claude/GPT
+// release without a code change. Fallback (the hardcoded constant below)
+// only kicks in when neither tenant settings nor env are set; treat the
+// fallback as a "known-good last resort" rather than a recommended default.
+//
+// Update process: change OPENROUTER_DEFAULT_MODEL in production .env, restart
+// API. No DB migration required.
+const FALLBACK_DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514';
+const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL || FALLBACK_DEFAULT_MODEL;
+
 // Cheap, accurate model for structured classification work (location
 // hierarchy filling, feature categorisation). Used by the enrichment
 // service via { model: ENRICHMENT_MODEL }.
-export const ENRICHMENT_MODEL = 'anthropic/claude-haiku-4-5';
+const FALLBACK_ENRICHMENT_MODEL = 'anthropic/claude-haiku-4-5';
+export const ENRICHMENT_MODEL =
+  process.env.OPENROUTER_ENRICHMENT_MODEL || FALLBACK_ENRICHMENT_MODEL;
 
 export interface ToolCall {
   id: string;
@@ -55,19 +67,14 @@ export class AiService {
     messages: ChatMessage[],
     options?: { model?: string; temperature?: number; maxTokens?: number },
   ): Promise<string> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
-      select: ['id', 'settings'],
-    });
-
-    const apiKey = tenant?.settings?.openRouterApiKey;
-    if (!apiKey) {
-      throw new BadRequestException(
-        'OpenRouter API key not configured. Go to Settings → AI to add your key.',
-      );
-    }
-
-    const model = options?.model || tenant.settings.openRouterModel || DEFAULT_MODEL;
+    // Single source of truth for key resolution — reads the encrypted column
+    // first (post-5Q split), falls back to the legacy settings JSON for any
+    // tenant row not yet through the data migration.
+    const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(
+      tenantId,
+      options?.model,
+    );
+    const model = resolvedModel;
 
     try {
       const response = await axios.post(

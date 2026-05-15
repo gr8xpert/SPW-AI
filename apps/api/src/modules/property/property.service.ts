@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Property } from '../../database/entities';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto } from './dto';
 import { PropertySearchService, SearchResult } from './property-search.service';
+import { PropertyQuotaService } from './property-quota.service';
 import { LocationService } from '../location/location.service';
 import { TenantService } from '../tenant/tenant.service';
 import { WebhookService } from '../webhook/webhook.service';
@@ -16,6 +17,7 @@ export class PropertyService {
     @InjectRepository(Property)
     private propertyRepository: Repository<Property>,
     private searchService: PropertySearchService,
+    private quotaService: PropertyQuotaService,
     private locationService: LocationService,
     private tenantService: TenantService,
     private webhookService: WebhookService,
@@ -172,6 +174,11 @@ export class PropertyService {
   }
 
   async create(tenantId: number, dto: CreatePropertyDto): Promise<Property> {
+    // Quota check first — surfaces PLAN_QUOTA_EXCEEDED to the caller before
+    // any DB writes so the dashboard can show a clean upgrade prompt instead
+    // of a partial row + 500.
+    await this.quotaService.assertCanCreate(tenantId, 1);
+
     const existing = await this.propertyRepository.findOne({ where: { tenantId, reference: dto.reference } });
     if (existing) throw new ConflictException('Property with this reference already exists');
 
