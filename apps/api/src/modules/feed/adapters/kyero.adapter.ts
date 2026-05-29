@@ -139,7 +139,16 @@ export class KyeroAdapter extends BaseFeedAdapter {
       videoUrl: raw.video?.url ? String(raw.video.url) : undefined,
       virtualTourUrl: raw.virtual_tour ? String(raw.virtual_tour) : undefined,
       deliveryDate: raw.delivery_date ? String(raw.delivery_date) : undefined,
+      energyRating: this.parseEnergyRating(raw.energy_rating?.consumption ?? raw.energy_rating),
     };
+  }
+
+  // Kyero XML wraps the letter in <energy_rating><consumption>X</consumption>...</energy_rating>.
+  // Some publishers flatten it to a plain letter. Accept both; return undefined if not A-G.
+  private parseEnergyRating(value: unknown): string | undefined {
+    if (value == null) return undefined;
+    const v = String(value).trim().toUpperCase();
+    return /^[A-G]$/.test(v) ? v : undefined;
   }
 
   private extractListingType(raw: any): string {

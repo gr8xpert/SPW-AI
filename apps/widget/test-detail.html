@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Detail</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1600px; margin: 0 auto; padding: 1rem; }
+    h1 { font-size: 1.25rem; }
+    .nav { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .nav a { padding: 0.5rem 1rem; background: #eef; border: 1px solid #ccd; border-radius: 4px; text-decoration: none; color: #225; }
+    .panel { border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; border-radius: 6px; }
+    #diag { background: #111; color: #0f0; padding: 1rem; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>SPW Widget — Detail (with Similar carousel)</h1>
+  <div id="diag">[diag] starting…</div>
+  <div class="nav">
+    <a href="/test-local.html">Listing</a>
+    <a href="/test-detail.html">Detail (WH-1777639278810-861)</a>
+  </div>
+
+  <div class="panel">
+    <div
+      data-spm-widget="detail-template-01"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+  </div>
+
+  <script type="module">
+    const diag = document.getElementById('diag');
+    const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+    window.addEventListener('error', e => log('[err]', e.message));
+
+    // Wait for the widget to fully init then push the property into the store
+    document.addEventListener('spw:ready', async () => {
+      log('[widget] ready — loading property…');
+      try {
+        const { DataLoader, actions, store } = await import('/src/index.ts');
+        const config = store.getState().config;
+        const loader = new DataLoader(config);
+        const property = await loader.getProperty('WH-1777639278810-861');
+        actions.setSelectedProperty(property);
+        log('[detail] loaded:', property.reference, '-', property.title);
+        log('[detail] property.features:', JSON.stringify(property.features));
+        log('[store] features catalog count:', store.getState().features?.length);
+
+        // wait a tick for re-render then inspect DOM
+        setTimeout(() => {
+          const sidebar = document.querySelector('.rs-detail__sidebar-actions');
+          log('[dom] sidebar-actions html:', sidebar?.outerHTML?.slice(0, 400) || 'NOT FOUND');
+          const btn = document.querySelector('.rs-sidebar-features__btn');
+          log('[dom] features btn found:', !!btn);
+          if (btn) {
+            const r = btn.getBoundingClientRect();
+            log('[dom] btn rect:', JSON.stringify({x: r.x, y: r.y, w: r.width, h: r.height}));
+            const cs = getComputedStyle(btn);
+            log('[css] bg:', cs.backgroundColor, 'color:', cs.color, 'opacity:', cs.opacity);
+            log('[css] --rs-primary:', getComputedStyle(document.documentElement).getPropertyValue('--rs-primary'));
+          }
+        }, 500);
+      } catch (e) {
+        log('[detail] failed:', e.message);
+      }
+    });
+  </script>
+
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

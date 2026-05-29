@@ -543,6 +543,7 @@ export class FeedService {
           ibiFees: feedProperty.ibiFees ?? null,
           basuraTax: feedProperty.basuraTax ?? null,
           builtYear: feedProperty.builtYear ?? null,
+          energyRating: feedProperty.energyRating ?? null,
           contentHash,
         };
 
@@ -616,6 +617,7 @@ export class FeedService {
         ibiFees: feedProperty.ibiFees ?? null,
         basuraTax: feedProperty.basuraTax ?? null,
         builtYear: feedProperty.builtYear ?? null,
+        energyRating: feedProperty.energyRating ?? null,
         contentHash,
         importedAt: new Date(),
         status: 'active',

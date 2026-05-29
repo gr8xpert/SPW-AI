@@ -244,6 +244,40 @@ export class TenantService {
     return { syncVersion: tenant.syncVersion, tenantSlug: tenant.slug };
   }
 
+  /**
+   * Returns the subset of dashboard settings that the public widget consumes
+   * to configure itself (counts, options, toggles). Anything sensitive
+   * (API keys, webhooks, AI provider keys, etc.) is intentionally excluded.
+   */
+  async getPublicWidgetConfig(tenantId: number): Promise<Record<string, unknown>> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'settings', 'featureFlags'],
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    const s = (tenant.settings || {}) as TenantSettings;
+    const f = (tenant.featureFlags || {}) as Partial<Record<'mortgageCalculator' | 'currencyConverter' | 'mapSearch' | 'mapView' | 'aiSearch' | 'aiChatbot', boolean>>;
+    const config: Record<string, unknown> = {};
+    if (s.similarPropertiesLimit != null) config.similarPropertiesLimit = s.similarPropertiesLimit;
+    if (s.enabledListingTypes) config.enabledListingTypes = s.enabledListingTypes;
+    if (s.bedroomOptions) config.bedroomOptions = s.bedroomOptions;
+    if (s.bathroomOptions) config.bathroomOptions = s.bathroomOptions;
+    if (s.priceOptions) config.priceOptions = s.priceOptions;
+    if (s.primaryColor) config.primaryColor = s.primaryColor;
+    if (s.mapVariation) config.mapVariation = s.mapVariation;
+    if (s.recaptchaSiteKey) config.recaptchaSiteKey = s.recaptchaSiteKey;
+    // Map super-admin-controlled feature flags into widget-facing flags so
+    // the embed renders the right surfaces. Defaults to true when unset so
+    // existing tenants don't suddenly lose features after this rolls out.
+    if (f.mortgageCalculator !== false) config.enableMortgageCalculator = true;
+    if (f.currencyConverter !== false) config.enableCurrencyConverter = true;
+    if (f.mapSearch !== false) config.mapSearchEnabled = true;
+    if (f.aiChatbot === true) config.enableAiChat = true;
+    return config;
+  }
+
   // Returns non-secret API-key metadata. The raw API key and the full webhook
   // signing secret are never retrievable after generation — admins rotate if
   // they lose either. Only the last 4 chars are returned so the dashboard can

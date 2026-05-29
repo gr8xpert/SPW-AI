@@ -61,6 +61,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
 import { TranslationModule } from './modules/translation/translation.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { BrochureModule } from './modules/brochure/brochure.module';
 
 @Module({
   imports: [
@@ -182,6 +183,9 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
     AiEnrichmentModule,
     TranslationModule,
     AiChatModule,
+
+    // ============ Phase 7: Brochure ============
+    BrochureModule,
   ],
   providers: [
     // Global exception filter

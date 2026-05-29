@@ -305,6 +305,7 @@ function CreatePropertyPageInner() {
     sharedCommission: false,
     builtYear: '',
     energyConsumption: '',
+    energyRating: '',
     distanceToBeach: '',
     externalLink: '',
     blogUrl: '',
@@ -326,6 +327,7 @@ function CreatePropertyPageInner() {
     completionDate: '',
     propertyTypeReference: '',
     syncEnabled: true,
+    brochureVariant: 'inherit' as 'inherit' | 'branded' | 'unbranded',
   });
 
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -493,6 +495,7 @@ function CreatePropertyPageInner() {
         isFeatured: formData.isFeatured,
         isPublished: publish || formData.isPublished,
         syncEnabled: formData.syncEnabled,
+        brochureVariant: formData.brochureVariant,
         title: formData.title,
         description: formData.description,
         features: formData.features,
@@ -507,7 +510,7 @@ function CreatePropertyPageInner() {
         'urbanization', 'floor', 'street', 'streetNumber', 'postcode',
         'cadastralReference', 'videoUrl', 'virtualTourUrl', 'externalLink',
         'blogUrl', 'mapLink', 'websiteUrl', 'slug', 'project',
-        'geoLocationLabel', 'propertyTypeReference',
+        'geoLocationLabel', 'propertyTypeReference', 'energyRating',
       ];
       for (const f of stringFields) {
         if (formData[f as keyof typeof formData]) payload[f] = formData[f as keyof typeof formData];
@@ -870,6 +873,20 @@ function CreatePropertyPageInner() {
                   </div>
                 ))}
                 <div className="space-y-2">
+                  <Label htmlFor="energyRating">Energy Rating</Label>
+                  <select
+                    id="energyRating"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.energyRating}
+                    onChange={(e) => handleInputChange('energyRating', e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="deliveryDate">Delivery Date</Label>
                   <Input id="deliveryDate" type="date" value={formData.deliveryDate} onChange={(e) => handleInputChange('deliveryDate', e.target.value)} />
                 </div>
@@ -1123,6 +1140,29 @@ function CreatePropertyPageInner() {
                   checked={formData.syncEnabled}
                   onCheckedChange={(c) => handleInputChange('syncEnabled', c)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Brochure / PDF</CardTitle>
+              <CardDescription>
+                Controls which PDF layout downloads for this property. <em>Inherit</em> uses the tenant default set in Settings → Brochure.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Brochure Variant</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={formData.brochureVariant}
+                  onChange={(e) => handleInputChange('brochureVariant', e.target.value as 'inherit' | 'branded' | 'unbranded')}
+                >
+                  <option value="inherit">Inherit (tenant default)</option>
+                  <option value="branded">Branded (logo + QR + contact)</option>
+                  <option value="unbranded">Unbranded (blank header/footer)</option>
+                </select>
               </div>
             </CardContent>
           </Card>

@@ -37,7 +37,6 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
       { labelKey: 'detail_floor', fallback: 'Floor', value: property.floor, icon: 'M22 12H2M5 12V7M9 12V7M15 12V7M19 12V7M2 17h20' },
       { labelKey: 'detail_orientation', fallback: 'Orientation', value: property.orientation, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
       { labelKey: 'detail_parking', fallback: 'Parking', value: property.parking, icon: 'M19 9l-7 7-7-7' },
-      { labelKey: 'detail_energy_rating', fallback: 'Energy Rating', value: property.energyRating, icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
     ];
     return specs;
   }, [property]);
@@ -79,7 +78,7 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
               {t('detail_community_fees', 'Community Fees')}
             </div>
             <div class="rs-detail-specs__value">
-              {formatPrice(property.communityFees!, property.currency)}
+              {formatPrice(property.communityFees!, property.currency)}/{t('detail_per_month', 'month')}
             </div>
           </div>
         )}

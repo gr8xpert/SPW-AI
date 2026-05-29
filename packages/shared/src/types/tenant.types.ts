@@ -72,6 +72,11 @@ export interface TenantSettings {
   primaryColor?: string;
   emailHeaderColor?: string;
 
+  // Brochure / PDF
+  contactEmail?: string;          // Shown in branded PDF header/footer
+  contactPhone?: string;          // Shown in branded PDF header/footer
+  defaultBrochureVariant?: 'branded' | 'unbranded'; // Default for properties with brochureVariant='inherit'
+
   // Customization
   wishlistIcon?: WishlistIcon;
   recaptchaSiteKey?: string;

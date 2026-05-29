@@ -56,6 +56,7 @@ export interface FeedProperty {
   ibiFees?: number;
   basuraTax?: number;
   builtYear?: number;
+  energyRating?: string;
 }
 
 export interface FeedImportResult {

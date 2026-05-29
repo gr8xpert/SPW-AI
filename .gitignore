@@ -64,3 +64,15 @@ graphify-out/
 
 # Windows accidental file
 /nul
+
+# Local smoke-test artifacts (brochure PDF rendering)
+apps/api/test-brochure.html
+apps/api/test-brochure.pdf
+apps/api/test-real.pdf
+apps/api/test-real-unbranded.pdf
+apps/api/test-en-branded.pdf
+apps/api/test-en-unbranded.pdf
+apps/api/test-es-branded.pdf
+apps/api/test-es-unbranded.pdf
+apps/api/api-startup.log
+apps/api/smoke.pdf

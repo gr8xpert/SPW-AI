@@ -72,15 +72,22 @@ export class PropertySearchService {
         propertyTypeId: source.propertyTypeId,
       });
     }
-    // Sort by price proximity when available — visually closer to the source
-    // listing than raw createdAt order.
-    if (source.price != null) {
-      qb.addOrderBy('ABS(p.price - :basePrice)', 'ASC').setParameter('basePrice', source.price);
-    } else {
-      qb.addOrderBy('p.createdAt', 'DESC');
-    }
+    // TypeORM 0.3's addOrderBy rejects expression form ("ABS(p.price - :x)")
+    // as an unknown alias, so we over-fetch by createdAt and sort by price
+    // proximity in JS. Cap the candidate pool so we don't pull the whole table.
+    qb.addOrderBy('p.createdAt', 'DESC');
+    const candidatePool = Math.min(safeLimit * 5, 200);
+    const candidates = await qb.take(candidatePool).getMany();
 
-    return qb.take(safeLimit).getMany();
+    const basePrice = source.price != null ? Number(source.price) : null;
+    if (basePrice != null && Number.isFinite(basePrice)) {
+      candidates.sort((a, b) => {
+        const ap = a.price != null ? Number(a.price) : Number.POSITIVE_INFINITY;
+        const bp = b.price != null ? Number(b.price) : Number.POSITIVE_INFINITY;
+        return Math.abs(ap - basePrice) - Math.abs(bp - basePrice);
+      });
+    }
+    return candidates.slice(0, safeLimit);
   }
 
   // Expands a selected parent id (location or type) to itself + all descendants.

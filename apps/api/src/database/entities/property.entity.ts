@@ -174,6 +174,9 @@ export class Property {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   energyConsumption: number | null;
 
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  energyRating: string | null;
+
   // Distance
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   distanceToBeach: number | null;
@@ -294,6 +297,13 @@ export class Property {
 
   @Column({ default: true })
   syncEnabled: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: ['inherit', 'branded', 'unbranded'],
+    default: 'inherit',
+  })
+  brochureVariant: 'inherit' | 'branded' | 'unbranded';
 
   // Field locking (array of locked field names)
   @Column({ type: 'json', nullable: true })

@@ -18,7 +18,9 @@ module.exports = {
       exec_mode: 'cluster',
       autorestart: true,
       watch: false,
-      max_memory_restart: '1G',
+      // Bumped from 1G — Puppeteer browser pool launched in onModuleInit
+      // adds ~300MB idle / ~600MB peak per instance (brochure module).
+      max_memory_restart: '1500M',
       listen_timeout: 10000,
       kill_timeout: 30000,
       shutdown_with_message: true,

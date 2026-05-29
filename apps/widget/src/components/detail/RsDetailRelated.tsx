@@ -4,6 +4,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { getDataLoader } from '@/core/data-loader';
 import type { Property } from '@/types';
 
 interface Props {
@@ -21,22 +22,20 @@ export default function RsDetailRelated({ limit }: Props) {
 
   useEffect(() => {
     if (!property || maxItems <= 0) return;
+    const loader = getDataLoader();
+    if (!loader) return;
     let cancelled = false;
 
-    const apiUrl = config.apiUrl.replace(/\/$/, '');
-    fetch(`${apiUrl}/api/v1/properties/${encodeURIComponent(property.reference)}/similar?limit=${maxItems}`, {
-      headers: { 'X-API-Key': config.apiKey },
-    })
-      .then((res) => res.json())
-      .then((json: { data?: Property[] }) => {
-        if (!cancelled && json.data) {
-          setRelated(json.data.filter((p) => p.id !== property.id).slice(0, maxItems));
-        }
+    loader.getSimilarProperties(property.reference, maxItems)
+      .then((list) => {
+        if (cancelled) return;
+        const arr = Array.isArray(list) ? list : [];
+        setRelated(arr.filter((p) => p.id !== property.id).slice(0, maxItems));
       })
       .catch(() => {});
 
     return () => { cancelled = true; };
-  }, [property?.reference, config.apiUrl, config.apiKey, maxItems]);
+  }, [property?.reference, maxItems]);
 
   if (!property || !related.length) return null;
 

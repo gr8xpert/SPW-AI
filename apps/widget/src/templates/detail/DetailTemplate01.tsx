@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import { useSelector } from '@/hooks/useStore';
 import { useConfig } from '@/hooks/useConfig';
 import { useLabels } from '@/hooks/useLabels';
 import { selectors } from '@/core/selectors';
 import RsDetailBack from '@/components/detail/RsDetailBack';
+import RsDetailDownloadPdf from '@/components/detail/RsDetailDownloadPdf';
 import RsDetailGallery from '@/components/detail/RsDetailGallery';
 import RsDetailTitle from '@/components/detail/RsDetailTitle';
 import RsDetailPrice from '@/components/detail/RsDetailPrice';
@@ -13,6 +15,7 @@ import RsDetailAddress from '@/components/detail/RsDetailAddress';
 import RsDetailType from '@/components/detail/RsDetailType';
 import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailSpecs from '@/components/detail/RsDetailSpecs';
+import RsDetailEnergyRating from '@/components/detail/RsDetailEnergyRating';
 import RsDetailDescription from '@/components/detail/RsDetailDescription';
 import RsDetailVideoEmbed from '@/components/detail/RsDetailVideoEmbed';
 import RsDetailTourEmbed from '@/components/detail/RsDetailTourEmbed';
@@ -23,6 +26,7 @@ import RsDetailWishlist from '@/components/detail/RsDetailWishlist';
 import RsDetailPdf from '@/components/detail/RsDetailPdf';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
 import Skeleton from '@/components/common/Skeleton';
+import { resolveFeatures } from '@/core/feature-utils';
 import type { Feature } from '@/types';
 
 function FeaturesModal({ features, onClose }: { features: Feature[]; onClose: () => void }) {
@@ -45,7 +49,7 @@ function FeaturesModal({ features, onClose }: { features: Feature[]; onClose: ()
     grouped.get(cat)!.push(f);
   }
 
-  return (
+  return createPortal(
     <div class="rs-features-modal__backdrop" onMouseDown={onClose}>
       <div class="rs-features-modal" onMouseDown={(e) => e.stopPropagation()}>
         <div class="rs-features-modal__header">
@@ -81,7 +85,8 @@ function FeaturesModal({ features, onClose }: { features: Feature[]; onClose: ()
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -171,7 +176,7 @@ function MortgageButton({ price, currency }: { price: number; currency: string }
         </svg>
         {t('mortgage_title', 'Mortgage Calculator')}
       </button>
-      {open && (
+      {open && createPortal(
         <div class="rs-features-modal__backdrop" onMouseDown={() => setOpen(false)}>
           <div class="rs-features-modal rs-features-modal--sm" onMouseDown={(e) => e.stopPropagation()}>
             <div class="rs-features-modal__header">
@@ -186,7 +191,8 @@ function MortgageButton({ price, currency }: { price: number; currency: string }
               <RsMortgageCalculator price={price} currency={currency} />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
@@ -207,6 +213,10 @@ export default function DetailTemplate01() {
   }
 
   const url = typeof window !== 'undefined' ? window.location.href : '';
+  const featureCatalog = useSelector(selectors.getFeatures);
+  const resolvedFeatures = resolveFeatures(property.features, featureCatalog);
+  // Show the toggle button whenever the property has feature IDs, even if
+  // the catalog hasn't resolved any yet — keeps UI stable during late loads.
   const featureCount = property.features?.length || 0;
 
   return (
@@ -242,6 +252,8 @@ export default function DetailTemplate01() {
 
           <RsDetailSpecs property={property} />
 
+          <RsDetailEnergyRating />
+
           <RsDetailDescription description={property.description} />
 
           {property.videoUrl && <RsDetailVideoEmbed />}
@@ -266,6 +278,8 @@ export default function DetailTemplate01() {
             )}
           </div>
 
+          <RsDetailDownloadPdf />
+
           <RsDetailPdf />
 
           <RsDetailInquiryForm property={property} />
@@ -281,7 +295,7 @@ export default function DetailTemplate01() {
       <RsDetailRelated />
 
       {featuresOpen && (
-        <FeaturesModal features={property.features || []} onClose={() => setFeaturesOpen(false)} />
+        <FeaturesModal features={resolvedFeatures} onClose={() => setFeaturesOpen(false)} />
       )}
     </div>
   );

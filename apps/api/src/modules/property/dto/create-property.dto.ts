@@ -149,6 +149,11 @@ export class CreatePropertyDto {
   @IsOptional()
   energyConsumption?: number;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(2)
+  energyRating?: string;
+
   // Distance
   @IsNumber()
   @IsOptional()
@@ -299,4 +304,8 @@ export class CreatePropertyDto {
   @IsBoolean()
   @IsOptional()
   isPublished?: boolean;
+
+  @IsIn(['inherit', 'branded', 'unbranded'])
+  @IsOptional()
+  brochureVariant?: 'inherit' | 'branded' | 'unbranded';
 }

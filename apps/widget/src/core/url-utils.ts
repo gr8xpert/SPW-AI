@@ -10,19 +10,17 @@ export function slugifyTitle(title: string): string {
 export function buildPropertyUrl(
   property: { id: number; reference: string; title: string },
   config: Pick<WidgetConfig, 'propertyPageUrl' | 'propertyPageSlug' | 'propertyRefPosition'>,
-): string | null {
+): string {
   if (config.propertyPageUrl) {
     return `${config.propertyPageUrl}?id=${property.id}&ref=${property.reference}`;
   }
-  if (config.propertyPageSlug) {
-    const titleSlug = slugifyTitle(property.title);
-    const ref = property.reference;
-    const segment = config.propertyRefPosition === 'start'
-      ? `${ref}_${titleSlug}`
-      : `${titleSlug}_${ref}`;
-    return `/${config.propertyPageSlug}/${segment}`;
-  }
-  return null;
+  const slug = config.propertyPageSlug || 'property';
+  const titleSlug = slugifyTitle(property.title);
+  const ref = property.reference;
+  const segment = config.propertyRefPosition === 'start'
+    ? `${ref}_${titleSlug}`
+    : `${titleSlug}_${ref}`;
+  return `/${slug}/${segment}`;
 }
 
 export function extractRefFromSegment(segment: string, position?: 'start' | 'end'): string {

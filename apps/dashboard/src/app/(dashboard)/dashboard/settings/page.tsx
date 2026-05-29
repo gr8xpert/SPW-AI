@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus, MessageSquare, LayoutGrid, Palette, Heart, Star, Bookmark, Save, ShieldCheck } from 'lucide-react';
+import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plus, MessageSquare, LayoutGrid, Palette, Heart, Star, Bookmark, Save, ShieldCheck, FileText } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
@@ -111,6 +111,10 @@ interface TenantSettings {
   inquiryNotificationEmails?: string[];
   inquiryWebhookUrl?: string;
   inquiryAutoReplyEnabled?: boolean;
+  // Brochure / PDF
+  contactEmail?: string;
+  contactPhone?: string;
+  defaultBrochureVariant?: 'branded' | 'unbranded';
   [key: string]: unknown;
 }
 interface TenantCurrent {
@@ -267,6 +271,12 @@ export default function SettingsPage() {
   const [inquiryAutoReplyEnabled, setInquiryAutoReplyEnabled] = useState(true);
   const [savingInquiry, setSavingInquiry] = useState(false);
   const [savingWidget, setSavingWidget] = useState(false);
+  // Brochure
+  const [brochureContactEmail, setBrochureContactEmail] = useState('');
+  const [brochureContactPhone, setBrochureContactPhone] = useState('');
+  const [brochureLogoUrl, setBrochureLogoUrl] = useState('');
+  const [defaultBrochureVariant, setDefaultBrochureVariant] = useState<'branded' | 'unbranded'>('branded');
+  const [savingBrochure, setSavingBrochure] = useState(false);
 
   // Email config state
   const [savingEmail, setSavingEmail] = useState(false);
@@ -343,6 +353,12 @@ export default function SettingsPage() {
         if (Array.isArray(settings?.enabledListingTypes)) setEnabledListingTypes(settings.enabledListingTypes);
         if (settings?.primaryColor) setPrimaryColor(settings.primaryColor);
         if (settings?.wishlistIcon) setWishlistIcon(settings.wishlistIcon);
+        if (typeof settings?.contactEmail === 'string') setBrochureContactEmail(settings.contactEmail);
+        if (typeof settings?.contactPhone === 'string') setBrochureContactPhone(settings.contactPhone);
+        if (typeof settings?.logoUrl === 'string') setBrochureLogoUrl(settings.logoUrl);
+        if (settings?.defaultBrochureVariant === 'branded' || settings?.defaultBrochureVariant === 'unbranded') {
+          setDefaultBrochureVariant(settings.defaultBrochureVariant);
+        }
         if (settings?.mapVariation) setMapVariation(settings.mapVariation);
         if (settings?.recaptchaSiteKey) setRecaptchaSiteKey(settings.recaptchaSiteKey);
         if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
@@ -720,6 +736,23 @@ export default function SettingsPage() {
       toast({ title: 'Failed to save AI Chat settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
     } finally {
       setSavingAiChat(false);
+    }
+  };
+
+  const onSaveBrochure = async () => {
+    setSavingBrochure(true);
+    try {
+      await apiPut('/api/dashboard/tenant/settings', {
+        contactEmail: brochureContactEmail.trim() || undefined,
+        contactPhone: brochureContactPhone.trim() || undefined,
+        logoUrl: brochureLogoUrl.trim() || undefined,
+        defaultBrochureVariant,
+      });
+      toast({ title: 'Brochure settings saved' });
+    } catch (err) {
+      toast({ title: 'Failed to save brochure settings', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingBrochure(false);
     }
   };
 
@@ -1101,6 +1134,89 @@ export default function SettingsPage() {
                   {savingLangs && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Brochure / PDF
+              </CardTitle>
+              <CardDescription>
+                Contact details shown in the branded property brochure header/footer, plus the default brochure layout for new properties.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="brochureLogoUrl">Logo URL</Label>
+                <Input
+                  id="brochureLogoUrl"
+                  placeholder="https://yourdomain.com/logo.png"
+                  value={brochureLogoUrl}
+                  onChange={(e) => setBrochureLogoUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Public URL of your logo (PNG/JPG/SVG). Shown in the branded PDF header. Upload your logo to your website or any image host first, then paste the URL here.
+                </p>
+                {brochureLogoUrl && (
+                  <div className="mt-2 rounded border bg-muted p-2 inline-block">
+                    <img src={brochureLogoUrl} alt="Logo preview" className="h-12 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="brochureContactEmail">Contact Email</Label>
+                  <Input
+                    id="brochureContactEmail"
+                    type="email"
+                    placeholder="info@yourdomain.com"
+                    value={brochureContactEmail}
+                    onChange={(e) => setBrochureContactEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brochureContactPhone">Contact Phone</Label>
+                  <Input
+                    id="brochureContactPhone"
+                    placeholder="+34 600 000 000"
+                    value={brochureContactPhone}
+                    onChange={(e) => setBrochureContactPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Default Brochure Variant</Label>
+                <p className="text-xs text-muted-foreground">
+                  Used when a property brochure variant is set to <em>Inherit</em>. Individual properties can override this.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultBrochureVariant('branded')}
+                    className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${defaultBrochureVariant === 'branded' ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
+                  >
+                    Branded
+                    <p className="mt-1 text-xs font-normal text-muted-foreground">
+                      Logo, QR code, contact in header/footer
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultBrochureVariant('unbranded')}
+                    className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${defaultBrochureVariant === 'unbranded' ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
+                  >
+                    Unbranded
+                    <p className="mt-1 text-xs font-normal text-muted-foreground">
+                      Blank header, page numbers only in footer
+                    </p>
+                  </button>
+                </div>
+              </div>
+              <Button onClick={onSaveBrochure} disabled={savingBrochure}>
+                {savingBrochure ? 'Saving...' : 'Save Brochure Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

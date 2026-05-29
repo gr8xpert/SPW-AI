@@ -230,7 +230,16 @@ export class ResalesAdapter extends BaseFeedAdapter {
       ibiFees: this.parseMoney(raw.IBI_Fees_Year ?? raw.IBI),
       basuraTax: this.parseMoney(raw.Basura_Tax_Year ?? raw.Basura),
       builtYear: this.parseInt(raw.BuiltYear),
+      energyRating: this.parseEnergyRating(raw.EnergyRating ?? raw.EnergyRatingConsumption),
     };
+  }
+
+  // Resales returns either a plain letter ("A".."G") or "InProgress"/empty.
+  // Normalize to uppercase A-G or undefined.
+  private parseEnergyRating(value: any): string | undefined {
+    if (value === null || value === undefined) return undefined;
+    const v = String(value).trim().toUpperCase();
+    return /^[A-G]$/.test(v) ? v : undefined;
   }
 
   private parseMoney(value: any): number | undefined {

@@ -4782,7 +4782,7 @@ button.rs-view-toggle__btn--active:hover {
 }
 
 /* ── Sidebar Features Button ── */
-.rs-sidebar-features__btn {
+button.rs-sidebar-features__btn {
   flex: 1;
   display: flex;
   align-items: center;
@@ -4799,7 +4799,7 @@ button.rs-view-toggle__btn--active:hover {
   transition: opacity 0.15s;
 }
 
-.rs-sidebar-features__btn:hover {
+button.rs-sidebar-features__btn:hover {
   opacity: 0.9;
 }
 
@@ -4815,6 +4815,30 @@ button.rs-view-toggle__btn--active:hover {
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
+}
+
+/* ── Download PDF button (server-rendered brochure, full-width row) ── */
+button.rs-detail-download-pdf {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  border: 1px solid var(--rs-border, #e5e5e5);
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button.rs-detail-download-pdf:hover {
+  background: #f8f8f8;
+  border-color: #ccc;
 }
 
 /* ── Features Modal (centered overlay) ── */
@@ -4970,7 +4994,7 @@ button.rs-view-toggle__btn--active:hover {
 }
 
 /* ── Sidebar Mortgage Calculator Button ── */
-.rs-sidebar-mortgage-btn {
+button.rs-sidebar-mortgage-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4987,7 +5011,7 @@ button.rs-view-toggle__btn--active:hover {
   transition: opacity 0.15s;
 }
 
-.rs-sidebar-mortgage-btn:hover {
+button.rs-sidebar-mortgage-btn:hover {
   opacity: 0.9;
 }
 
@@ -6324,6 +6348,109 @@ a.rs-detail-related__card:hover .rs-detail-related__image img {
   font-weight: 700;
   line-height: 1;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Detail energy certificate (prominent SVG bars) ── */
+.rs-detail-energy__chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 230px;
+  padding: 2px 0;
+}
+
+.rs-detail-energy__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 14px;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.rs-detail-energy__row:not(.rs-detail-energy__row--active):not(.rs-detail-energy__row--muted) {
+  opacity: 0.32;
+}
+
+.rs-detail-energy__chart--na .rs-detail-energy__row {
+  opacity: 0.4;
+}
+
+.rs-detail-energy__chart--na .rs-detail-energy__letter {
+  opacity: 0;
+}
+
+.rs-detail-energy__row--active {
+  opacity: 1;
+  transform: translateX(1px);
+  z-index: 1;
+}
+
+.rs-detail-energy__row--muted {
+  opacity: 0.22;
+  filter: grayscale(0.4);
+}
+
+.rs-detail-energy__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 13px;
+  padding: 0 6px;
+  border-radius: 0 3px 3px 0;
+  color: #1b1f24;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: height 180ms ease, box-shadow 180ms ease;
+}
+
+.rs-detail-energy__row--active .rs-detail-energy__bar {
+  height: 16px;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06) inset;
+}
+
+.rs-detail-energy__letter {
+  letter-spacing: 0.3px;
+}
+
+.rs-detail-energy__marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.rs-detail-energy__marker-letter {
+  color: var(--rs-text, #1b1f24);
+}
+
+.rs-detail-energy__na {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--rs-text, #1b1f24);
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 480px) {
+  .rs-detail-energy__bar {
+    font-size: 0.8125rem;
+    padding: 0 10px;
+  }
+  .rs-detail-energy__marker {
+    font-size: 0.875rem;
+  }
 }
 
 /* ── Detail resource buttons ── */

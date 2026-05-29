@@ -131,6 +131,8 @@ interface FormData {
   sharedCommission: boolean;
   builtYear: string;
   energyConsumption: string;
+  energyRating: string;
+  brochureVariant: 'inherit' | 'branded' | 'unbranded';
   distanceToBeach: string;
   externalLink: string;
   blogUrl: string;
@@ -265,7 +267,7 @@ export default function EditPropertyPage() {
     features: [], videoUrl: '', virtualTourUrl: '', floorPlanUrl: '', lat: '', lng: '',
     geoLocationLabel: '', isFeatured: false, isPublished: false, floor: '', street: '',
     streetNumber: '', postcode: '', cadastralReference: '', communityFees: '', basuraTax: '',
-    ibiFees: '', commission: '', sharedCommission: false, builtYear: '', energyConsumption: '',
+    ibiFees: '', commission: '', sharedCommission: false, builtYear: '', energyConsumption: '', energyRating: '', brochureVariant: 'inherit',
     distanceToBeach: '', externalLink: '', blogUrl: '', mapLink: '', websiteUrl: '', slug: '',
     metaTitle: { ...emptyMultilingual }, metaDescription: { ...emptyMultilingual },
     metaKeywords: { ...emptyMultilingual }, pageTitle: { ...emptyMultilingual },
@@ -368,6 +370,8 @@ export default function EditPropertyPage() {
             sharedCommission: property.sharedCommission || false,
             builtYear: str(property.builtYear),
             energyConsumption: str(property.energyConsumption),
+            energyRating: property.energyRating || '',
+            brochureVariant: (property.brochureVariant as any) || 'inherit',
             distanceToBeach: str(property.distanceToBeach),
             externalLink: property.externalLink || '',
             blogUrl: property.blogUrl || '',
@@ -530,6 +534,7 @@ export default function EditPropertyPage() {
         luxurySelection: formData.luxurySelection,
         apartmentSelection: formData.apartmentSelection,
         syncEnabled: formData.syncEnabled,
+        brochureVariant: formData.brochureVariant,
       };
 
       if (propertySource === 'manual') payload.reference = formData.reference;
@@ -539,6 +544,7 @@ export default function EditPropertyPage() {
         'postcode', 'cadastralReference', 'videoUrl', 'virtualTourUrl',
         'floorPlanUrl', 'externalLink', 'blogUrl', 'mapLink', 'websiteUrl',
         'slug', 'project', 'geoLocationLabel', 'propertyTypeReference',
+        'energyRating',
       ];
       for (const f of stringFields) {
         const val = formData[f as keyof FormData];
@@ -825,6 +831,19 @@ export default function EditPropertyPage() {
                 ].map(([field, label]) => (
                   <div key={field} className="space-y-2"><Label>{label}</Label><Input type="number" value={formData[field as keyof FormData] as string} onChange={(e) => handleInputChange(field, e.target.value)} /></div>
                 ))}
+                <div className="space-y-2">
+                  <Label>Energy Rating</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.energyRating}
+                    onChange={(e) => handleInputChange('energyRating', e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="space-y-2"><Label>Delivery Date</Label><Input type="date" value={formData.deliveryDate} onChange={(e) => handleInputChange('deliveryDate', e.target.value)} /></div>
                 <div className="space-y-2"><Label>Completion Date</Label><Input type="date" value={formData.completionDate} onChange={(e) => handleInputChange('completionDate', e.target.value)} /></div>
               </div>
@@ -1044,6 +1063,29 @@ export default function EditPropertyPage() {
                   checked={formData.syncEnabled}
                   onCheckedChange={(c) => handleInputChange('syncEnabled', c)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Brochure / PDF</CardTitle>
+              <CardDescription>
+                Controls which PDF layout downloads for this property. <em>Inherit</em> uses the tenant default set in Settings → Brochure.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Brochure Variant</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={formData.brochureVariant}
+                  onChange={(e) => handleInputChange('brochureVariant', e.target.value)}
+                >
+                  <option value="inherit">Inherit (tenant default)</option>
+                  <option value="branded">Branded (logo + QR + contact)</option>
+                  <option value="unbranded">Unbranded (blank header/footer)</option>
+                </select>
               </div>
             </CardContent>
           </Card>

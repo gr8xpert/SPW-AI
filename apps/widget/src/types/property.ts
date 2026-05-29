@@ -68,7 +68,10 @@ export interface Property {
   communityFees?: number;
   status?: string;
   images: PropertyImage[];
-  features: Feature[];
+  // API stores features as an array of feature IDs (FK to the global feature
+  // catalog hydrated into store.features). Consumers must resolve IDs → names
+  // via the catalog; see resolveFeatures() in core/feature-utils.ts.
+  features: number[];
   isFeatured: boolean;
   isOwnProperty?: boolean;
   lat?: number;

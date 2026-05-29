@@ -1,4 +1,5 @@
-import type { Property } from '@/types';
+import type { Property, Feature } from '@/types';
+import { resolveFeatures } from '@/core/feature-utils';
 
 interface JsPDF {
   addImage(data: string, format: string, x: number, y: number, w: number, h: number): void;
@@ -60,6 +61,7 @@ export async function generateWishlistPDF(
   formatPrice: (amount: number, currency?: string) => string,
   brandName?: string,
   primaryColor?: string,
+  featureCatalog: Feature[] = [],
 ): Promise<void> {
   const brand = esc(brandName || document.title || 'Property Collection');
   const color = primaryColor || '#2563eb';
@@ -84,7 +86,8 @@ export async function generateWishlistPDF(
     // Property pages
     for (const p of properties) {
       const page = document.createElement('div');
-      page.innerHTML = buildPropertyHTML(p, formatPrice, color);
+      const resolved = resolveFeatures(p.features, featureCatalog);
+      page.innerHTML = buildPropertyHTML(p, formatPrice, color, resolved);
       applyPageStyle(page);
       container.appendChild(page);
       pages.push(page);
@@ -146,7 +149,7 @@ function buildCoverHTML(brand: string, color: string, date: string, count: numbe
     <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center;font-size:12px;color:rgba(255,255,255,0.5);">${esc(date)}</div>`;
 }
 
-function buildPropertyHTML(p: Property, formatPrice: (n: number, c?: string) => string, color: string): string {
+function buildPropertyHTML(p: Property, formatPrice: (n: number, c?: string) => string, color: string, resolvedFeatures: Feature[]): string {
   const priceText = p.priceOnRequest ? 'Price on Request' : esc(formatPrice(p.price, p.currency));
   const imgUrl = p.images?.[0]?.url || '';
   const desc = p.description ? esc(stripHtml(p.description).slice(0, 300)) + (p.description.length > 300 ? '...' : '') : '';
@@ -158,7 +161,7 @@ function buildPropertyHTML(p: Property, formatPrice: (n: number, c?: string) => 
   if (p.plotSize != null) specs.push(`${esc(String(p.plotSize))} Plot`);
   if (p.year != null) specs.push(`Built ${esc(String(p.year))}`);
 
-  const features = (p.features || []).slice(0, 8).map((f) => esc(f.name));
+  const features = resolvedFeatures.slice(0, 8).map((f) => esc(f.name));
 
   return `
     <div style="background:#fff;position:absolute;inset:0;"></div>

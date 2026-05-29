@@ -137,6 +137,8 @@ interface Property {
   // Building
   builtYear: number | null;
   energyConsumption: number | null;
+  energyRating: string | null;
+  brochureVariant: 'inherit' | 'branded' | 'unbranded';
   distanceToBeach: number | null;
   // SEO
   slug: string | null;
@@ -297,6 +299,7 @@ export default function PropertyDetailPage() {
     { label: 'Solarium', display: property.solariumSize != null ? `${property.solariumSize} m²` : null, icon: Sun },
     { label: 'Built Year', display: property.builtYear != null ? String(property.builtYear) : null, icon: Building2 },
     { label: 'Energy', display: property.energyConsumption != null ? `${property.energyConsumption} kWh/m²` : null, icon: Zap },
+    { label: 'Energy Rating', display: property.energyRating || null, icon: Zap },
     { label: 'Beach Distance', display: property.distanceToBeach != null ? `${property.distanceToBeach} m` : null, icon: Waves },
   ].filter((item) => item.display != null);
 

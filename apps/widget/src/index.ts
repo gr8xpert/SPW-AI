@@ -120,8 +120,9 @@ async function init(): Promise<void> {
     }
   });
 
-  // Initial search if bundle didn't include default results
-  if (!store.getState().results) {
+  // Initial search if bundle didn't include default results.
+  // Skip when a detail template is present — the page only needs single-property data.
+  if (!store.getState().results && !hasDetailTemplate) {
     const effectiveFilters: SearchFilters = {
       ...store.getState().filters,
       page: 1,
@@ -153,6 +154,8 @@ async function init(): Promise<void> {
 
   actions.setInitialized();
   actions.setLoading(false);
+
+  document.dispatchEvent(new CustomEvent('spw:ready'));
 
   const rc = window.RealtySoftConfig;
   if (rc?.onReady) rc.onReady();

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Listing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    h1 { font-size: 1.25rem; }
+    .nav { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .nav a { padding: 0.5rem 1rem; background: #eef; border: 1px solid #ccd; border-radius: 4px; text-decoration: none; color: #225; }
+    .panel { border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; border-radius: 6px; }
+    #diag { background: #111; color: #0f0; padding: 1rem; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>SPW Widget — Listing (API on :3001)</h1>
+  <div id="diag">[diag] starting…</div>
+  <div class="nav">
+    <a href="/test-local.html">Listing</a>
+    <a href="/test-detail.html">Detail (WH-1777639278810-861)</a>
+  </div>
+
+  <div class="panel">
+    <div
+      data-spm-widget="listing-template-01"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      data-spm-results-per-page="12"
+      data-spm-property-page-slug="detail"
+    ></div>
+  </div>
+
+  <script>
+    const diag = document.getElementById('diag');
+    const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+    document.addEventListener('spw:ready', () => log('[widget] ready'));
+    window.addEventListener('error', e => log('[err]', e.message));
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

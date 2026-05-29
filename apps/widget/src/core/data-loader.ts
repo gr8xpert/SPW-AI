@@ -26,6 +26,12 @@ declare global {
   }
 }
 
+let activeLoader: DataLoader | null = null;
+
+export function getDataLoader(): DataLoader | null {
+  return activeLoader;
+}
+
 export class DataLoader {
   private api: ApiClient;
   private apiKey: string;
@@ -35,12 +41,14 @@ export class DataLoader {
   private visibilityHandler: (() => void) | null = null;
   private memoryCache = new Map<string, { data: unknown; ts: number }>();
   private readonly MEMORY_TTL = 5 * 60 * 1000;
+  private localDataAvailable: boolean | null = null;
 
   constructor(config: WidgetConfig) {
     this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
     this.dataPath = config.dataPath || '/spm-data';
+    activeLoader = this;
   }
 
   async loadBundle(): Promise<BundleData> {
@@ -101,17 +109,19 @@ export class DataLoader {
   }
 
   private async loadFromAPI(): Promise<BundleData> {
-    const [locations, types, features, labels] = await Promise.all([
+    const [locations, types, features, labels, dashboardConfig] = await Promise.all([
       this.loadLocalFileOrAPI<Location[]>('locations.json', '/v1/locations'),
       this.loadLocalFileOrAPI<PropertyType[]>('types.json', '/v1/property-types'),
       this.loadLocalFileOrAPI<Feature[]>('features.json', '/v1/features'),
       this.loadLocalFileOrAPI<Record<string, string>>('labels.json', '/v1/labels'),
+      this.api.get<Partial<WidgetConfig>>('/v1/widget-config').catch(() => null),
     ]);
 
     const syncMeta = await this.fetchSyncMeta();
 
     const bundle: BundleData = {
       syncVersion: syncMeta?.syncVersion ?? 0,
+      config: dashboardConfig ?? undefined,
       locations: locations ?? [],
       types: types ?? [],
       features: features ?? [],
@@ -123,10 +133,18 @@ export class DataLoader {
   }
 
   private async loadLocalFileOrAPI<T>(filename: string, apiEndpoint: string): Promise<T | null> {
-    try {
-      const res = await fetch(`${this.dataPath}/${filename}`);
-      if (res.ok) return await res.json();
-    } catch { /* local file not available */ }
+    // Skip local probe entirely if a prior probe already 404'd — keeps the
+    // browser console clean on WP installs that don't pre-render /spm-data/*.json.
+    if (this.localDataAvailable !== false) {
+      try {
+        const res = await fetch(`${this.dataPath}/${filename}`);
+        if (res.ok) {
+          this.localDataAvailable = true;
+          return await res.json();
+        }
+        if (res.status === 404) this.localDataAvailable = false;
+      } catch { /* local file not available */ }
+    }
 
     try {
       return await this.api.get<T>(apiEndpoint);

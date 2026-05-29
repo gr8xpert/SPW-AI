@@ -2,19 +2,21 @@ import { useMemo } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { resolveFeatures } from '@/core/feature-utils';
 import type { Feature } from '@/types';
 
 interface Props {
-  features?: Feature[];
+  features?: number[];
 }
 
 export default function RsDetailFeatures({ features: featuresProp }: Props) {
   const { t } = useLabels();
   const property = useSelector(selectors.getSelectedProperty);
-  const features = featuresProp ?? property?.features;
+  const catalog = useSelector(selectors.getFeatures);
+  const ids = featuresProp ?? property?.features;
+  const features = useMemo(() => resolveFeatures(ids, catalog), [ids, catalog]);
 
   const grouped = useMemo(() => {
-    if (!features) return new Map<string, Feature[]>();
     const map = new Map<string, Feature[]>();
     for (const f of features) {
       const cat = f.category || 'General';
@@ -24,7 +26,7 @@ export default function RsDetailFeatures({ features: featuresProp }: Props) {
     return map;
   }, [features]);
 
-  if (!features?.length) {
+  if (!features.length) {
     return null;
   }
 

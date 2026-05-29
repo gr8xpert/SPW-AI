@@ -32,11 +32,12 @@ export default function RsWishlistActions(_props: Props) {
   };
 
   const config = useSelector(selectors.getConfig);
+  const featureCatalog = useSelector(selectors.getFeatures);
 
   const handleDownloadPDF = async () => {
     if (!properties.length) return;
     try {
-      await generateWishlistPDF(properties, formatPrice, config.companyName || config.tenantSlug, config.primaryColor);
+      await generateWishlistPDF(properties, formatPrice, config.companyName || config.tenantSlug, config.primaryColor, featureCatalog);
     } catch (err) {
       console.error('[SPM] PDF generation failed:', err);
     }
