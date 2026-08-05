@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WebmasterController, WebmasterAdminController } from './webmaster.controller';
 import { WebmasterService } from './webmaster.service';
-import { TimeEntry, Ticket, User, Tenant } from '../../database/entities';
+import { TimeEntry, Ticket, TicketMessage, User, Tenant } from '../../database/entities';
 import { TicketModule } from '../ticket/ticket.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TimeEntry, Ticket, User, Tenant]),
+    TypeOrmModule.forFeature([TimeEntry, Ticket, TicketMessage, User, Tenant]),
     TicketModule,
   ],
   controllers: [WebmasterController, WebmasterAdminController],

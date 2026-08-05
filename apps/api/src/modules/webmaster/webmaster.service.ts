@@ -8,8 +8,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { TimeEntry, Ticket, User, Tenant } from '../../database/entities';
+import { TimeEntry, Ticket, TicketMessage, User, Tenant, TicketStatus } from '../../database/entities';
 import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
+import { CreateMessageDto } from '../ticket/dto';
 import { UserRole } from '@spm/shared';
 import { TicketNotificationService } from '../ticket/ticket-notification.service';
 import * as bcrypt from 'bcrypt';
@@ -37,6 +38,8 @@ export class WebmasterService {
     private timeEntryRepository: Repository<TimeEntry>,
     @InjectRepository(Ticket)
     private ticketRepository: Repository<Ticket>,
+    @InjectRepository(TicketMessage)
+    private ticketMessageRepository: Repository<TicketMessage>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Tenant)
@@ -121,6 +124,70 @@ export class WebmasterService {
         createdAt: 'DESC',
       },
     });
+  }
+
+  /**
+   * Get a single assigned ticket (with messages) — 404s if the ticket
+   * isn't assigned to this webmaster, so an authenticated webmaster
+   * can't peek at other people's tickets.
+   */
+  async getAssignedTicket(userId: number, ticketId: number): Promise<Ticket> {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId, assignedTo: userId },
+      relations: ['tenant', 'user', 'assignedToUser', 'messages', 'messages.user'],
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found or not assigned to you');
+    return ticket;
+  }
+
+  /**
+   * Post a message on a ticket as the assigned webmaster. Mirrors
+   * TicketService.addMessage — writes with isStaff=true so the customer
+   * sees "Support replied", advances open→in_progress, sets firstResponseAt,
+   * and fires the reply email notification.
+   */
+  async replyToAssignedTicket(
+    userId: number,
+    ticketId: number,
+    dto: CreateMessageDto,
+  ): Promise<TicketMessage> {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId, assignedTo: userId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found or not assigned to you');
+
+    const insertResult = await this.ticketMessageRepository
+      .createQueryBuilder()
+      .insert()
+      .into(TicketMessage)
+      .values({
+        ticketId: ticket.id,
+        userId,
+        message: dto.message,
+        attachments: (dto.attachments as any) || null,
+        isStaff: true,
+        isInternal: dto.isInternal || false,
+      })
+      .execute();
+
+    const savedMessage = await this.ticketMessageRepository.findOne({
+      where: { id: insertResult.generatedMaps[0].id as number },
+      relations: ['user'],
+    });
+
+    const updateFields: Partial<Ticket> = { lastReplyAt: new Date() };
+    if (!ticket.firstResponseAt) updateFields.firstResponseAt = new Date();
+    if (ticket.status === 'open') updateFields.status = 'in_progress' as TicketStatus;
+    await this.ticketRepository.update(ticket.id, updateFields);
+
+    if (savedMessage && !dto.isInternal) {
+      const senderName = savedMessage.user?.name || savedMessage.user?.email || 'Support';
+      this.ticketNotifications.notifyTicketReply(ticket, savedMessage, senderName).catch((err) =>
+        this.logger.error(`Failed to send reply notification: ${err.message}`),
+      );
+    }
+
+    return savedMessage!;
   }
 
   /**

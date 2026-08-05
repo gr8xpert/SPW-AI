@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { WebmasterService } from './webmaster.service';
 import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
+import { CreateMessageDto } from '../ticket/dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -35,6 +36,23 @@ export class WebmasterController {
   @Get('tickets')
   async getAssignedTickets(@CurrentUser() user: JwtPayload) {
     return this.webmasterService.getAssignedTickets(user.sub);
+  }
+
+  @Get('tickets/:id')
+  async getAssignedTicket(
+    @Param('id', ParseIntPipe) ticketId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.webmasterService.getAssignedTicket(user.sub, ticketId);
+  }
+
+  @Post('tickets/:id/messages')
+  async replyToTicket(
+    @Param('id', ParseIntPipe) ticketId: number,
+    @Body() dto: CreateMessageDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.webmasterService.replyToAssignedTicket(user.sub, ticketId, dto);
   }
 
   @Post('tickets/:id/complete')

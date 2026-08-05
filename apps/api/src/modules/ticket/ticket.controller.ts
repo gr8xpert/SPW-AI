@@ -45,8 +45,11 @@ export class TicketController {
       limit: limit ? parseInt(limit) : 20,
     };
 
-    // If not admin, only show own tickets
-    if (role !== 'admin') {
+    // Tenant admins see everything for their tenant; tenant users only
+    // see their own tickets. `admin` here means tenant-admin — platform
+    // staff (super_admin / webmaster) don't hit this endpoint, they use
+    // /api/super-admin/tickets or /api/webmaster/tickets.
+    if (role !== 'admin' && role !== 'super_admin') {
       options.userId = userId;
     }
 
@@ -86,7 +89,10 @@ export class TicketController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateMessageDto,
   ) {
-    const isStaff = role === 'super_admin' || role === 'admin';
+    // `admin` role is a tenant admin (customer). Only super_admin counts
+    // as platform staff on the tenant-scoped controller. Webmasters use
+    // /api/webmaster/tickets/:id/messages, which force-sets isStaff=true.
+    const isStaff = role === 'super_admin';
     return this.ticketService.addMessage(tenantId, id, userId, dto, isStaff);
   }
 }

@@ -30,6 +30,8 @@ export interface SystemMailMessage {
   subject: string;
   html: string;
   text: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
 }
 
 interface MailTransport {
@@ -123,6 +125,8 @@ export class SystemMailerService {
         subject: message.subject,
         html: message.html,
         text: message.text,
+        ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+        ...(message.headers ? { headers: message.headers } : {}),
       });
       return { delivered: true, messageId: result.messageId };
     } catch (err) {

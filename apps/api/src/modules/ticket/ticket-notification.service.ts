@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as crypto from 'crypto';
 import { Repository } from 'typeorm';
 import { User, Ticket, TicketMessage } from '../../database/entities';
 import { SystemMailerService } from '../mail/system-mailer.service';
@@ -11,9 +13,25 @@ export class TicketNotificationService {
 
   constructor(
     private readonly mailer: SystemMailerService,
+    private readonly config: ConfigService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  // Reply-To for a ticket email. n8n (or Postmark/Mailgun inbound) parses
+  // `ticket+<id>.<hmac>@<domain>` and posts to /api/internal/tickets/inbound.
+  // The hmac binds the address to the ticket id — a leaked/stale address
+  // can't be aimed at a different ticket. Returns null when the inbound
+  // pipeline is disabled; outgoing mail then omits Reply-To.
+  buildReplyToAddress(ticketId: number): string | null {
+    const enabled = this.config.get<string>('INBOUND_EMAIL_ENABLED') === 'true';
+    if (!enabled) return null;
+    const domain = this.config.get<string>('INBOUND_EMAIL_DOMAIN');
+    const secret = this.config.get<string>('INBOUND_EMAIL_HMAC_SECRET');
+    if (!domain || !secret) return null;
+    const token = crypto.createHmac('sha256', secret).update(String(ticketId)).digest('hex').slice(0, 12);
+    return `ticket+${ticketId}.${token}@${domain}`;
+  }
 
   async notifyTicketCreated(ticket: Ticket, firstMessage: string): Promise<void> {
     const superAdmins = await this.userRepository.find({
@@ -29,11 +47,13 @@ export class TicketNotificationService {
     const creatorName = ticket.user?.name || ticket.user?.email || 'A customer';
     const subject = `[New Ticket] ${ticket.ticketNumber}: ${ticket.subject}`;
     const preview = firstMessage.length > 300 ? firstMessage.slice(0, 300) + '...' : firstMessage;
+    const replyTo = this.buildReplyToAddress(ticket.id) ?? undefined;
 
     for (const admin of superAdmins) {
       await this.mailer.send({
         to: admin.email,
         subject,
+        replyTo,
         html: `
           <h2>New Support Ticket</h2>
           <p><strong>${creatorName}</strong> submitted a new ticket.</p>
@@ -57,10 +77,12 @@ export class TicketNotificationService {
 
   async notifyTicketAssigned(ticket: Ticket, webmaster: User): Promise<void> {
     const subject = `[Ticket Assigned] ${ticket.ticketNumber}: ${ticket.subject}`;
+    const replyTo = this.buildReplyToAddress(ticket.id) ?? undefined;
 
     await this.mailer.send({
       to: webmaster.email,
       subject,
+      replyTo,
       html: `
         <h2>Ticket Assigned to You</h2>
         <p>You have been assigned a support ticket.</p>
@@ -86,9 +108,9 @@ export class TicketNotificationService {
   ): Promise<void> {
     const preview = message.message.length > 300 ? message.message.slice(0, 300) + '...' : message.message;
     const subject = `[Re: ${ticket.ticketNumber}] ${ticket.subject}`;
+    const replyTo = this.buildReplyToAddress(ticket.id) ?? undefined;
 
     if (message.isStaff) {
-      // Staff replied → notify the tenant user who created the ticket
       const creator = await this.userRepository.findOne({
         where: { id: ticket.userId },
         select: ['id', 'email', 'name'],
@@ -98,18 +120,18 @@ export class TicketNotificationService {
       await this.mailer.send({
         to: creator.email,
         subject,
+        replyTo,
         html: `
           <h2>New Reply on Your Ticket</h2>
           <p><strong>${this.escapeHtml(senderName)}</strong> replied to your ticket <strong>${ticket.ticketNumber}</strong>.</p>
           <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
             <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
           </div>
-          <p>Log in to your dashboard to view the full conversation and reply.</p>
+          <p>You can reply directly to this email — your response will be added to the ticket automatically.</p>
         `,
-        text: `New Reply on Ticket ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nLog in to view the full conversation.`,
+        text: `New Reply on Ticket ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nReply directly to this email to respond.`,
       });
     } else {
-      // Customer replied → notify assigned webmaster or super admins
       if (ticket.assignedTo) {
         const webmaster = await this.userRepository.findOne({
           where: { id: ticket.assignedTo },
@@ -119,18 +141,19 @@ export class TicketNotificationService {
           await this.mailer.send({
             to: webmaster.email,
             subject,
+            replyTo,
             html: `
               <h2>Customer Reply on ${ticket.ticketNumber}</h2>
               <p><strong>${this.escapeHtml(senderName)}</strong> replied to ticket <strong>${ticket.ticketNumber}</strong>.</p>
               <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
                 <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
               </div>
+              <p>Reply directly to this email to respond to the customer.</p>
             `,
-            text: `Customer Reply on ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}`,
+            text: `Customer Reply on ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nReply directly to this email to respond.`,
           });
         }
       } else {
-        // No one assigned — notify super admins
         const superAdmins = await this.userRepository.find({
           where: { role: UserRole.SUPER_ADMIN, isActive: true },
           select: ['id', 'email'],
@@ -139,6 +162,7 @@ export class TicketNotificationService {
           await this.mailer.send({
             to: admin.email,
             subject,
+            replyTo,
             html: `
               <h2>Customer Reply on ${ticket.ticketNumber}</h2>
               <p><strong>${this.escapeHtml(senderName)}</strong> replied to an unassigned ticket.</p>

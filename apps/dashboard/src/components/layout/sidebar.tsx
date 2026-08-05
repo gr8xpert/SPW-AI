@@ -92,7 +92,7 @@ const other: NavItem[] = [
 
 const webmasterWork: NavItem[] = [
   { name: 'Time Tracking', href: '/dashboard/time-tracking', icon: Timer },
-  { name: 'Assigned Tickets', href: '/dashboard/tickets', icon: Ticket },
+  { name: 'Assigned Tickets', href: '/dashboard/webmaster/tickets', icon: Ticket },
 ];
 
 function NavSection({

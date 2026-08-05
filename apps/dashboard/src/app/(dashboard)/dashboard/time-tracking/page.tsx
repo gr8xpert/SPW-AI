@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -107,6 +108,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export default function TimeTrackingPage() {
   const api = useApi();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [stats, setStats] = useState<WebmasterStats | null>(null);
   const [summary, setSummary] = useState<TimeEntrySummary | null>(null);
@@ -312,7 +314,11 @@ export default function TimeTrackingPage() {
                 {activeTickets.map((t) => {
                   const sc = statusConfig[t.status] || { label: t.status, className: '' };
                   return (
-                    <TableRow key={t.id}>
+                    <TableRow
+                      key={t.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/dashboard/webmaster/tickets/${t.id}`)}
+                    >
                       <TableCell className="font-mono text-sm">{t.ticketNumber}</TableCell>
                       <TableCell className="font-medium max-w-[250px] truncate">{t.subject}</TableCell>
                       <TableCell className="text-sm">{t.tenant?.name || '—'}</TableCell>

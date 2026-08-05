@@ -1,7 +1,8 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Ticket, TicketMessage, TicketStatus } from '../../database/entities';
+import { Ticket, TicketMessage, TicketStatus, User } from '../../database/entities';
+import { UserRole } from '@spm/shared';
 import { CreateTicketDto, UpdateTicketDto, CreateMessageDto } from './dto';
 import { TicketNotificationService } from './ticket-notification.service';
 
@@ -14,6 +15,8 @@ export class TicketService {
     private ticketRepository: Repository<Ticket>,
     @InjectRepository(TicketMessage)
     private messageRepository: Repository<TicketMessage>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private readonly notifications: TicketNotificationService,
   ) {}
 
@@ -183,11 +186,89 @@ export class TicketService {
       ticket.priority = dto.priority;
     }
 
+    const previousAssignee = ticket.assignedTo;
     if (dto.assignedTo !== undefined) {
       ticket.assignedTo = dto.assignedTo;
     }
 
-    return this.ticketRepository.save(ticket);
+    const saved = await this.ticketRepository.save(ticket);
+
+    // WebmasterService.assignTicket fires the assignment email from its own
+    // endpoint, but PUT /api/dashboard/tickets/:id and PUT /api/super-admin/
+    // tickets/:tenantId/:id/assign both flow through here — without this
+    // dispatch, those paths silently skip the webmaster notification.
+    if (
+      dto.assignedTo !== undefined &&
+      dto.assignedTo !== null &&
+      dto.assignedTo !== previousAssignee
+    ) {
+      const webmaster = await this.userRepository.findOne({
+        where: { id: dto.assignedTo },
+        select: ['id', 'email', 'name'],
+      });
+      if (webmaster) {
+        this.notifications.notifyTicketAssigned(saved, webmaster).catch((err) =>
+          this.logger.error(`Failed to send assignment notification: ${err.message}`),
+        );
+      }
+    }
+
+    return saved;
+  }
+
+  // Add a message on behalf of an inbound email. The caller has already
+  // authenticated the sender (matching From → user record) and validated the
+  // reply-to token, so we skip the tenant-scope check here and trust the
+  // ticketId directly. Auto-detects isStaff from the sender's role.
+  async createInboundMessage(
+    ticketId: number,
+    sender: User,
+    text: string,
+  ): Promise<TicketMessage | null> {
+    const ticket = await this.ticketRepository.findOne({ where: { id: ticketId } });
+    if (!ticket) return null;
+
+    // Only platform-level roles are staff. Tenant admins (role='admin')
+    // are customers even when replying to their own ticket — matches the
+    // dashboard controller's classification so message polarity stays
+    // consistent across web-UI replies and email replies.
+    const isStaff =
+      sender.role === UserRole.SUPER_ADMIN || sender.role === UserRole.WEBMASTER;
+
+    const insertResult = await this.messageRepository
+      .createQueryBuilder()
+      .insert()
+      .into(TicketMessage)
+      .values({
+        ticketId: ticket.id,
+        userId: sender.id,
+        message: text,
+        attachments: null as any,
+        isStaff,
+        isInternal: false,
+      })
+      .execute();
+
+    const savedMessage = await this.messageRepository.findOne({
+      where: { id: insertResult.generatedMaps[0].id as number },
+      relations: ['user'],
+    });
+
+    const updateFields: Partial<Ticket> = { lastReplyAt: new Date() };
+    if (isStaff && !ticket.firstResponseAt) updateFields.firstResponseAt = new Date();
+    if (isStaff && ticket.status === 'open') updateFields.status = 'in_progress' as TicketStatus;
+    else if (!isStaff && ticket.status === 'waiting_customer')
+      updateFields.status = 'in_progress' as TicketStatus;
+    await this.ticketRepository.update(ticket.id, updateFields);
+
+    if (savedMessage) {
+      const senderName = sender.name || sender.email;
+      this.notifications.notifyTicketReply(ticket, savedMessage, senderName).catch((err) =>
+        this.logger.error(`Failed to send reply notification: ${err.message}`),
+      );
+    }
+
+    return savedMessage;
   }
 
   async addMessage(
