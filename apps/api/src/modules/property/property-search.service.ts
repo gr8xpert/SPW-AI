@@ -204,8 +204,11 @@ export class PropertySearchService {
       case 'create_date': query.addOrderBy('p.createdAt', 'ASC'); break;
       case 'write_date_desc': query.addOrderBy('p.updatedAt', 'DESC'); break;
       case 'write_date': query.addOrderBy('p.updatedAt', 'ASC'); break;
-      case 'list_price': query.addOrderBy('p.price', 'ASC', 'NULLS LAST'); break;
-      case 'list_price_desc': query.addOrderBy('p.price', 'DESC', 'NULLS LAST'); break;
+      // TypeORM's third-arg `NULLS LAST` is Postgres-only and produces invalid
+      // MySQL SQL. MySQL sorts NULLs last for DESC and first for ASC by default;
+      // acceptable for a price sort.
+      case 'list_price': query.addOrderBy('p.price', 'ASC'); break;
+      case 'list_price_desc': query.addOrderBy('p.price', 'DESC'); break;
       case 'is_featured_desc': query.addOrderBy('p.isFeatured', 'DESC'); break;
       case 'location_id': query.addOrderBy('p.locationId', 'ASC'); break;
       default: query.addOrderBy('p.createdAt', 'DESC');

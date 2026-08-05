@@ -2,58 +2,254 @@ import type { Property, Feature } from '@/types';
 import { resolveFeatures } from '@/core/feature-utils';
 
 interface JsPDF {
-  addImage(data: string, format: string, x: number, y: number, w: number, h: number): void;
-  addPage(): void;
-  save(filename: string): void;
+  setFont(font: string, style?: 'normal' | 'bold' | 'italic' | 'bolditalic'): JsPDF;
+  setFontSize(size: number): JsPDF;
+  setTextColor(r: number, g: number, b: number): JsPDF;
+  setFillColor(r: number, g: number, b: number): JsPDF;
+  setDrawColor(r: number, g: number, b: number): JsPDF;
+  setLineWidth(w: number): JsPDF;
+  text(text: string | string[], x: number, y: number, opts?: { align?: 'left' | 'center' | 'right' }): JsPDF;
+  rect(x: number, y: number, w: number, h: number, style?: 'F' | 'S' | 'DF'): JsPDF;
+  line(x1: number, y1: number, x2: number, y2: number): JsPDF;
+  addImage(data: string, format: string, x: number, y: number, w: number, h: number): JsPDF;
+  addPage(): JsPDF;
+  save(filename: string): JsPDF;
+  splitTextToSize(text: string, maxWidth: number): string[];
+  getTextWidth(text: string): number;
   internal: { pageSize: { getWidth(): number; getHeight(): number } };
 }
 
-interface Html2Canvas {
-  (el: HTMLElement, opts?: Record<string, unknown>): Promise<HTMLCanvasElement>;
+// V1 wishlist PDFs use jsPDF's built-in text API + standard fonts. This
+// produces selectable text, small file sizes, and — critically — no font
+// rendering artefacts (unlike the html2canvas screenshot approach, which
+// eats whitespace and substitutes fonts).
+let libLoading: Promise<{ jsPDF: new (opts: Record<string, unknown>) => JsPDF }> | null = null;
+
+function loadJsPdf() {
+  if (libLoading) return libLoading;
+  libLoading = new Promise((resolve, reject) => {
+    const w = window as unknown as Record<string, unknown>;
+    const existing = w.jspdf as { jsPDF: new (opts: Record<string, unknown>) => JsPDF } | undefined;
+    if (existing?.jsPDF) { resolve({ jsPDF: existing.jsPDF }); return; }
+
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => {
+      const mod = (window as unknown as Record<string, unknown>).jspdf as { jsPDF: new (opts: Record<string, unknown>) => JsPDF } | undefined;
+      if (mod?.jsPDF) resolve({ jsPDF: mod.jsPDF });
+      else reject(new Error('jsPDF loaded but global not found'));
+    };
+    s.onerror = () => reject(new Error('jsPDF script failed to load'));
+    document.head.appendChild(s);
+  });
+  return libLoading;
 }
 
-let libsLoading: Promise<{ jsPDF: new (opts: Record<string, unknown>) => JsPDF; html2canvas: Html2Canvas }> | null = null;
+async function fetchAsDataUrl(url: string): Promise<{ data: string; format: 'JPEG' | 'PNG' } | null> {
+  try {
+    const r = await fetch(url, { mode: 'cors' });
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    const format: 'JPEG' | 'PNG' = blob.type.includes('png') ? 'PNG' : 'JPEG';
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return { data, format };
+  } catch {
+    return null;
+  }
+}
 
-function loadLibs() {
-  if (libsLoading) return libsLoading;
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.replace('#', '');
+  const n = parseInt(clean, 16);
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+}
 
-  libsLoading = new Promise((resolve, reject) => {
-    let loaded = 0;
-    const check = () => {
-      loaded++;
-      if (loaded < 2) return;
-      const w = window as unknown as Record<string, unknown>;
-      const jspdfMod = w.jspdf as { jsPDF: new (opts: Record<string, unknown>) => JsPDF } | undefined;
-      const h2c = w.html2canvas as Html2Canvas | undefined;
-      if (jspdfMod && h2c) resolve({ jsPDF: jspdfMod.jsPDF, html2canvas: h2c });
-      else reject(new Error('Failed to load PDF libraries'));
-    };
+function stripHtml(html: string): string {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
 
-    if ((window as unknown as Record<string, unknown>).jspdf && (window as unknown as Record<string, unknown>).html2canvas) {
-      loaded = 1;
-      check();
-      return;
+function drawCover(pdf: JsPDF, brand: string, primary: { r: number; g: number; b: number }, count: number, date: string): void {
+  const W = pdf.internal.pageSize.getWidth();
+  const H = pdf.internal.pageSize.getHeight();
+
+  pdf.setFillColor(primary.r, primary.g, primary.b);
+  pdf.rect(0, 0, W, H, 'F');
+
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(32);
+  pdf.text(brand, W / 2, H / 2 - 30, { align: 'center' });
+
+  pdf.setDrawColor(255, 255, 255);
+  pdf.setLineWidth(0.5);
+  pdf.line(W / 2 - 30, H / 2 - 15, W / 2 + 30, H / 2 - 15);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(18);
+  pdf.text('Property Wishlist', W / 2, H / 2, { align: 'center' });
+
+  pdf.setFontSize(12);
+  pdf.text(`${count} ${count === 1 ? 'Property' : 'Properties'} Saved`, W / 2, H / 2 + 12, { align: 'center' });
+
+  pdf.setFontSize(10);
+  pdf.text(date, W / 2, H - 20, { align: 'center' });
+}
+
+async function drawPropertyPage(
+  pdf: JsPDF,
+  p: Property,
+  index: number,
+  total: number,
+  formatPrice: (n: number, c?: string) => string,
+  primary: { r: number; g: number; b: number },
+  resolvedFeatures: Feature[],
+): Promise<void> {
+  const W = pdf.internal.pageSize.getWidth();
+  const H = pdf.internal.pageSize.getHeight();
+  const M = 18; // page margin
+
+  // Header strip
+  pdf.setFillColor(primary.r, primary.g, primary.b);
+  pdf.rect(0, 0, W, 12, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.text(`Property ${index} of ${total}`, M, 8);
+  pdf.text(`Ref: ${p.reference}`, W - M, 8, { align: 'right' });
+
+  let y = 22;
+
+  // Property image
+  const imgUrl = p.images?.[0]?.url;
+  if (imgUrl) {
+    const img = await fetchAsDataUrl(imgUrl);
+    if (img) {
+      const imgW = W - M * 2;
+      const imgH = 90;
+      try {
+        pdf.addImage(img.data, img.format, M, y, imgW, imgH);
+      } catch { /* image decode failed — skip */ }
+      y += imgH + 8;
     }
+  }
 
-    const s1 = document.createElement('script');
-    s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s1.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmIzVYI+6MYHFMhfMCggHLy6VL12r5OGNrVDNDG+FBAVfEe9Gw==';
-    s1.crossOrigin = 'anonymous';
-    s1.onload = check;
-    s1.onerror = reject;
+  // Title
+  pdf.setTextColor(30, 41, 59);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(16);
+  const titleLines = pdf.splitTextToSize(p.title, W - M * 2);
+  pdf.text(titleLines, M, y);
+  y += titleLines.length * 6 + 2;
 
-    const s2 = document.createElement('script');
-    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    s2.integrity = 'sha512-BNaRQnYJYiPSc6i1GOKQ0+1VUtrncUOEnCaWT12xtOWxZcQAkLau27/bBNBJjC2vPOHqXax5LCfBBOhPmyZPg==';
-    s2.crossOrigin = 'anonymous';
-    s2.onload = check;
-    s2.onerror = reject;
+  // Price
+  pdf.setTextColor(primary.r, primary.g, primary.b);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(20);
+  const priceText = p.priceOnRequest ? 'Price on Request' : formatPrice(p.price, p.currency);
+  pdf.text(priceText, M, y);
+  y += 10;
 
-    document.head.appendChild(s1);
-    document.head.appendChild(s2);
-  });
+  // Location + type
+  pdf.setTextColor(100, 116, 139);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  const subline = [p.location?.name, p.propertyType?.name].filter(Boolean).join('  •  ');
+  if (subline) {
+    pdf.text(subline, M, y);
+    y += 8;
+  }
 
-  return libsLoading;
+  // Separator
+  pdf.setDrawColor(226, 232, 240);
+  pdf.setLineWidth(0.3);
+  pdf.line(M, y, W - M, y);
+  y += 6;
+
+  // Info grid (label / value pairs) — two columns
+  const rows: Array<[string, string]> = [];
+  if (p.bedrooms != null) rows.push(['Bedrooms', String(p.bedrooms)]);
+  if (p.bathrooms != null) rows.push(['Bathrooms', String(p.bathrooms)]);
+  if (p.buildSize != null) rows.push(['Build Size', `${p.buildSize} m²`]);
+  if (p.plotSize != null) rows.push(['Plot Size', `${p.plotSize} m²`]);
+  if (p.terraceSize != null) rows.push(['Terrace', `${p.terraceSize} m²`]);
+  if (p.status) rows.push(['Status', String(p.status).replace(/_/g, ' ')]);
+
+  pdf.setFontSize(10);
+  const colW = (W - M * 2) / 2;
+  for (let i = 0; i < rows.length; i += 2) {
+    const [l1, v1] = rows[i];
+    const [l2, v2] = rows[i + 1] || ['', ''];
+
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`${l1}:`, M, y);
+    if (l2) pdf.text(`${l2}:`, M + colW, y);
+
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(v1, M + 28, y);
+    if (v2) pdf.text(v2, M + colW + 28, y);
+
+    y += 6;
+  }
+  y += 3;
+
+  // Description
+  const raw = (typeof p.description === 'string' ? p.description : '').trim();
+  if (raw) {
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(M, y, W - M, y);
+    y += 5;
+
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    const text = stripHtml(raw).slice(0, 700);
+    const lines = pdf.splitTextToSize(text, W - M * 2);
+    // Only include as many lines as fit before the features/footer area
+    const maxLines = Math.max(0, Math.floor((H - 45 - y) / 5));
+    pdf.text(lines.slice(0, maxLines), M, y);
+    y += Math.min(lines.length, maxLines) * 5 + 4;
+  }
+
+  // Features chips
+  if (resolvedFeatures.length) {
+    pdf.setTextColor(71, 85, 105);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    let cx = M;
+    const chipH = 6;
+    for (const f of resolvedFeatures.slice(0, 12)) {
+      const label = f.name;
+      const w = pdf.getTextWidth(label) + 6;
+      if (cx + w > W - M) {
+        cx = M;
+        y += chipH + 2;
+        if (y > H - 25) break;
+      }
+      pdf.setFillColor(241, 245, 249);
+      pdf.rect(cx, y - 4, w, chipH, 'F');
+      pdf.text(label, cx + 3, y);
+      cx += w + 3;
+    }
+  }
+
+  // Footer
+  pdf.setDrawColor(226, 232, 240);
+  pdf.line(M, H - 15, W - M, H - 15);
+  pdf.setTextColor(148, 163, 184);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.text(`Page ${index + 1} of ${total + 1}`, W / 2, H - 8, { align: 'center' });
 }
 
 export async function generateWishlistPDF(
@@ -63,139 +259,20 @@ export async function generateWishlistPDF(
   primaryColor?: string,
   featureCatalog: Feature[] = [],
 ): Promise<void> {
-  const brand = esc(brandName || document.title || 'Property Collection');
-  const color = primaryColor || '#2563eb';
+  const brand = brandName || document.title || 'Property Collection';
+  const primary = hexToRgb(primaryColor || '#2563eb');
   const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const { jsPDF, html2canvas } = await loadLibs();
+  const { jsPDF } = await loadJsPdf();
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;';
-  document.body.appendChild(container);
+  drawCover(pdf, brand, primary, properties.length, date);
 
-  try {
-    const pages: HTMLElement[] = [];
-
-    // Cover page
-    const cover = document.createElement('div');
-    cover.innerHTML = buildCoverHTML(brand, color, date, properties.length);
-    applyPageStyle(cover);
-    container.appendChild(cover);
-    pages.push(cover);
-
-    // Property pages
-    for (const p of properties) {
-      const page = document.createElement('div');
-      const resolved = resolveFeatures(p.features, featureCatalog);
-      page.innerHTML = buildPropertyHTML(p, formatPrice, color, resolved);
-      applyPageStyle(page);
-      container.appendChild(page);
-      pages.push(page);
-    }
-
-    // Wait for images to load
-    const imgs = container.querySelectorAll('img');
-    await Promise.all(Array.from(imgs).map((img) =>
-      new Promise<void>((r) => {
-        if (img.complete) { r(); return; }
-        img.onload = () => r();
-        img.onerror = () => r();
-      }),
-    ));
-
-    await new Promise((r) => setTimeout(r, 100));
-
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4', hotfixes: ['px_scaling'] });
-    const pdfW = pdf.internal.pageSize.getWidth();
-    const pdfH = pdf.internal.pageSize.getHeight();
-
-    for (let i = 0; i < pages.length; i++) {
-      const canvas = await html2canvas(pages[i], {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        width: 794,
-        height: 1123,
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-    }
-
-    pdf.save('wishlist.pdf');
-  } finally {
-    document.body.removeChild(container);
+  for (let i = 0; i < properties.length; i++) {
+    pdf.addPage();
+    const resolved = resolveFeatures(properties[i].features, featureCatalog);
+    await drawPropertyPage(pdf, properties[i], i + 1, properties.length, formatPrice, primary, resolved);
   }
-}
 
-function applyPageStyle(el: HTMLElement): void {
-  el.style.cssText = 'width:794px;height:1123px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;font-family:Segoe UI,system-ui,-apple-system,sans-serif;color:#1e293b;';
-}
-
-function buildCoverHTML(brand: string, color: string, date: string, count: number): string {
-  const darker = adjustColor(color, -40);
-  return `
-    <div style="position:absolute;inset:0;background:linear-gradient(160deg,${color} 0%,${darker} 100%);"></div>
-    <div style="position:absolute;top:-160px;right:-160px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-    <div style="position:absolute;bottom:-120px;left:-120px;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-    <div style="position:relative;z-index:1;text-align:center;color:#fff;padding:0 80px;">
-      <div style="width:72px;height:72px;border-radius:20px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 40px;font-size:36px;font-weight:700;">${esc(brand.charAt(0).toUpperCase())}</div>
-      <div style="font-size:36px;font-weight:700;letter-spacing:-0.5px;margin-bottom:16px;">${esc(brand)}</div>
-      <div style="width:120px;height:2px;background:rgba(255,255,255,0.4);margin:24px auto;"></div>
-      <div style="font-size:17px;font-weight:400;opacity:0.85;margin-bottom:12px;">Curated Property Selection</div>
-      <div style="font-size:14px;opacity:0.6;">${count} ${count === 1 ? 'Property' : 'Properties'}</div>
-    </div>
-    <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center;font-size:12px;color:rgba(255,255,255,0.5);">${esc(date)}</div>`;
-}
-
-function buildPropertyHTML(p: Property, formatPrice: (n: number, c?: string) => string, color: string, resolvedFeatures: Feature[]): string {
-  const priceText = p.priceOnRequest ? 'Price on Request' : esc(formatPrice(p.price, p.currency));
-  const imgUrl = p.images?.[0]?.url || '';
-  const desc = p.description ? esc(stripHtml(p.description).slice(0, 300)) + (p.description.length > 300 ? '...' : '') : '';
-
-  const specs: string[] = [];
-  if (p.bedrooms != null) specs.push(`${esc(String(p.bedrooms))} Bedrooms`);
-  if (p.bathrooms != null) specs.push(`${esc(String(p.bathrooms))} Bathrooms`);
-  if (p.buildSize != null) specs.push(`${esc(String(p.buildSize))} m² Built`);
-  if (p.plotSize != null) specs.push(`${esc(String(p.plotSize))} Plot`);
-  if (p.year != null) specs.push(`Built ${esc(String(p.year))}`);
-
-  const features = resolvedFeatures.slice(0, 8).map((f) => esc(f.name));
-
-  return `
-    <div style="background:#fff;position:absolute;inset:0;"></div>
-    <div style="position:relative;width:640px;">
-      ${imgUrl ? `<div style="width:100%;border-radius:16px;overflow:hidden;margin-bottom:28px;box-shadow:0 4px 20px rgba(0,0,0,0.12);"><img src="${esc(imgUrl)}" crossorigin="anonymous" style="width:100%;height:380px;object-fit:cover;display:block;" /></div>` : ''}
-      <div style="padding:0 8px;">
-        <div style="font-size:24px;font-weight:700;color:#1e293b;margin-bottom:6px;line-height:1.2;">${esc(p.title)}</div>
-        <div style="font-size:22px;font-weight:700;color:${color};margin-bottom:6px;">${priceText}</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:16px;">${esc(p.location.name)}</div>
-        ${specs.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:#334155;margin-bottom:16px;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">${specs.map((s) => `<span>${s}</span>`).join('<span style="color:#cbd5e1;margin:0 4px;">•</span>')}</div>` : ''}
-        ${desc ? `<div style="font-size:12px;line-height:1.6;color:#475569;margin-bottom:16px;">${desc}</div>` : ''}
-        ${features.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${features.map((f) => `<span style="display:inline-block;padding:4px 10px;background:#f1f5f9;border-radius:6px;font-size:10px;color:#475569;">${f}</span>`).join('')}</div>` : ''}
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;padding-top:10px;border-top:1px solid #f1f5f9;">
-          <span>Ref: ${esc(p.reference)}</span>
-          <span>${esc(p.propertyType?.name ?? '')}</span>
-        </div>
-      </div>
-    </div>`;
-}
-
-function esc(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function stripHtml(html: string): string {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || '';
-}
-
-function adjustColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + amount));
-  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
-  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  pdf.save('wishlist.pdf');
 }

@@ -9,16 +9,26 @@
     h1 { font-size: 1.25rem; }
     .nav { display: flex; gap: 0.5rem; margin: 1rem 0; }
     .nav a { padding: 0.5rem 1rem; background: #eef; border: 1px solid #ccd; border-radius: 4px; text-decoration: none; color: #225; }
+    .nav a.active { background: #225; color: white; }
     .panel { border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; border-radius: 6px; }
     #diag { background: #111; color: #0f0; padding: 1rem; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow: auto; }
   </style>
 </head>
 <body>
-  <h1>SPW Widget — Listing (API on :3001)</h1>
+  <h1>SPW Widget — Search + Listing (API on :3001)</h1>
   <div id="diag">[diag] starting…</div>
   <div class="nav">
-    <a href="/test-local.html">Listing</a>
+    <a href="/test-local.html" class="active">Listing</a>
     <a href="/test-detail.html">Detail (WH-1777639278810-861)</a>
+    <a href="/test-wishlist.html">Wishlist</a>
+  </div>
+
+  <div class="panel">
+    <div
+      data-spm-widget="search-template-01"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
   </div>
 
   <div class="panel">

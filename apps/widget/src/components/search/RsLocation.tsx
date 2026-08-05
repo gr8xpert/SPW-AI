@@ -280,6 +280,11 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
   const [selected3, setSelected3] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const tab0Ref = useRef<HTMLButtonElement>(null);
+  const tab1Ref = useRef<HTMLButtonElement>(null);
+  const tab2Ref = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; width: number } | null>(null);
   const scroll = useScrollArrows();
 
   const dropdowns: DropdownDef[] = useMemo(() => {
@@ -363,6 +368,29 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
     return () => scroll.detach();
   }, [activeTab]);
 
+  // Position the panel under the active tab. Templates that flatten the
+  // cascading container via `display: contents` (e.g. search-template-01)
+  // cause the panel's absolute positioning to anchor to the outer row rather
+  // than the tab group, so we measure and set left/width explicitly.
+  useEffect(() => {
+    if (activeTab === null) { setPanelPos(null); return; }
+    const btn = [tab0Ref, tab1Ref, tab2Ref][activeTab]?.current;
+    const panel = panelRef.current;
+    if (!btn || !panel) return;
+    const parent = panel.offsetParent as HTMLElement | null;
+    if (!parent) return;
+    const parentRect = parent.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    const minWidth = 320;
+    const width = Math.max(btnRect.width, minWidth);
+    let left = btnRect.left - parentRect.left;
+    // Clamp within parent so the panel never overflows past the right edge.
+    const maxLeft = parent.clientWidth - width;
+    if (maxLeft >= 0 && left > maxLeft) left = maxLeft;
+    if (left < 0) left = 0;
+    setPanelPos({ left, width });
+  }, [activeTab]);
+
   const toggleTab = (idx: number) => {
     setActiveTab(prev => prev === idx ? null : idx);
     setSearch('');
@@ -420,6 +448,7 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
     <div class={`rs-cascading-v2${locked ? ' rs-field--locked' : ''}`} ref={ref}>
       <div class="rs-cascading-v2__tabs">
         <button
+          ref={tab0Ref}
           type="button"
           class={`rs-cascading-v2__tab${activeTab === 0 ? ' rs-cascading-v2__tab--active' : ''}${selected1.size > 0 ? ' rs-cascading-v2__tab--has-selection' : ''}`}
           onClick={() => toggleTab(0)}
@@ -427,6 +456,7 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
           {formatTabLabel(selected1.size, dropdowns[0])}
         </button>
         <button
+          ref={tab1Ref}
           type="button"
           class={`rs-cascading-v2__tab${activeTab === 1 ? ' rs-cascading-v2__tab--active' : ''}${selected2.size > 0 ? ' rs-cascading-v2__tab--has-selection' : ''}`}
           onClick={() => toggleTab(1)}
@@ -435,6 +465,7 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
         </button>
         {showTab3 && (
           <button
+            ref={tab2Ref}
             type="button"
             class={`rs-cascading-v2__tab${activeTab === 2 ? ' rs-cascading-v2__tab--active' : ''}${selected3.size > 0 ? ' rs-cascading-v2__tab--has-selection' : ''}`}
             onClick={() => toggleTab(2)}
@@ -444,7 +475,11 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
         )}
       </div>
       {activeTab !== null && (
-        <div class="rs-cascading-v2__panel rs-dropdown-enter">
+        <div
+          class="rs-cascading-v2__panel rs-dropdown-enter"
+          ref={panelRef}
+          style={panelPos ? `left:${panelPos.left}px;right:auto;width:${panelPos.width}px` : undefined}
+        >
           <div class="rs-cascading-v2__search">
             <div class="rs-input-wrap">
               <SearchIcon />

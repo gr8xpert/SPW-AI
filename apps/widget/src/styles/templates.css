@@ -62,9 +62,16 @@
   min-width: auto;
 }
 
+/* .rs-cascading-v2 uses display: contents in this template, so the panel's
+   fallback CSS positioning would anchor to .rs-search-row. RsLocation.tsx
+   measures the active tab and sets inline left/width so the panel appears
+   below the clicked tab; this rule is just a safe fallback if the JS didn't
+   run yet (first render). */
 .rs-search-template-01 .rs-cascading-v2__panel {
   left: 0;
-  right: 0;
+  right: auto;
+  width: 320px;
+  max-width: 100%;
 }
 
 .rs-search-template-01 .rs-t01-mobile-actions {

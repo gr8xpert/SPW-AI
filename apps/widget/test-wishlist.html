@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Wishlist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1400px; margin: 0 auto; padding: 1rem; background: #fafafa; }
+    h1 { font-size: 1.25rem; }
+    .nav { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .nav a { padding: 0.5rem 1rem; background: #eef; border: 1px solid #ccd; border-radius: 4px; text-decoration: none; color: #225; }
+    .nav a.active { background: #225; color: white; }
+    .panel { border: 1px solid #ddd; padding: 1rem; margin-top: 1rem; border-radius: 6px; background: white; }
+    .toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; padding: 0.5rem 0; }
+    .hint { background: #fffbe6; border: 1px solid #ffe58f; padding: 0.75rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.9rem; }
+    .hint button { margin-left: 0.5rem; padding: 4px 10px; background: #225; color: white; border: 0; border-radius: 4px; cursor: pointer; }
+    #diag { background: #111; color: #0f0; padding: 0.75rem; font-family: monospace; font-size: 11px; white-space: pre-wrap; max-height: 140px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>SPW Widget — Wishlist</h1>
+  <div id="diag">[diag] starting…</div>
+  <div class="nav">
+    <a href="/test-local.html">Listing</a>
+    <a href="/test-detail.html">Detail</a>
+    <a href="/test-wishlist.html" class="active">Wishlist</a>
+  </div>
+
+  <div class="hint">
+    <strong>Tip:</strong> add properties to the wishlist from the
+    <a href="/test-local.html">Listing page</a> (click the heart on any card), then come back here.
+    Or click:
+    <button id="seed-favs">Seed 3 test favorites</button>
+    <button id="clear-favs">Clear favorites</button>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div
+        data-spm-widget="wishlist_counter"
+        data-spm-api-url="http://localhost:3001"
+        data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ></div>
+    </div>
+
+    <div
+      data-spm-widget="wishlist_header"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+    <div
+      data-spm-widget="wishlist_actions"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+    <div
+      data-spm-widget="wishlist_sort"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+    <div
+      data-spm-widget="wishlist_compare_btn"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+    <div
+      data-spm-widget="wishlist_grid"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+    <div
+      data-spm-widget="wishlist_modals"
+      data-spm-api-url="http://localhost:3001"
+      data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ></div>
+  </div>
+
+  <script>
+    const diag = document.getElementById('diag');
+    const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+    document.addEventListener('spw:ready', () => log('[widget] ready'));
+    window.addEventListener('error', e => log('[err]', e.message));
+
+    document.getElementById('seed-favs').onclick = () => {
+      localStorage.setItem('spm_favorites', JSON.stringify([34, 35, 36]));
+      log('[seed] added 3 favorites (SEED-1, SEED-2, SEED-3) — reloading');
+      setTimeout(() => location.reload(), 400);
+    };
+    document.getElementById('clear-favs').onclick = () => {
+      localStorage.removeItem('spm_favorites');
+      log('[seed] cleared favorites — reloading');
+      setTimeout(() => location.reload(), 400);
+    };
+  </script>
+
+  <!-- After the widget mounts, use DataLoader directly to fetch a wide
+       list and inject into the results slice. The listing/search widgets
+       aren't on this page, so window.RealtySoft.search() would be a
+       no-op (no search handler registered). RsWishlistGrid filters
+       results.data by favorite IDs, so we need data in that slice. -->
+  <script type="module">
+    document.addEventListener('spw:ready', async () => {
+      try {
+        const { DataLoader, store, actions } = await import('/src/index.ts');
+        const config = store.getState().config;
+        const loader = new DataLoader(config);
+        const results = await loader.searchProperties({ limit: 100 });
+        actions.setResults(results);
+        const favs = JSON.parse(localStorage.getItem('spm_favorites') || '[]');
+        document.getElementById('diag').textContent +=
+          `\n[fetch] loaded ${results?.data?.length || 0} properties; ${favs.length} in wishlist`;
+      } catch (e) {
+        document.getElementById('diag').textContent += '\n[fetch err] ' + e.message;
+      }
+    });
+  </script>
+
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

@@ -29,6 +29,8 @@ export class FeedController {
   async getProviders() {
     return [
       { id: 'resales', name: 'Resales Online', available: true },
+      { id: 'kyero', name: 'Kyero XML', available: true },
+      { id: 'odoo', name: 'Odoo', available: true },
       { id: 'inmoba', name: 'Inmoba', available: true },
       { id: 'infocasa', name: 'Infocasa', available: false },
       { id: 'redsp', name: 'REDSP', available: false },
