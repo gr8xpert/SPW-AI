@@ -66,6 +66,12 @@ async function bootstrap() {
     helmet({
       hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
       contentSecurityPolicy: false,
+      // Default CORP is 'same-origin', which blocks <img src="api.spw-ai.com/uploads/…">
+      // when the img tag lives on dashboard.spw-ai.com (different subdomain = different
+      // origin). 'cross-origin' lets ticket attachments, MediaBlob images, etc. embed
+      // freely — the resources themselves are already permission-checked (either public
+      // uploads or JWT-gated API routes), and this only affects the CORP header.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   app.use(compression());

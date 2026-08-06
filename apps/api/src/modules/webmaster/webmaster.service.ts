@@ -219,7 +219,11 @@ export class WebmasterService {
       isPaid: false,
     });
 
-    return this.timeEntryRepository.save(timeEntry);
+    const saved = await this.timeEntryRepository.save(timeEntry);
+    this.logger.log(
+      `TimeEntry created: id=${saved.id} ticketId=${saved.ticketId} userId=${saved.userId} hours=${saved.hours}`,
+    );
+    return saved;
   }
 
   /**
@@ -291,6 +295,9 @@ export class WebmasterService {
       relations: ['ticket', 'ticket.tenant'],
       order: { createdAt: 'DESC' },
     });
+    this.logger.log(
+      `getTimeEntries userId=${userId} → ${entries.length} entries. IDs=[${entries.map((e) => `${e.id}(t=${e.ticketId})`).join(',')}]`,
+    );
 
     const totalHours = entries.reduce((sum, e) => sum + Number(e.hours), 0);
     const paidHours = entries
@@ -310,11 +317,15 @@ export class WebmasterService {
    * Get time entries for a specific ticket
    */
   async getTicketTimeEntries(ticketId: number): Promise<TimeEntry[]> {
-    return this.timeEntryRepository.find({
+    const entries = await this.timeEntryRepository.find({
       where: { ticketId },
       relations: ['user'],
       order: { createdAt: 'DESC' },
     });
+    this.logger.log(
+      `getTicketTimeEntries ticketId=${ticketId} → ${entries.length} entries. IDs=[${entries.map((e) => `${e.id}(u=${e.userId})`).join(',')}]`,
+    );
+    return entries;
   }
 
   /**
