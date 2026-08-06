@@ -631,7 +631,7 @@ export default function WebmasterTicketDetailPage() {
                       Mark Awaiting Customer
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Signals your work is done. Status changes to "Awaiting Reply" and the customer is notified.
+                      Signals your work is done. Status changes to &quot;Awaiting Reply&quot; and the customer is notified.
                     </p>
                   </>
                 )}
