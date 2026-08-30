@@ -338,6 +338,7 @@ export class FeedService {
               feedProperty,
               config.fieldMapping,
               quotaRemaining,
+              config.protectedFields || [],
             );
 
             if (outcome === 'created') {
@@ -446,6 +447,7 @@ export class FeedService {
     feedProperty: FeedProperty,
     fieldMapping: any,
     quotaRemaining: number,
+    feedProtectedFields: string[] = [],
   ): Promise<'created' | 'updated' | 'skipped' | 'quota_skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -481,7 +483,12 @@ export class FeedService {
 
       if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation) return 'skipped';
 
-      const lockedFields = existing.lockedFields || [];
+      // Per-property locks (user-edited fields) merged with per-feed protected
+      // fields (tenant-wide setting on FeedConfig). Union wins: any field named
+      // in either list is skipped by sync.
+      const lockedFields = Array.from(
+        new Set([...(existing.lockedFields || []), ...feedProtectedFields]),
+      );
       const updateData: Partial<Property> = {};
 
       if (promoteFromDraft && !lockedFields.includes('status')) {

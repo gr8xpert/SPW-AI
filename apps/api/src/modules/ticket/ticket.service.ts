@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Ticket, TicketMessage, TicketStatus, User } from '../../database/entities';
+import { Ticket, TicketMessage, TicketStatus, User, TimeEntry } from '../../database/entities';
 import { UserRole } from '@spm/shared';
 import { CreateTicketDto, UpdateTicketDto, CreateMessageDto } from './dto';
 import { TicketNotificationService } from './ticket-notification.service';
@@ -17,8 +17,29 @@ export class TicketService {
     private messageRepository: Repository<TicketMessage>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(TimeEntry)
+    private timeEntryRepository: Repository<TimeEntry>,
     private readonly notifications: TicketNotificationService,
   ) {}
+
+  // Attach `hoursSpent` (decimal, sum of TimeEntry.hours) to each ticket so
+  // the client dashboard can show billed time without needing per-ticket
+  // follow-up requests. One aggregate query per batch, no N+1.
+  private async attachHoursSpent(tickets: Ticket[]): Promise<void> {
+    if (tickets.length === 0) return;
+    const ticketIds = tickets.map((t) => t.id);
+    const rows = await this.timeEntryRepository
+      .createQueryBuilder('te')
+      .select('te.ticketId', 'ticketId')
+      .addSelect('COALESCE(SUM(te.hours), 0)', 'total')
+      .where('te.ticketId IN (:...ids)', { ids: ticketIds })
+      .groupBy('te.ticketId')
+      .getRawMany<{ ticketId: number; total: string }>();
+    const map = new Map(rows.map((r) => [Number(r.ticketId), Number(r.total)]));
+    for (const t of tickets) {
+      (t as any).hoursSpent = map.get(t.id) || 0;
+    }
+  }
 
   private async generateTicketNumber(): Promise<string> {
     const count = await this.ticketRepository.count();
@@ -93,6 +114,7 @@ export class TicketService {
       .take(limit)
       .getManyAndCount();
 
+    await this.attachHoursSpent(data);
     return { data, total };
   }
 
@@ -129,6 +151,7 @@ export class TicketService {
       .take(limit)
       .getManyAndCount();
 
+    await this.attachHoursSpent(data);
     return { data, total };
   }
 
@@ -142,6 +165,7 @@ export class TicketService {
       throw new NotFoundException('Ticket not found');
     }
 
+    await this.attachHoursSpent([ticket]);
     return ticket;
   }
 
@@ -155,6 +179,7 @@ export class TicketService {
       throw new NotFoundException('Ticket not found');
     }
 
+    await this.attachHoursSpent([ticket]);
     return ticket;
   }
 
@@ -184,6 +209,15 @@ export class TicketService {
 
     if (dto.priority) {
       ticket.priority = dto.priority;
+    }
+
+    // Category reclassification. Load-bearing for credit billing: consumeCredits
+    // refuses to deduct hours when category === 'bug', so this control lets
+    // staff correct a mis-tag before hours are booked. Gated to staff paths:
+    // TicketController allows any admin/super-admin via this method; the
+    // webmaster path calls this from WebmasterService after checking ownership.
+    if (dto.category) {
+      ticket.category = dto.category;
     }
 
     const previousAssignee = ticket.assignedTo;

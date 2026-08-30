@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { TimeEntry, Ticket, TicketMessage, User, Tenant, TicketStatus } from '../../database/entities';
+import { TimeEntry, Ticket, TicketMessage, User, Tenant, TicketStatus, TicketCategory } from '../../database/entities';
 import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
 import { CreateMessageDto } from '../ticket/dto';
 import { UserRole } from '@spm/shared';
@@ -137,6 +137,28 @@ export class WebmasterService {
       relations: ['tenant', 'user', 'assignedToUser', 'messages', 'messages.user'],
     });
     if (!ticket) throw new NotFoundException('Ticket not found or not assigned to you');
+    return ticket;
+  }
+
+  // Category directly controls whether hours booked against this ticket
+  // consume credits (see CreditService.consumeCredits — bug tickets are
+  // exempt). Assigned webmaster is the one working the ticket, so they're
+  // best positioned to correct a mis-tagged category before booking hours.
+  async updateAssignedTicketCategory(
+    userId: number,
+    ticketId: number,
+    category: TicketCategory,
+  ): Promise<Ticket> {
+    const ticket = await this.ticketRepository.findOne({
+      where: { id: ticketId, assignedTo: userId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found or not assigned to you');
+
+    await this.ticketRepository.update(ticket.id, { category });
+    ticket.category = category;
+    this.logger.log(
+      `Ticket ${ticket.id} category changed to '${category}' by webmaster ${userId}`,
+    );
     return ticket;
   }
 

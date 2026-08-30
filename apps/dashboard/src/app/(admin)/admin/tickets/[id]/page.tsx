@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDate } from '@/lib/utils';
+import { formatHM } from '@/lib/time';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -506,7 +507,7 @@ export default function AdminTicketDetailPage() {
                     <Timer className="h-4 w-4" />
                     Time Logged
                     <Badge variant="secondary" className="ml-1">
-                      {timeEntries.reduce((sum, e) => sum + Number(e.hours), 0).toFixed(1)}h
+                      {formatHM(timeEntries.reduce((sum, e) => sum + Number(e.hours), 0))}
                     </Badge>
                   </CardTitle>
                 </div>
@@ -531,7 +532,7 @@ export default function AdminTicketDetailPage() {
                         <TableCell className="text-sm">
                           {entry.user?.name || entry.user?.email || `User ${entry.userId}`}
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{Number(entry.hours).toFixed(1)}h</TableCell>
+                        <TableCell className="font-mono text-sm">{formatHM(entry.hours)}</TableCell>
                         <TableCell className="max-w-[250px] truncate text-sm">
                           {entry.description || '—'}
                         </TableCell>
@@ -615,7 +616,7 @@ export default function AdminTicketDetailPage() {
                 </p>
                 <p className="font-medium">
                   {timeEntries.length > 0
-                    ? `${timeEntries.reduce((sum, e) => sum + Number(e.hours), 0).toFixed(1)} hours`
+                    ? formatHM(timeEntries.reduce((sum, e) => sum + Number(e.hours), 0))
                     : 'No time logged'}
                 </p>
               </div>

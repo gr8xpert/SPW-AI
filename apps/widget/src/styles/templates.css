@@ -1288,3 +1288,254 @@ button.rs-more-filters-btn--active:hover {
   }
 }
 
+/* ── Listing template 14: Location-First (ported from V3 rs-template-card-01) ── */
+.rs-property-card--location-first {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-property-card--location-first:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+}
+
+.rs-property-card--location-first .rs-property-card__image {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: #d0d0d0;
+  overflow: hidden;
+}
+
+/* Wishlist: WHITE circle, top-LEFT */
+.rs-property-card--location-first .rs-property-card__favorite {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: auto;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-property-card--location-first .rs-property-card__favorite:hover {
+  background: #f9fafb;
+  transform: scale(1.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+.rs-property-card--location-first .rs-property-card__favorite svg {
+  width: 18px;
+  height: 18px;
+  color: #374151;
+}
+
+.rs-property-card--location-first .rs-property-card__favorite--active svg {
+  color: #e74c3c;
+  fill: #e74c3c;
+}
+
+/* Badges (listing type) top-RIGHT — color-coded chunky uppercase */
+.rs-property-card--location-first .rs-property-card__badges {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.rs-property-card--location-first .rs-property-card__badge--t12 {
+  padding: 6px 12px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.rs-property-card--location-first .rs-property-card__badge--t12-sale {
+  background: #d4a017;
+}
+.rs-property-card--location-first .rs-property-card__badge--t12-rent {
+  background: #2563eb;
+}
+.rs-property-card--location-first .rs-property-card__badge--t12-holiday_rent {
+  background: #0891b2;
+}
+.rs-property-card--location-first .rs-property-card__badge--t12-development {
+  background: #16a34a;
+}
+.rs-property-card--location-first .rs-property-card__badge--t12-offplan {
+  background: #16a34a;
+}
+
+/* Image count bottom-right with camera icon */
+.rs-property-card--location-first .rs-property-card__image-count {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.rs-property-card--location-first .rs-property-card__image-count svg {
+  width: 12px;
+  height: 12px;
+  color: #fff;
+}
+
+/* Body: CENTER-aligned content */
+.rs-property-card--location-first .rs-property-card__body {
+  padding: 18px 20px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.rs-property-card--location-first .rs-property-card__location-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.25;
+}
+
+.rs-property-card--location-first .rs-property-card__type-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.rs-property-card--location-first .rs-property-card__description {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 4-spec grid: icon above value, evenly spaced, top-border separator */
+.rs-property-card--location-first .rs-property-card__spec-grid {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #ecf0f1;
+}
+
+.rs-property-card--location-first .rs-property-card__spec-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.rs-property-card--location-first .rs-property-card__spec-icon {
+  width: 20px;
+  height: 20px;
+  color: #bdc3c7;
+  display: block;
+  flex-shrink: 0;
+}
+
+.rs-property-card--location-first .rs-property-card__spec-value {
+  font-size: 0.8rem;
+  color: #1f2937;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.rs-property-card--location-first .rs-property-card__price {
+  margin-top: 12px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+}
+
+/* List view */
+.rs-property-grid--list .rs-property-card--location-first {
+  flex-direction: row;
+}
+
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__image {
+  flex: 0 0 300px;
+  aspect-ratio: auto;
+  min-height: 200px;
+}
+
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__body {
+  flex: 1;
+  justify-content: center;
+  text-align: left;
+}
+
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__location-title,
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__type-subtitle,
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__description,
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__price {
+  text-align: left;
+}
+
+.rs-property-grid--list .rs-property-card--location-first .rs-property-card__spec-grid {
+  justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+  .rs-property-card--location-first .rs-property-card__location-title {
+    font-size: 1.15rem;
+  }
+  .rs-property-card--location-first .rs-property-card__price {
+    font-size: 1.15rem;
+  }
+  .rs-property-card--location-first .rs-property-card__spec-cell {
+    padding: 0 4px;
+  }
+  .rs-property-card--location-first .rs-property-card__spec-value {
+    font-size: 0.75rem;
+  }
+}
+

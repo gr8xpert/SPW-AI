@@ -67,6 +67,7 @@ function parseLegacyConfig(): Partial<WidgetConfig> {
   if (rc.mapTemplate) config.defaultMapTemplate = rc.mapTemplate;
   if (rc.enableChat != null) config.enableAiChat = rc.enableChat;
   if (rc.enableFavorites != null) config.enableFavorites = rc.enableFavorites;
+  if (rc.useAgentReferenceAsDisplay != null) config.useAgentReferenceAsDisplay = rc.useAgentReferenceAsDisplay;
   if (rc.primaryColor) config.primaryColor = rc.primaryColor;
   if (rc.onSearch) config.onSearch = rc.onSearch;
   if (rc.onPropertyClick) config.onPropertyClick = rc.onPropertyClick;

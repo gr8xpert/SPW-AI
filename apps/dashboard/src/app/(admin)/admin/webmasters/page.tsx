@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { formatHM } from '@/lib/time';
 import {
   RefreshCw,
   Users,
@@ -235,7 +236,7 @@ export default function WebmastersPage() {
             <div className="stat-card-icon"><Clock className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{totalUnpaidHours.toFixed(1)}h</div>
+            <div className="text-2xl font-bold tracking-tight">{formatHM(totalUnpaidHours)}</div>
             <p className="text-xs text-muted-foreground">
               Across {unpaidSummary.length} webmasters
             </p>
@@ -299,7 +300,7 @@ export default function WebmastersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono">
-                      {getUnpaidHours(wm.id).toFixed(1)}h
+                      {formatHM(getUnpaidHours(wm.id))}
                     </TableCell>
                     <TableCell className="font-mono">{getUnpaidCount(wm.id)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -437,7 +438,7 @@ export default function WebmastersPage() {
                       <TableCell className="font-mono text-sm">
                         {entry.ticketNumber || (entry.ticketId ? `#${entry.ticketId}` : '—')}
                       </TableCell>
-                      <TableCell className="font-mono">{entry.hours.toFixed(1)}h</TableCell>
+                      <TableCell className="font-mono">{formatHM(entry.hours)}</TableCell>
                       <TableCell className="max-w-[250px] truncate text-sm">
                         {entry.description || '—'}
                       </TableCell>

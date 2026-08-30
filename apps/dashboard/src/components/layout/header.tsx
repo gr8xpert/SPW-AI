@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Bell, LogOut, Settings, User } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import Link from 'next/link';
+import { CreditBalanceBadge } from './credit-balance-badge';
 
 export function Header() {
   const { data: session } = useSession();
@@ -23,6 +24,8 @@ export function Header() {
       <div />
 
       <div className="flex items-center gap-2">
+        <CreditBalanceBadge />
+
         <Button variant="ghost" size="icon" className="relative rounded-lg text-muted-foreground hover:text-foreground">
           <Bell className="h-[18px] w-[18px]" />
         </Button>

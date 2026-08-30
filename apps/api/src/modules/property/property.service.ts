@@ -9,6 +9,39 @@ import { LocationService } from '../location/location.service';
 import { TenantService } from '../tenant/tenant.service';
 import { WebhookService } from '../webhook/webhook.service';
 
+// Fields written by feed import that should auto-lock when a user edits them,
+// so the next scheduled sync doesn't clobber the user's change. Kept in sync
+// with the propertyData block in FeedService.importProperty.
+const FEED_MANAGED_FIELDS = [
+  'title',
+  'description',
+  'price',
+  'priceOnRequest',
+  'currency',
+  'bedrooms',
+  'bathrooms',
+  'buildSize',
+  'plotSize',
+  'terraceSize',
+  'gardenSize',
+  'reference',
+  'agentReference',
+  'listingType',
+  'propertyTypeId',
+  'locationId',
+  'features',
+  'lat',
+  'lng',
+  'videoUrl',
+  'virtualTourUrl',
+  'communityFees',
+  'ibiFees',
+  'basuraTax',
+  'builtYear',
+  'energyRating',
+  'images',
+] as const;
+
 @Injectable()
 export class PropertyService {
   private readonly logger = new Logger(PropertyService.name);
@@ -202,6 +235,24 @@ export class PropertyService {
     }
 
     const updateData = this.filterLockedFields(property, dto);
+
+    // Auto-lock: any feed-managed field a user actually changes gets added to
+    // lockedFields so the next scheduled sync from the feed skips it. Only
+    // applies to feed-sourced rows — manual properties have nothing to sync.
+    if (property.source && property.source !== 'manual') {
+      const newlyLocked: string[] = [];
+      for (const field of FEED_MANAGED_FIELDS) {
+        if (!(field in updateData)) continue;
+        const incoming = (updateData as any)[field];
+        const current = (property as any)[field];
+        if (!this.valuesEqual(incoming, current)) newlyLocked.push(field);
+      }
+      if (newlyLocked.length > 0) {
+        const currentLocked = property.lockedFields || [];
+        property.lockedFields = Array.from(new Set([...currentLocked, ...newlyLocked]));
+      }
+    }
+
     Object.assign(property, updateData);
 
     if (userId) {
@@ -260,5 +311,15 @@ export class PropertyService {
       delete filtered[field as keyof UpdatePropertyDto];
     }
     return filtered;
+  }
+
+  private valuesEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (typeof a === 'object' || typeof b === 'object') {
+      try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+    }
+    return false;
   }
 }

@@ -59,6 +59,12 @@ export class FeedConfig {
   @Column({ type: 'json', nullable: true })
   fieldMapping: FeedFieldMapping | null;
 
+  // Field names that should NEVER be overwritten by a sync from this feed,
+  // for every property regardless of per-property lockedFields. Merged with
+  // Property.lockedFields at import time.
+  @Column({ type: 'json', nullable: true })
+  protectedFields: string[] | null;
+
   @Column({ length: 50, default: '0 2 * * *' })
   syncSchedule: string;
 

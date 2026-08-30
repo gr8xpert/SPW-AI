@@ -11,10 +11,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { WebmasterService } from './webmaster.service';
 import { CreateTimeEntryDto, UpdateTimeEntryDto, CreateWebmasterDto, UpdateWebmasterDto } from './dto';
-import { CreateMessageDto } from '../ticket/dto';
+import { CreateMessageDto, UpdateTicketDto } from '../ticket/dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -61,6 +62,18 @@ export class WebmasterController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.webmasterService.completeTicketWork(ticketId, user.sub);
+  }
+
+  @Put('tickets/:id/category')
+  async updateTicketCategory(
+    @Param('id', ParseIntPipe) ticketId: number,
+    @Body() dto: UpdateTicketDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!dto.category) {
+      throw new BadRequestException('category is required');
+    }
+    return this.webmasterService.updateAssignedTicketCategory(user.sub, ticketId, dto.category);
   }
 
   @Get('time-entries')

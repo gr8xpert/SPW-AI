@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { formatHM } from '@/lib/time';
 
 interface Ticket {
   id: number;
@@ -63,6 +64,7 @@ interface Ticket {
   lastReplyAt: string | null;
   createdAt: string;
   messagesCount: number;
+  hoursSpent?: number;
   messages?: TicketMessage[];
 }
 
@@ -341,6 +343,7 @@ export default function TicketsPage() {
                     <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Time Spent</TableHead>
                     <TableHead>Last Update</TableHead>
                     <TableHead>Replies</TableHead>
                   </TableRow>
@@ -374,6 +377,14 @@ export default function TicketsPage() {
                             <StatusIcon className="h-3 w-3" />
                             {status.label}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {ticket.hoursSpent && ticket.hoursSpent > 0
+                            ? formatHM(ticket.hoursSpent)
+                            : <span className="text-muted-foreground">—</span>}
+                          {ticket.category === 'bug' && ticket.hoursSpent && ticket.hoursSpent > 0 && (
+                            <span className="text-xs text-muted-foreground ml-1">(free)</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(ticket.lastReplyAt || ticket.createdAt)}
@@ -509,11 +520,20 @@ export default function TicketsPage() {
           </DialogHeader>
           {selectedTicket && (
             <div className="space-y-4">
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
                 <Badge variant="outline">{categoryLabels[selectedTicket.category] || selectedTicket.category}</Badge>
                 <Badge variant={priorityConfig[selectedTicket.priority]?.color === 'text-primary' ? 'destructive' : 'secondary'}>
                   {priorityConfig[selectedTicket.priority]?.label || selectedTicket.priority}
                 </Badge>
+                {selectedTicket.hoursSpent && selectedTicket.hoursSpent > 0 ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatHM(selectedTicket.hoursSpent)} spent
+                    {selectedTicket.category === 'bug' && (
+                      <span className="text-xs opacity-70 ml-1">(free)</span>
+                    )}
+                  </Badge>
+                ) : null}
               </div>
 
               <div className="space-y-3 max-h-[300px] overflow-y-auto border rounded-md p-3">

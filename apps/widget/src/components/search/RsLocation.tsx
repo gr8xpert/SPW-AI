@@ -14,6 +14,15 @@ interface Props {
 const LEVEL_INDENT: Record<string, number> = { country: 0, province: 1, municipality: 2, town: 3, area: 4 };
 const HIDDEN_LEVEL_LABELS = new Set<string>();
 
+// Accent-insensitive normalization: NFD decomposes "São" into "S" + "a" +
+// combining tilde + "o", then the regex strips combining diacritics so "São"
+// and "Sao" both collapse to "sao". Applied to both the search query and
+// location names before comparison.
+const DIACRITICS = /[̀-ͯ]/g;
+function normalizeSearch(str: string): string {
+  return str.normalize('NFD').replace(DIACRITICS, '').toLowerCase();
+}
+
 function buildTree(locations: Location[]): Location[] {
   const byParent = new Map<number | undefined, Location[]>();
   for (const loc of locations) {
@@ -181,8 +190,8 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
 
   const filtered = useMemo(() => {
     if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return locations.filter(l => l.name.toLowerCase().includes(q)).slice(0, 50);
+    const q = normalizeSearch(query);
+    return locations.filter(l => normalizeSearch(l.name).includes(q)).slice(0, 50);
   }, [query, locations]);
 
   const showDropdown = open && query.trim().length > 0;
@@ -415,8 +424,8 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return currentItems;
-    const q = search.toLowerCase();
-    return currentItems.filter(l => l.name.toLowerCase().includes(q));
+    const q = normalizeSearch(search);
+    return currentItems.filter(l => normalizeSearch(l.name).includes(q));
   }, [currentItems, search]);
 
   const groupedItems = useMemo(() => {

@@ -53,6 +53,12 @@ export interface WidgetConfig {
   googleMapsKey?: string;
   quickFeatureIds?: number[];
 
+  // When true, the widget displays `property.agentReference` (MLSC-style
+  // client-agency number) instead of `property.reference` on cards and the
+  // detail page. Falls back to `reference` if `agentReference` is empty. Does
+  // NOT affect URL slugs or API lookups — those always use `reference`.
+  useAgentReferenceAsDisplay?: boolean;
+
   syncPollIntervalMs?: number;
 
   onPropertyClick?: (property: unknown) => void;
@@ -81,6 +87,7 @@ export interface RealtySoftConfig {
   primaryColor?: string;
   enableChat?: boolean;
   enableFavorites?: boolean;
+  useAgentReferenceAsDisplay?: boolean;
   labels?: Record<string, Record<string, string>>;
   styles?: Record<string, string>;
   onReady?: () => void;

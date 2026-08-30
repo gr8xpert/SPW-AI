@@ -27,6 +27,8 @@ import RsDetailPdf from '@/components/detail/RsDetailPdf';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
 import Skeleton from '@/components/common/Skeleton';
 import { resolveFeatures } from '@/core/feature-utils';
+import { getDataLoader } from '@/core/data-loader';
+import { actions } from '@/core/actions';
 import type { Feature } from '@/types';
 
 function FeaturesModal({ features, onClose }: { features: Feature[]; onClose: () => void }) {
@@ -204,6 +206,20 @@ export default function DetailTemplate01() {
   const property = useSelector(selectors.getSelectedProperty);
   const [featuresOpen, setFeaturesOpen] = useState(false);
 
+  // If selectedProperty was populated from a search result (thin data — up to
+  // 5 images only), re-fetch the full payload so the gallery, description, and
+  // features aren't truncated. DataLoader marks full detail with __detailFull.
+  useEffect(() => {
+    if (!property || property.__detailFull) return;
+    const loader = getDataLoader();
+    if (!loader) return;
+    let cancelled = false;
+    loader.getProperty(property.reference).then((full) => {
+      if (!cancelled) actions.setSelectedProperty(full);
+    }).catch(() => { /* leave thin data in place */ });
+    return () => { cancelled = true; };
+  }, [property?.reference, property?.__detailFull]);
+
   if (!property) {
     return (
       <div class="rs-detail">
@@ -236,23 +252,23 @@ export default function DetailTemplate01() {
       <div class="rs-detail__content">
         <div class="rs-detail__main">
           <div class="rs-detail__title-row">
-            <div>
+            <div class="rs-detail__title-block">
               <RsDetailTitle title={property.title} />
+              <div class="rs-detail__location-block">
+                <RsDetailLocation />
+                <RsDetailAddress />
+              </div>
+            </div>
+            <div class="rs-detail__price-block">
               <RsDetailPrice
                 price={property.price}
                 currency={property.currency}
                 priceOnRequest={property.priceOnRequest}
               />
             </div>
-            <div class="rs-detail__location-block rs-detail__location-block--right">
-              <RsDetailLocation />
-              <RsDetailAddress />
-            </div>
           </div>
 
           <RsDetailSpecs property={property} />
-
-          <RsDetailEnergyRating />
 
           <RsDetailDescription description={property.description} />
 
@@ -289,6 +305,8 @@ export default function DetailTemplate01() {
           {config.enableMortgageCalculator !== false && !property.priceOnRequest && property.price > 0 && (
             <MortgageButton price={property.price} currency={property.currency} />
           )}
+
+          <RsDetailEnergyRating />
         </div>
       </div>
 

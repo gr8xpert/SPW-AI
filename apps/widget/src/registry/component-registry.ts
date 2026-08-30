@@ -166,7 +166,6 @@ export function registerAllComponents(): void {
   registerTemplate('listing-template-10', () => import('@/templates/listing/ListingTemplate10'));
   registerTemplate('listing-template-11', () => import('@/templates/listing/ListingTemplate11'));
   registerTemplate('listing-template-12', () => import('@/templates/listing/ListingTemplate12'));
-  registerTemplate('listing-template-13', () => import('@/templates/listing/ListingTemplate13'));
 
   // Detail templates
   registerTemplate('detail-template-01', () => import('@/templates/detail/DetailTemplate01'));

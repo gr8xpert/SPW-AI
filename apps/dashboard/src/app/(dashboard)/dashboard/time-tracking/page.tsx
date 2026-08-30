@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/select';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { formatHM } from '@/lib/time';
+import { HoursMinutesInput } from '@/components/ui/hours-minutes-input';
 import {
   RefreshCw,
   Clock,
@@ -122,7 +124,7 @@ export default function TimeTrackingPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const [formTicketId, setFormTicketId] = useState('');
-  const [formHours, setFormHours] = useState('');
+  const [formHours, setFormHours] = useState(0);
   const [formDescription, setFormDescription] = useState('');
   const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -153,7 +155,7 @@ export default function TimeTrackingPage() {
 
   const resetForm = () => {
     setFormTicketId('');
-    setFormHours('');
+    setFormHours(0);
     setFormDescription('');
     setFormDate(format(new Date(), 'yyyy-MM-dd'));
   };
@@ -166,19 +168,19 @@ export default function TimeTrackingPage() {
   const openEdit = (entry: TimeEntry) => {
     setEditingEntry(entry);
     setFormTicketId(String(entry.ticketId));
-    setFormHours(String(entry.hours));
+    setFormHours(Number(entry.hours) || 0);
     setFormDescription(entry.description || '');
     setFormDate(entry.workDate ? format(new Date(entry.workDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
     setShowEditDialog(true);
   };
 
   const handleCreate = async () => {
-    if (!formTicketId || !formHours) return;
+    if (!formTicketId || formHours <= 0) return;
     setSaving(true);
     try {
       await api.post('/api/webmaster/time-entries', {
         ticketId: parseInt(formTicketId),
-        hours: parseFloat(formHours),
+        hours: formHours,
         description: formDescription || undefined,
         workDate: formDate || undefined,
       });
@@ -193,11 +195,11 @@ export default function TimeTrackingPage() {
   };
 
   const handleUpdate = async () => {
-    if (!editingEntry || !formHours) return;
+    if (!editingEntry || formHours <= 0) return;
     setSaving(true);
     try {
       await api.put(`/api/webmaster/time-entries/${editingEntry.id}`, {
-        hours: parseFloat(formHours),
+        hours: formHours,
         description: formDescription || undefined,
         workDate: formDate || undefined,
       });
@@ -256,7 +258,7 @@ export default function TimeTrackingPage() {
             <div className="stat-card-icon"><Calendar className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{(stats?.totalHoursThisMonth || 0).toFixed(1)}h</div>
+            <div className="text-2xl font-bold tracking-tight">{formatHM(stats?.totalHoursThisMonth || 0)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -265,7 +267,7 @@ export default function TimeTrackingPage() {
             <div className="stat-card-icon"><Timer className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{(stats?.totalHoursAllTime || 0).toFixed(1)}h</div>
+            <div className="text-2xl font-bold tracking-tight">{formatHM(stats?.totalHoursAllTime || 0)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -283,9 +285,9 @@ export default function TimeTrackingPage() {
             <div className="stat-card-icon"><Clock className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{(summary?.unpaidHours || 0).toFixed(1)}h</div>
+            <div className="text-2xl font-bold tracking-tight">{formatHM(summary?.unpaidHours || 0)}</div>
             <p className="text-xs text-muted-foreground">
-              {(summary?.paidHours || 0).toFixed(1)}h paid
+              {formatHM(summary?.paidHours || 0)} paid
             </p>
           </CardContent>
         </Card>
@@ -343,7 +345,7 @@ export default function TimeTrackingPage() {
         <CardHeader>
           <CardTitle>Time Entries</CardTitle>
           <CardDescription>
-            {entries.length} entries &middot; {(summary?.totalHours || 0).toFixed(1)}h total
+            {entries.length} entries &middot; {formatHM(summary?.totalHours || 0)} total
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -388,7 +390,7 @@ export default function TimeTrackingPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{Number(entry.hours).toFixed(1)}h</TableCell>
+                    <TableCell className="font-mono text-sm">{formatHM(entry.hours)}</TableCell>
                     <TableCell className="max-w-[250px] truncate text-sm">{entry.description || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={entry.isPaid ? 'default' : 'outline'}>
@@ -446,15 +448,8 @@ export default function TimeTrackingPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Hours</Label>
-                <Input
-                  type="number"
-                  min="0.25"
-                  step="0.25"
-                  placeholder="1.0"
-                  value={formHours}
-                  onChange={(e) => setFormHours(e.target.value)}
-                />
+                <Label>Time</Label>
+                <HoursMinutesInput value={formHours} onChange={setFormHours} />
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
@@ -477,7 +472,7 @@ export default function TimeTrackingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving || !formTicketId || !formHours}>
+            <Button onClick={handleCreate} disabled={saving || !formTicketId || formHours <= 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Log Time
@@ -498,14 +493,8 @@ export default function TimeTrackingPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Hours</Label>
-                <Input
-                  type="number"
-                  min="0.25"
-                  step="0.25"
-                  value={formHours}
-                  onChange={(e) => setFormHours(e.target.value)}
-                />
+                <Label>Time</Label>
+                <HoursMinutesInput value={formHours} onChange={setFormHours} />
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
@@ -527,7 +516,7 @@ export default function TimeTrackingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditingEntry(null); }}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={saving || !formHours}>
+            <Button onClick={handleUpdate} disabled={saving || formHours <= 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

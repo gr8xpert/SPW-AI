@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsBoolean,
   IsIn,
+  IsArray,
   MinLength,
   MaxLength,
   Matches,
@@ -25,6 +26,11 @@ export class CreateFeedConfigDto {
   @IsObject()
   @IsOptional()
   fieldMapping?: FeedFieldMapping;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  protectedFields?: string[];
 
   @IsString()
   @IsOptional()

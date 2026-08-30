@@ -11,6 +11,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -48,6 +55,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDate } from '@/lib/utils';
+import { formatHM } from '@/lib/time';
+import { HoursMinutesInput } from '@/components/ui/hours-minutes-input';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -141,12 +150,13 @@ export default function WebmasterTicketDetailPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [replyHours, setReplyHours] = useState('');
+  const [replyHours, setReplyHours] = useState(0);
   const [showLogTime, setShowLogTime] = useState(false);
-  const [logHours, setLogHours] = useState('');
+  const [logHours, setLogHours] = useState(0);
   const [logDescription, setLogDescription] = useState('');
   const [logDate, setLogDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLogging, setIsLogging] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -217,17 +227,16 @@ export default function WebmasterTicketDetailPage() {
       if (replyAttachments.length > 0) body.attachments = replyAttachments;
       await api.post(`/api/webmaster/tickets/${ticket.id}/messages`, body);
 
-      const hoursNum = parseFloat(replyHours);
       let loggedHours = 0;
-      if (!isNaN(hoursNum) && hoursNum > 0) {
+      if (replyHours > 0) {
         try {
           await api.post('/api/webmaster/time-entries', {
             ticketId: ticket.id,
-            hours: hoursNum,
+            hours: replyHours,
             description: replyMessage.slice(0, 500),
             workDate: format(new Date(), 'yyyy-MM-dd'),
           });
-          loggedHours = hoursNum;
+          loggedHours = replyHours;
         } catch (e: any) {
           toast({
             title: 'Reply sent, but time log failed',
@@ -239,10 +248,10 @@ export default function WebmasterTicketDetailPage() {
 
       setReplyMessage('');
       setReplyAttachments([]);
-      setReplyHours('');
+      setReplyHours(0);
       toast({
         title: loggedHours > 0
-          ? `Reply sent · ${loggedHours}h logged`
+          ? `Reply sent · ${formatHM(loggedHours)} logged`
           : 'Reply sent',
       });
       await fetchTicket();
@@ -255,29 +264,50 @@ export default function WebmasterTicketDetailPage() {
   };
 
   const openLogTime = () => {
-    setLogHours('');
+    setLogHours(0);
     setLogDescription('');
     setLogDate(format(new Date(), 'yyyy-MM-dd'));
     setShowLogTime(true);
   };
 
   const handleLogTime = async () => {
-    if (!ticket || !logHours) return;
+    if (!ticket || logHours <= 0) return;
     setIsLogging(true);
     try {
       await api.post('/api/webmaster/time-entries', {
         ticketId: ticket.id,
-        hours: parseFloat(logHours),
+        hours: logHours,
         description: logDescription || undefined,
         workDate: logDate || undefined,
       });
-      toast({ title: `Logged ${logHours}h against ${ticket.ticketNumber}` });
+      toast({ title: `Logged ${formatHM(logHours)} against ${ticket.ticketNumber}` });
       setShowLogTime(false);
       await fetchTimeEntries();
     } catch (e: any) {
       toast({ title: 'Failed to log time', description: e.message, variant: 'destructive' });
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  const handleCategoryChange = async (next: string) => {
+    if (!ticket || next === ticket.category) return;
+    const previous = ticket.category;
+    setTicket({ ...ticket, category: next });
+    setIsSavingCategory(true);
+    try {
+      await api.put(`/api/webmaster/tickets/${ticket.id}/category`, { category: next });
+      toast({
+        title: `Category updated to ${categoryLabels[next] || next}`,
+        description: next === 'bug'
+          ? 'Hours booked on this ticket will not consume client credits.'
+          : 'Hours booked on this ticket will consume client credits.',
+      });
+    } catch (e: any) {
+      setTicket({ ...ticket, category: previous });
+      toast({ title: 'Failed to update category', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSavingCategory(false);
     }
   };
 
@@ -442,20 +472,12 @@ export default function WebmasterTicketDetailPage() {
                   </div>
                 )}
                 <div className="flex items-end gap-3 flex-wrap">
-                  <div className="w-32">
-                    <Label htmlFor="reply-hours" className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                  <div>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                       <Timer className="h-3 w-3" />
-                      Hours (optional)
+                      Time (optional)
                     </Label>
-                    <Input
-                      id="reply-hours"
-                      type="number"
-                      step="0.25"
-                      min="0"
-                      placeholder="e.g. 1.5"
-                      value={replyHours}
-                      onChange={(e) => setReplyHours(e.target.value)}
-                    />
+                    <HoursMinutesInput value={replyHours} onChange={setReplyHours} />
                   </div>
                   <div>
                     <input
@@ -480,8 +502,8 @@ export default function WebmasterTicketDetailPage() {
                   <div className="flex-1" />
                   <Button onClick={handleSendReply} disabled={isSending || !replyMessage.trim()}>
                     {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                    {replyHours && parseFloat(replyHours) > 0
-                      ? `Send + Log ${replyHours}h`
+                    {replyHours > 0
+                      ? `Send + Log ${formatHM(replyHours)}`
                       : 'Send Reply'}
                   </Button>
                 </div>
@@ -496,7 +518,7 @@ export default function WebmasterTicketDetailPage() {
                   <Timer className="h-4 w-4" />
                   Your Time Logged
                   <Badge variant="secondary" className="ml-1">
-                    {timeEntries.reduce((sum, e) => sum + Number(e.hours), 0).toFixed(1)}h
+                    {formatHM(timeEntries.reduce((sum, e) => sum + Number(e.hours), 0))}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -516,7 +538,7 @@ export default function WebmasterTicketDetailPage() {
                         <TableCell className="whitespace-nowrap text-sm">
                           {format(new Date(entry.workDate || entry.createdAt), 'PP')}
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{Number(entry.hours).toFixed(1)}h</TableCell>
+                        <TableCell className="font-mono text-sm">{formatHM(entry.hours)}</TableCell>
                         <TableCell className="max-w-[250px] truncate text-sm">
                           {entry.description || '—'}
                         </TableCell>
@@ -562,7 +584,27 @@ export default function WebmasterTicketDetailPage() {
                   <Tag className="h-3 w-3" />
                   Category
                 </p>
-                <Badge variant="outline">{categoryLabels[ticket.category] || ticket.category}</Badge>
+                <Select
+                  value={ticket.category}
+                  onValueChange={handleCategoryChange}
+                  disabled={isSavingCategory || isClosed}
+                >
+                  <SelectTrigger className="h-8 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="technical">Technical</SelectItem>
+                    <SelectItem value="billing">Billing</SelectItem>
+                    <SelectItem value="feature_request">Feature Request</SelectItem>
+                    <SelectItem value="bug">Bug Report</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+                {ticket.category === 'bug' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Hours logged on bugs don&apos;t consume client credits.
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -596,7 +638,7 @@ export default function WebmasterTicketDetailPage() {
                 </p>
                 <p className="font-medium">
                   {timeEntries.length > 0
-                    ? `${timeEntries.reduce((sum, e) => sum + Number(e.hours), 0).toFixed(1)} hours`
+                    ? formatHM(timeEntries.reduce((sum, e) => sum + Number(e.hours), 0))
                     : 'No time logged'}
                 </p>
               </div>
@@ -649,16 +691,8 @@ export default function WebmasterTicketDetailPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label htmlFor="log-hours">Hours *</Label>
-              <Input
-                id="log-hours"
-                type="number"
-                step="0.25"
-                min="0"
-                placeholder="e.g. 1.5"
-                value={logHours}
-                onChange={(e) => setLogHours(e.target.value)}
-              />
+              <Label>Time *</Label>
+              <HoursMinutesInput value={logHours} onChange={setLogHours} />
             </div>
             <div>
               <Label htmlFor="log-date">Date</Label>
@@ -682,7 +716,7 @@ export default function WebmasterTicketDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLogTime(false)}>Cancel</Button>
-            <Button onClick={handleLogTime} disabled={isLogging || !logHours}>
+            <Button onClick={handleLogTime} disabled={isLogging || logHours <= 0}>
               {isLogging ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Log Time
             </Button>

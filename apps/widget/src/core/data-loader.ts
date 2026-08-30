@@ -259,6 +259,10 @@ export class DataLoader {
     if (cached) return cached;
 
     const property = await this.api.get<Property>(`/v1/properties/${encodeURIComponent(reference)}`);
+    // Mark this payload as the full detail — search results (thin, 5 images
+    // max) leave this flag off. DetailTemplate uses it to detect stale/thin
+    // selectedProperty and re-fetch.
+    property.__detailFull = true;
     this.setMemoryCache(cacheKey, property);
     return property;
   }

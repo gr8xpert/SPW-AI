@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Detail Template Gallery (LOCAL BUILD)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+    .topbar { background: #14532d; color: #fff; padding: 12px 20px; position: sticky; top: 0; z-index: 100; }
+    .topbar h1 { margin: 0 0 8px 0; font-size: 1.1rem; }
+    .topbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+    .topbar input, .topbar select { padding: 6px 10px; border: 1px solid #334; background: #1e293b; color: #fff; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .topbar input.key { width: 420px; max-width: 50vw; }
+    .topbar input.ref { width: 260px; }
+    .topbar button { padding: 6px 12px; border: none; background: #22c55e; color: #0f172a; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .topbar button:hover { background: #16a34a; color: #fff; }
+    .topbar .hint { font-size: 12px; opacity: 0.85; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .section-title { margin: 24px 0 12px 0; font-size: 1.4rem; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card-header { padding: 10px 16px; background: #d4edda; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+    .card-header code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; }
+    .card-body { padding: 20px; min-height: 200px; }
+    #diag { background: #111; color: #0f0; padding: 10px; font-family: monospace; font-size: 11px; white-space: pre-wrap; max-height: 140px; overflow: auto; margin-top: 10px; border-radius: 4px; }
+    .placeholder { padding: 40px; text-align: center; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>SPW Detail Template Gallery — LOCAL BUILD (./dist/) — Detail 01</h1>
+  <div class="row">
+    <span class="hint">API key:</span>
+    <input id="apiKey" class="key" placeholder="spm_..." />
+    <span class="hint">Ref (blank = auto-pick first):</span>
+    <input id="propRef" class="ref" placeholder="e.g. R5378299" />
+    <button onclick="loadDetail()">Load detail template</button>
+  </div>
+  <div class="hint">Loads ./dist/spm-widget.umd.js and calls SPM.actions.setSelectedProperty after fetching the property via SPM.DataLoader.</div>
+  <div id="diag">[diag] waiting for API key…</div>
+</div>
+
+<div class="container">
+  <h2 class="section-title">
+    Detail Template 01
+    <span style="font-size: 0.9rem; font-weight: 400; color: #64748b;">The full property detail page</span>
+  </h2>
+  <div class="grid" id="detailGrid">
+    <div class="placeholder">Paste API key and click "Load detail template"</div>
+  </div>
+</div>
+
+<script>
+  const API_URL = 'https://api.spw-ai.com';
+  const WIDGET_BUNDLE = './dist/spm-widget.umd.js';
+
+  const diag = document.getElementById('diag');
+  const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+
+  async function fetchFirstReference(apiKey) {
+    try {
+      const res = await fetch(API_URL + '/api/v1/properties?limit=1', {
+        headers: { 'x-api-key': apiKey },
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const body = await res.json();
+      const first = (body.data || body)[0];
+      return first?.reference || null;
+    } catch (err) {
+      log('[gallery] failed to fetch first property:', err.message);
+      return null;
+    }
+  }
+
+  async function loadDetail() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey || !apiKey.startsWith('spm_')) {
+      alert('Enter a valid tenant API key (spm_...).');
+      return;
+    }
+    localStorage.setItem('spw_gallery_api_key', apiKey);
+
+    let ref = document.getElementById('propRef').value.trim();
+    if (!ref) {
+      diag.textContent = '[diag] no ref given — fetching first property…';
+      ref = await fetchFirstReference(apiKey);
+      if (!ref) { alert('Could not auto-fetch a property. Enter a reference manually.'); return; }
+      document.getElementById('propRef').value = ref;
+      log('[gallery] auto-picked ref:', ref);
+    }
+    localStorage.setItem('spw_gallery_detail_ref', ref);
+
+    diag.textContent = '[diag] mounting detail template for ' + ref + '…';
+
+    const grid = document.getElementById('detailGrid');
+    grid.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <span>Detail Template 01 — ${ref}</span>
+          <code>data-spm-widget="detail-template-01"</code>
+        </div>
+        <div class="card-body">
+          <div
+            data-spm-widget="detail-template-01"
+            data-spm-api-url="${API_URL}"
+            data-spm-api-key="${apiKey}"
+          ></div>
+        </div>
+      </div>`;
+
+    const injectProperty = async () => {
+      try {
+        const SPM = window.SPM;
+        if (!SPM || !SPM.DataLoader || !SPM.actions) {
+          log('[gallery] SPM global not exposed — check UMD build');
+          return;
+        }
+        const config = SPM.store.getState().config;
+        const loader = new SPM.DataLoader(config);
+        const property = await loader.getProperty(ref);
+        SPM.actions.setSelectedProperty(property);
+        log('[detail] loaded:', property.reference, '—', property.title);
+      } catch (err) {
+        log('[detail] failed to load property:', err.message);
+      }
+    };
+
+    if (window.SPM && window.SPM.scan) {
+      window.SPM.scan();
+      document.addEventListener('spw:ready', injectProperty, { once: true });
+      // if already ready (re-scan), fire manually after a tick
+      setTimeout(injectProperty, 300);
+      log('[gallery] re-scanned existing bundle');
+    } else {
+      document.addEventListener('spw:ready', injectProperty, { once: true });
+      const s = document.createElement('script');
+      s.src = WIDGET_BUNDLE + '?_t=' + Date.now();
+      s.onload = () => log('[gallery] LOCAL widget bundle loaded');
+      s.onerror = () => log('[gallery] FAILED to load ' + WIDGET_BUNDLE + ' — run `pnpm build` in apps/widget first');
+      document.body.appendChild(s);
+    }
+  }
+
+  window.addEventListener('error', e => log('[err]', e.message));
+
+  const savedKey = localStorage.getItem('spw_gallery_api_key');
+  if (savedKey) document.getElementById('apiKey').value = savedKey;
+  const savedRef = localStorage.getItem('spw_gallery_detail_ref');
+  if (savedRef) document.getElementById('propRef').value = savedRef;
+</script>
+
+</body>
+</html>

@@ -6,6 +6,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { buildPropertyUrl } from '@/core/url-utils';
+import { getDisplayReference } from '@/core/property-display';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import AnimatedPrice from '@/components/common/AnimatedPrice';
 import type { Property } from '@/types';
@@ -203,8 +204,8 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             </span>
           </div>
 
-          {property.shortDescription && (
-            <p class="rs-property-card__description">{property.shortDescription}</p>
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
           )}
 
           <div class="rs-property-card__specs">
@@ -232,15 +233,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 {property.buildSize} m²
               </span>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <span class="rs-property-card__spec" data-tooltip={t('card_plot_size', 'Plot Size')}>
-                <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6l9-4 9 4v12l-9 4-9-4z" /><path d="M3 6l9 4" /><path d="M12 22V10" /><path d="M21 6l-9 4" />
-                </svg>
-                {property.plotSize} m²
-              </span>
-            )}
-            {property.terraceSize != null && property.terraceSize > 0 && (
+{property.terraceSize != null && property.terraceSize > 0 && (
               <span class="rs-property-card__spec" data-tooltip={t('card_terrace_size', 'Terrace Size')}>
                 <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
@@ -348,11 +341,11 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
               <circle cx="12" cy="10" r="3" />
             </svg>
             {property.location.name}
-            <span class="rs-property-card__ref">{property.reference}</span>
+            <span class="rs-property-card__ref">{getDisplayReference(property, config)}</span>
           </p>
 
-          {property.shortDescription && (
-            <p class="rs-property-card__description">{property.shortDescription}</p>
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
           )}
 
           <div class="rs-property-card__specs">
@@ -380,15 +373,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 {property.buildSize} m²
               </span>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <span class="rs-property-card__spec" data-tooltip={t('card_plot_size', 'Plot Size')}>
-                <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6l9-4 9 4v12l-9 4-9-4z" /><path d="M3 6l9 4" /><path d="M12 22V10" /><path d="M21 6l-9 4" />
-                </svg>
-                {property.plotSize} m²
-              </span>
-            )}
-            {property.terraceSize != null && property.terraceSize > 0 && (
+{property.terraceSize != null && property.terraceSize > 0 && (
               <span class="rs-property-card__spec" data-tooltip={t('card_terrace_size', 'Terrace Size')}>
                 <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
@@ -613,8 +598,8 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             {property.location.name}
           </p>
 
-          {property.shortDescription && (
-            <p class="rs-property-card__description">{property.shortDescription}</p>
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
           )}
 
           <div class="rs-property-card__elegant-divider" />
@@ -644,15 +629,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 {property.buildSize} m²
               </span>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <span class="rs-property-card__spec" data-tooltip={t('card_plot_size', 'Plot Size')}>
-                <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6l9-4 9 4v12l-9 4-9-4z" /><path d="M3 6l9 4" /><path d="M12 22V10" /><path d="M21 6l-9 4" />
-                </svg>
-                {property.plotSize} m²
-              </span>
-            )}
-            {property.terraceSize != null && property.terraceSize > 0 && (
+{property.terraceSize != null && property.terraceSize > 0 && (
               <span class="rs-property-card__spec" data-tooltip={t('card_terrace_size', 'Terrace Size')}>
                 <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
@@ -758,6 +735,10 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             {property.location.name}
           </p>
 
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
+          )}
+
           <div class="rs-property-card__metro-chips">
             {property.bedrooms != null && property.bedrooms > 0 && (
               <span class="rs-property-card__metro-chip">
@@ -774,9 +755,9 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 {property.buildSize} m²
               </span>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
+            {property.terraceSize != null && property.terraceSize > 0 && (
               <span class="rs-property-card__metro-chip">
-                {property.plotSize} m² {t('card_plot_short', 'plot')}
+                {property.terraceSize} m² {t('card_terrace_short', 'terrace')}
               </span>
             )}
           </div>
@@ -869,8 +850,8 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
         <div class="rs-property-card__body">
           <h3 class="rs-property-card__title">{property.title}</h3>
 
-          {property.shortDescription && (
-            <p class="rs-property-card__description">{property.shortDescription}</p>
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
           )}
 
           <div class="rs-property-card__rustic-divider" />
@@ -900,12 +881,12 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 <span class="rs-property-card__rustic-stat-label">{property.buildSize} m²</span>
               </div>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <div class="rs-property-card__rustic-stat" data-tooltip={t('card_plot_size', 'Plot Size')}>
+            {property.terraceSize != null && property.terraceSize > 0 && (
+              <div class="rs-property-card__rustic-stat" data-tooltip={t('card_terrace_size', 'Terrace Size')}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                  <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
                 </svg>
-                <span class="rs-property-card__rustic-stat-label">{property.plotSize} m²</span>
+                <span class="rs-property-card__rustic-stat-label">{property.terraceSize} m²</span>
               </div>
             )}
           </div>
@@ -1008,62 +989,51 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 ? t('card_price_on_request', 'Price on Request')
                 : <AnimatedPrice value={property.price} format={priceFormatter} />}
             </div>
-            <span class="rs-property-card__ref">{property.reference}</span>
+            <span class="rs-property-card__ref">{getDisplayReference(property, config)}</span>
           </div>
 
           <h3 class="rs-property-card__title">{property.title}</h3>
 
-          {property.shortDescription && (
-            <p class="rs-property-card__description">{property.shortDescription}</p>
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
           )}
 
           <div class="rs-property-card__country-divider" />
 
-          <div class="rs-property-card__country-icons">
+          <div class="rs-property-card__country-specs">
             {property.bedrooms != null && property.bedrooms > 0 && (
-              <span class="rs-property-card__country-icon" data-tooltip={t('card_bedrooms', 'Bedrooms')}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <div class="rs-property-card__country-spec" data-tooltip={t('card_bedrooms', 'Bedrooms')}>
+                <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
                 </svg>
-              </span>
+                <span class="rs-property-card__country-spec-value">{property.bedrooms} {t('card_beds_short', 'beds')}</span>
+              </div>
             )}
             {property.bathrooms != null && property.bathrooms > 0 && (
-              <span class="rs-property-card__country-icon" data-tooltip={t('card_bathrooms', 'Bathrooms')}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <div class="rs-property-card__country-spec" data-tooltip={t('card_bathrooms', 'Bathrooms')}>
+                <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 12h16v4a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-4z" /><path d="M6 12V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" /><path d="M6 19v2" /><path d="M18 19v2" />
                 </svg>
-              </span>
+                <span class="rs-property-card__country-spec-value">{property.bathrooms} {t('card_baths_short', 'baths')}</span>
+              </div>
             )}
             {property.buildSize != null && property.buildSize > 0 && (
-              <span class="rs-property-card__country-icon" data-tooltip={t('card_built_area', 'Built Area')}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <div class="rs-property-card__country-spec" data-tooltip={t('card_built_area', 'Built Area')}>
+                <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="1" /><path d="M3 9h18" /><path d="M9 3v18" />
                 </svg>
-              </span>
+                <span class="rs-property-card__country-spec-value">{Math.round(property.buildSize)} m²</span>
+              </div>
             )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <span class="rs-property-card__country-icon" data-tooltip={t('card_plot_size', 'Plot Size')}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 3v18" /><path d="M19 3v18" /><path d="M5 7h14" /><path d="M5 17h14" />
+            {property.terraceSize != null && property.terraceSize > 0 && (
+              <div class="rs-property-card__country-spec" data-tooltip={t('card_terrace_size', 'Terrace Size')}>
+                <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
                 </svg>
-              </span>
+                <span class="rs-property-card__country-spec-value">{Math.round(property.terraceSize)} m²</span>
+              </div>
             )}
           </div>
-
-          <p class="rs-property-card__country-stats-text">
-            {property.bedrooms != null && property.bedrooms > 0 && (
-              <>{property.bedrooms} {t('card_beds_short', 'beds')}</>
-            )}
-            {property.bathrooms != null && property.bathrooms > 0 && (
-              <>{property.bedrooms != null && property.bedrooms > 0 ? '  ' : ''}{property.bathrooms} {t('card_baths_short', 'baths')}</>
-            )}
-            {property.buildSize != null && property.buildSize > 0 && (
-              <>{'  '}{property.buildSize} m²</>
-            )}
-            {property.plotSize != null && property.plotSize > 0 && (
-              <>{'  '}{property.plotSize} m²</>
-            )}
-          </p>
         </div>
       </div>
     );
@@ -1154,8 +1124,8 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
               {property.location.name}
             </p>
 
-            {property.shortDescription && (
-              <p class="rs-property-card__description">{property.shortDescription}</p>
+            {(property.shortDescription || property.description) && (
+              <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
             )}
 
             <div class="rs-property-card__specs">
@@ -1181,14 +1151,6 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                     <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="10" y2="17" /><line x1="14" y1="12" x2="14" y2="17" />
                   </svg>
                   {property.buildSize} m²
-                </span>
-              )}
-              {property.plotSize != null && property.plotSize > 0 && (
-                <span class="rs-property-card__spec" data-tooltip={t('card_plot_size', 'Plot Size')}>
-                  <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 6l9-4 9 4v12l-9 4-9-4z" /><path d="M3 6l9 4" /><path d="M12 22V10" /><path d="M21 6l-9 4" />
-                  </svg>
-                  {property.plotSize} m²
                 </span>
               )}
               {property.terraceSize != null && property.terraceSize > 0 && (
@@ -1317,6 +1279,140 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
     );
   }
 
+  if (template === 12) {
+    // Location-First (ported from V3 rs-template-card-01). Centered content,
+    // location as h3 title, property type as gray subtitle, 4-spec grid with
+    // icons above values with units, description with 3-line clamp, white
+    // circular wishlist top-left, color-coded uppercase status badge top-right.
+    const t12LabelMap: Record<string, string> = {
+      sale: 'RESALE',
+      rent: 'FOR RENT',
+      holiday_rent: 'HOLIDAY RENT',
+      development: 'NEW DEVELOPMENT',
+      offplan: 'OFF PLAN',
+    };
+    const t12BadgeLabel = t12LabelMap[property.listingType] || listingFallback.toUpperCase();
+    const t12BadgeModifier = property.listingType || 'sale';
+    return (
+      <div
+        class="rs-property-card rs-property-card--location-first rs-card-enter rs-card-hover"
+        style={`--i:${index}`}
+        role="article"
+        data-property-ref={property.reference}
+        onClick={handleClick}
+      >
+        <div class="rs-property-card__image" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          {carouselImages.length > 0 ? (
+            <div class="rs-property-card__carousel">
+              {carouselImages.map((img, i) => (
+                <img
+                  key={img.id}
+                  src={loadedSlides.has(i) ? (img.thumbnailUrl || img.url) : undefined}
+                  alt={img.alt || property.title}
+                  class={`rs-property-card__slide${i === slideIndex ? ' rs-property-card__slide--active' : ''}`}
+                />
+              ))}
+              {carouselImages.length > 1 && (
+                <>
+                  <button type="button" class="rs-property-card__arrow rs-property-card__arrow--prev" onClick={prevSlide} aria-label="Previous">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6" /></svg>
+                  </button>
+                  <button type="button" class="rs-property-card__arrow rs-property-card__arrow--next" onClick={nextSlide} aria-label="Next">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18" /></svg>
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div class="rs-property-card__no-image" />
+          )}
+
+          {config.enableFavorites !== false && (
+            <button
+              class={`rs-property-card__favorite${favorite ? ' rs-property-card__favorite--active' : ''}${heartBounce ? ' rs-heart-bounce' : ''}`}
+              onClick={handleFavoriteClick}
+              aria-label="Toggle favorite"
+              type="button"
+            >
+              <RsWishlistIcon size={20} filled={favorite} />
+            </button>
+          )}
+
+          <div class="rs-property-card__badges">
+            <span class={`rs-property-card__badge rs-property-card__badge--t12 rs-property-card__badge--t12-${t12BadgeModifier}`}>
+              {t12BadgeLabel}
+            </span>
+          </div>
+
+          {totalImages > 0 && (
+            <div class="rs-property-card__image-count">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              {totalImages}
+            </div>
+          )}
+        </div>
+
+        <div class="rs-property-card__body">
+          <h3 class="rs-property-card__location-title">{property.location.name}</h3>
+          {property.propertyType?.name && (
+            <p class="rs-property-card__type-subtitle">{property.propertyType.name}</p>
+          )}
+          {(property.shortDescription || property.description) && (
+            <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
+          )}
+
+          <div class="rs-property-card__spec-grid">
+            {property.bedrooms != null && property.bedrooms > 0 && (
+              <div class="rs-property-card__spec-cell">
+                <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" />
+                </svg>
+                <span class="rs-property-card__spec-value">{property.bedrooms} {t('card_beds_short', 'beds')}</span>
+              </div>
+            )}
+            {property.bathrooms != null && property.bathrooms > 0 && (
+              <div class="rs-property-card__spec-cell">
+                <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.683 3 4 3.683 4 4.5V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" />
+                  <line x1="10" x2="8" y1="5" y2="7" /><line x1="2" x2="22" y1="12" y2="12" />
+                  <line x1="7" x2="7" y1="19" y2="21" /><line x1="17" x2="17" y1="19" y2="21" />
+                </svg>
+                <span class="rs-property-card__spec-value">{property.bathrooms} {t('card_baths_short', 'baths')}</span>
+              </div>
+            )}
+            {property.buildSize != null && property.buildSize > 0 && (
+              <div class="rs-property-card__spec-cell">
+                <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
+                </svg>
+                <span class="rs-property-card__spec-value">{Math.round(property.buildSize)} m²</span>
+              </div>
+            )}
+            {property.terraceSize != null && property.terraceSize > 0 && (
+              <div class="rs-property-card__spec-cell">
+                <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
+                </svg>
+                <span class="rs-property-card__spec-value">{Math.round(property.terraceSize)} m²</span>
+              </div>
+            )}
+          </div>
+
+          <div class="rs-property-card__price">
+            {property.priceOnRequest
+              ? t('card_price_on_request', 'Price on Request')
+              : <AnimatedPrice value={property.price} format={priceFormatter} />}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       class="rs-property-card rs-card-enter rs-card-hover"
@@ -1403,11 +1499,11 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             <circle cx="12" cy="10" r="3" />
           </svg>
           {property.location.name}
-          <span class="rs-property-card__ref">{property.reference}</span>
+          <span class="rs-property-card__ref">{getDisplayReference(property, config)}</span>
         </p>
 
-        {property.shortDescription && (
-          <p class="rs-property-card__description">{property.shortDescription}</p>
+        {(property.shortDescription || property.description) && (
+          <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
         )}
 
         <div class="rs-property-card__specs">
@@ -1433,14 +1529,6 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
                 <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="10" y2="17" /><line x1="14" y1="12" x2="14" y2="17" />
               </svg>
               {property.buildSize} m²
-            </span>
-          )}
-          {property.plotSize != null && property.plotSize > 0 && (
-            <span class="rs-property-card__spec" data-tooltip={t('card_plot_size', 'Plot Size')}>
-              <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6l9-4 9 4v12l-9 4-9-4z" /><path d="M3 6l9 4" /><path d="M12 22V10" /><path d="M21 6l-9 4" />
-              </svg>
-              {property.plotSize} m²
             </span>
           )}
           {property.terraceSize != null && property.terraceSize > 0 && (

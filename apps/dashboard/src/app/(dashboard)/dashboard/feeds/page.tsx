@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus,
   MoreHorizontal,
@@ -72,7 +73,27 @@ interface FeedConfig {
   syncSchedule: string;
   nextSyncAt: string | null;
   credentials?: Record<string, string>;
+  protectedFields?: string[] | null;
 }
+
+// Field names must match Property entity keys (see FEED_MANAGED_FIELDS in
+// apps/api/src/modules/property/property.service.ts).
+const PROTECTABLE_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'title', label: 'Title' },
+  { key: 'description', label: 'Description' },
+  { key: 'price', label: 'Price' },
+  { key: 'images', label: 'Images' },
+  { key: 'features', label: 'Features' },
+  { key: 'bedrooms', label: 'Bedrooms' },
+  { key: 'bathrooms', label: 'Bathrooms' },
+  { key: 'buildSize', label: 'Build size' },
+  { key: 'plotSize', label: 'Plot size' },
+  { key: 'terraceSize', label: 'Terrace size' },
+  { key: 'gardenSize', label: 'Garden size' },
+  { key: 'propertyTypeId', label: 'Property type' },
+  { key: 'locationId', label: 'Location' },
+  { key: 'energyRating', label: 'Energy rating' },
+];
 
 const providerLogos: Record<string, string> = {
   resales: 'RO',
@@ -108,6 +129,7 @@ const emptyForm = {
   password: '',
   endpoint: '',
   syncSchedule: '0 6 * * *',
+  protectedFields: [] as string[],
 };
 
 function formatDate(d: string): string {
@@ -200,6 +222,7 @@ export default function FeedsPage() {
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
         },
         syncSchedule: form.syncSchedule || '0 6 * * *',
+        protectedFields: form.protectedFields,
         isActive: true,
       });
       toast({ title: 'Feed source created' });
@@ -226,6 +249,7 @@ export default function FeedsPage() {
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
         },
         syncSchedule: form.syncSchedule || '0 6 * * *',
+        protectedFields: form.protectedFields,
       });
       toast({ title: 'Feed source updated' });
       setIsEditOpen(false);
@@ -299,6 +323,7 @@ export default function FeedsPage() {
       password: feed.credentials?.password || '',
       endpoint: feed.credentials?.endpoint || '',
       syncSchedule: feed.syncSchedule || '0 6 * * *',
+      protectedFields: feed.protectedFields || [],
     });
     setIsEditOpen(true);
   };
@@ -385,6 +410,32 @@ export default function FeedsPage() {
         <Label>Sync Schedule (cron)</Label>
         <Input placeholder="0 6 * * *" value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />
         <p className="text-xs text-muted-foreground">Default: daily at 6 AM</p>
+      </div>
+      <div className="space-y-2 border-t pt-4">
+        <Label>Protected Fields</Label>
+        <p className="text-xs text-muted-foreground">
+          Fields checked here are <strong>never overwritten</strong> by scheduled syncs from this feed.
+          Individual property edits are auto-protected on top of this.
+        </p>
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {PROTECTABLE_FIELDS.map((f) => {
+            const checked = form.protectedFields.includes(f.key);
+            return (
+              <label key={f.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(v) => {
+                    const next = v
+                      ? Array.from(new Set([...form.protectedFields, f.key]))
+                      : form.protectedFields.filter((k) => k !== f.key);
+                    setForm({ ...form, protectedFields: next });
+                  }}
+                />
+                {f.label}
+              </label>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -608,7 +659,7 @@ export default function FeedsPage() {
 
       {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Feed Source</DialogTitle>
             <DialogDescription>Connect a new property feed provider</DialogDescription>
@@ -626,7 +677,7 @@ export default function FeedsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingFeed(null); setForm(emptyForm); } }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Configure Feed Source</DialogTitle>
             <DialogDescription>Update feed source settings</DialogDescription>

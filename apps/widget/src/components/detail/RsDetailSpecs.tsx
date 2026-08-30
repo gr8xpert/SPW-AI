@@ -1,8 +1,10 @@
 import { useMemo } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { getDisplayReference } from '@/core/property-display';
 import type { Property } from '@/types';
 
 interface Props {
@@ -14,75 +16,100 @@ interface SpecRow {
   fallback: string;
   value: string | number | undefined;
   suffix?: string;
-  icon?: string;
+}
+
+const LISTING_TYPE_LABEL: Record<string, string> = {
+  sale: 'For Sale',
+  rent: 'For Rent',
+  holiday_rent: 'Holiday Rent',
+  development: 'Development',
+  offplan: 'Off Plan',
+};
+
+function m2(n: number | undefined): string | undefined {
+  if (n == null || n <= 0) return undefined;
+  return `${Math.round(n)} m²`;
 }
 
 export default function RsDetailSpecs({ property: propertyProp }: Props) {
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
+  const config = useConfig();
   const storeProperty = useSelector(selectors.getSelectedProperty);
   const property = propertyProp ?? storeProperty;
 
   const rows = useMemo<SpecRow[]>(() => {
     if (!property) return [];
-    const specs: SpecRow[] = [
-      { labelKey: 'detail_ref', fallback: 'Reference', value: property.reference, icon: 'M7 20l4-16m2 16l4-16M6 9h14M4 15h14' },
-      { labelKey: 'card_bedrooms', fallback: 'Bedrooms', value: property.bedrooms, icon: 'M3 7v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M21 11H3V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4z' },
-      { labelKey: 'card_bathrooms', fallback: 'Bathrooms', value: property.bathrooms, icon: 'M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1zM6 12V5a2 2 0 0 1 2-2h3v2.25' },
-      { labelKey: 'card_build_size', fallback: 'Build Size', value: property.buildSize, suffix: 'm²', icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' },
-      { labelKey: 'card_plot_size', fallback: 'Plot Size', value: property.plotSize, suffix: 'm²', icon: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
-      { labelKey: 'detail_terrace', fallback: 'Terrace', value: property.terraceSize, suffix: 'm²', icon: 'M18 10h2M6 10H4M12 2v2M4.93 4.93l1.41 1.41M17.66 6.34l1.41-1.41M12 18a6 6 0 0 0 0-12v12z' },
-      { labelKey: 'detail_garden', fallback: 'Garden', value: property.gardenSize, suffix: 'm²', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
-      { labelKey: 'detail_year_built', fallback: 'Year Built', value: property.year, icon: 'M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9zM3 9V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3M16 2v4M8 2v4' },
-      { labelKey: 'detail_floor', fallback: 'Floor', value: property.floor, icon: 'M22 12H2M5 12V7M9 12V7M15 12V7M19 12V7M2 17h20' },
-      { labelKey: 'detail_orientation', fallback: 'Orientation', value: property.orientation, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
-      { labelKey: 'detail_parking', fallback: 'Parking', value: property.parking, icon: 'M19 9l-7 7-7-7' },
+    return [
+      { labelKey: 'detail_ref', fallback: 'Reference', value: getDisplayReference(property, config) },
+      { labelKey: 'detail_property_type', fallback: 'Property Type', value: property.propertyType?.name },
+      { labelKey: 'detail_listing_type', fallback: 'Listing Type', value: property.listingType ? (LISTING_TYPE_LABEL[property.listingType] || property.listingType) : undefined },
+      { labelKey: 'card_bedrooms', fallback: 'Beds', value: property.bedrooms },
+      { labelKey: 'card_bathrooms', fallback: 'Baths', value: property.bathrooms },
+      { labelKey: 'card_build_size', fallback: 'Built Area', value: m2(property.buildSize) },
+      { labelKey: 'card_plot_size', fallback: 'Plot Size', value: m2(property.plotSize) },
+      { labelKey: 'detail_terrace', fallback: 'Terrace', value: m2(property.terraceSize) },
+      { labelKey: 'detail_garden', fallback: 'Garden', value: m2(property.gardenSize) },
+      { labelKey: 'detail_year_built', fallback: 'Year Built', value: property.year },
+      { labelKey: 'detail_floor', fallback: 'Floor', value: property.floor },
+      { labelKey: 'detail_orientation', fallback: 'Orientation', value: property.orientation },
+      { labelKey: 'detail_parking', fallback: 'Parking', value: property.parking },
+      { labelKey: 'detail_energy_rating', fallback: 'Energy Rating', value: property.energyRating },
+      { labelKey: 'detail_status', fallback: 'Status', value: property.status },
+      { labelKey: 'detail_address', fallback: 'Address', value: property.address },
+      { labelKey: 'detail_zip', fallback: 'Zip Code', value: property.zipCode },
+      { labelKey: 'detail_community_fees', fallback: 'Community Fees',
+        value: property.communityFees != null && property.communityFees > 0
+          ? `${formatPrice(property.communityFees, property.currency)}/${t('detail_per_month', 'month')}`
+          : undefined },
     ];
-    return specs;
-  }, [property]);
+  }, [property, t, formatPrice, config]);
 
   if (!property) return null;
 
-  const visibleRows = rows.filter((r) => r.value != null && r.value !== '');
+  // A field is "present" only if it has a real value. 0, null, undefined, empty
+  // string all get hidden — including m² fields where 0 means "not measured".
+  const visibleRows = rows.filter((r) => {
+    if (r.value == null) return false;
+    if (typeof r.value === 'number') return r.value !== 0;
+    if (typeof r.value === 'string') return r.value.trim() !== '';
+    return true;
+  });
 
-  const hasCommunityFees = property.communityFees != null && property.communityFees > 0;
+  if (!visibleRows.length) return null;
 
-  if (!visibleRows.length && !hasCommunityFees) {
-    return null;
+  // Pair into a 2-column table. Odd trailing row shows a shaded empty cell pair.
+  const pairs: Array<[SpecRow, SpecRow | null]> = [];
+  for (let i = 0; i < visibleRows.length; i += 2) {
+    pairs.push([visibleRows[i], visibleRows[i + 1] ?? null]);
   }
 
   return (
     <div class="rs-detail-section">
       <h2 class="rs-detail-section__heading">
-        {t('detail_specifications', 'Specifications')}
+        {t('detail_property_info', 'Property Information')}
       </h2>
-      <div class="rs-detail-specs">
-        {visibleRows.map((row) => (
-          <div key={row.labelKey} class="rs-detail-specs__item">
-            <div class="rs-detail-specs__label">
-              {row.icon && (
-                <svg class="rs-detail-specs__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d={row.icon} />
-                </svg>
+      <table class="rs-detail-specs-table">
+        <tbody>
+          {pairs.map(([left, right]) => (
+            <tr key={left.labelKey}>
+              <th class="rs-detail-specs-table__label">{t(left.labelKey, left.fallback)}</th>
+              <td class="rs-detail-specs-table__value">{left.value}{left.suffix ? ` ${left.suffix}` : ''}</td>
+              {right ? (
+                <>
+                  <th class="rs-detail-specs-table__label">{t(right.labelKey, right.fallback)}</th>
+                  <td class="rs-detail-specs-table__value">{right.value}{right.suffix ? ` ${right.suffix}` : ''}</td>
+                </>
+              ) : (
+                <>
+                  <th class="rs-detail-specs-table__label rs-detail-specs-table__label--empty" />
+                  <td class="rs-detail-specs-table__value rs-detail-specs-table__value--empty" />
+                </>
               )}
-              {t(row.labelKey, row.fallback)}
-            </div>
-            <div class="rs-detail-specs__value">
-              {row.value}{row.suffix ? ` ${row.suffix}` : ''}
-            </div>
-          </div>
-        ))}
-        {hasCommunityFees && (
-          <div class="rs-detail-specs__item">
-            <div class="rs-detail-specs__label">
-              {t('detail_community_fees', 'Community Fees')}
-            </div>
-            <div class="rs-detail-specs__value">
-              {formatPrice(property.communityFees!, property.currency)}/{t('detail_per_month', 'month')}
-            </div>
-          </div>
-        )}
-      </div>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

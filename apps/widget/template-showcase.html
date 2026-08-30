@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget Templates — Preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f4f5f7; color: #1e293b; line-height: 1.5; }
+    .hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; padding: 40px 20px 32px; text-align: center; }
+    .hero h1 { margin: 0 0 6px 0; font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
+    .hero p { margin: 0; opacity: 0.8; font-size: 0.95rem; }
+
+    .banner { max-width: 1400px; margin: 0 auto; padding: 16px 20px 0; }
+    .banner-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 18px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 0.9rem; }
+    .banner-inner .mode { display: inline-flex; align-items: center; gap: 8px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge--demo { background: #fef3c7; color: #92400e; }
+    .badge--own { background: #dcfce7; color: #166534; }
+    .link-btn { background: none; border: none; color: #2563eb; font-size: 0.9rem; font-weight: 600; cursor: pointer; padding: 0; text-decoration: none; }
+    .link-btn:hover { text-decoration: underline; }
+
+    .key-panel { max-width: 720px; margin: 12px auto 0; padding: 16px 18px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .key-panel h3 { margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; }
+    .key-panel p { margin: 0 0 12px 0; font-size: 0.82rem; color: #64748b; }
+    .key-panel p code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: 0.78rem; }
+    .key-panel .row { display: flex; gap: 8px; }
+    .key-panel input { flex: 1; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
+    .key-panel input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    .key-panel button { padding: 9px 20px; border: none; background: #2563eb; color: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    .key-panel button:hover { background: #1d4ed8; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px 64px; }
+    .toc { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .toc h3 { margin: 0 0 10px 0; font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+    .toc-links { display: flex; flex-wrap: wrap; gap: 6px; }
+    .toc-links a { padding: 5px 10px; background: #f1f5f9; border-radius: 5px; text-decoration: none; color: #1e293b; font-size: 0.8rem; font-weight: 500; }
+    .toc-links a:hover { background: #e2e8f0; }
+    .section-title { margin: 40px 0 20px 0; padding-bottom: 12px; border-bottom: 3px solid #cbd5e1; font-size: 1.5rem; font-weight: 700; color: #0f172a; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+    .tpl-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); scroll-margin-top: 20px; }
+    .tpl-header { padding: 14px 20px; background: #0f172a; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-radius: 8px 8px 0 0; }
+    .tpl-body { border-radius: 0 0 8px 8px; }
+    .tpl-name { font-weight: 600; font-size: 1rem; }
+    .tpl-code { background: rgba(255,255,255,0.12); padding: 3px 8px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; color: #93c5fd; cursor: copy; }
+    .tpl-code:hover { background: rgba(255,255,255,0.2); }
+    .tpl-body { padding: 24px; min-height: 200px; background: #fafbfc; }
+    .footer { text-align: center; padding: 32px 20px; color: #64748b; font-size: 0.85rem; }
+    .status { text-align: center; padding: 20px; color: #94a3b8; font-size: 0.9rem; }
+    .error { color: #dc2626; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>SPW Widget — Template Preview</h1>
+  <p>Browse every search and listing template design</p>
+</header>
+
+<div class="banner">
+  <div class="banner-inner">
+    <div class="mode">
+      <span id="modeBadge" class="badge badge--demo">Demo</span>
+      <span id="modeText">Showing sample properties</span>
+    </div>
+    <button id="toggleKeyBtn" class="link-btn" onclick="toggleKeyPanel()">Preview with my own listings →</button>
+  </div>
+  <div id="keyPanel" class="key-panel" style="display:none;">
+    <h3>Enter your API key</h3>
+    <p>
+      Find your key in the SPW dashboard under <code>Settings → API Keys</code>.
+      It starts with <code>spm_</code>. Stored only in your browser.
+    </p>
+    <div class="row">
+      <input id="apiKey" type="text" placeholder="spm_..." autocomplete="off" spellcheck="false" />
+      <button onclick="handleLoadOwn()">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div id="gallery">
+    <div class="toc">
+      <h3>Jump to template</h3>
+      <div class="toc-links" id="toc"></div>
+    </div>
+    <h2 class="section-title">Search Templates</h2>
+    <div class="grid" id="searchGrid"></div>
+    <h2 class="section-title">Listing Templates</h2>
+    <div class="grid" id="listingGrid"></div>
+  </div>
+  <div id="status" class="status" style="display:none;"></div>
+</div>
+
+<footer class="footer">
+  Powered by Smart Property Widget · <a href="https://spw-ai.com" style="color:inherit;">spw-ai.com</a>
+</footer>
+
+<script>
+  const API_URL = 'https://api.spw-ai.com';
+  const WIDGET_BUNDLE = 'https://spw-ai.com/widget/spm-widget.umd.js';
+  const STORAGE_KEY = 'spw_showcase_api_key';
+  const DEMO_KEY = 'spm_7961766d4e93e75beaf500b66e1a97600560adc5232c1668d1d84861a004866a';
+
+  const searchTemplates = [
+    { n: 1, name: 'Search 01 — Compact Horizontal' },
+    { n: 2, name: 'Search 02 — Single Row + More Filters' },
+    { n: 3, name: 'Search 03 — With Reference' },
+    { n: 4, name: 'Search 04 — Capsule Airbnb-style' },
+    { n: 5, name: 'Search 05 — Card Panel' },
+    { n: 6, name: 'Search 06 — Minimal Hero' },
+  ];
+
+  const listingTemplates = [
+    { n: 1,  name: 'Listing 01 — Classic Card' },
+    { n: 2,  name: 'Listing 02 — Photo Overlay' },
+    { n: 3,  name: 'Listing 03 — Blend Bottom' },
+    { n: 4,  name: 'Listing 04 — Compact Padded' },
+    { n: 5,  name: 'Listing 05 — Showcase (4:4)' },
+    { n: 6,  name: 'Listing 06 — Elegant Round Action' },
+    { n: 7,  name: 'Listing 07 — Immersive Panel' },
+    { n: 8,  name: 'Listing 08 — Country Style with READ MORE' },
+    { n: 9,  name: 'Listing 09 — Rustic Icons' },
+    { n: 10, name: 'Listing 10 — Metro Band' },
+    { n: 11, name: 'Listing 11 — Classic Card (variant)' },
+    { n: 12, name: 'Listing 12 — Location-First' },
+  ];
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function buildCard(kind, tpl, apiKey) {
+    const id = kind + '-template-' + pad(tpl.n);
+    const attrs = [
+      `data-spm-widget="${id}"`,
+      `data-spm-api-url="${API_URL}"`,
+      `data-spm-api-key="${apiKey}"`,
+    ];
+    if (kind === 'listing') attrs.push('data-spm-results-per-page="3"');
+    return `
+      <div class="tpl-card" id="${id}">
+        <div class="tpl-header">
+          <span class="tpl-name">${tpl.name}</span>
+          <code class="tpl-code" onclick="copyCode(this)" title="Click to copy">data-spm-widget="${id}"</code>
+        </div>
+        <div class="tpl-body">
+          <div ${attrs.join(' ')}></div>
+        </div>
+      </div>`;
+  }
+
+  function copyCode(el) {
+    const text = el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const original = el.textContent;
+      el.textContent = '✓ Copied!';
+      setTimeout(() => { el.textContent = original; }, 1200);
+    });
+  }
+
+  function buildTOC() {
+    const toc = document.getElementById('toc');
+    const parts = [
+      ...searchTemplates.map(t => `<a href="#search-template-${pad(t.n)}">S${pad(t.n)}</a>`),
+      ...listingTemplates.map(t => `<a href="#listing-template-${pad(t.n)}">L${pad(t.n)}</a>`),
+    ];
+    toc.innerHTML = parts.join('');
+  }
+
+  function showStatus(html, isError) {
+    const el = document.getElementById('status');
+    el.className = 'status' + (isError ? ' error' : '');
+    el.innerHTML = html;
+    el.style.display = '';
+  }
+
+  function updateBanner(isOwn) {
+    const badge = document.getElementById('modeBadge');
+    const text = document.getElementById('modeText');
+    const btn = document.getElementById('toggleKeyBtn');
+    if (isOwn) {
+      badge.className = 'badge badge--own';
+      badge.textContent = 'Your listings';
+      text.textContent = 'Showing properties from your tenant';
+      btn.textContent = 'Back to demo data';
+      btn.onclick = resetKey;
+    } else {
+      badge.className = 'badge badge--demo';
+      badge.textContent = 'Demo';
+      text.textContent = 'Showing sample properties';
+      btn.textContent = 'Preview with my own listings →';
+      btn.onclick = toggleKeyPanel;
+    }
+  }
+
+  function toggleKeyPanel() {
+    const panel = document.getElementById('keyPanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) document.getElementById('apiKey').focus();
+  }
+
+  function loadTemplates(apiKey, isOwn) {
+    updateBanner(isOwn);
+    document.getElementById('keyPanel').style.display = 'none';
+
+    // Rebuild grids with the active key. Force a full reload of the widget so
+    // the store re-hydrates against the new tenant's config/labels/locations.
+    buildTOC();
+    document.getElementById('searchGrid').innerHTML = searchTemplates.map(t => buildCard('search', t, apiKey)).join('');
+    document.getElementById('listingGrid').innerHTML = listingTemplates.map(t => buildCard('listing', t, apiKey)).join('');
+
+    if (window.SPM) {
+      // Widget already loaded against a previous key — reload the page so
+      // it re-inits cleanly against the new tenant.
+      location.reload();
+      return;
+    }
+
+    showStatus('Loading widget…');
+    const s = document.createElement('script');
+    s.src = WIDGET_BUNDLE + '?_t=' + Date.now();
+    s.onload = () => { document.getElementById('status').style.display = 'none'; };
+    s.onerror = () => {
+      showStatus('Failed to load widget bundle. Please try again in a moment.', true);
+    };
+    document.body.appendChild(s);
+  }
+
+  function handleLoadOwn() {
+    const key = document.getElementById('apiKey').value.trim();
+    if (!key.startsWith('spm_') || key.length < 12) {
+      alert('Please enter a valid API key starting with "spm_"');
+      return;
+    }
+    try { localStorage.setItem(STORAGE_KEY, key); } catch {}
+    loadTemplates(key, true);
+  }
+
+  function resetKey() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    location.reload();
+  }
+
+  // Boot: prefer saved own-key, else fall back to demo
+  const saved = (() => { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } })();
+  if (saved && saved.startsWith('spm_')) {
+    document.getElementById('apiKey').value = saved;
+    loadTemplates(saved, true);
+  } else {
+    loadTemplates(DEMO_KEY, false);
+  }
+</script>
+
+</body>
+</html>

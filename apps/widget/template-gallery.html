@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Template Gallery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+    .topbar { background: #0f172a; color: #fff; padding: 12px 20px; position: sticky; top: 0; z-index: 100; }
+    .topbar h1 { margin: 0 0 8px 0; font-size: 1.1rem; }
+    .topbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .topbar input { padding: 6px 10px; border: 1px solid #334; background: #1e293b; color: #fff; border-radius: 4px; font-family: monospace; font-size: 12px; width: 520px; max-width: 60vw; }
+    .topbar button { padding: 6px 12px; border: none; background: #3b82f6; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .topbar button:hover { background: #2563eb; }
+    .topbar .hint { font-size: 12px; opacity: 0.75; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .section-title { margin: 32px 0 12px 0; font-size: 1.4rem; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card-header { padding: 10px 16px; background: #e2e8f0; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+    .card-header code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; }
+    .card-body { padding: 20px; min-height: 120px; }
+    .placeholder { color: #94a3b8; font-style: italic; text-align: center; padding: 40px 20px; }
+    #diag { background: #111; color: #0f0; padding: 10px; font-family: monospace; font-size: 11px; white-space: pre-wrap; max-height: 140px; overflow: auto; margin-top: 10px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>SPW Template Gallery — Search 01–06 · Listing 01–13</h1>
+  <div class="row">
+    <span class="hint">Your API key:</span>
+    <input id="apiKey" placeholder="spm_..." />
+    <button onclick="loadTemplates()">Load templates</button>
+    <span class="hint">API: https://api.spw-ai.com · get key from dashboard → Settings → API keys</span>
+  </div>
+  <div id="diag">[diag] waiting for API key…</div>
+</div>
+
+<div class="container">
+
+  <h2 class="section-title">Search Templates</h2>
+  <div class="grid" id="searchGrid"></div>
+
+  <h2 class="section-title">Listing Templates</h2>
+  <div class="grid" id="listingGrid"></div>
+
+</div>
+
+<script>
+  const API_URL = 'https://api.spw-ai.com';
+  const WIDGET_BUNDLE = 'https://spw-ai.com/widget/spm-widget.umd.js';
+
+  const searchTemplates = [1, 2, 3, 4, 5, 6];
+  const listingTemplates = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+  const diag = document.getElementById('diag');
+  const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function buildCard(kind, n, apiKey) {
+    const id = kind + '-template-' + pad(n);
+    const attrs = [
+      `data-spm-widget="${id}"`,
+      `data-spm-api-url="${API_URL}"`,
+      `data-spm-api-key="${apiKey}"`,
+    ];
+    if (kind === 'listing') {
+      attrs.push('data-spm-results-per-page="6"');
+    }
+    return `
+      <div class="card">
+        <div class="card-header">
+          <span>${kind === 'search' ? 'Search' : 'Listing'} Template ${pad(n)}</span>
+          <code>data-spm-widget="${id}"</code>
+        </div>
+        <div class="card-body">
+          <div ${attrs.join(' ')}></div>
+        </div>
+      </div>`;
+  }
+
+  function loadTemplates() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey || !apiKey.startsWith('spm_')) {
+      alert('Enter a valid tenant API key (spm_...) from your dashboard.');
+      return;
+    }
+    localStorage.setItem('spw_gallery_api_key', apiKey);
+    diag.textContent = '[diag] loading templates…';
+
+    document.getElementById('searchGrid').innerHTML  = searchTemplates.map(n => buildCard('search', n, apiKey)).join('');
+    document.getElementById('listingGrid').innerHTML = listingTemplates.map(n => buildCard('listing', n, apiKey)).join('');
+
+    if (window.SPMWidget && typeof window.SPMWidget.scan === 'function') {
+      window.SPMWidget.scan();
+      log('[gallery] re-scanned existing bundle');
+    } else {
+      const s = document.createElement('script');
+      s.src = WIDGET_BUNDLE + '?_t=' + Date.now();
+      s.onload = () => log('[gallery] widget bundle loaded');
+      s.onerror = () => log('[gallery] FAILED to load widget bundle from ' + WIDGET_BUNDLE);
+      document.body.appendChild(s);
+    }
+  }
+
+  document.addEventListener('spw:ready', () => log('[widget] ready'));
+  window.addEventListener('error', e => log('[err]', e.message));
+
+  // Restore last-used key
+  const saved = localStorage.getItem('spw_gallery_api_key');
+  if (saved) document.getElementById('apiKey').value = saved;
+</script>
+
+</body>
+</html>
