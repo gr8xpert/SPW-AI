@@ -2,11 +2,12 @@ import { Controller, Post, Get, Body, Param, Query, ParseIntPipe, UseGuards } fr
 import { TranslationService } from './translation.service';
 import { AiService } from '../ai/ai.service';
 import { TranslatePropertyDto, BulkTranslateDto, TranslateEntityDto } from './dto/translate-property.dto';
-import { JwtAuthGuard, TenantGuard } from '../../common/guards';
-import { CurrentTenant } from '../../common/decorators';
+import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
+import { CurrentTenant, RequiresAddon } from '../../common/decorators';
 
 @Controller('api/dashboard/translate')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
+@RequiresAddon('aiTranslation')
 export class TranslationController {
   constructor(
     private readonly translationService: TranslationService,

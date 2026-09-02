@@ -62,9 +62,11 @@ import {
   GripVertical,
   Sparkles,
   Check,
+  Lock,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 
@@ -126,6 +128,7 @@ export default function FeaturesPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
+  const aiTranslation = useAiTranslationGuard();
   const [hideEmpty, setHideEmpty] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
@@ -258,6 +261,7 @@ export default function FeaturesPage() {
 
   const handleAiTranslate = async () => {
     if (!editingFeature) return;
+    if (!aiTranslation.check()) return;
     setIsTranslating(true);
     try {
       await api.put(`/api/dashboard/features/${editingFeature.id}`, {
@@ -293,6 +297,7 @@ export default function FeaturesPage() {
   };
 
   const handleQuickTranslate = async (feature: Feature) => {
+    if (!aiTranslation.check()) return;
     setTranslatingId(feature.id);
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !feature.name[l]?.trim());
@@ -315,6 +320,7 @@ export default function FeaturesPage() {
   };
 
   const handleBulkTranslate = async () => {
+    if (!aiTranslation.check()) return;
     setIsBulkTranslating(true);
     try {
       const targetLangs = languages.filter(l => l !== 'en');
@@ -414,8 +420,8 @@ export default function FeaturesPage() {
             AI Organize
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
-              <Sparkles className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               AI Translate All
             </Button>
           )}
@@ -563,7 +569,8 @@ export default function FeaturesPage() {
                               </DropdownMenuItem>
                               {languages.length > 1 && (
                                 <DropdownMenuItem onClick={() => handleQuickTranslate(feature)}>
-                                  <Sparkles className="h-4 w-4 mr-2" />AI Translate
+                                  {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                                  AI Translate
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
@@ -652,8 +659,8 @@ export default function FeaturesPage() {
                   <span className="text-sm font-medium">
                     Translations ({languages.filter(l => l !== 'en' && form.names[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()}>
-                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
                     AI Translate
                   </Button>
                 </div>

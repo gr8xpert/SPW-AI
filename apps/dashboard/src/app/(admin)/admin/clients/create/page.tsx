@@ -73,6 +73,7 @@ const createClientSchema = z.object({
     feedExport: z.boolean(),
     team: z.boolean(),
     aiChat: z.boolean(),
+    aiTranslation: z.boolean(),
   }),
 });
 
@@ -129,6 +130,7 @@ export default function CreateClientPage() {
         feedExport: false,
         team: false,
         aiChat: false,
+        aiTranslation: false,
       },
     },
   });
@@ -614,6 +616,7 @@ export default function CreateClientPage() {
                     { name: 'dashboardAddons.feedExport' as const, label: 'Feed Export', description: 'Generate XML/JSON feeds to syndicate to portals' },
                     { name: 'dashboardAddons.team' as const, label: 'Team Management', description: 'Invite team members and assign roles' },
                     { name: 'dashboardAddons.aiChat' as const, label: 'AI Chat', description: 'Conversational AI analytics and chat history' },
+                    { name: 'dashboardAddons.aiTranslation' as const, label: 'AI Translation & SEO', description: 'AI-powered content translation and SEO generation across properties, features, labels, and property types' },
                   ].map((addon) => (
                     <FormField
                       key={addon.name}

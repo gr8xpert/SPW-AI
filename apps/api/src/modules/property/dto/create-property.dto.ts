@@ -186,6 +186,12 @@ export class CreatePropertyDto {
   @MaxLength(500)
   floorPlanUrl?: string;
 
+  // Multi-floor-plan array. When present, property.service mirrors
+  // floorPlans[0].url into floorPlanUrl so legacy readers keep working.
+  @IsArray()
+  @IsOptional()
+  floorPlans?: Array<{ url: string; label?: string }>;
+
   @IsString()
   @IsOptional()
   @MaxLength(500)
@@ -244,6 +250,14 @@ export class CreatePropertyDto {
   @IsObject()
   @IsOptional()
   pageTitle?: Record<string, string>;
+
+  // Custom JSON-LD schema (schema.org). When set, widget uses this instead
+  // of the auto-generated RealEstateListing block. Stored as raw string so
+  // the caller controls formatting; validated to be either null/empty or
+  // parseable JSON at the service layer.
+  @IsString()
+  @IsOptional()
+  seoSchemaJson?: string | null;
 
   // Agent / Assignment
   @IsNumber()

@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import { Property, PropertyType, Feature, Label } from '../../database/entities';
+import { Property, PropertyType, Feature, Label, Tenant } from '../../database/entities';
 import { AiModule } from '../ai/ai.module';
 import { TranslationService } from './translation.service';
 import { TranslationProcessor } from './translation.processor';
 import { TranslationController } from './translation.controller';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Property, PropertyType, Feature, Label]),
+    TypeOrmModule.forFeature([Property, PropertyType, Feature, Label, Tenant]),
     BullModule.registerQueue({
       name: 'translation',
       defaultJobOptions: {
@@ -22,7 +23,7 @@ import { TranslationController } from './translation.controller';
     AiModule,
   ],
   controllers: [TranslationController],
-  providers: [TranslationService, TranslationProcessor],
+  providers: [TranslationService, TranslationProcessor, DashboardAddonGuard],
   exports: [TranslationService],
 })
 export class TranslationModule {}

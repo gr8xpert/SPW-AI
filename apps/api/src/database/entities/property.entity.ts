@@ -198,8 +198,18 @@ export class Property {
   @Column({ type: 'varchar', length: 500, nullable: true })
   virtualTourUrl: string | null;
 
+  // Legacy single-URL field. Kept for backwards-compat with feed importers
+  // and downstream consumers that still read `floorPlanUrl`. On write we
+  // mirror `floorPlans?.[0]?.url` into this column so old readers still see
+  // the first plan. Prefer `floorPlans` (below) for new code — it supports
+  // multiple plans with optional labels.
   @Column({ type: 'varchar', length: 500, nullable: true })
   floorPlanUrl: string | null;
+
+  // Multi-floor-plan array. Each entry: `{ url, label? }`. Nullable so we
+  // can distinguish "unset" from "explicitly empty".
+  @Column({ type: 'json', nullable: true })
+  floorPlans: Array<{ url: string; label?: string }> | null;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   externalLink: string | null;
@@ -242,6 +252,14 @@ export class Property {
 
   @Column({ type: 'json', nullable: true })
   pageTitle: Record<string, string> | null;
+
+  // Custom JSON-LD schema override. When non-null the widget renders this
+  // block verbatim inside a `<script type="application/ld+json">` tag on
+  // the property detail page. When null the widget falls back to an
+  // auto-generated RealEstateListing block built from the property's own
+  // fields (title, description, price, address, images).
+  @Column({ type: 'text', nullable: true })
+  seoSchemaJson: string | null;
 
   // Agent / Assignment
   @Column({ type: 'int', nullable: true })

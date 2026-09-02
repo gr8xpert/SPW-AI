@@ -277,6 +277,7 @@ export interface DashboardAddons {
   feedExport: boolean;      // /dashboard/feed-export
   team: boolean;            // /dashboard/team
   aiChat: boolean;          // /dashboard/ai-chat
+  aiTranslation: boolean;   // AI Translate + AI SEO across properties, features, labels, property-types
 }
 
 export const DEFAULT_DASHBOARD_ADDONS: DashboardAddons = {
@@ -285,6 +286,7 @@ export const DEFAULT_DASHBOARD_ADDONS: DashboardAddons = {
   feedExport: false,
   team: false,
   aiChat: false,
+  aiTranslation: false,
 };
 
 export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
@@ -293,6 +295,7 @@ export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
   feedExport: true,
   team: true,
   aiChat: true,
+  aiTranslation: true,
 };
 
 // Currency options supported by the widget

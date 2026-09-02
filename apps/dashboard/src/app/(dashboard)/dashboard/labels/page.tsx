@@ -47,9 +47,11 @@ import {
   Edit,
   Sparkles,
   Check,
+  Lock,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 
 interface Label {
   id: number;
@@ -114,6 +116,7 @@ export default function LabelsPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
+  const aiTranslation = useAiTranslationGuard();
 
   const api = useApi();
   const { toast } = useToast();
@@ -208,6 +211,7 @@ export default function LabelsPage() {
 
   const handleAiTranslate = async () => {
     if (!editingLabel) return;
+    if (!aiTranslation.check()) return;
     setIsTranslating(true);
     try {
       const translations: Record<string, string> = {};
@@ -244,6 +248,7 @@ export default function LabelsPage() {
   };
 
   const handleQuickTranslate = async (label: Label) => {
+    if (!aiTranslation.check()) return;
     setTranslatingId(label.id);
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !label.translations[l]?.trim());
@@ -266,6 +271,7 @@ export default function LabelsPage() {
   };
 
   const handleBulkTranslate = async () => {
+    if (!aiTranslation.check()) return;
     setIsBulkTranslating(true);
     try {
       const targetLangs = languages.filter(l => l !== 'en');
@@ -337,8 +343,8 @@ export default function LabelsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {languages.length > 1 && (
-            <Button size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
-              <Sparkles className="h-4 w-4 mr-2" />
+            <Button size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               AI Translate All
             </Button>
           )}
@@ -445,8 +451,8 @@ export default function LabelsPage() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               {languages.length > 1 && (
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleQuickTranslate(label)} disabled={translatingId === label.id}>
-                                  <Sparkles className="h-4 w-4" />
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleQuickTranslate(label)} disabled={translatingId === label.id} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : 'AI translate this label'}>
+                                  {aiTranslation.locked ? <Lock className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                                 </Button>
                               )}
                             </div>
@@ -482,8 +488,8 @@ export default function LabelsPage() {
                   <span className="text-sm font-medium">
                     Translations ({languages.filter(l => l !== 'en' && editValues[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !editValues.en?.trim()}>
-                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !editValues.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
                     AI Translate
                   </Button>
                 </div>

@@ -61,6 +61,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
 import { TranslationModule } from './modules/translation/translation.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { AiSeoModule } from './modules/ai-seo/ai-seo.module';
 import { BrochureModule } from './modules/brochure/brochure.module';
 
 @Module({
@@ -194,6 +195,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     AiEnrichmentModule,
     TranslationModule,
     AiChatModule,
+    AiSeoModule,
 
     // ============ Phase 7: Brochure ============
     BrochureModule,

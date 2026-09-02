@@ -53,6 +53,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { formatHM } from '@/lib/time';
+import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 
 interface Ticket {
   id: number;
@@ -465,37 +466,13 @@ export default function TicketsPage() {
             </div>
             <div className="space-y-2">
               <Label>Attachments</Label>
-              <input
-                ref={createFileRef}
-                type="file"
-                multiple
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={async (e) => {
-                  if (e.target.files?.length) {
-                    const files = await uploadFiles(e.target.files);
-                    setCreateAttachments((prev) => [...prev, ...files]);
-                  }
-                  e.target.value = '';
-                }}
+              <AttachmentDropzone
+                attachments={createAttachments}
+                onAdd={(files) => setCreateAttachments((prev) => [...prev, ...files])}
+                onRemove={(idx) => setCreateAttachments((prev) => prev.filter((_, j) => j !== idx))}
+                onUpload={uploadFiles}
+                isUploading={isUploading}
               />
-              <Button type="button" variant="outline" size="sm" onClick={() => createFileRef.current?.click()} disabled={isUploading}>
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
-                Attach Files
-              </Button>
-              {createAttachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {createAttachments.map((att, i) => (
-                    <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
-                      {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                      <span className="max-w-[120px] truncate">{att.name}</span>
-                      <button onClick={() => setCreateAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
           <DialogFooter>
@@ -583,40 +560,15 @@ export default function TicketsPage() {
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
                   />
-                  {replyAttachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {replyAttachments.map((att, i) => (
-                        <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
-                          {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                          <span className="max-w-[100px] truncate">{att.name}</span>
-                          <button onClick={() => setReplyAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <div>
-                      <input
-                        ref={replyFileRef}
-                        type="file"
-                        multiple
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={async (e) => {
-                          if (e.target.files?.length) {
-                            const files = await uploadFiles(e.target.files);
-                            setReplyAttachments((prev) => [...prev, ...files]);
-                          }
-                          e.target.value = '';
-                        }}
-                      />
-                      <Button variant="outline" size="sm" onClick={() => replyFileRef.current?.click()} disabled={isUploading}>
-                        {isUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Paperclip className="h-3 w-3 mr-1" />}
-                        Attach
-                      </Button>
-                    </div>
+                  <AttachmentDropzone
+                    compact
+                    attachments={replyAttachments}
+                    onAdd={(files) => setReplyAttachments((prev) => [...prev, ...files])}
+                    onRemove={(idx) => setReplyAttachments((prev) => prev.filter((_, j) => j !== idx))}
+                    onUpload={uploadFiles}
+                    isUploading={isUploading}
+                  />
+                  <div className="flex justify-end">
                     <Button onClick={handleReply} disabled={!replyMessage.trim() || api.isLoading} size="sm">
                       {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
                       Send

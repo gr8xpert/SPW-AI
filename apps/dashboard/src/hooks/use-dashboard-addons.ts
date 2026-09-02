@@ -9,6 +9,7 @@ export interface DashboardAddons {
   feedExport: boolean;
   team: boolean;
   aiChat: boolean;
+  aiTranslation: boolean;
 }
 
 export const ALL_LOCKED: DashboardAddons = {
@@ -17,6 +18,7 @@ export const ALL_LOCKED: DashboardAddons = {
   feedExport: false,
   team: false,
   aiChat: false,
+  aiTranslation: false,
 };
 
 interface TenantResponse {

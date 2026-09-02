@@ -59,6 +59,7 @@ import { formatHM } from '@/lib/time';
 import { HoursMinutesInput } from '@/components/ui/hours-minutes-input';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 
 interface TicketData {
   id: number;
@@ -458,19 +459,13 @@ export default function WebmasterTicketDetailPage() {
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
                 />
-                {replyAttachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {replyAttachments.map((att, i) => (
-                      <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
-                        {att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                        <span className="max-w-[120px] truncate">{att.name}</span>
-                        <button onClick={() => setReplyAttachments((prev) => prev.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <AttachmentDropzone
+                  attachments={replyAttachments}
+                  onAdd={(files) => setReplyAttachments((prev) => [...prev, ...files])}
+                  onRemove={(idx) => setReplyAttachments((prev) => prev.filter((_, j) => j !== idx))}
+                  onUpload={uploadFiles}
+                  isUploading={isUploading}
+                />
                 <div className="flex items-end gap-3 flex-wrap">
                   <div>
                     <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
@@ -478,26 +473,6 @@ export default function WebmasterTicketDetailPage() {
                       Time (optional)
                     </Label>
                     <HoursMinutesInput value={replyHours} onChange={setReplyHours} />
-                  </div>
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={async (e) => {
-                        if (e.target.files?.length) {
-                          const files = await uploadFiles(e.target.files);
-                          setReplyAttachments((prev) => [...prev, ...files]);
-                        }
-                        e.target.value = '';
-                      }}
-                    />
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                      {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
-                      Attach Files
-                    </Button>
                   </div>
                   <div className="flex-1" />
                   <Button onClick={handleSendReply} disabled={isSending || !replyMessage.trim()}>

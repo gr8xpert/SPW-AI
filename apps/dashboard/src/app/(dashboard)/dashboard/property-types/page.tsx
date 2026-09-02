@@ -62,9 +62,11 @@ import {
   Loader2,
   Sparkles,
   Check,
+  Lock,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 
 interface PropertyType {
   id: number;
@@ -105,6 +107,7 @@ export default function PropertyTypesPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
+  const aiTranslation = useAiTranslationGuard();
   const [hideEmpty, setHideEmpty] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkMoveOpen, setIsBulkMoveOpen] = useState(false);
@@ -227,6 +230,7 @@ export default function PropertyTypesPage() {
 
   const handleAiTranslate = async () => {
     if (!editingType) return;
+    if (!aiTranslation.check()) return;
     setIsTranslating(true);
     try {
       await api.put(`/api/dashboard/property-types/${editingType.id}`, {
@@ -262,6 +266,7 @@ export default function PropertyTypesPage() {
   };
 
   const handleQuickTranslate = async (type: PropertyType) => {
+    if (!aiTranslation.check()) return;
     setTranslatingId(type.id);
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !type.name[l]?.trim());
@@ -284,6 +289,7 @@ export default function PropertyTypesPage() {
   };
 
   const handleBulkTranslate = async () => {
+    if (!aiTranslation.check()) return;
     setIsBulkTranslating(true);
     try {
       const targetLangs = languages.filter(l => l !== 'en');
@@ -437,8 +443,8 @@ export default function PropertyTypesPage() {
             AI Organize
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => setIsBulkTranslateOpen(true)}>
-              <Sparkles className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               AI Translate All
             </Button>
           )}
@@ -623,7 +629,8 @@ export default function PropertyTypesPage() {
                             </DropdownMenuItem>
                             {languages.length > 1 && (
                               <DropdownMenuItem onClick={() => handleQuickTranslate(type)}>
-                                <Sparkles className="h-4 w-4 mr-2" />AI Translate
+                                {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                                AI Translate
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -687,8 +694,8 @@ export default function PropertyTypesPage() {
                   <span className="text-sm font-medium">
                     Translations ({languages.filter(l => l !== 'en' && form.names[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()}>
-                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                    {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
                     AI Translate
                   </Button>
                 </div>

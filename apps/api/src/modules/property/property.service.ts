@@ -215,6 +215,7 @@ export class PropertyService {
     const existing = await this.propertyRepository.findOne({ where: { tenantId, reference: dto.reference } });
     if (existing) throw new ConflictException('Property with this reference already exists');
 
+    this.mirrorFloorPlansToLegacyField(dto);
     const property = this.propertyRepository.create({ ...dto, tenantId, source: 'manual' });
     const saved = await this.propertyRepository.save(property);
 
@@ -234,6 +235,7 @@ export class PropertyService {
       if (existing) throw new ConflictException('Property with this reference already exists');
     }
 
+    this.mirrorFloorPlansToLegacyField(dto);
     const updateData = this.filterLockedFields(property, dto);
 
     // Auto-lock: any feed-managed field a user actually changes gets added to
@@ -302,6 +304,18 @@ export class PropertyService {
     property.status = 'sold';
     property.soldAt = new Date();
     return this.propertyRepository.save(property);
+  }
+
+  // When a caller writes `floorPlans` (new multi-plan field), reflect the
+  // first plan's URL into the legacy `floorPlanUrl` column so feed importers,
+  // widget PDFs, and other consumers that still read the single-URL field
+  // stay in sync. Called before create/update to mutate the DTO in place.
+  private mirrorFloorPlansToLegacyField(dto: CreatePropertyDto | UpdatePropertyDto): void {
+    if (!('floorPlans' in dto)) return;
+    const plans = dto.floorPlans;
+    if (!Array.isArray(plans)) return;
+    const first = plans.find((p) => p && typeof p.url === 'string' && p.url.trim().length > 0);
+    dto.floorPlanUrl = first ? first.url : null as any;
   }
 
   private filterLockedFields(property: Property, dto: UpdatePropertyDto): Partial<UpdatePropertyDto> {

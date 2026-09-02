@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2, Save, X, Upload, GripVertical, Image as ImageIcon, Languages } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, X, Upload, GripVertical, Image as ImageIcon, Languages, Lock } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -49,6 +49,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
+import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -114,6 +115,7 @@ interface FormData {
   videoUrl: string;
   virtualTourUrl: string;
   floorPlanUrl: string;
+  floorPlans: Array<{ url: string; label?: string }>;
   lat: string;
   lng: string;
   geoLocationLabel: string;
@@ -143,6 +145,7 @@ interface FormData {
   metaDescription: Record<string, string>;
   metaKeywords: Record<string, string>;
   pageTitle: Record<string, string>;
+  seoSchemaJson: string;
   agentId: string;
   salesAgentId: string;
   project: string;
@@ -241,6 +244,12 @@ export default function EditPropertyPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isUploadingFloorPlan, setIsUploadingFloorPlan] = useState(false);
+  const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
+  const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
+  const [useCustomSchema, setUseCustomSchema] = useState(false);
+  const floorPlanFileRef = useRef<HTMLInputElement>(null);
+  const aiTranslation = useAiTranslationGuard();
   const [tenantLanguages, setTenantLanguages] = useState<string[]>([]);
   const [propertySource, setPropertySource] = useState<string>('manual');
   const [activeTab, setActiveTab] = useState('basic');
@@ -264,13 +273,13 @@ export default function EditPropertyPage() {
     bedrooms: '', bedroomsTo: '', bathrooms: '', bathroomsTo: '', buildSize: '', buildSizeTo: '',
     plotSize: '', plotSizeTo: '', terraceSize: '', terraceSizeTo: '', gardenSize: '',
     solariumSize: '', title: { ...emptyMultilingual }, description: { ...emptyMultilingual },
-    features: [], videoUrl: '', virtualTourUrl: '', floorPlanUrl: '', lat: '', lng: '',
+    features: [], videoUrl: '', virtualTourUrl: '', floorPlanUrl: '', floorPlans: [], lat: '', lng: '',
     geoLocationLabel: '', isFeatured: false, isPublished: false, floor: '', street: '',
     streetNumber: '', postcode: '', cadastralReference: '', communityFees: '', basuraTax: '',
     ibiFees: '', commission: '', sharedCommission: false, builtYear: '', energyConsumption: '', energyRating: '', brochureVariant: 'inherit',
     distanceToBeach: '', externalLink: '', blogUrl: '', mapLink: '', websiteUrl: '', slug: '',
     metaTitle: { ...emptyMultilingual }, metaDescription: { ...emptyMultilingual },
-    metaKeywords: { ...emptyMultilingual }, pageTitle: { ...emptyMultilingual },
+    metaKeywords: { ...emptyMultilingual }, pageTitle: { ...emptyMultilingual }, seoSchemaJson: '',
     agentId: '', salesAgentId: '', project: '', isOwnProperty: false, villaSelection: false,
     luxurySelection: false, apartmentSelection: false, deliveryDate: '', completionDate: '',
     propertyTypeReference: '', syncEnabled: true,
@@ -353,6 +362,9 @@ export default function EditPropertyPage() {
             videoUrl: property.videoUrl || '',
             virtualTourUrl: property.virtualTourUrl || '',
             floorPlanUrl: property.floorPlanUrl || '',
+            floorPlans: Array.isArray(property.floorPlans)
+              ? property.floorPlans.filter((p: any) => p && typeof p.url === 'string')
+              : (property.floorPlanUrl ? [{ url: property.floorPlanUrl }] : []),
             lat: str(property.lat),
             lng: str(property.lng),
             geoLocationLabel: property.geoLocationLabel || '',
@@ -382,6 +394,7 @@ export default function EditPropertyPage() {
             metaDescription: ml(property.metaDescription),
             metaKeywords: ml(property.metaKeywords),
             pageTitle: ml(property.pageTitle),
+            seoSchemaJson: property.seoSchemaJson || '',
             agentId: str(property.agentId),
             salesAgentId: str(property.salesAgentId),
             project: property.project || '',
@@ -394,6 +407,7 @@ export default function EditPropertyPage() {
             propertyTypeReference: property.propertyTypeReference || '',
             syncEnabled: property.syncEnabled !== false,
           });
+          setUseCustomSchema(!!(property.seoSchemaJson && String(property.seoSchemaJson).trim().length > 0));
         }
       } catch {
         toast({ title: 'Error', description: 'Failed to load property data.', variant: 'destructive' });
@@ -486,6 +500,7 @@ export default function EditPropertyPage() {
   }, [api, propertyId, toast]);
 
   const handleTranslate = async () => {
+    if (!aiTranslation.check()) return;
     if (tenantLanguages.length < 2) {
       toast({ title: 'Multiple languages required', description: 'Enable at least 2 languages in Settings → General to use AI translation.', variant: 'destructive' });
       return;
@@ -512,6 +527,71 @@ export default function EditPropertyPage() {
       toast({ title: 'Translation failed', description: errMsg, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleGenerateSeo = async () => {
+    if (!aiTranslation.check()) return;
+    if (tenantLanguages.length === 0) {
+      toast({ title: 'No languages configured', description: 'Enable at least one language in Settings → General.', variant: 'destructive' });
+      return;
+    }
+    setIsGeneratingSeo(true);
+    try {
+      const res = await api.post(`/api/dashboard/ai-seo/property/${propertyId}`, {
+        targetLanguages: tenantLanguages,
+      });
+      const body = (res as any)?.data || res;
+      // Expect shape: { [lang]: { pageTitle, metaTitle, metaDescription, metaKeywords } }
+      if (body && typeof body === 'object') {
+        setFormData((prev) => {
+          const next = { ...prev };
+          const pageTitle = { ...prev.pageTitle };
+          const metaTitle = { ...prev.metaTitle };
+          const metaDescription = { ...prev.metaDescription };
+          const metaKeywords = { ...prev.metaKeywords };
+          for (const [lang, fields] of Object.entries(body as Record<string, any>)) {
+            if (!fields || typeof fields !== 'object') continue;
+            if (fields.pageTitle) pageTitle[lang] = String(fields.pageTitle);
+            if (fields.metaTitle) metaTitle[lang] = String(fields.metaTitle);
+            if (fields.metaDescription) metaDescription[lang] = String(fields.metaDescription);
+            if (fields.metaKeywords) metaKeywords[lang] = String(fields.metaKeywords);
+          }
+          next.pageTitle = pageTitle;
+          next.metaTitle = metaTitle;
+          next.metaDescription = metaDescription;
+          next.metaKeywords = metaKeywords;
+          return next;
+        });
+        toast({ title: 'SEO generated', description: `Generated for ${Object.keys(body).length} language(s). Review and save to keep changes.` });
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
+      toast({ title: 'SEO generation failed', description: errMsg, variant: 'destructive' });
+    } finally {
+      setIsGeneratingSeo(false);
+    }
+  };
+
+  const handleGenerateSchema = async () => {
+    if (!aiTranslation.check()) return;
+    setIsGeneratingSchema(true);
+    try {
+      const res = await api.post(`/api/dashboard/ai-seo/property/${propertyId}/schema`, {});
+      const body = (res as any)?.data || res;
+      const schema = body?.schema;
+      if (typeof schema === 'string' && schema.trim().length > 0) {
+        setUseCustomSchema(true);
+        setFormData((prev) => ({ ...prev, seoSchemaJson: schema }));
+        toast({ title: 'Schema generated', description: 'Review the JSON-LD below and save to keep changes.' });
+      } else {
+        toast({ title: 'Schema generation returned empty', variant: 'destructive' });
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
+      toast({ title: 'Schema generation failed', description: errMsg, variant: 'destructive' });
+    } finally {
+      setIsGeneratingSchema(false);
     }
   };
 
@@ -542,10 +622,34 @@ export default function EditPropertyPage() {
       const stringFields = [
         'agentReference', 'urbanization', 'floor', 'street', 'streetNumber',
         'postcode', 'cadastralReference', 'videoUrl', 'virtualTourUrl',
-        'floorPlanUrl', 'externalLink', 'blogUrl', 'mapLink', 'websiteUrl',
+        'externalLink', 'blogUrl', 'mapLink', 'websiteUrl',
         'slug', 'project', 'geoLocationLabel', 'propertyTypeReference',
         'energyRating',
       ];
+      // floorPlanUrl is derived server-side from floorPlans[0].url — don't
+      // send it explicitly. Send the multi-plan array (or null to clear).
+      payload.floorPlans = formData.floorPlans.length > 0 ? formData.floorPlans : null;
+
+      // Custom JSON-LD schema: only send when the toggle is on. Validate
+      // parseability client-side so the user gets an inline error instead of
+      // a generic 400 from the server. Empty toggle → null clears any prior value.
+      if (useCustomSchema) {
+        const raw = formData.seoSchemaJson?.trim() || '';
+        if (raw.length > 0) {
+          try {
+            JSON.parse(raw);
+          } catch {
+            setIsSaving(false);
+            toast({ title: 'Invalid JSON-LD schema', description: 'The SEO Schema block is not valid JSON. Fix or turn off the custom schema toggle.', variant: 'destructive' });
+            return;
+          }
+          payload.seoSchemaJson = raw;
+        } else {
+          payload.seoSchemaJson = null;
+        }
+      } else {
+        payload.seoSchemaJson = null;
+      }
       for (const f of stringFields) {
         const val = formData[f as keyof FormData];
         if (val !== undefined) payload[f] = val || undefined;
@@ -635,8 +739,8 @@ export default function EditPropertyPage() {
         <div className="flex items-center gap-2">
           <Link href={detailUrl}><Button variant="outline"><X className="h-4 w-4 mr-2" /> Cancel</Button></Link>
           {tenantLanguages.length > 1 && (
-            <Button variant="outline" onClick={handleTranslate} disabled={isTranslating || isLoading}>
-              {isTranslating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Languages className="h-4 w-4 mr-2" />}
+            <Button variant="outline" onClick={handleTranslate} disabled={isTranslating || isLoading} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {isTranslating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
               {isTranslating ? 'Translating…' : 'AI Translate'}
             </Button>
           )}
@@ -964,12 +1068,118 @@ export default function EditPropertyPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   ['videoUrl', 'Video URL', 'https://youtube.com/...'], ['virtualTourUrl', 'Virtual Tour URL', 'https://matterport.com/...'],
-                  ['floorPlanUrl', 'Floor Plan URL', 'https://...'], ['externalLink', 'External Link', 'https://...'],
+                  ['externalLink', 'External Link', 'https://...'],
                   ['blogUrl', 'Blog URL', 'https://yourblog.com/...'], ['mapLink', 'Map Link', 'https://maps.google.com/...'],
                   ['websiteUrl', 'Website URL', 'https://yoursite.com/...'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2"><Label>{label}</Label><Input value={formData[field as keyof FormData] as string} onChange={(e) => handleInputChange(field, e.target.value)} placeholder={ph} /></div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Floor Plans</CardTitle>
+              <CardDescription>Upload or link one or more floor plan images / PDFs. Shown on the property detail page.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {formData.floorPlans.length === 0 && (
+                <p className="text-sm text-muted-foreground">No floor plans added yet.</p>
+              )}
+              {formData.floorPlans.map((plan, idx) => (
+                <div key={idx} className="flex items-start gap-2 rounded-md border p-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+                      <Input
+                        value={plan.url}
+                        onChange={(e) => setFormData((prev) => ({
+                          ...prev,
+                          floorPlans: prev.floorPlans.map((p, i) => i === idx ? { ...p, url: e.target.value } : p),
+                        }))}
+                        placeholder="https://... or upload below"
+                      />
+                      <Input
+                        value={plan.label || ''}
+                        onChange={(e) => setFormData((prev) => ({
+                          ...prev,
+                          floorPlans: prev.floorPlans.map((p, i) => i === idx ? { ...p, label: e.target.value } : p),
+                        }))}
+                        placeholder="Label (optional, e.g. Ground floor)"
+                      />
+                    </div>
+                    {plan.url && (
+                      <a href={plan.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline break-all">
+                        {plan.url}
+                      </a>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setFormData((prev) => ({
+                      ...prev,
+                      floorPlans: prev.floorPlans.filter((_, i) => i !== idx),
+                    }))}
+                    title="Remove this floor plan"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData((prev) => ({
+                    ...prev,
+                    floorPlans: [...prev.floorPlans, { url: '', label: '' }],
+                  }))}
+                >
+                  Add floor plan row
+                </Button>
+                <input
+                  ref={floorPlanFileRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files || files.length === 0) return;
+                    setIsUploadingFloorPlan(true);
+                    try {
+                      const uploaded: Array<{ url: string; label?: string }> = [];
+                      for (const file of Array.from(files)) {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await api.post('/api/dashboard/upload', fd);
+                        const data = (res as any)?.data || res;
+                        if (data?.url) uploaded.push({ url: data.url, label: file.name.replace(/\.[^.]+$/, '') });
+                      }
+                      if (uploaded.length > 0) {
+                        setFormData((prev) => ({ ...prev, floorPlans: [...prev.floorPlans, ...uploaded] }));
+                      }
+                    } catch (err: any) {
+                      toast({ title: 'Upload failed', description: err?.message || String(err), variant: 'destructive' });
+                    } finally {
+                      setIsUploadingFloorPlan(false);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => floorPlanFileRef.current?.click()}
+                  disabled={isUploadingFloorPlan}
+                >
+                  {isUploadingFloorPlan ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Upload floor plan(s)
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -996,12 +1206,24 @@ export default function EditPropertyPage() {
         <TabsContent value="seo" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
                   <CardTitle>SEO Settings</CardTitle>
                   <CardDescription>Search engine optimization fields</CardDescription>
                 </div>
-                <LanguageSelect value={seoLang} onChange={setSeoLang} />
+                <div className="flex items-center gap-2">
+                  <LanguageSelect value={seoLang} onChange={setSeoLang} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateSeo}
+                    disabled={isGeneratingSeo || isLoading}
+                    title={aiTranslation.locked ? 'AI SEO is a premium add-on — contact your account manager to unlock' : 'Generate SEO fields for all tenant languages'}
+                  >
+                    {isGeneratingSeo ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
+                    {isGeneratingSeo ? 'Generating…' : 'Generate SEO with AI'}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1015,6 +1237,55 @@ export default function EditPropertyPage() {
               <MultilingualTextarea label="Meta Description" lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => handleMultilingualChange('metaDescription', lang, val)} rows={3} />
               <MultilingualInput label="Meta Keywords" lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => handleMultilingualChange('metaKeywords', lang, val)} placeholder="Keywords separated by commas" />
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <CardTitle>SEO Schema (JSON-LD)</CardTitle>
+                  <CardDescription>
+                    Override the auto-generated <code>RealEstateListing</code> schema.org block. Leave OFF to use the default schema built from the property&apos;s fields.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={useCustomSchema}
+                    onCheckedChange={(checked) => {
+                      setUseCustomSchema(checked);
+                      if (!checked) handleInputChange('seoSchemaJson', '');
+                    }}
+                  />
+                  <Label className="text-sm">Use custom schema</Label>
+                </div>
+              </div>
+            </CardHeader>
+            {useCustomSchema && (
+              <CardContent className="space-y-2">
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateSchema}
+                    disabled={isGeneratingSchema || isLoading}
+                    title={aiTranslation.locked ? 'AI Schema is a premium add-on — contact your account manager to unlock' : 'Generate a schema.org JSON-LD block from this property’s fields'}
+                  >
+                    {isGeneratingSchema ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
+                    {isGeneratingSchema ? 'Generating…' : 'Generate schema with AI'}
+                  </Button>
+                </div>
+                <Textarea
+                  value={formData.seoSchemaJson}
+                  onChange={(e) => handleInputChange('seoSchemaJson', e.target.value)}
+                  placeholder='{"@context":"https://schema.org","@type":"RealEstateListing",...}'
+                  rows={12}
+                  className="font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Paste valid JSON-LD or generate one with AI. Validated on save — invalid JSON will surface an error and the widget will fall back to the auto-generated schema until fixed.
+                </p>
+              </CardContent>
+            )}
           </Card>
         </TabsContent>
 
