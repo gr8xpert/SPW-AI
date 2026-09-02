@@ -16,6 +16,7 @@ import {
   Gauge,
   Layers,
   Package,
+  Receipt,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ const billing = [
   { name: 'Credits', href: '/admin/credits', icon: CreditCard },
   { name: 'Credit Packages', href: '/admin/credit-packages', icon: Package },
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: FileText },
+  { name: 'Xero Sync', href: '/admin/xero-sync', icon: Receipt },
 ];
 
 const system = [

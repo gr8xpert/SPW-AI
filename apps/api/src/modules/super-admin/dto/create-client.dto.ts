@@ -7,13 +7,14 @@ import {
   IsEnum,
   IsArray,
   IsObject,
+  IsIn,
   MinLength,
   MaxLength,
   IsUrl,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons } from '@spm/shared';
+import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons, TenantTier } from '@spm/shared';
 
 export class CreateClientDto {
   @IsString()
@@ -110,4 +111,16 @@ export class CreateClientDto {
   @IsOptional()
   @IsObject()
   dashboardAddons?: Partial<DashboardAddons>;
+
+  // 3-tier commercial plan. When omitted, defaults to Tier 1. When set,
+  // the service applies TIER_PRESETS as the base for dashboardAddons —
+  // any dashboardAddons values passed alongside override that preset.
+  @IsIn([1, 2, 3])
+  @IsOptional()
+  tier?: TenantTier;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  xeroContactId?: string;
 }

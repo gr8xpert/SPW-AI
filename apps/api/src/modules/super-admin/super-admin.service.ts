@@ -18,10 +18,11 @@ import {
   EmailSuppression,
   CreditPackage,
 } from '../../database/entities';
-import { UserRole, DEFAULT_TENANT_SETTINGS, DEFAULT_FEATURE_FLAGS, DEFAULT_DASHBOARD_ADDONS, TenantFull } from '@spm/shared';
+import { UserRole, DEFAULT_TENANT_SETTINGS, DEFAULT_FEATURE_FLAGS, DEFAULT_DASHBOARD_ADDONS, DEFAULT_TENANT_TIER, TenantFull } from '@spm/shared';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
 import { TenantService, CacheClearResult } from '../tenant/tenant.service';
+import { TierPolicyService } from '../tenant/tier-policy.service';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -70,6 +71,7 @@ export class SuperAdminService {
     private creditPackageRepository: Repository<CreditPackage>,
     private dataSource: DataSource,
     private readonly tenantService: TenantService,
+    private readonly tierPolicy: TierPolicyService,
   ) {}
 
   /**
@@ -209,6 +211,8 @@ export class SuperAdminService {
       featureFlags: tenant.featureFlags || DEFAULT_FEATURE_FLAGS,
       dashboardAddons: tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS,
       planId: tenant.planId,
+      tier: tenant.tier || DEFAULT_TENANT_TIER,
+      xeroContactId: tenant.xeroContactId ?? null,
       lastCacheClearedAt: tenant.lastCacheClearedAt,
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
@@ -258,6 +262,15 @@ export class SuperAdminService {
     await queryRunner.startTransaction();
 
     try {
+      // Tier drives the DashboardAddons preset. Any explicit
+      // dashboardAddons values in the DTO override the preset (super-admin
+      // manual unlocks above/below the tier's baseline).
+      const effectiveTier = dto.tier ?? DEFAULT_TENANT_TIER;
+      const effectiveAddons = this.tierPolicy.computeAddons(
+        effectiveTier,
+        dto.dashboardAddons,
+      );
+
       // Create tenant
       const tenant = this.tenantRepository.create({
         name: dto.name,
@@ -283,7 +296,9 @@ export class SuperAdminService {
         feedImagesToR2: dto.feedImagesToR2 ?? false,
         widgetFeatures: dto.widgetFeatures || ['search', 'detail', 'wishlist'],
         featureFlags: { ...DEFAULT_FEATURE_FLAGS, ...dto.featureFlags },
-        dashboardAddons: { ...DEFAULT_DASHBOARD_ADDONS, ...dto.dashboardAddons },
+        dashboardAddons: effectiveAddons,
+        tier: effectiveTier,
+        xeroContactId: dto.xeroContactId ?? null,
       });
 
       const savedTenant = await queryRunner.manager.save(tenant);
@@ -406,11 +421,34 @@ export class SuperAdminService {
       }
     }
 
-    // Merge dashboard add-ons (super-admin per-client unlocks)
-    if (dto.dashboardAddons) {
+    // Tier change: replace dashboardAddons with the new tier's preset,
+    // then layer any dashboardAddons the DTO also sent as manual overrides.
+    // Doing this before the merge-only path below means an update that
+    // includes {tier: 3, dashboardAddons: {aiTranslation: false}} lands on
+    // "all tier-3 add-ons except aiTranslation" — the operator's most
+    // common workflow when upgrading a tenant.
+    if (dto.tier !== undefined && dto.tier !== tenant.tier) {
+      const nextAddons = this.tierPolicy.applyTierPreset(dto.tier, dto.dashboardAddons);
+      changes.tier = { before: tenant.tier, after: dto.tier };
+      changes.dashboardAddons = { before: tenant.dashboardAddons, after: nextAddons };
+      tenant.tier = dto.tier;
+      tenant.dashboardAddons = nextAddons;
+    } else if (dto.dashboardAddons) {
+      // No tier change — merge overrides on top of current addons.
       const current = tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS;
       changes.dashboardAddons = { before: current, after: { ...current, ...dto.dashboardAddons } };
       tenant.dashboardAddons = { ...current, ...dto.dashboardAddons };
+    }
+
+    if (dto.xeroContactId !== undefined) {
+      const normalized =
+        typeof dto.xeroContactId === 'string' && dto.xeroContactId.trim() !== ''
+          ? dto.xeroContactId.trim()
+          : null;
+      if (normalized !== tenant.xeroContactId) {
+        changes.xeroContactId = { before: tenant.xeroContactId, after: normalized };
+        tenant.xeroContactId = normalized;
+      }
     }
 
     // Auto-calculate grace period if expiresAt changed

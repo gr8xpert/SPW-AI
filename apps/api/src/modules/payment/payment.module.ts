@@ -15,6 +15,7 @@ import { StripeCheckoutService } from './stripe-checkout.service';
 import { StripeSubscriptionService } from './stripe-subscription.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeWebhookService } from './stripe-webhook.service';
+import { XeroSyncModule } from '../xero-sync/xero-sync.module';
 
 @Module({
   imports: [
@@ -27,6 +28,9 @@ import { StripeWebhookService } from './stripe-webhook.service';
       CreditBalance,
       CreditTransaction,
     ]),
+    // Stripe webhook fires a fire-and-forget enqueue to XeroSyncService on
+    // successful credit purchase — see StripeWebhookService.handleCheckoutCompleted.
+    XeroSyncModule,
   ],
   controllers: [
     BillingCheckoutController,

@@ -5,6 +5,8 @@ import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 import { RateLimitHeadroomService } from './rate-limit-headroom.service';
 import { QueueDepthService } from './queue-depth.service';
+import { ClientImportController } from './client-import.controller';
+import { ClientImportService } from './client-import.service';
 import { WEBHOOK_QUEUE } from '../webhook/webhook.service';
 import {
   Tenant,
@@ -46,8 +48,8 @@ import { TenantModule } from '../tenant/tenant.module';
       { name: 'migration' },
     ),
   ],
-  controllers: [SuperAdminController],
-  providers: [SuperAdminService, RateLimitHeadroomService, QueueDepthService],
-  exports: [SuperAdminService],
+  controllers: [SuperAdminController, ClientImportController],
+  providers: [SuperAdminService, RateLimitHeadroomService, QueueDepthService, ClientImportService],
+  exports: [SuperAdminService, ClientImportService],
 })
 export class SuperAdminModule {}

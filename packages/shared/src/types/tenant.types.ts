@@ -167,6 +167,11 @@ export interface TenantPublic {
   // Dashboard add-on flags (per-client). Locked features grey out
   // their entry points and gate page content.
   dashboardAddons: DashboardAddons;
+  // 3-tier commercial plan. Drives sidebar visibility on the client side:
+  // Tier 1 hides all property-related navigation entirely, Tier 2 shows
+  // property module, Tier 3 unlocks premium add-ons. Super-admin bypasses
+  // this filter regardless of the tenant's tier.
+  tier: TenantTier;
   // "Configured" booleans for secrets stored in dedicated encrypted columns.
   // The dashboard renders a "Configured" indicator from these — the raw values
   // are never returned by the API.
@@ -210,6 +215,14 @@ export interface TenantFull extends TenantWithApiKey {
   dashboardAddons: DashboardAddons;
 
   planId: number;
+
+  // 3-tier commercial plan. Drives dashboard add-on defaults; super-admin
+  // can override individual add-ons above the preset after setting a tier.
+  tier: TenantTier;
+
+  // Optional linkage to a Xero Contact record. Set by super-admin so the
+  // n8n Xero-sync workflow can attach invoices to the correct contact.
+  xeroContactId: string | null;
 
   // Set whenever a tenant admin or super-admin clicks "Clear widget
   // cache". null on tenants that have never had one (or on rows that
@@ -297,6 +310,49 @@ export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
   aiChat: true,
   aiTranslation: true,
 };
+
+// Tenant tier. Drives a preset DashboardAddons bundle:
+//   1 = support only (all add-ons locked)
+//   2 = support + property management (basic add-ons unlocked, premium AI still locked)
+//   3 = support + everything (all add-ons unlocked)
+// Super-admin can still override individual add-ons above/below the preset
+// after setting the tier (e.g. Tier 2 tenant with aiChat manually enabled).
+export type TenantTier = 1 | 2 | 3;
+
+export const TIER_PRESETS: Record<TenantTier, DashboardAddons> = {
+  1: {
+    addProperty: false,
+    emailCampaign: false,
+    feedExport: false,
+    team: false,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  2: {
+    addProperty: true,
+    emailCampaign: false,
+    feedExport: true,
+    team: true,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  3: {
+    addProperty: true,
+    emailCampaign: true,
+    feedExport: true,
+    team: true,
+    aiChat: true,
+    aiTranslation: true,
+  },
+};
+
+export const TIER_LABELS: Record<TenantTier, string> = {
+  1: 'Tier 1 — Support only',
+  2: 'Tier 2 — Support + Property management',
+  3: 'Tier 3 — Everything (all premium add-ons)',
+};
+
+export const DEFAULT_TENANT_TIER: TenantTier = 1;
 
 // Currency options supported by the widget
 export const SUPPORTED_CURRENCIES = [

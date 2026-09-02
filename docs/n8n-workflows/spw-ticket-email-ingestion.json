@@ -1,0 +1,104 @@
+{
+  "name": "SPW Ticket Email Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "postProcessAction": "read",
+        "downloadAttachments": false,
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "forceReconnect": 60
+        }
+      },
+      "id": "8a1e2f4b-1e1e-4b6f-9c1a-000000000001",
+      "name": "IMAP: ticket@spw-ai.com",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_WITH_YOUR_IMAP_CREDENTIAL_ID",
+          "name": "mail.spw-ai.com"
+        }
+      },
+      "notes": "IMAP trigger against ticket@spw-ai.com on Plesk mail server. Fires whenever a new unread message lands (plus-addressed replies from clients: ticket+ID.hmac@spw-ai.com).\n\nAfter import: click this node, open Credentials, select the mail.spw-ai.com IMAP credential you already created."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Normalize the many shapes n8n's Email Trigger emits across versions.\n// Modern versions of Node Mail parse `to` / `from` as arrays of\n// { address, name } objects, older ones as raw strings.\nconst m = $input.item.json;\n\nfunction parseAddr(v) {\n  if (!v) return '';\n  if (typeof v === 'string') return v;\n  if (Array.isArray(v)) {\n    if (v.length === 0) return '';\n    if (typeof v[0] === 'string') return v[0];\n    return v[0].address || '';\n  }\n  if (v.value && Array.isArray(v.value) && v.value[0]) return v.value[0].address || '';\n  return v.address || '';\n}\n\nreturn {\n  json: {\n    to: parseAddr(m.to),\n    from: parseAddr(m.from),\n    subject: m.subject || '',\n    text: m.text || m.textAsHtml || '',\n    html: m.html || '',\n    messageId: m.messageId || '',\n    inReplyTo: m.inReplyTo || ''\n  }\n};\n"
+      },
+      "id": "8a1e2f4b-1e1e-4b6f-9c1a-000000000002",
+      "name": "Normalize fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "notes": "Coerces to/from into simple strings the API expects. Handles both string and array-of-object formats since n8n's Email Trigger output shape differs by version."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.spw-ai.com/api/internal/tickets/inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_YOUR_INBOUND_EMAIL_SECRET"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "retry": {
+            "maxTries": 3
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "8a1e2f4b-1e1e-4b6f-9c1a-000000000003",
+      "name": "POST to SPW API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 300],
+      "notes": "Posts the normalized email JSON to SPM's InboundEmailController. Auth is a bearer token that must match INBOUND_EMAIL_SECRET in the API's prod .env. Retry 3x on network/5xx failure so a temporarily-down API doesn't lose messages."
+    }
+  ],
+  "connections": {
+    "IMAP: ticket@spw-ai.com": {
+      "main": [
+        [
+          {
+            "node": "Normalize fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize fields": {
+      "main": [
+        [
+          {
+            "node": "POST to SPW API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "spw-ticket-inbound"
+  }
+}

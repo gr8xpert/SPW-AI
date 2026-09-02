@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { useImpersonation } from './use-impersonation';
 
 interface UseApiOptions {
   onSuccess?: (data: any) => void;
@@ -16,6 +17,11 @@ interface ApiState<T> {
 
 export function useApi<T = any>(options: UseApiOptions = {}) {
   const { data: session, update } = useSession();
+  const { session: impersonation } = useImpersonation();
+  // Impersonation token wins over NextAuth session token when a super-admin
+  // is acting as a client. The NextAuth session stays intact underneath so
+  // Return-to-admin restores the original access token instantly.
+  const effectiveAccessToken = impersonation?.accessToken ?? session?.accessToken;
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     error: null,
@@ -45,9 +51,9 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         };
 
         // Add auth token if available
-        if (session?.accessToken) {
+        if (effectiveAccessToken) {
           (headers as Record<string, string>)['Authorization'] =
-            `Bearer ${session.accessToken}`;
+            `Bearer ${effectiveAccessToken}`;
         }
 
         let response = await fetch(`${apiUrl}${endpoint}`, {
@@ -57,7 +63,10 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
 
         // On 401, force next-auth to refresh the session and retry once.
         // Common cause: cached token has expired after a long idle period.
-        if (response.status === 401 && session?.accessToken) {
+        // Skip the refresh-and-bounce dance when running as an impersonation
+        // session — impersonation tokens can't be refreshed via NextAuth,
+        // and signing out here would kill the super-admin's real session.
+        if (response.status === 401 && session?.accessToken && !impersonation) {
           try {
             const refreshed = await update();
             const newToken = (refreshed as any)?.accessToken;
@@ -103,7 +112,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     // session-refresh function — without it, a stale `update` from the
     // first render could fail to actually refresh the token across long
     // idle periods.
-    [apiUrl, session?.accessToken, update]
+    [apiUrl, effectiveAccessToken, session?.accessToken, update, impersonation]
   );
 
   const get = useCallback(
@@ -146,9 +155,9 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
   const getRaw = useCallback(
     async (endpoint: string): Promise<Response> => {
       const headers: HeadersInit = {};
-      if (session?.accessToken) {
+      if (effectiveAccessToken) {
         (headers as Record<string, string>)['Authorization'] =
-          `Bearer ${session.accessToken}`;
+          `Bearer ${effectiveAccessToken}`;
       }
       const response = await fetch(`${apiUrl}${endpoint}`, { headers });
       if (!response.ok) {
@@ -156,7 +165,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
       }
       return response;
     },
-    [apiUrl, session?.accessToken]
+    [apiUrl, effectiveAccessToken]
   );
 
   return {
@@ -168,7 +177,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     patch,
     delete: del,
     getRaw,
-    isReady: !!session?.accessToken,
+    isReady: !!effectiveAccessToken,
   };
 }
 

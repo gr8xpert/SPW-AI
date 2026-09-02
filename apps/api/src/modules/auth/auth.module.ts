@@ -8,12 +8,16 @@ import { AuthService } from './auth.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { ImpersonationService } from './impersonation.service';
+import { ImpersonationController } from './impersonation.controller';
+import { ImpersonationAuditInterceptor } from '../../common/interceptors/impersonation-audit.interceptor';
 import {
   User,
   Tenant,
   Plan,
   RefreshToken,
   EmailVerificationToken,
+  ImpersonationAudit,
 } from '../../database/entities';
 
 @Module({
@@ -24,6 +28,7 @@ import {
       Plan,
       RefreshToken,
       EmailVerificationToken,
+      ImpersonationAudit,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -37,18 +42,22 @@ import {
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, ImpersonationController],
   providers: [
     AuthService,
     RefreshTokenService,
     EmailVerificationService,
     JwtStrategy,
+    ImpersonationService,
+    ImpersonationAuditInterceptor,
   ],
   exports: [
     AuthService,
     RefreshTokenService,
     EmailVerificationService,
     JwtStrategy,
+    ImpersonationService,
+    ImpersonationAuditInterceptor,
   ],
 })
 export class AuthModule {}

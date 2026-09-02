@@ -62,7 +62,39 @@ const clientSchema = z.object({
     aiChat: z.boolean(),
     aiTranslation: z.boolean(),
   }),
+  tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  xeroContactId: z.string().optional().nullable(),
 });
+
+// Kept in sync with TIER_PRESETS in packages/shared/src/types/tenant.types.ts.
+// Duplicated here (rather than imported at runtime) so the client bundle stays
+// small — the shared package would drag class-validator in transitively.
+const TIER_ADDON_PRESETS: Record<1 | 2 | 3, ClientFormData['dashboardAddons']> = {
+  1: {
+    addProperty: false,
+    emailCampaign: false,
+    feedExport: false,
+    team: false,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  2: {
+    addProperty: true,
+    emailCampaign: false,
+    feedExport: true,
+    team: true,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  3: {
+    addProperty: true,
+    emailCampaign: true,
+    feedExport: true,
+    team: true,
+    aiChat: true,
+    aiTranslation: true,
+  },
+};
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
@@ -115,6 +147,8 @@ export default function EditClientPage() {
         aiChat: false,
         aiTranslation: false,
       },
+      tier: 1,
+      xeroContactId: '',
     },
   });
 
@@ -160,6 +194,8 @@ export default function EditClientPage() {
             aiChat: !!client.dashboardAddons?.aiChat,
             aiTranslation: !!client.dashboardAddons?.aiTranslation,
           },
+          tier: (client.tier as 1 | 2 | 3) || 1,
+          xeroContactId: client.xeroContactId || '',
         });
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -181,6 +217,7 @@ export default function EditClientPage() {
         domain: data.domain || null,
         ownerEmail: data.ownerEmail || null,
         siteName: data.siteName || null,
+        xeroContactId: data.xeroContactId?.trim() ? data.xeroContactId.trim() : null,
       };
 
       await api.put(`/api/super-admin/clients/${clientId}`, cleanData);
@@ -318,6 +355,23 @@ export default function EditClientPage() {
                             <Input type="email" placeholder="owner@company.com" {...field} value={field.value || ''} />
                           </FormControl>
                           <FormDescription>For notifications and inquiries</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="xeroContactId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Xero Contact ID (optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 4d1f18a7-..." {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>
+                            Links this client to a Xero Contact so n8n attaches invoices correctly. Leave blank to let n8n look up / create by email.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -573,8 +627,55 @@ export default function EditClientPage() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle>Commercial Tier</CardTitle>
+                  <CardDescription>
+                    Changing tier resets Dashboard Add-ons below to the tier&apos;s preset. Any manual add-on toggles you make after picking a tier persist on save (they act as overrides above/below the preset).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="tier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tier</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            const nextTier = parseInt(value, 10) as 1 | 2 | 3;
+                            field.onChange(nextTier);
+                            // Reset add-ons to tier preset — operator sees the change immediately
+                            // and can still hand-tune individual toggles below before saving.
+                            form.setValue('dashboardAddons', TIER_ADDON_PRESETS[nextTier], {
+                              shouldDirty: true,
+                            });
+                          }}
+                          value={field.value?.toString() || '1'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1">Tier 1 — Support only</SelectItem>
+                            <SelectItem value="2">Tier 2 — Support + Property management</SelectItem>
+                            <SelectItem value="3">Tier 3 — Everything (all premium add-ons)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Tier 1: ticket system only. Tier 2: adds properties, feeds, team. Tier 3: unlocks AI (chat, translation, SEO) and email campaigns.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Dashboard Add-ons</CardTitle>
-                  <CardDescription>Per-client paid add-ons. When OFF the entry point is greyed out in the dashboard with an upgrade prompt; direct URLs render a locked screen.</CardDescription>
+                  <CardDescription>Per-client paid add-ons. When OFF the entry point is greyed out in the dashboard with an upgrade prompt; direct URLs render a locked screen. Tier changes above overwrite these; you can still hand-tune individual toggles here as overrides.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[

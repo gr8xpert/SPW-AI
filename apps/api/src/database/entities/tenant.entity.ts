@@ -21,6 +21,8 @@ import {
   SubscriptionStatus,
   BillingCycle,
   BillingSource,
+  TenantTier,
+  DEFAULT_TENANT_TIER,
 } from '@spm/shared';
 
 @Entity('tenants')
@@ -149,6 +151,18 @@ export class Tenant {
   // unlocks individually from the Clients edit page.
   @Column({ type: 'json', default: () => `'${JSON.stringify(DEFAULT_DASHBOARD_ADDONS)}'` })
   dashboardAddons: DashboardAddons;
+
+  // 3-tier commercial plan. Sets the DashboardAddons preset on assignment
+  // via TierPolicyService.applyTierPreset. Independent column so manual
+  // super-admin overrides on individual add-ons still persist.
+  @Column({ type: 'smallint', default: DEFAULT_TENANT_TIER })
+  tier: TenantTier;
+
+  // Optional Xero Contact identifier. n8n Xero-sync workflow uses this to
+  // attach one-off invoices to the correct Xero customer record. NULL →
+  // n8n falls back to lookup-by-email or auto-create.
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  xeroContactId: string | null;
 
   // Optional per-tenant OpenRouter key for AI enrichment. NULL → falls back
   // to the platform key (OPENROUTER_API_KEY env var). Encrypted at rest via

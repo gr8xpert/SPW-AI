@@ -75,9 +75,39 @@ const createClientSchema = z.object({
     aiChat: z.boolean(),
     aiTranslation: z.boolean(),
   }),
+  tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  xeroContactId: z.string().optional(),
 });
 
 type CreateClientFormData = z.infer<typeof createClientSchema>;
+
+// Kept in sync with TIER_PRESETS in packages/shared/src/types/tenant.types.ts.
+const TIER_ADDON_PRESETS: Record<1 | 2 | 3, CreateClientFormData['dashboardAddons']> = {
+  1: {
+    addProperty: false,
+    emailCampaign: false,
+    feedExport: false,
+    team: false,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  2: {
+    addProperty: true,
+    emailCampaign: false,
+    feedExport: true,
+    team: true,
+    aiChat: false,
+    aiTranslation: false,
+  },
+  3: {
+    addProperty: true,
+    emailCampaign: true,
+    feedExport: true,
+    team: true,
+    aiChat: true,
+    aiTranslation: true,
+  },
+};
 
 interface Plan {
   id: number;
@@ -132,6 +162,8 @@ export default function CreateClientPage() {
         aiChat: false,
         aiTranslation: false,
       },
+      tier: 1,
+      xeroContactId: '',
     },
   });
 
@@ -175,6 +207,7 @@ export default function CreateClientPage() {
         domain: data.domain || undefined,
         ownerEmail: data.ownerEmail || undefined,
         siteName: data.siteName || undefined,
+        xeroContactId: data.xeroContactId?.trim() ? data.xeroContactId.trim() : undefined,
       };
 
       const response = await api.post('/api/super-admin/clients', cleanData);
@@ -322,6 +355,21 @@ export default function CreateClientPage() {
                             <Input type="email" placeholder="owner@company.com" {...field} />
                           </FormControl>
                           <FormDescription>For notifications (defaults to admin email)</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="xeroContactId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Xero Contact ID (optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 4d1f18a7-..." {...field} />
+                          </FormControl>
+                          <FormDescription>Leave blank to let n8n look up / create by email at invoice time</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -606,8 +654,53 @@ export default function CreateClientPage() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle>Commercial Tier</CardTitle>
+                  <CardDescription>
+                    Picks the initial Dashboard Add-ons bundle below. You can still hand-tune individual toggles afterward before saving.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="tier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tier</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            const nextTier = parseInt(value, 10) as 1 | 2 | 3;
+                            field.onChange(nextTier);
+                            form.setValue('dashboardAddons', TIER_ADDON_PRESETS[nextTier], {
+                              shouldDirty: true,
+                            });
+                          }}
+                          value={field.value?.toString() || '1'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1">Tier 1 — Support only</SelectItem>
+                            <SelectItem value="2">Tier 2 — Support + Property management</SelectItem>
+                            <SelectItem value="3">Tier 3 — Everything (all premium add-ons)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Tier 1: ticket system only. Tier 2: adds properties, feeds, team. Tier 3: unlocks AI (chat, translation, SEO) and email campaigns.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Dashboard Add-ons</CardTitle>
-                  <CardDescription>Per-client paid add-ons. When OFF the entry point is greyed out in the dashboard with an upgrade prompt; direct URLs render a locked screen.</CardDescription>
+                  <CardDescription>Per-client paid add-ons. When OFF the entry point is greyed out in the dashboard with an upgrade prompt; direct URLs render a locked screen. Tier above sets the initial bundle; individual toggles override.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[

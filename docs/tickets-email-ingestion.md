@@ -190,6 +190,32 @@ the Postmark UI). Skips the n8n step entirely — set the webhook URL to
 `Authorization: Bearer <INBOUND_EMAIL_SECRET>` under Postmark's server
 webhook settings.
 
+**C) SMTP2GO inbound (recommended if you're already using SMTP2GO for outbound)**
+SMTP2GO ships an inbound-parse feature that maps incoming mail on a
+subdomain to an HTTPS webhook — same shape as Postmark. Setup steps:
+
+1. In SMTP2GO dashboard → **Inbound** → **Add Inbound Address**. Set the
+   local-part to `ticket-*` (wildcard) so all `ticket+<id>.<hmac>@…`
+   addresses route to the same webhook.
+2. Set the webhook URL to
+   `https://api.spw-ai.com/api/internal/tickets/inbound`.
+3. Under **Custom Headers** add
+   `Authorization: Bearer <INBOUND_EMAIL_SECRET>` so the request passes
+   `InboundAuthGuard`.
+4. Add MX record for the inbound subdomain per SMTP2GO's instructions
+   (usually `MX 10 in.smtp2go.com`).
+
+SMTP2GO's payload schema is compatible: it posts fields
+`to`, `from`, `subject`, `text`, `html`, `message_id`, `headers`. The
+API's controller reads only the fields it needs and ignores the rest. If
+SMTP2GO uses camelCased or under_scored fields that differ from the
+n8n-produced shape, use n8n's HTTP node as a thin translator (many
+operators keep a separate "SPW SMTP2GO Inbound → API" workflow just for
+this remap) or add a small `mapPayload()` step in the API controller —
+neither is strictly needed for a first launch since the parser reads
+`to`, `from`, `text`, `html`, `subject` verbatim from the request body
+(controller code: `apps/api/src/modules/ticket/inbound-email.controller.ts`).
+
 ## Enabling in production
 
 1. Generate secrets:

@@ -74,3 +74,9 @@ export * from './processed-stripe-event.entity';
 // AI Chat entities
 export * from './chat-conversation.entity';
 export * from './chat-message.entity';
+
+// Super-admin impersonation audit trail
+export * from './impersonation-audit.entity';
+
+// Xero invoice sync log (Stripe → n8n → Xero)
+export * from './xero-invoice-log.entity';

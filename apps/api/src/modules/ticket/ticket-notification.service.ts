@@ -79,6 +79,7 @@ export class TicketNotificationService {
     const subject = `[Ticket Assigned] ${ticket.ticketNumber}: ${ticket.subject}`;
     const replyTo = this.buildReplyToAddress(ticket.id) ?? undefined;
 
+    // 1) Email the webmaster who just got the assignment.
     await this.mailer.send({
       to: webmaster.email,
       subject,
@@ -98,7 +99,76 @@ export class TicketNotificationService {
       text: `Ticket Assigned to You\n\nTicket ${ticket.ticketNumber}: ${ticket.subject}\nPriority: ${ticket.priority}\nCategory: ${ticket.category}\nTenant: ${ticket.tenantId}\n\nPlease review and respond.`,
     });
 
-    this.logger.log(`Notified webmaster ${webmaster.email} about assigned ticket ${ticket.ticketNumber}`);
+    // 2) Email the ticket creator (client) so they know work has started.
+    // Client-facing copy — softer tone, doesn't reveal the webmaster's
+    // internal email. Wrapped in its own try/catch so a missing creator
+    // record can't block the webmaster notification above.
+    const webmasterName = webmaster.name || 'a support agent';
+    try {
+      const creator = await this.userRepository.findOne({
+        where: { id: ticket.userId },
+        select: ['id', 'email', 'name'],
+      });
+      if (creator?.email) {
+        await this.mailer.send({
+          to: creator.email,
+          subject: `[Update] ${ticket.ticketNumber}: assigned to support`,
+          replyTo,
+          html: `
+            <h2>Your ticket has been assigned</h2>
+            <p>Good news — your ticket <strong>${ticket.ticketNumber}</strong> has been picked up by <strong>${this.escapeHtml(webmasterName)}</strong> and is now in progress.</p>
+            <table style="border-collapse:collapse;margin:16px 0">
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Ticket</td><td style="padding:4px 0"><strong>${ticket.ticketNumber}</strong></td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Subject</td><td style="padding:4px 0">${ticket.subject}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Status</td><td style="padding:4px 0">In progress</td></tr>
+            </table>
+            <p>You'll receive an email when they reply. You can also reply directly to this email — your response will be added to the ticket automatically.</p>
+          `,
+          text: `Your ticket ${ticket.ticketNumber} has been assigned to ${webmasterName} and is now in progress.\n\nSubject: ${ticket.subject}\nStatus: In progress\n\nReply directly to this email to add a message to the ticket.`,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to send assignment notification to creator of ticket ${ticket.ticketNumber}: ${(err as Error).message}`,
+      );
+    }
+
+    // 3) Notify all super-admins (except the one who just did the
+    // assignment, when identifiable). Keeps oncall staff aware of who's
+    // handling what without needing to poll the admin panel.
+    try {
+      const superAdmins = await this.userRepository.find({
+        where: { role: UserRole.SUPER_ADMIN, isActive: true },
+        select: ['id', 'email', 'name'],
+      });
+      for (const admin of superAdmins) {
+        // Skip the webmaster if they happen to also be a super-admin (edge
+        // case — some ops staff wear both hats).
+        if (admin.id === webmaster.id) continue;
+        await this.mailer.send({
+          to: admin.email,
+          subject: `[FYI] ${ticket.ticketNumber} assigned to ${webmasterName}`,
+          replyTo,
+          html: `
+            <h2>Ticket assignment</h2>
+            <p>Ticket <strong>${ticket.ticketNumber}</strong> was assigned to <strong>${this.escapeHtml(webmasterName)}</strong>.</p>
+            <table style="border-collapse:collapse;margin:16px 0">
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Subject</td><td style="padding:4px 0">${ticket.subject}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Priority</td><td style="padding:4px 0">${ticket.priority}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#666">Tenant</td><td style="padding:4px 0">${ticket.tenantId}</td></tr>
+            </table>
+            <p style="color:#888;font-size:12px">You're getting this because you're a super-admin. All ticket updates go to super-admins for oncall awareness.</p>
+          `,
+          text: `Ticket ${ticket.ticketNumber} (${ticket.subject}) was assigned to ${webmasterName} on tenant ${ticket.tenantId}.`,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to send assignment FYI to super-admins for ticket ${ticket.ticketNumber}: ${(err as Error).message}`,
+      );
+    }
+
+    this.logger.log(`Notified webmaster + creator + super-admins about assigned ticket ${ticket.ticketNumber}`);
   }
 
   async notifyTicketReply(
@@ -110,72 +180,100 @@ export class TicketNotificationService {
     const subject = `[Re: ${ticket.ticketNumber}] ${ticket.subject}`;
     const replyTo = this.buildReplyToAddress(ticket.id) ?? undefined;
 
-    if (message.isStaff) {
-      const creator = await this.userRepository.findOne({
+    // Collect everyone in the loop for this ticket. Order matters only
+    // for dedupe below: creator first so their client-tone copy wins if
+    // they somehow also match a staff role.
+    const [creator, webmaster, superAdmins] = await Promise.all([
+      this.userRepository.findOne({
         where: { id: ticket.userId },
-        select: ['id', 'email', 'name'],
-      });
-      if (!creator) return;
+        select: ['id', 'email', 'name', 'role'],
+      }),
+      ticket.assignedTo
+        ? this.userRepository.findOne({
+            where: { id: ticket.assignedTo },
+            select: ['id', 'email', 'name', 'role'],
+          })
+        : Promise.resolve(null as User | null),
+      this.userRepository.find({
+        where: { role: UserRole.SUPER_ADMIN, isActive: true },
+        select: ['id', 'email', 'name', 'role'],
+      }),
+    ]);
 
+    // Deduplicate + exclude the sender so a super-admin who just replied
+    // doesn't get their own message emailed back to them. Track emails
+    // seen in a Set so if the creator is also a super-admin (edge case)
+    // they only get one message with the CLIENT copy (softer tone).
+    const sentTo = new Set<string>();
+    if (message.userId) sentTo.add(String(message.userId));
+
+    // 1) Creator gets the customer-facing copy. Skip if the creator IS
+    // the sender (creator replied → don't email them back).
+    if (creator?.email && !sentTo.has(String(creator.id))) {
+      sentTo.add(String(creator.id));
+      const isStaffMsg = message.isStaff;
       await this.mailer.send({
         to: creator.email,
         subject,
         replyTo,
         html: `
-          <h2>New Reply on Your Ticket</h2>
-          <p><strong>${this.escapeHtml(senderName)}</strong> replied to your ticket <strong>${ticket.ticketNumber}</strong>.</p>
+          <h2>New reply on your ticket</h2>
+          <p><strong>${this.escapeHtml(senderName)}</strong> ${isStaffMsg ? 'from support' : ''} replied to your ticket <strong>${ticket.ticketNumber}</strong>.</p>
           <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
             <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
           </div>
           <p>You can reply directly to this email — your response will be added to the ticket automatically.</p>
         `,
-        text: `New Reply on Ticket ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nReply directly to this email to respond.`,
+        text: `New reply on ticket ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nReply directly to this email to respond.`,
       });
-    } else {
-      if (ticket.assignedTo) {
-        const webmaster = await this.userRepository.findOne({
-          where: { id: ticket.assignedTo },
-          select: ['id', 'email', 'name'],
-        });
-        if (webmaster) {
-          await this.mailer.send({
-            to: webmaster.email,
-            subject,
-            replyTo,
-            html: `
-              <h2>Customer Reply on ${ticket.ticketNumber}</h2>
-              <p><strong>${this.escapeHtml(senderName)}</strong> replied to ticket <strong>${ticket.ticketNumber}</strong>.</p>
-              <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
-                <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
-              </div>
-              <p>Reply directly to this email to respond to the customer.</p>
-            `,
-            text: `Customer Reply on ${ticket.ticketNumber}\n\n${senderName} replied:\n\n${preview}\n\nReply directly to this email to respond.`,
-          });
-        }
-      } else {
-        const superAdmins = await this.userRepository.find({
-          where: { role: UserRole.SUPER_ADMIN, isActive: true },
-          select: ['id', 'email'],
-        });
-        for (const admin of superAdmins) {
-          await this.mailer.send({
-            to: admin.email,
-            subject,
-            replyTo,
-            html: `
-              <h2>Customer Reply on ${ticket.ticketNumber}</h2>
-              <p><strong>${this.escapeHtml(senderName)}</strong> replied to an unassigned ticket.</p>
-              <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
-                <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
-              </div>
-              <p>This ticket is unassigned. Please assign it to a webmaster.</p>
-            `,
-            text: `Customer Reply on ${ticket.ticketNumber} (unassigned)\n\n${senderName} replied:\n\n${preview}`,
-          });
-        }
-      }
     }
+
+    // 2) Assigned webmaster gets a staff-facing copy (technical tone,
+    // shows who replied and tenant context).
+    if (webmaster?.email && !sentTo.has(String(webmaster.id))) {
+      sentTo.add(String(webmaster.id));
+      await this.mailer.send({
+        to: webmaster.email,
+        subject,
+        replyTo,
+        html: `
+          <h2>Reply on ${ticket.ticketNumber}</h2>
+          <p><strong>${this.escapeHtml(senderName)}</strong> ${message.isStaff ? '(staff)' : '(customer)'} replied to ticket <strong>${ticket.ticketNumber}</strong>.</p>
+          <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
+            <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
+          </div>
+          <p>Reply directly to this email to respond.</p>
+        `,
+        text: `Reply on ${ticket.ticketNumber} from ${senderName} (${message.isStaff ? 'staff' : 'customer'}):\n\n${preview}\n\nReply directly to this email to respond.`,
+      });
+    }
+
+    // 3) All super-admins get a staff-facing copy. Skips anyone already
+    // notified above (creator, webmaster) or who is the sender. Keeps
+    // ops staff in the loop on every ticket update — no need to poll the
+    // admin panel to see activity.
+    for (const admin of superAdmins) {
+      if (sentTo.has(String(admin.id))) continue;
+      sentTo.add(String(admin.id));
+      await this.mailer.send({
+        to: admin.email,
+        subject,
+        replyTo,
+        html: `
+          <h2>Reply on ${ticket.ticketNumber}</h2>
+          <p><strong>${this.escapeHtml(senderName)}</strong> ${message.isStaff ? '(staff)' : '(customer)'} replied on tenant ${ticket.tenantId}.</p>
+          <div style="background:#f5f5f5;padding:12px;border-radius:6px;margin:16px 0">
+            <p style="margin:0;white-space:pre-wrap">${this.escapeHtml(preview)}</p>
+          </div>
+          <p style="color:#888;font-size:12px">You're getting this because you're a super-admin. All ticket updates go to super-admins for oncall awareness. Reply directly to add a message to the ticket.</p>
+        `,
+        text: `Reply on ${ticket.ticketNumber} (tenant ${ticket.tenantId}) from ${senderName} (${message.isStaff ? 'staff' : 'customer'}):\n\n${preview}\n\nReply to add a message.`,
+      });
+    }
+
+    this.logger.log(
+      `Reply notification fan-out for ${ticket.ticketNumber}: ${sentTo.size - 1} recipient(s), sender=${message.userId}`,
+    );
   }
 
   private escapeHtml(text: string): string {

@@ -15,6 +15,7 @@ import {
   Tenant,
 } from '../../database/entities';
 import { verifyStripeSignature } from './stripe-signature';
+import { XeroSyncService } from '../xero-sync/xero-sync.service';
 
 export interface StripeProcessResult {
   processed: boolean;
@@ -46,6 +47,7 @@ export class StripeWebhookService {
     @InjectRepository(SubscriptionPayment)
     private readonly paymentRepo: Repository<SubscriptionPayment>,
     private readonly dataSource: DataSource,
+    private readonly xeroSyncService: XeroSyncService,
   ) {}
 
   async process(options: {
@@ -185,6 +187,27 @@ export class StripeWebhookService {
       });
 
       this.logger.log(`Credited ${hours}h to tenant ${tenantId} (Stripe ${paymentIntent})`);
+
+      // Fire-and-forget Xero invoice sync via n8n. Never blocks credit
+      // delivery — if n8n is down the log row stays 'pending' and the
+      // XeroSyncCron picks it up on the next tick.
+      const amountEur = (session.amount_total ?? 0) / 100;
+      const currency = (session.currency ?? 'eur').toUpperCase();
+      const stripeSessionId = typeof session.id === 'string' ? session.id : null;
+      void this.xeroSyncService
+        .enqueueCreditPurchaseInvoice({
+          tenantId,
+          stripeSessionId,
+          hours,
+          amountEur,
+          currency,
+        })
+        .catch((err: Error) => {
+          this.logger.warn(
+            `Xero sync enqueue failed (tenant=${tenantId} session=${stripeSessionId}): ${err.message}`,
+          );
+        });
+
       return { processed: true, eventId, eventType, outcome: 'applied', tenantId };
     }
 

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useDashboardAddons, type DashboardAddonKey } from '@/hooks/use-dashboard-addons';
+import { useDashboardAddons, type DashboardAddonKey, type TenantTier } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
 
 interface NavItem {
@@ -41,6 +41,11 @@ interface NavItem {
   // dashboardAddons. Click on a locked item opens the upgrade dialog
   // instead of navigating.
   addon?: DashboardAddonKey;
+  // Minimum tenant tier required to show this item at all. Items with
+  // minTier > tenant.tier are hidden entirely (not shown greyed out) —
+  // Tier 1 is "support only", the property module simply doesn't exist
+  // from the client's perspective. Super-admin bypasses this filter.
+  minTier?: TenantTier;
 }
 
 interface SidebarState {
@@ -58,36 +63,44 @@ export const useSidebarStore = create<SidebarState>()(
   )
 );
 
+// Nav items annotated with minTier. Rule of thumb:
+//   Tier 1 (support-only): Dashboard, Support Tickets, Billing, Settings
+//   Tier 2 (+ property mgmt): the Main + Marketing + Integrations + Management + Analytics blocks
+//   Tier 3 (+ premium AI): Email Campaigns, AI Chat, AI Translation (translation is inside pages)
+// Items without minTier are always visible.
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Properties', href: '/dashboard/properties', icon: Building2 },
-  { name: 'Locations', href: '/dashboard/locations', icon: MapPin },
-  { name: 'Property Types', href: '/dashboard/property-types', icon: Tag },
-  { name: 'Features', href: '/dashboard/features', icon: Tag },
-  { name: 'Labels', href: '/dashboard/labels', icon: Languages },
+  { name: 'Properties', href: '/dashboard/properties', icon: Building2, minTier: 2 },
+  { name: 'Locations', href: '/dashboard/locations', icon: MapPin, minTier: 2 },
+  { name: 'Property Types', href: '/dashboard/property-types', icon: Tag, minTier: 2 },
+  { name: 'Features', href: '/dashboard/features', icon: Tag, minTier: 2 },
+  { name: 'Labels', href: '/dashboard/labels', icon: Languages, minTier: 2 },
 ];
 
 const marketing: NavItem[] = [
-  { name: 'Contacts', href: '/dashboard/contacts', icon: Users },
-  { name: 'Leads', href: '/dashboard/leads', icon: UserCircle },
-  { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign' },
+  { name: 'Contacts', href: '/dashboard/contacts', icon: Users, minTier: 2 },
+  { name: 'Leads', href: '/dashboard/leads', icon: UserCircle, minTier: 2 },
+  { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign', minTier: 3 },
 ];
 
 const integrations: NavItem[] = [
-  { name: 'Feed Sources', href: '/dashboard/feeds', icon: Upload },
-  { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport' },
+  { name: 'Feed Sources', href: '/dashboard/feeds', icon: Upload, minTier: 2 },
+  { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport', minTier: 2 },
 ];
 
 const management: NavItem[] = [
-  { name: 'Team', href: '/dashboard/team', icon: Users, addon: 'team' },
+  { name: 'Team', href: '/dashboard/team', icon: Users, addon: 'team', minTier: 2 },
 ];
 
 const other: NavItem[] = [
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat' },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, minTier: 2 },
+  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat', minTier: 3 },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+  // Settings tabs (widget config, API keys, AI, cache) are all property /
+  // integration surfaces — meaningless to a Tier 1 support-only tenant.
+  // Gated at Tier 2 so a Tier 1 client sees the upsell dialog instead.
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings, minTier: 2 },
 ];
 
 const webmasterWork: NavItem[] = [
@@ -101,6 +114,8 @@ function NavSection({
   pathname,
   collapsed,
   addons,
+  tier,
+  bypassTier,
   onLockedClick,
 }: {
   title: string;
@@ -108,8 +123,14 @@ function NavSection({
   pathname: string;
   collapsed: boolean;
   addons: ReturnType<typeof useDashboardAddons>['addons'];
-  onLockedClick: (name: string) => void;
+  tier: TenantTier;
+  bypassTier: boolean;
+  onLockedClick: (payload: { name: string; requiredTier?: 2 | 3 }) => void;
 }) {
+  // Tier-gated items are shown greyed (locked) rather than hidden — the
+  // client sees what they'd get by upgrading, and a click opens an upsell
+  // dialog for the required tier. Super-admin bypasses locking entirely
+  // so they can manage every tenant's account regardless of tier.
   return (
     <div className="space-y-0.5">
       <AnimatePresence>
@@ -127,7 +148,19 @@ function NavSection({
       </AnimatePresence>
       {items.map((item) => {
         const isActive = pathname === item.href || (item.href.split('/').length > 2 && pathname.startsWith(item.href + '/'));
-        const locked = !!item.addon && !addons[item.addon];
+        // Tier lock: requires the tenant tier to be >= item.minTier.
+        // Super-admin bypasses.
+        const tierLocked = !bypassTier && !!item.minTier && item.minTier > tier;
+        // Add-on lock: legacy per-flag gate. Also bypassed for super-admin
+        // (real login or impersonation) so an admin managing a Tier 1
+        // client's account sees every feature unlocked, not just tier-gated
+        // ones. Ignored when the item is already tier-locked so we never
+        // stack two dialogs on the same item.
+        const addonLocked = !tierLocked && !bypassTier && !!item.addon && !addons[item.addon];
+        const locked = tierLocked || addonLocked;
+        const requiredTier: 2 | 3 | undefined = tierLocked
+          ? (item.minTier as 2 | 3)
+          : undefined;
 
         const baseClass = cn(
           'group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150',
@@ -182,7 +215,7 @@ function NavSection({
             <button
               type="button"
               key={item.name}
-              onClick={() => onLockedClick(item.name)}
+              onClick={() => onLockedClick({ name: item.name, requiredTier })}
               className={baseClass}
               title={collapsed ? `${item.name} (locked)` : undefined}
             >
@@ -213,8 +246,18 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   const role = userRole || session?.user?.role;
   const isSuperAdmin = role === 'super_admin';
   const isWebmaster = role === 'webmaster';
-  const { addons } = useDashboardAddons();
-  const [lockedDialogFor, setLockedDialogFor] = useState<string | null>(null);
+  const { addons, tier } = useDashboardAddons();
+  const [lockedDialog, setLockedDialog] = useState<{
+    name: string;
+    requiredTier?: 2 | 3;
+  } | null>(null);
+
+  // Super-admin bypasses tier filtering entirely. Impersonation preserves
+  // the NextAuth session's role (we only swap the API access token in
+  // localStorage), so `role === 'super_admin'` remains true throughout an
+  // impersonation session — a real Tier 1 client login has role='admin'
+  // and hits the tier gate.
+  const bypassTier = isSuperAdmin;
 
   return (
     <aside
@@ -249,22 +292,23 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {isWebmaster ? (
-          <NavSection title="Work" items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+          <NavSection title="Work" items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
         ) : (
           <>
-            <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
-            <NavSection title="Marketing" items={marketing} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
-            <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
-            <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
-            <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} addons={addons} onLockedClick={setLockedDialogFor} />
+            <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title="Marketing" items={marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
           </>
         )}
       </nav>
 
       <LockedFeatureDialog
-        open={lockedDialogFor !== null}
-        onOpenChange={(open) => !open && setLockedDialogFor(null)}
-        featureName={lockedDialogFor ?? ''}
+        open={lockedDialog !== null}
+        onOpenChange={(open) => !open && setLockedDialog(null)}
+        featureName={lockedDialog?.name ?? ''}
+        requiredTier={lockedDialog?.requiredTier}
       />
 
       {/* Admin Link for Super Admins */}

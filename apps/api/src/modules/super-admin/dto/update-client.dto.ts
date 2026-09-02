@@ -7,13 +7,14 @@ import {
   IsEnum,
   IsArray,
   IsObject,
+  IsIn,
   MinLength,
   MaxLength,
   IsUrl,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons } from '@spm/shared';
+import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons, TenantTier } from '@spm/shared';
 
 export class UpdateClientDto {
   @IsString()
@@ -103,6 +104,18 @@ export class UpdateClientDto {
   @IsOptional()
   @IsObject()
   dashboardAddons?: Partial<DashboardAddons>;
+
+  // Update tier. If the caller doesn't also send a dashboardAddons object,
+  // the service applies the tier's preset. If both are sent, dashboardAddons
+  // values override individual preset flags (super-admin manual overrides).
+  @IsIn([1, 2, 3])
+  @IsOptional()
+  tier?: TenantTier;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  xeroContactId?: string | null;
 }
 
 export class ExtendSubscriptionDto {

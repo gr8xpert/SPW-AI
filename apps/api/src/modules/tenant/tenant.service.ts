@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tenant, WebhookDelivery } from '../../database/entities';
-import { TenantPublic, TenantSettings } from '@spm/shared';
+import { TenantPublic, TenantSettings, DEFAULT_TENANT_TIER } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
@@ -456,7 +456,9 @@ export class TenantService {
         feedExport: false,
         team: false,
         aiChat: false,
+        aiTranslation: false,
       },
+      tier: tenant.tier || DEFAULT_TENANT_TIER,
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,

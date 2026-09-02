@@ -13,6 +13,7 @@ import { databaseConfig, redisConfig, jwtConfig } from './config';
 // Common
 import { HttpExceptionFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
+import { ImpersonationAuditInterceptor } from './common/interceptors/impersonation-audit.interceptor';
 import { JwtAuthGuard } from './common/guards';
 import { ThrottlerStorageModule } from './common/throttler/throttler-storage.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
@@ -57,6 +58,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { XeroSyncModule } from './modules/xero-sync/xero-sync.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
 import { TranslationModule } from './modules/translation/translation.module';
@@ -189,6 +191,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     MaintenanceModule,
     MailModule,
     PaymentModule,
+    XeroSyncModule,
 
     // ============ Phase 6: AI & Translation ============
     AiModule,
@@ -215,6 +218,17 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: ClassSerializerInterceptor,
+    },
+    // Log every request made under a super-admin impersonation session for
+    // forensic audit. No-op for regular sessions (early return in intercept).
+    // useExisting (not useClass) because the interceptor depends on the
+    // ImpersonationAudit repo which is registered inside AuthModule — using
+    // useClass here would tell Nest to instantiate a fresh copy at AppModule
+    // scope, where that repo isn't visible → DI failure at bootstrap.
+    // AuthModule already exports the interceptor as a provider.
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: ImpersonationAuditInterceptor,
     },
     // Global rate limiter. Runs before JwtAuthGuard so anonymous floods still get throttled.
     {

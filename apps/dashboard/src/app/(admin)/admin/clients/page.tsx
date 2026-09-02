@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { setImpersonationSession } from '@/lib/impersonation';
 import {
   Plus,
   Search,
@@ -43,6 +44,8 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  UserCog,
+  Upload,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -149,6 +152,46 @@ export default function ClientsPage() {
     }
   };
 
+  const handleImpersonate = async (client: Client) => {
+    try {
+      const raw = await api.post(`/api/super-admin/impersonate/${client.id}`);
+      // Global TransformInterceptor wraps controller returns as
+      // { data: {...} }. Fall back to `raw` in case the interceptor is
+      // ever bypassed for this route so the shape stays defensive.
+      const payload = (raw?.data ?? raw) as {
+        accessToken?: string;
+        tenant?: { id: number; name: string; slug: string };
+        impersonatedUser?: { id: number; email: string; role: string };
+        sessionId?: string;
+      };
+      if (!payload?.accessToken) {
+        throw new Error('Impersonation response missing access token');
+      }
+      setImpersonationSession({
+        accessToken: payload.accessToken,
+        tenant: payload.tenant!,
+        impersonatedUser: payload.impersonatedUser!,
+        sessionId: payload.sessionId!,
+        startedAt: Date.now(),
+      });
+      toast({
+        title: `Now viewing as ${client.name}`,
+        description: 'Use the yellow banner to return to admin at any time.',
+      });
+      // Bounce into the tenant dashboard so the operator sees exactly what
+      // the client sees. Router.refresh clears any cached RSC data.
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error: any) {
+      console.error('Failed to impersonate:', error);
+      toast({
+        title: 'Impersonation failed',
+        description: error?.message || 'Could not start impersonation session',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -161,12 +204,20 @@ export default function ClientsPage() {
             Manage all clients and their subscriptions
           </p>
         </div>
-        <Link href="/admin/clients/create">
-          <Button className="shadow-sm">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Client
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/clients/import">
+            <Button variant="outline" className="shadow-sm">
+              <Upload className="mr-2 h-4 w-4" />
+              Import CSV
+            </Button>
+          </Link>
+          <Link href="/admin/clients/create">
+            <Button className="shadow-sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Client
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -303,6 +354,10 @@ export default function ClientsPage() {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleImpersonate(client)}>
+                              <UserCog className="mr-2 h-4 w-4" />
+                              Login as this client
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleOverride(client)}>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               Toggle Override

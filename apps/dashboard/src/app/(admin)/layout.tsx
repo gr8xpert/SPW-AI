@@ -5,6 +5,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar';
 import { AdminHeader } from '@/components/admin/admin-header';
 import { SessionGate } from '@/components/admin/session-gate';
 import { AdminShell } from '@/components/admin/admin-shell';
+import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 
 export default async function AdminLayout({
   children,
@@ -23,6 +24,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <ImpersonationBanner />
       <AdminSidebar />
       <AdminShell>
         <AdminHeader />
