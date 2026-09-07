@@ -17,10 +17,30 @@
 
 const IMPERSONATION_STORAGE_KEY = 'spm.impersonation';
 
+// Cookie mirror of the localStorage flag so server-side layouts can
+// see impersonation state on the initial request — needed to skip the
+// super-admin → /admin redirect for impersonation sessions without a
+// paint-then-redirect flash. Value is just "1" — the actual JWT stays
+// in localStorage since we send it as a Bearer header (not a cookie).
+const IMPERSONATION_COOKIE_KEY = 'spm.impersonating';
+
 // Event dispatched on window when the impersonation state changes so
 // components subscribed via `useImpersonation()` re-render immediately
 // (localStorage's `storage` event only fires cross-tab, not same-tab).
 const IMPERSONATION_EVENT = 'spm:impersonation-change';
+
+function writeImpersonationCookie(active: boolean): void {
+  if (typeof document === 'undefined') return;
+  if (active) {
+    // Session cookie (no Max-Age) — cleared when browser closes.
+    // SameSite=Lax so it survives normal top-level navigations but
+    // not cross-site subrequests. path=/ so the layout can read it
+    // on any dashboard route.
+    document.cookie = `${IMPERSONATION_COOKIE_KEY}=1; path=/; SameSite=Lax`;
+  } else {
+    document.cookie = `${IMPERSONATION_COOKIE_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`;
+  }
+}
 
 export interface ImpersonationSession {
   accessToken: string;
@@ -44,12 +64,14 @@ export function getImpersonationSession(): ImpersonationSession | null {
 export function setImpersonationSession(session: ImpersonationSession): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(IMPERSONATION_STORAGE_KEY, JSON.stringify(session));
+  writeImpersonationCookie(true);
   window.dispatchEvent(new Event(IMPERSONATION_EVENT));
 }
 
 export function clearImpersonationSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+  writeImpersonationCookie(false);
   window.dispatchEvent(new Event(IMPERSONATION_EVENT));
 }
 

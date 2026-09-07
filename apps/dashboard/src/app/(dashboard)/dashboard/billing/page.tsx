@@ -93,11 +93,13 @@ export default function BillingPage() {
     const quantity = Math.max(1, Math.min(99, pkgQuantity[pkg.id] ?? 1));
     setPurchasingPkgId(pkg.id);
     try {
-      const res = await apiPost<{ url: string; sessionId: string }>(
+      const raw = await apiPost<{ url: string; sessionId: string } | { data: { url: string; sessionId: string } }>(
         '/api/billing/credits/checkout',
         { packageId: pkg.id, quantity },
       );
-      window.location.href = res.url;
+      const url = (raw as any)?.data?.url ?? (raw as any)?.url;
+      if (!url) throw new Error('Checkout session returned no redirect URL');
+      window.location.href = url;
     } catch (err: any) {
       toast({
         title: 'Checkout failed',

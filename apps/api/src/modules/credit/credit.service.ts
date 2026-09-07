@@ -53,13 +53,27 @@ export class CreditService {
   }
 
   /**
-   * Get credit transaction history for a tenant
+   * Get credit transaction history for a tenant. Shape matches the admin
+   * credits page contract: signed DB amount → { type: 'add'|'deduct', amount: positive }.
    */
   async getHistory(
     tenantId: number,
     page = 1,
     limit = 20,
-  ): Promise<CreditHistory> {
+  ): Promise<{
+    data: Array<{
+      id: number;
+      type: 'add' | 'deduct';
+      amount: number;
+      reason: string;
+      performedBy: string;
+      createdAt: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const [transactions, total] = await this.creditTransactionRepository.findAndCount({
       where: { tenantId },
       relations: ['ticket', 'createdByUser'],
@@ -68,11 +82,24 @@ export class CreditService {
       take: limit,
     });
 
+    const data = transactions.map((tx) => {
+      const signed = Number(tx.amount);
+      return {
+        id: tx.id,
+        type: (signed >= 0 ? 'add' : 'deduct') as 'add' | 'deduct',
+        amount: Math.abs(signed),
+        reason: tx.description ?? `Credit ${tx.type}`,
+        performedBy: tx.createdByUser?.email ?? 'system',
+        createdAt: tx.createdAt,
+      };
+    });
+
     return {
-      transactions,
+      data,
       total,
       page,
       limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     };
   }
 
@@ -109,7 +136,9 @@ export class CreditService {
         });
       }
 
-      const newBalance = Number(creditBalance.balance) + dto.amount;
+      // Frontend sends positive amount + a type flag; derive signed delta here.
+      const delta = dto.type === 'add' ? Math.abs(dto.amount) : -Math.abs(dto.amount);
+      const newBalance = Number(creditBalance.balance) + delta;
 
       if (newBalance < 0) {
         throw new BadRequestException('Cannot adjust balance below zero');
@@ -118,13 +147,14 @@ export class CreditService {
       creditBalance.balance = newBalance;
       await queryRunner.manager.save(creditBalance);
 
-      // Create transaction record
+      // Store as canonical 'adjustment' in the DB enum; the sign of `amount`
+      // preserves add-vs-deduct semantics for the history view.
       const transaction = queryRunner.manager.create(CreditTransaction, {
         tenantId,
-        type: dto.type,
-        amount: dto.amount,
+        type: 'adjustment',
+        amount: delta,
         balanceAfter: newBalance,
-        description: dto.description || `Credit ${dto.type}`,
+        description: dto.reason,
         createdBy: userId,
       });
 
@@ -275,18 +305,37 @@ export class CreditService {
   /**
    * Get all tenants with their credit balances (super admin)
    */
-  async getAllBalances(): Promise<Array<{ tenantId: number; tenantName: string; balance: number }>> {
+  async getAllBalances(): Promise<Array<{
+    tenantId: number;
+    tenantName: string;
+    slug: string;
+    balance: number;
+    lastActivity: Date | null;
+  }>> {
     const tenants = await this.tenantRepository.find({
-      select: ['id', 'name'],
+      select: ['id', 'name', 'slug'],
     });
 
     const balances = await this.creditBalanceRepository.find();
     const balanceMap = new Map(balances.map((b) => [b.tenantId, Number(b.balance)]));
 
+    // Last-activity = the most recent credit_transactions.createdAt per tenant.
+    // Cheap enough for a few hundred tenants; if this ever grows, replace
+    // with a GROUP BY MAX(createdAt) at the query layer.
+    const latest = await this.creditTransactionRepository
+      .createQueryBuilder('tx')
+      .select('tx.tenantId', 'tenantId')
+      .addSelect('MAX(tx.createdAt)', 'lastActivity')
+      .groupBy('tx.tenantId')
+      .getRawMany<{ tenantId: number; lastActivity: Date }>();
+    const activityMap = new Map(latest.map((r) => [Number(r.tenantId), r.lastActivity]));
+
     return tenants.map((tenant) => ({
       tenantId: tenant.id,
       tenantName: tenant.name,
+      slug: tenant.slug,
       balance: balanceMap.get(tenant.id) || 0,
+      lastActivity: activityMap.get(tenant.id) ?? null,
     }));
   }
 }

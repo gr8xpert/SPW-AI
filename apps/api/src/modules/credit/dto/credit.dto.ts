@@ -1,15 +1,18 @@
 import { IsNumber, IsString, IsOptional, IsEnum, Min } from 'class-validator';
 
 export class AdjustCreditDto {
+  // Positive amount. Actual delta sign is derived from `type` below —
+  // this keeps the super-admin UI intuitive (radio: Add / Deduct + amount)
+  // instead of forcing operators to think in signed numbers.
   @IsNumber()
-  amount: number; // Can be positive (add) or negative (deduct)
+  @Min(0.01)
+  amount: number;
+
+  @IsEnum(['add', 'deduct'])
+  type: 'add' | 'deduct';
 
   @IsString()
-  @IsOptional()
-  description?: string;
-
-  @IsEnum(['adjustment', 'refund'])
-  type: 'adjustment' | 'refund';
+  reason: string;
 }
 
 export class PurchaseCreditDto {
