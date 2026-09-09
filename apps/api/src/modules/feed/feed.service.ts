@@ -17,7 +17,6 @@ import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapt
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
-import { PropertyQuotaService } from '../property/property-quota.service';
 import { isValidCronExpression } from './cron-validator';
 
 // Returns a credentials object safe to send to API consumers — secret fields
@@ -70,7 +69,6 @@ export class FeedService {
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
     private readonly aiEnrichmentService: AiEnrichmentService,
-    private readonly propertyQuotaService: PropertyQuotaService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -294,6 +292,157 @@ export class FeedService {
     return { wiped: beforeCount, importLog };
   }
 
+  // Delete every property that was imported by this feed, then garbage-collect
+  // any locations / property types / features that are no longer referenced by
+  // ANY remaining property for this tenant. Shared taxonomy rows still used by
+  // other feeds or manual listings are preserved.
+  //
+  // Also releases R2 image blobs held by the deleted properties so storage
+  // reflects reality.
+  //
+  // This does NOT delete the feed config itself — operator can re-sync fresh
+  // from the same config after wiping. To also drop the feed, call deleteConfig.
+  async wipeFeedData(
+    tenantId: number,
+    configId: number,
+  ): Promise<{ propertiesDeleted: number; locationsDeleted: number; propertyTypesDeleted: number; featuresDeleted: number }> {
+    // Validate the config exists and belongs to this tenant.
+    await this.findConfigById(tenantId, configId);
+
+    // Snapshot properties we're about to delete so we can release image blobs
+    // (R2 refcount cleanup) before the row is gone.
+    const doomed = await this.propertyRepository.find({
+      where: { tenantId, feedConfigId: configId },
+      select: ['id', 'images'],
+    });
+    const propertiesDeleted = doomed.length;
+
+    if (propertiesDeleted === 0) {
+      return { propertiesDeleted: 0, locationsDeleted: 0, propertyTypesDeleted: 0, featuresDeleted: 0 };
+    }
+
+    // Release R2 blobs held by images we're deleting. Non-fatal per image so
+    // one bad blob doesn't block the whole wipe. Uses tenant storage config
+    // (R2 or local) resolved once.
+    const storageConfig = await this.uploadService.getStorageConfig(tenantId);
+    for (const p of doomed) {
+      if (!p.images) continue;
+      for (const img of p.images) {
+        if (!img.contentHash) continue;
+        try {
+          await this.uploadService.releaseBlob(tenantId, img.contentHash, storageConfig);
+        } catch (err) {
+          this.logger.warn(
+            `wipeFeedData: releaseBlob failed for prop=${p.id} hash=${img.contentHash}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
+    // Delete in one shot — FK relations to locationId / propertyTypeId are
+    // ON DELETE SET NULL on the *other* direction, so we don't need to null
+    // properties out first.
+    await this.propertyRepository.delete({ tenantId, feedConfigId: configId });
+
+    // ===== Orphan-GC =====
+
+    // 1) Property types: delete any type for this tenant that no surviving
+    //    property still references.
+    const orphanTypes = await this.propertyTypeRepository
+      .createQueryBuilder('pt')
+      .leftJoin('properties', 'p', 'p.propertyTypeId = pt.id AND p.tenantId = pt.tenantId')
+      .where('pt.tenantId = :tenantId', { tenantId })
+      .andWhere('p.id IS NULL')
+      .select('pt.id', 'id')
+      .getRawMany();
+    const orphanTypeIds = orphanTypes.map((r) => Number(r.id)).filter(Boolean);
+    let propertyTypesDeleted = 0;
+    if (orphanTypeIds.length > 0) {
+      // Detach children first so we don't hit a FK error on parentId.
+      await this.propertyTypeRepository
+        .createQueryBuilder()
+        .update()
+        .set({ parentId: null })
+        .whereInIds(orphanTypeIds)
+        .orWhere('parentId IN (:...ids)', { ids: orphanTypeIds })
+        .execute()
+        .catch(() => undefined);
+      const res = await this.propertyTypeRepository.delete(orphanTypeIds);
+      propertyTypesDeleted = res.affected || 0;
+    }
+
+    // 2) Locations: delete any location for this tenant that no surviving
+    //    property references. Detach parent links first so leaves can go
+    //    before their parents without FK errors.
+    const orphanLocs = await this.locationRepository
+      .createQueryBuilder('l')
+      .leftJoin('properties', 'p', 'p.locationId = l.id AND p.tenantId = l.tenantId')
+      .where('l.tenantId = :tenantId', { tenantId })
+      .andWhere('p.id IS NULL')
+      .select('l.id', 'id')
+      .getRawMany();
+    const orphanLocIds = orphanLocs.map((r) => Number(r.id)).filter(Boolean);
+    let locationsDeleted = 0;
+    if (orphanLocIds.length > 0) {
+      const qr = this.locationRepository.manager.connection.createQueryRunner();
+      try {
+        await qr.connect();
+        await qr.query('SET FOREIGN_KEY_CHECKS = 0');
+        const placeholders = orphanLocIds.map(() => '?').join(',');
+        await qr.query(`DELETE FROM locations WHERE id IN (${placeholders})`, orphanLocIds);
+        await qr.query('SET FOREIGN_KEY_CHECKS = 1');
+      } finally {
+        await qr.release();
+      }
+      locationsDeleted = orphanLocIds.length;
+    }
+
+    // 3) Features: property.features is JSON int[]. Collect every feature id
+    //    still referenced by any surviving property for this tenant, then
+    //    delete features NOT IN that set.
+    const remainingProps = await this.propertyRepository.find({
+      where: { tenantId },
+      select: ['features'],
+    });
+    const referencedFeatureIds = new Set<number>();
+    for (const p of remainingProps) {
+      if (Array.isArray(p.features)) {
+        for (const fid of p.features) {
+          if (typeof fid === 'number') referencedFeatureIds.add(fid);
+        }
+      }
+    }
+    const allFeatures = await this.featureRepository.find({
+      where: { tenantId },
+      select: ['id'],
+    });
+    const orphanFeatureIds = allFeatures
+      .map((f) => f.id)
+      .filter((id) => !referencedFeatureIds.has(id));
+    let featuresDeleted = 0;
+    if (orphanFeatureIds.length > 0) {
+      const res = await this.featureRepository.delete(orphanFeatureIds);
+      featuresDeleted = res.affected || 0;
+    }
+
+    // Widget/property caches point at deleted rows — invalidate.
+    try {
+      await this.tenantService.clearCache(tenantId, { reason: `feed_wipe:config=${configId}` });
+    } catch (err) {
+      this.logger.warn(
+        `wipeFeedData: cache clear failed for tenant=${tenantId}: ${(err as Error).message}`,
+      );
+    }
+
+    this.logger.log(
+      `wipeFeedData tenant=${tenantId} config=${configId}: ` +
+        `properties=${propertiesDeleted}, locations=${locationsDeleted}, ` +
+        `propertyTypes=${propertyTypesDeleted}, features=${featuresDeleted}`,
+    );
+
+    return { propertiesDeleted, locationsDeleted, propertyTypesDeleted, featuresDeleted };
+  }
+
   async processImport(configId: number, importLogId: number): Promise<void> {
     const config = await this.feedConfigRepository.findOne({ where: { id: configId } });
     if (!config) {
@@ -315,15 +464,6 @@ export class FeedService {
     let page = 1;
     let hasMore = true;
 
-    // Quota budget for new properties this import. We snapshot remaining
-    // slots once per page so the importer makes progress on an already-full
-    // tenant (updates still happen) without doing a count query per row.
-    // Updates and skips don't consume the budget — only fresh inserts do.
-    let quotaRemaining = await this.propertyQuotaService
-      .checkQuota(config.tenantId)
-      .then((q) => q.remaining)
-      .catch(() => Number.POSITIVE_INFINITY);
-
     try {
       while (hasMore) {
         const result = await adapter.fetchProperties(config.credentials, page, 100);
@@ -334,24 +474,17 @@ export class FeedService {
           try {
             const outcome = await this.importProperty(
               config.tenantId,
+              config.id,
               config.provider,
               feedProperty,
               config.fieldMapping,
-              quotaRemaining,
               config.protectedFields || [],
             );
 
             if (outcome === 'created') {
               createdCount++;
-              if (Number.isFinite(quotaRemaining)) quotaRemaining--;
             } else if (outcome === 'updated') {
               updatedCount++;
-            } else if (outcome === 'quota_skipped') {
-              skippedCount++;
-              errors.push({
-                ref: feedProperty.reference,
-                error: 'PLAN_QUOTA_EXCEEDED — upgrade plan to import this property',
-              });
             } else {
               skippedCount++;
             }
@@ -443,12 +576,12 @@ export class FeedService {
 
   private async importProperty(
     tenantId: number,
+    feedConfigId: number,
     provider: string,
     feedProperty: FeedProperty,
     fieldMapping: any,
-    quotaRemaining: number,
     feedProtectedFields: string[] = [],
-  ): Promise<'created' | 'updated' | 'skipped' | 'quota_skipped'> {
+  ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
         tenantId,
@@ -570,19 +703,20 @@ export class FeedService {
         );
       }
 
+      // Tag ownership with the current feed regardless of what else changed,
+      // so backfilled-NULL rows and rows previously tagged to a removed feed
+      // get re-associated with the feed that just touched them. Also lets the
+      // per-feed wipe button target them cleanly.
+      if (existing.feedConfigId !== feedConfigId) {
+        updateData.feedConfigId = feedConfigId;
+      }
+
       if (Object.keys(updateData).length === 0) return 'skipped';
 
       updateData.importedAt = new Date();
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {
-      // Quota gate for new rows. Updates above already ran — keeping existing
-      // listings in sync is more important than refusing the whole batch
-      // when a tenant is over budget. Caller (processImport) flags this with
-      // a PLAN_QUOTA_EXCEEDED error row so the dashboard surfaces it.
-      if (quotaRemaining <= 0) {
-        return 'quota_skipped';
-      }
       const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
       const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
       const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
@@ -596,6 +730,7 @@ export class FeedService {
 
       const newProperty = this.propertyRepository.create({
         tenantId,
+        feedConfigId,
         reference: feedProperty.reference,
         agentReference: feedProperty.agentReference,
         externalId: feedProperty.externalId,

@@ -10,12 +10,11 @@ import { TenantModule } from '../tenant/tenant.module';
 import { WebhookModule } from '../webhook/webhook.module';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
-import { PropertyQuotaService } from './property-quota.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Property, User, Location, PropertyType, Tenant, Plan]), LocationModule, TenantModule, WebhookModule],
   controllers: [PropertyController, PublicPropertyController],
-  providers: [PropertyService, PropertySearchService, PropertyQuotaService, ApiKeyThrottlerGuard, DashboardAddonGuard],
-  exports: [PropertyService, PropertySearchService, PropertyQuotaService],
+  providers: [PropertyService, PropertySearchService, ApiKeyThrottlerGuard, DashboardAddonGuard],
+  exports: [PropertyService, PropertySearchService],
 })
 export class PropertyModule {}

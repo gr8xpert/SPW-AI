@@ -95,6 +95,14 @@ export class FeedController {
     return this.feedService.wipeLocationsAndSync(tenantId, id);
   }
 
+  @Post(':id/wipe-data')
+  async wipeData(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.feedService.wipeFeedData(tenantId, id);
+  }
+
   @Get(':id/sync-status')
   async getSyncStatus(
     @CurrentTenant() tenantId: number,

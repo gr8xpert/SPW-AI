@@ -58,6 +58,7 @@ import {
   AlertTriangle,
   Loader2,
   Eraser,
+  FlaskConical,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -153,9 +154,11 @@ export default function FeedsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isWipeOpen, setIsWipeOpen] = useState(false);
+  const [isWipeDataOpen, setIsWipeDataOpen] = useState(false);
   const [editingFeed, setEditingFeed] = useState<FeedConfig | null>(null);
   const [deletingFeed, setDeletingFeed] = useState<FeedConfig | null>(null);
   const [wipingFeed, setWipingFeed] = useState<FeedConfig | null>(null);
+  const [wipingDataFeed, setWipingDataFeed] = useState<FeedConfig | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [syncStatuses, setSyncStatuses] = useState<Record<number, SyncStatus>>({});
 
@@ -308,6 +311,27 @@ export default function FeedsPage() {
       fetchFeeds();
     } catch (e: any) {
       toast({ title: 'Failed to wipe & re-import', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleWipeData = async () => {
+    if (!wipingDataFeed) return;
+    try {
+      const res = await api.post(`/api/dashboard/feeds/${wipingDataFeed.id}/wipe-data`);
+      const body = res?.data || res;
+      toast({
+        title: 'Feed data wiped',
+        description:
+          `Deleted ${body?.propertiesDeleted ?? 0} properties, ` +
+          `${body?.locationsDeleted ?? 0} orphan locations, ` +
+          `${body?.propertyTypesDeleted ?? 0} orphan types, ` +
+          `${body?.featuresDeleted ?? 0} orphan features.`,
+      });
+      setIsWipeDataOpen(false);
+      setWipingDataFeed(null);
+      fetchFeeds();
+    } catch (e: any) {
+      toast({ title: 'Failed to wipe feed data', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -554,6 +578,13 @@ export default function FeedsPage() {
                           <Eraser className="h-4 w-4 mr-2" />
                           Wipe & Re-import
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => { setWipingDataFeed(feed); setIsWipeDataOpen(true); }}
+                        >
+                          <FlaskConical className="h-4 w-4 mr-2" />
+                          Wipe imported data
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(feed)}>
                           <Settings className="h-4 w-4 mr-2" />
                           Configure
@@ -706,6 +737,33 @@ export default function FeedsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Wipe imported data Confirmation */}
+      <AlertDialog open={isWipeDataOpen} onOpenChange={setIsWipeDataOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Wipe all imported data from this feed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes <strong>every property</strong> imported by
+              &quot;{wipingDataFeed?.name}&quot; and then removes any location,
+              property type, or feature that no other property still uses.
+              <br /><br />
+              Shared rows (e.g. a location or type also used by another feed
+              or a manual listing) are <strong>kept</strong>. The feed config
+              itself stays — re-sync to pull data back.
+              <br /><br />
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleWipeData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Wipe data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -12,6 +12,7 @@ import { Tenant } from './tenant.entity';
 import { PropertyType } from './property-type.entity';
 import { Location } from './location.entity';
 import { User } from './user.entity';
+import { FeedConfig } from './feed-config.entity';
 
 export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development';
 export type PropertyStatus = 'draft' | 'active' | 'sold' | 'rented' | 'archived';
@@ -81,6 +82,17 @@ export class Property {
   @ManyToOne(() => Location, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'locationId' })
   location: Location | null;
+
+  // Which feed_config this property was imported from. NULL for manual rows
+  // and for pre-migration rows where the tenant had multiple feeds with the
+  // same provider (backfill can't disambiguate). Used by the per-feed
+  // "wipe imported data" action to scope deletes.
+  @Column({ type: 'int', nullable: true })
+  feedConfigId: number | null;
+
+  @ManyToOne(() => FeedConfig, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'feedConfigId' })
+  feedConfig: FeedConfig | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   urbanization: string | null;
