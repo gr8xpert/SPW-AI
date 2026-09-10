@@ -109,19 +109,12 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, CreateClientFormData['dashboardAddon
   },
 };
 
-interface Plan {
-  id: number;
-  name: string;
-  slug: string;
-}
-
 export default function CreateClientPage() {
   const router = useRouter();
   const api = useApi();
   const { toast } = useToast();
 
   const [saving, setSaving] = useState(false);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [createdClientId, setCreatedClientId] = useState<number | null>(null);
   const [rawApiKey, setRawApiKey] = useState<string | null>(null);
@@ -140,7 +133,8 @@ export default function CreateClientPage() {
       siteName: '',
       planId: 1,
       subscriptionStatus: 'active',
-      billingCycle: 'monthly',
+      // Yearly is the only cycle actually sold; the picker is no longer rendered.
+      billingCycle: 'yearly',
       billingSource: 'manual',
       adminOverride: false,
       isInternal: false,
@@ -168,10 +162,12 @@ export default function CreateClientPage() {
   });
 
   useEffect(() => {
+    // Still fetched even though the Plan picker is gone: the API requires a
+    // planId and tenants.planId is NOT NULL, so a client has to be created
+    // against *some* plan. The first one is used silently.
     const fetchPlans = async () => {
       try {
         const response = await api.get('/api/super-admin/plans');
-        setPlans(response.data);
         if (response.data.length > 0) {
           form.setValue('planId', response.data[0].id);
         }
@@ -443,33 +439,13 @@ export default function CreateClientPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="planId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Plan *</FormLabel>
-                          <Select
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                            value={field.value?.toString()}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a plan" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {plans.map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id.toString()}>
-                                  {plan.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* Plan and Billing Cycle are intentionally not rendered.
+                        Plans aren't sold per-client any more (the Subscriptions
+                        page is hidden from the admin sidebar too), so asking the
+                        operator to pick one on every create was noise.
+                        `planId` is still submitted — the API requires it and
+                        tenants.planId is NOT NULL — it's just set silently to
+                        the first plan returned by /plans (see fetchPlans). */}
 
                     <FormField
                       control={form.control}
@@ -487,28 +463,6 @@ export default function CreateClientPage() {
                               <SelectItem value="active">Active</SelectItem>
                               <SelectItem value="manual">Manual</SelectItem>
                               <SelectItem value="internal">Internal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="billingCycle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Billing Cycle</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select cycle" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="monthly">Monthly</SelectItem>
-                              <SelectItem value="yearly">Yearly</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

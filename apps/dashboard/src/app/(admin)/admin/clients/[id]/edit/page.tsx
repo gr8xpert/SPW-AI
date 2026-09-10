@@ -98,12 +98,6 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, ClientFormData['dashboardAddons']> =
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
-interface Plan {
-  id: number;
-  name: string;
-  slug: string;
-}
-
 export default function EditClientPage() {
   const params = useParams();
   const router = useRouter();
@@ -113,7 +107,6 @@ export default function EditClientPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [plans, setPlans] = useState<Plan[]>([]);
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -155,13 +148,12 @@ export default function EditClientPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clientRes, plansRes] = await Promise.all([
-          api.get(`/api/super-admin/clients/${clientId}`),
-          api.get('/api/super-admin/plans'),
-        ]);
+        // The plans list is no longer fetched — the Plan picker is gone and
+        // planId comes straight off the client below, so it was a wasted
+        // request on every edit page load.
+        const clientRes = await api.get(`/api/super-admin/clients/${clientId}`);
 
         const client = clientRes.data;
-        setPlans(plansRes.data);
 
         form.reset({
           name: client.name,
@@ -408,33 +400,11 @@ export default function EditClientPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="planId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Plan</FormLabel>
-                          <Select
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                            value={field.value?.toString()}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a plan" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {plans.map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id.toString()}>
-                                  {plan.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* Plan and Billing Cycle hidden here for the same reason as
+                        on the create form — plans aren't sold per-client and the
+                        Subscriptions page is gone from the admin sidebar. Both
+                        values are still loaded from the client and submitted
+                        unchanged, so editing anything else won't reset them. */}
 
                     <FormField
                       control={form.control}
@@ -454,31 +424,6 @@ export default function EditClientPage() {
                               <SelectItem value="expired">Expired</SelectItem>
                               <SelectItem value="manual">Manual</SelectItem>
                               <SelectItem value="internal">Internal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="billingCycle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Billing Cycle</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value || undefined}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select cycle" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="monthly">Monthly</SelectItem>
-                              <SelectItem value="yearly">Yearly</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
