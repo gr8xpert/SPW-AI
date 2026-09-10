@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PropertyType } from '../../database/entities';
+import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
 
 @Injectable()
@@ -12,10 +13,13 @@ export class PropertyTypeService {
   ) {}
 
   async findAll(tenantId: number): Promise<Array<PropertyType & { propertyCount: number }>> {
-    const types = await this.propertyTypeRepository.find({
-      where: { tenantId, isActive: true },
-      order: { sortOrder: 'ASC', id: 'ASC' },
-    });
+    const types = (
+      await this.propertyTypeRepository.find({
+        where: { tenantId, isActive: true },
+        order: { sortOrder: 'ASC', id: 'ASC' },
+      })
+      // Alphabetical within each sortOrder group — see bySortOrderThenName.
+    ).sort(bySortOrderThenName);
 
     const counts: Array<{ propertyTypeId: number; cnt: string }> = await this.propertyTypeRepository.manager.query(
       `SELECT propertyTypeId, COUNT(*) AS cnt

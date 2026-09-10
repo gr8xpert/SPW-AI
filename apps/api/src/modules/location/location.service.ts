@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Location, LocationLevel } from '../../database/entities';
+import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
 
 export interface LocationTree extends Location {
@@ -20,10 +21,12 @@ export class LocationService {
     if (level) {
       where.level = level;
     }
-    return this.locationRepository.find({
+    const locations = await this.locationRepository.find({
       where,
       order: { sortOrder: 'ASC', id: 'ASC' },
     });
+    // Alphabetical within each sortOrder group — see bySortOrderThenName.
+    return locations.sort(bySortOrderThenName);
   }
 
   async findTree(tenantId: number, includeInactive = false): Promise<LocationTree[]> {
@@ -70,6 +73,9 @@ export class LocationService {
   private buildTree(locations: Location[], parentId: number | null = null): LocationTree[] {
     return locations
       .filter((loc) => loc.parentId === parentId)
+      // Sort each sibling group independently, so alphabetical order applies at
+      // every depth of the tree rather than only at the roots.
+      .sort(bySortOrderThenName)
       .map((loc) => ({
         ...loc,
         children: this.buildTree(locations, loc.id),
