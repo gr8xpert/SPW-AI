@@ -182,7 +182,8 @@ exactly this class of bug.
 | Package | Current | Note |
 |---|---|---|
 | `multer` | `^1.4.5-lts.1` | 1.x is **deprecated and unmaintained**; known DoS advisories. Upgrade to `2.x` — mostly drop-in, check `limits` config. Highest-priority dep bump. |
-| `next` | `14.1.4` (pinned) | 14.1.x carries several published advisories (image-optimizer SSRF, cache poisoning, DoS). No `middleware.ts` exists, so the auth-bypass CVE class doesn't apply here — but move to latest 14.2.x at minimum. |
+| `next` | `14.1.4` (pinned) | 14.1.x carries many published advisories. **Correction (later same day):** I first framed 14.2.35 as the fix — it isn't. Most of these advisories are only patched in `15.5.x`; 14.2.35 closes some (Server Components DoS, cache poisoning, middleware bypass) and leaves the rest open. The whole 14.x line is behind. See the exposure triage below before treating this as urgent. |
+| `next-auth` | `4.24.13` installed | **Higher priority than the Next bump.** 4.24.15 patches a *critical* (email normalizer validates before Unicode normalization → homoglyph `@` bypass), a *high* (`getToken()` throws on malformed Bearer headers), and a moderate (OAuth state/nonce/PKCE cookies not bound to the issuing provider). Semver-compatible with the existing `^4.24.7` range — a patch bump, not a migration. |
 | `@nestjs/*` | `^10.3` | Nest 11 available; not urgent, plan it. |
 | `turbo` | `^1.13` | Turbo 2 renamed `pipeline` → `tasks`; `turbo.json` still uses `pipeline`. |
 | `eslint` | `^8.56` | ESLint 8 is EOL. |
@@ -190,6 +191,21 @@ exactly this class of bug.
 | `uuid` | `^9` | Node 20 has `crypto.randomUUID()` built in — could drop the dep. |
 
 Run `pnpm audit` as part of the CI job in item 3.
+
+**Exposure triage for the three Next criticals, against *this* deployment** (done 2026-09-10, after
+`pnpm audit --json`; severity alone is misleading here):
+
+| Critical | Applies? |
+|---|---|
+| Authorization Bypass in Middleware (`<14.2.25`) | **No** — there is no `middleware.ts` anywhere in the app, so there is no middleware chain to bypass. |
+| Unauthenticated RCE on Windows-hosted servers (`<15.5.24`) | **No** — production is Linux (Plesk/nginx under `/var/www/vhosts`). |
+| Unauthenticated RCE in Image Optimization API via AVIF (`<15.5.24`) | **Uncertain, and the one that matters.** `next/image` is imported in 0 source files, but `/_next/image` is served by default regardless. Not fixed by 14.2.35 either — patched only in 15.5.24. If this endpoint isn't needed, blocking `/_next/image` at nginx/Cloudflare closes it without any dependency change. |
+
+So reverting to 14.1.4 (commit `530838c`) reintroduced advisories, but not the ones that would be
+alarming for this particular deployment. The genuinely actionable item is the `next-auth` patch bump
+above — and note it is a runtime dependency resolved from the server's `node_modules`, so like the
+Next bump it cannot ship as a `.next`-only upload. Both belong in the same deploy window that runs
+`pnpm install --frozen-lockfile` on the server.
 
 ### 11. AI model defaults are a generation behind
 
