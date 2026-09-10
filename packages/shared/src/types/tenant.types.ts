@@ -72,8 +72,13 @@ export interface TenantSettings {
    *
    * An entry here rewrites the province for that area before the chain is
    * built, so the area always lands under one canonical parent no matter what
-   * an individual property claims. Unlisted areas are untouched — this only
-   * changes hierarchies you have explicitly mapped.
+   * an individual property claims.
+   *
+   * This is the PER-TENANT layer, applied on top of {@link DEFAULT_AREA_PROVINCE}
+   * — most clients need nothing here. Use it to add an area the platform map
+   * doesn't cover, or to correct one for a tenant whose feed is unusual.
+   * Mapping an area to an empty string opts that tenant out of a platform
+   * default, restoring the raw feed behaviour.
    *
    * Value is the province *name* (not slug) so the province node can be created
    * with correct display text and accents if it doesn't exist yet.
@@ -250,6 +255,62 @@ export interface TenantFull extends TenantWithApiKey {
   // predate the 5P migration).
   lastCacheClearedAt: Date | null;
 }
+
+/**
+ * Canonical Area → Province mapping applied to every tenant's feed import.
+ *
+ * Feeds describe a property's hierarchy per row, and Resales sends no ID for
+ * Province/Area — only names. A single property carrying
+ * `Province: "Cádiz", Area: "Costa del Sol"` therefore creates a second
+ * "Costa del Sol" node under Cádiz next to the real one under Málaga, which
+ * then appears twice in the Locations tree and in widget dropdowns. Every
+ * Spanish client on a Resales-style feed hits this, so it ships as a platform
+ * default rather than per-tenant configuration.
+ *
+ * Keys are area slugs; values are province display names (used to create the
+ * province node with correct accents if it doesn't exist yet).
+ *
+ * ONLY include areas that belong to exactly ONE province. Several well-known
+ * Spanish costas span two or more, and forcing them into one would file real
+ * properties in the wrong province — those are deliberately absent:
+ *   - Costa de la Luz    → spans Huelva AND Cádiz
+ *   - Costa Vasca        → spans Vizcaya AND Guipúzcoa
+ *   - Rías Altas         → spans A Coruña AND Lugo
+ * Leaving them out means they keep whatever province the feed supplied, which
+ * is the safe behaviour.
+ *
+ * A tenant can override any entry — or opt out of one by mapping it to an
+ * empty string — via `TenantSettings.locationAreaProvince`.
+ */
+export const DEFAULT_AREA_PROVINCE: Record<string, string> = {
+  // Andalucía
+  'costa-del-sol': 'Málaga',
+  'costa-del-sol-east': 'Málaga',
+  'costa-del-sol-west': 'Málaga',
+  'costa-tropical': 'Granada',
+  'costa-de-almeria': 'Almería',
+  'costa-almeria': 'Almería',
+  // Levante
+  'costa-blanca': 'Alicante',
+  'costa-blanca-north': 'Alicante',
+  'costa-blanca-south': 'Alicante',
+  'costa-calida': 'Murcia',
+  'costa-azahar': 'Castellón',
+  'costa-del-azahar': 'Castellón',
+  'costa-valencia': 'Valencia',
+  // Cataluña
+  'costa-brava': 'Girona',
+  'costa-dorada': 'Tarragona',
+  'costa-daurada': 'Tarragona',
+  'costa-maresme': 'Barcelona',
+  'costa-barcelona': 'Barcelona',
+  'costa-garraf': 'Barcelona',
+  // Norte
+  'costa-verde': 'Asturias',
+  'costa-da-morte': 'A Coruña',
+  'rias-baixas': 'Pontevedra',
+  'costa-cantabra': 'Cantabria',
+};
 
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   theme: 'light',

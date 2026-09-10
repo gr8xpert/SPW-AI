@@ -18,6 +18,7 @@ import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { isValidCronExpression } from './cron-validator';
+import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
 
 // Returns a credentials object safe to send to API consumers — secret fields
 // are reduced to a "last 4 chars" hint so the dashboard can re-render the
@@ -910,21 +911,36 @@ export class FeedService {
     return result;
   }
 
-  // Normalizes the raw `locationAreaProvince` setting into a lookup keyed by
-  // area slug. Operators type area names however they like ("Costa Del Sol",
-  // "costa-del-sol", " Costa del Sol "), so keys are re-slugified here and
-  // matched against the slugified area from the feed. Non-string or empty
-  // entries are dropped rather than allowed to blank out a province.
+  // Builds the effective Area → Province map for a tenant: the platform
+  // defaults (DEFAULT_AREA_PROVINCE) with that tenant's overrides applied on
+  // top. Every Spanish Resales client hits the duplicate-costa problem, so the
+  // fix ships as a default and per-tenant config stays the exception.
+  //
+  // Operators type area names however they like ("Costa Del Sol",
+  // "costa-del-sol", " Costa del Sol "), so tenant keys are re-slugified here
+  // and matched against the slugified area from the feed.
+  //
+  // An override with an empty value opts the tenant OUT of a platform default,
+  // restoring raw feed behaviour for that area — needed for the client whose
+  // feed genuinely is the exception. Non-string values are ignored rather than
+  // allowed to blank out a province.
   private normalizeAreaProvinceOverrides(
     raw: Record<string, string> | undefined,
   ): Record<string, string> {
-    if (!raw || typeof raw !== 'object') return {};
-    const out: Record<string, string> = {};
+    const out: Record<string, string> = { ...DEFAULT_AREA_PROVINCE };
+    if (!raw || typeof raw !== 'object') return out;
+
     for (const [area, province] of Object.entries(raw)) {
       if (typeof province !== 'string') continue;
       const key = this.slugify(String(area));
+      if (!key) continue;
       const value = province.trim();
-      if (key && value) out[key] = value;
+      if (value) {
+        out[key] = value;
+      } else {
+        // Explicit opt-out of a platform default.
+        delete out[key];
+      }
     }
     return out;
   }
