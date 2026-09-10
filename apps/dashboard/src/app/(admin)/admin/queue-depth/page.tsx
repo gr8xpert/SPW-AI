@@ -44,9 +44,14 @@ export default function QueueDepthPage() {
     }
   };
 
+  // Wait for the session to hydrate before firing. With `[]` deps and no guard
+  // this ran on mount, before `useApi` had an access token, so the request went
+  // out with no Authorization header and 401'd — and never re-ran once the token
+  // arrived. Gating on `api.isReady` re-runs the effect at hydration.
   useEffect(() => {
+    if (!api.isReady) return;
     void load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusClass = (s: QueueRow['status']) =>
     s === 'critical'

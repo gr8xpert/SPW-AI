@@ -160,7 +160,13 @@ export default function AdminTicketDetailPage() {
 
   const ticketId = params.id;
 
-  const fetchTicket = useCallback(async () => {
+  // These are deliberately NOT wrapped in useCallback. `useApi()` returns a new
+  // object each render whose request closure captures the access token as it was
+  // at that render. Freezing them with deps that omit `api` pinned them to the
+  // first render — before the session hydrates — so every call went out with no
+  // Authorization header and 401'd, even though the effect below waits for
+  // `api.isReady`. Same bug that made the Locations page show "Failed to load".
+  const fetchTicket = async () => {
     try {
       const res = await api.get(`/api/super-admin/tickets/${ticketId}`);
       const body = res?.data || res;
@@ -170,9 +176,9 @@ export default function AdminTicketDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
-  const fetchWebmasters = useCallback(async () => {
+  const fetchWebmasters = async () => {
     try {
       const res = await api.get('/api/super-admin/webmasters');
       const body = res?.data || res;
@@ -180,9 +186,9 @@ export default function AdminTicketDetailPage() {
     } catch {
       // non-critical
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
-  const fetchTimeEntries = useCallback(async () => {
+  const fetchTimeEntries = async () => {
     try {
       const res = await api.get(`/api/super-admin/webmasters/tickets/${ticketId}/time-entries`);
       const body = res?.data || res;
@@ -190,7 +196,7 @@ export default function AdminTicketDetailPage() {
     } catch {
       // non-critical
     }
-  }, [ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   useEffect(() => {
     if (api.isReady && ticketId) {

@@ -170,10 +170,17 @@ export default function LocationsPage() {
     }
   };
 
-  // Silent retry on first failure — hard-refresh hits this page before the
-  // auth/tenant context is fully hydrated about 1 in 5 times; one retry
-  // after 800ms is enough to get past the race without a noisy toast.
-  const fetchLocations = useCallback(async (retriesLeft = 1) => {
+  // NOT wrapped in useCallback. `useApi()` returns a fresh object each render,
+  // and its request closure captures the access token as it was at that render.
+  // Freezing this function with `useCallback(..., [])` pinned it to the very
+  // first render — before the session hydrates — so every call went out with no
+  // Authorization header and 401'd, even though the effect below waits for
+  // `api.isReady`. A plain function re-closes over the current `api` each
+  // render, which is what every other page here does.
+  //
+  // The retry stays for genuinely transient failures, but note it can only help
+  // now that the closure is live — through a frozen one it just failed twice.
+  const fetchLocations = async (retriesLeft = 1) => {
     try {
       const res = await api.get('/api/dashboard/locations/tree?includeInactive=true');
       const data: Location[] = res?.data || [];
@@ -197,7 +204,7 @@ export default function LocationsPage() {
       }
       toast({ title: 'Failed to load locations', variant: 'destructive' });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   useEffect(() => {
     if (!api.isReady) return;

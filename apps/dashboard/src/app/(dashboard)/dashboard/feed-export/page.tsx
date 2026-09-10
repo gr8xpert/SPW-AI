@@ -112,7 +112,15 @@ function FeedExportPageInner() {
     }
   };
 
-  useEffect(() => { fetchConfig(); fetchLogs(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Wait for the session to hydrate before firing. With `[]` deps and no guard
+  // these ran on mount, before `useApi` had an access token, so both requests
+  // went out with no Authorization header and 401'd — and never re-ran once the
+  // token arrived. Gating on `api.isReady` re-runs the effect at hydration.
+  useEffect(() => {
+    if (!api.isReady) return;
+    fetchConfig();
+    fetchLogs();
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveSettings = async () => {
     try {
