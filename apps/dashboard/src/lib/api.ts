@@ -1,5 +1,6 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
+import { getImpersonationSession } from './impersonation';
 
 export interface ApiResponse<T> {
   data: T;
@@ -15,13 +16,61 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Cached NextAuth access token.
+//
+// `getSession()` is NOT a local read — it performs an HTTP round-trip to
+// /api/auth/session. Calling it inside the request interceptor meant every
+// single API call cost two round-trips, and a page firing five parallel
+// requests made five redundant session calls. We cache the token instead and
+// treat a 401 as the invalidation signal (see the response interceptor).
+//
+// `AuthTokenSync` (mounted in providers.tsx) pushes the token in as soon as
+// SessionProvider has it, so the common path never calls getSession() at all.
+// The lazy fetch below only runs when a request beats the provider — e.g. a
+// module-scope call during a hard page load.
+let cachedAccessToken: string | null = null;
+let inFlightSessionFetch: Promise<string | null> | null = null;
+
+/** Push the current NextAuth access token into the cache. */
+export function primeAuthToken(token: string | null): void {
+  cachedAccessToken = token;
+}
+
+/** Drop the cached token so the next request re-reads the session. */
+export function clearAuthToken(): void {
+  cachedAccessToken = null;
+}
+
+// Concurrent cold-start requests share one in-flight getSession() rather than
+// each firing their own.
+async function resolveSessionToken(): Promise<string | null> {
+  if (cachedAccessToken) return cachedAccessToken;
+  if (!inFlightSessionFetch) {
+    inFlightSessionFetch = getSession()
+      .then((session) => {
+        cachedAccessToken = session?.accessToken ?? null;
+        return cachedAccessToken;
+      })
+      .finally(() => {
+        inFlightSessionFetch = null;
+      });
+  }
+  return inFlightSessionFetch;
+}
+
+// Request interceptor to add auth token.
+//
+// Impersonation wins over the NextAuth token, matching `useApi`'s precedence —
+// without this, a super-admin acting as a client would hit these endpoints with
+// their own super-admin token and see the wrong tenant's data. The read is a
+// synchronous localStorage lookup, so it adds no latency.
 api.interceptors.request.use(
   async (config) => {
     if (typeof window !== 'undefined') {
-      const session = await getSession();
-      if (session?.accessToken) {
-        config.headers.Authorization = `Bearer ${session.accessToken}`;
+      const impersonationToken = getImpersonationSession()?.accessToken;
+      const token = impersonationToken ?? (await resolveSessionToken());
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;
@@ -29,16 +78,52 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors.
+//
+// A 401 means the cached token is stale (NextAuth rotated it) or the session is
+// genuinely gone. Retry once with a freshly-fetched token before signing out —
+// otherwise a routine token rotation would bounce the user to /login. Mirrors
+// the retry-then-signOut behaviour in `useApi`.
+//
+// Impersonation tokens are deliberately excluded: they cannot be refreshed via
+// NextAuth, and signing out here would kill the super-admin's real session.
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid, sign out
-      if (typeof window !== 'undefined') {
+    const original = error.config as
+      | (InternalAxiosRequestConfig & { _authRetry?: boolean })
+      | undefined;
+
+    const isAuthFailure =
+      error.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      !getImpersonationSession();
+
+    if (isAuthFailure && original) {
+      // Second 401 on the same request — the refreshed token didn't help, so
+      // the session is unrecoverable.
+      if (original._authRetry) {
+        clearAuthToken();
         await signOut({ callbackUrl: '/login' });
+        return Promise.reject(error);
       }
+
+      const staleToken = cachedAccessToken;
+      clearAuthToken();
+      const freshToken = await resolveSessionToken();
+
+      // Only worth retrying if the session actually handed us a different
+      // token. An identical (or absent) one means this 401 is real, not a
+      // rotation we missed — sign out rather than replay the same request.
+      if (freshToken && freshToken !== staleToken) {
+        original._authRetry = true;
+        original.headers.Authorization = `Bearer ${freshToken}`;
+        return api.request(original);
+      }
+
+      await signOut({ callbackUrl: '/login' });
     }
+
     return Promise.reject(error);
   }
 );

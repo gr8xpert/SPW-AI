@@ -53,7 +53,14 @@ graphify-out/
 # One-off PHP ops scripts must never be committed — use `pnpm pm2:*` over SSH instead.
 # They previously leaked admin credentials and ran unauthenticated on the public webroot.
 # (Includes archived installer step*.php scripts which prompt for DB/JWT secrets.)
+#
+# Default-deny, with one explicit exception: the V2 WordPress plugin is a
+# shipping product and MUST be tracked. A blanket `*.php` used to swallow it
+# too, so the repo held the dead V1 plugin and not the live one. Keep the
+# negation below whenever you touch these rules.
 *.php
+!apps/wordpress-plugin/**/*.php
+!packages/wp-plugin/**/*.php
 
 # Per-user Claude Code settings (project-level settings.json is fine to share)
 .claude/settings.local.json

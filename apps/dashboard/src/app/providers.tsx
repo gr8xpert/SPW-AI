@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { MotionProvider } from '@/components/providers/reduced-motion';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
+import { AuthTokenSync } from '@/components/providers/auth-token-sync';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,6 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
+      <AuthTokenSync />
       <QueryClientProvider client={queryClient}>
         <MotionProvider>
           <NavigationProgress />

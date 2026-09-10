@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Build-time only. The dashboard's `next build` needs these three to be
+      # present or it fails at page-data collection. They are throwaway values —
+      # CI never talks to a real API or issues a real session. Production values
+      # are injected at deploy time (see DEPLOYMENT.md); never add real secrets
+      # here.
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      API_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ci-placeholder-not-a-real-secret
+      NEXTAUTH_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Puppeteer ships a ~170 MB Chromium the brochure module only needs at
+      # runtime. CI never renders a PDF, so skip the download — it is the single
+      # slowest part of a cold install.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # `test` dependsOn `build` in turbo.json, so this also proves the API,
+      # dashboard, and widget all still build.
+      - name: Test
+        run: pnpm test
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Advisory only: a new upstream CVE should surface in the PR without
+    # blocking an unrelated hotfix. Review the annotation, don't ignore it.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Audit (high and critical)
+        run: pnpm audit --audit-level high
