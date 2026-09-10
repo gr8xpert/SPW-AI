@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import axios from 'axios';
 import {
   Location,
@@ -9,13 +9,21 @@ import {
   FeatureCategory,
 } from '../../database/entities';
 import { AiService, ENRICHMENT_MODEL } from '../ai/ai.service';
+import { LocationService } from '../location/location.service';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Result counters surfaced back to the dashboard so users can see what AI
 // did on a given run.
 export interface EnrichmentResult {
-  locations: { regionsCreated: number; provincesAttached: number; skipped: number };
+  locations: {
+    regionsCreated: number;
+    provincesAttached: number;
+    skipped: number;
+    // Duplicate area nodes folded into their canonical province (e.g. a second
+    // "Costa del Sol" imported under Cádiz merged into the Málaga one).
+    areasMerged: number;
+  };
   propertyTypes: { parentsCreated: number; childrenAttached: number; skipped: number };
   features: { recategorised: number; skipped: number };
   errors: string[];
@@ -33,6 +41,10 @@ export class AiEnrichmentService {
     @InjectRepository(Feature)
     private featureRepository: Repository<Feature>,
     private readonly aiService: AiService,
+    // Reused for its merge semantics: bulkMove folds a moved node into a
+    // same-slug sibling under the target parent, carrying properties and
+    // children across. Reimplementing that here would duplicate the recursion.
+    private readonly locationService: LocationService,
   ) {}
 
   // Runs all three enrichments in sequence. Each is idempotent — rows the
@@ -40,7 +52,7 @@ export class AiEnrichmentService {
   // stay untouched. AI-set rows can be re-evaluated freely.
   async enrichAll(tenantId: number): Promise<EnrichmentResult> {
     const result: EnrichmentResult = {
-      locations: { regionsCreated: 0, provincesAttached: 0, skipped: 0 },
+      locations: { regionsCreated: 0, provincesAttached: 0, skipped: 0, areasMerged: 0 },
       propertyTypes: { parentsCreated: 0, childrenAttached: 0, skipped: 0 },
       features: { recategorised: 0, skipped: 0 },
       errors: [],
@@ -74,17 +86,23 @@ export class AiEnrichmentService {
   // send region — AI maps province → autonomous community based on geographic
   // knowledge.
   async enrichLocations(tenantId: number): Promise<EnrichmentResult['locations']> {
+    // Runs first and independently of the region pass below: a tenant can have
+    // duplicate areas without having any orphan provinces, and vice versa.
+    const areasMerged = await this.mergeDuplicateAreas(tenantId);
+
     const orphanProvinces = await this.locationRepository.find({
       where: { tenantId, level: 'province', parentId: IsNull() },
     });
 
     if (orphanProvinces.length === 0) {
-      return { regionsCreated: 0, provincesAttached: 0, skipped: 0 };
+      return { regionsCreated: 0, provincesAttached: 0, skipped: 0, areasMerged };
     }
 
     const provinceNames = orphanProvinces.map((p) => p.name?.en || '').filter(Boolean);
     const mapping = await this.askAiForRegions(tenantId, provinceNames);
-    if (!mapping) return { regionsCreated: 0, provincesAttached: 0, skipped: orphanProvinces.length };
+    if (!mapping) {
+      return { regionsCreated: 0, provincesAttached: 0, skipped: orphanProvinces.length, areasMerged };
+    }
 
     let regionsCreated = 0;
     let provincesAttached = 0;
@@ -131,7 +149,97 @@ export class AiEnrichmentService {
       provincesAttached++;
     }
 
-    return { regionsCreated, provincesAttached, skipped };
+    return { regionsCreated, provincesAttached, skipped, areasMerged };
+  }
+
+  // Folds duplicate area nodes into one canonical parent.
+  //
+  // Feeds describe each property's hierarchy on its own row and send no ID for
+  // Province/Area, so a single property claiming `Cádiz / Costa del Sol`
+  // creates a second "Costa del Sol" next to the real one under Málaga. The
+  // static DEFAULT_AREA_PROVINCE map in @spm/shared prevents this for the
+  // Spanish costas we know; this pass is the general case — it catches areas
+  // that map doesn't cover, and works for any country a future client imports
+  // from, because the geography comes from the model rather than a hardcoded
+  // list.
+  //
+  // Deliberately only acts on DUPLICATES. A single misparented area produces no
+  // visible symptom and gives us no signal to judge against, so guessing there
+  // would risk moving correct data.
+  private async mergeDuplicateAreas(tenantId: number): Promise<number> {
+    const areas = await this.locationRepository.find({
+      where: { tenantId, level: 'area' },
+    });
+    if (areas.length < 2) return 0;
+
+    // Group by slug; only slugs appearing under 2+ distinct parents are suspect.
+    const bySlug = new Map<string, Location[]>();
+    for (const area of areas) {
+      if (!area.slug) continue;
+      const list = bySlug.get(area.slug) || [];
+      list.push(area);
+      bySlug.set(area.slug, list);
+    }
+
+    const duplicates = [...bySlug.values()].filter((list) => {
+      const parents = new Set(list.map((a) => a.parentId));
+      return list.length > 1 && parents.size > 1;
+    });
+    if (duplicates.length === 0) return 0;
+
+    // Build "<Area>": ["<Province A>", "<Province B>"] for the prompt.
+    const provinceIds = new Set<number>();
+    for (const list of duplicates) {
+      for (const a of list) if (a.parentId != null) provinceIds.add(a.parentId);
+    }
+    const provinces = provinceIds.size
+      ? await this.locationRepository.find({ where: { tenantId, id: In([...provinceIds]) } })
+      : [];
+    const provinceNameById = new Map(provinces.map((p) => [p.id, p.name?.en || '']));
+
+    const question: Record<string, string[]> = {};
+    for (const list of duplicates) {
+      const areaName = list[0].name?.en || '';
+      if (!areaName) continue;
+      const options = list
+        .map((a) => (a.parentId != null ? provinceNameById.get(a.parentId) || '' : ''))
+        .filter(Boolean);
+      if (options.length > 1) question[areaName] = options;
+    }
+    if (Object.keys(question).length === 0) return 0;
+
+    const verdict = await this.askAiForCanonicalAreaProvince(tenantId, question);
+    if (!verdict) return 0;
+
+    let merged = 0;
+    for (const list of duplicates) {
+      const areaName = list[0].name?.en || '';
+      const canonicalProvince = verdict[areaName];
+      // AI omits (or returns empty for) areas that legitimately span provinces
+      // — Costa de la Luz covers both Huelva and Cádiz. Leave those alone.
+      if (!canonicalProvince) continue;
+
+      const keeper = list.find(
+        (a) =>
+          a.parentId != null &&
+          (provinceNameById.get(a.parentId) || '').toLowerCase() ===
+            canonicalProvince.toLowerCase(),
+      );
+      // The model named a province none of the duplicates actually sit under —
+      // don't invent a node for it, just skip.
+      if (!keeper || keeper.parentId == null) continue;
+
+      const losers = list.filter((a) => a.id !== keeper.id).map((a) => a.id);
+      if (losers.length === 0) continue;
+
+      // bulkMove folds each loser into the same-slug sibling under the target
+      // parent, moving its properties and children across and deleting the
+      // emptied node.
+      const result = await this.locationService.bulkMove(tenantId, losers, keeper.parentId);
+      merged += result.merged;
+    }
+
+    return merged;
   }
 
   // Groups obvious property-type subtypes under broader parents
@@ -248,6 +356,34 @@ Reply ONLY with valid JSON in this exact shape (no markdown, no commentary):
 { "<ProvinceName>": "<AutonomousCommunityName>", ... }
 
 Use the Spanish name for the community (e.g. "Andalucía", "Comunidad de Madrid", "Cataluña"). If a name is not a Spanish province, omit it from the output.`;
+
+    return this.callOpenRouterJson(tenantId, prompt);
+  }
+
+  // Asks which province an area really belongs to when the feed has filed it
+  // under several. Must be allowed to answer "neither" — some areas genuinely
+  // span provinces, and a forced pick there would misfile real properties.
+  private async askAiForCanonicalAreaProvince(
+    tenantId: number,
+    candidates: Record<string, string[]>,
+  ): Promise<Record<string, string> | null> {
+    const lines = Object.entries(candidates)
+      .map(([area, provinces]) => `- "${area}": currently filed under ${provinces.map((p) => `"${p}"`).join(' and ')}`)
+      .join('\n');
+
+    const prompt = `Each real-estate AREA below has been imported under more than one PROVINCE, which usually means the property feed mislabelled some listings. For each area, decide which ONE province it canonically belongs to.
+
+${lines}
+
+Rules:
+- Answer with one of the provinces listed for that area. Do not invent a different province.
+- If the area GENUINELY spans more than one of the listed provinces (for example a coastline crossing a provincial border), OMIT that area from your answer entirely. Do not guess.
+- Judge by real geography, not by which name appears first.
+
+Reply ONLY with valid JSON (no markdown, no commentary):
+{ "<AreaName>": "<ProvinceName>", ... }
+
+Return {} if none of them can be resolved confidently.`;
 
     return this.callOpenRouterJson(tenantId, prompt);
   }

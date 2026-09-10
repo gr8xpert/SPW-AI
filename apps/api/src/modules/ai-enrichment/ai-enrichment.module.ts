@@ -4,11 +4,16 @@ import { Location, PropertyType, Feature } from '../../database/entities';
 import { AiEnrichmentService } from './ai-enrichment.service';
 import { AiEnrichmentController } from './ai-enrichment.controller';
 import { AiModule } from '../ai/ai.module';
+import { LocationModule } from '../location/location.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Location, PropertyType, Feature]),
     AiModule,
+    // For LocationService.bulkMove, used to fold duplicate area nodes together.
+    // One-directional: LocationModule does not depend on AiEnrichmentModule,
+    // so no forwardRef is needed.
+    LocationModule,
   ],
   controllers: [AiEnrichmentController],
   providers: [AiEnrichmentService],

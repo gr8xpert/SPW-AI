@@ -157,7 +157,12 @@ export default function LocationsPage() {
       if (r) {
         toast({
           title: 'AI organize complete',
-          description: `+${r.regionsCreated} regions, ${r.provincesAttached} provinces grouped, ${r.skipped} skipped`,
+          // areasMerged is optional so an older API build (which doesn't send
+          // it) still renders a sensible message instead of "undefined".
+          description:
+            `+${r.regionsCreated} regions, ${r.provincesAttached} provinces grouped` +
+            (r.areasMerged ? `, ${r.areasMerged} duplicate areas merged` : '') +
+            `, ${r.skipped} skipped`,
         });
       } else {
         toast({ title: 'AI organize finished', description: 'No changes needed' });
