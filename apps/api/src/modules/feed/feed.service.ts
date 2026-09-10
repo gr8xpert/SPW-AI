@@ -457,6 +457,17 @@ export class FeedService {
     const adapter = this.getAdapter(config.provider);
     const errors: ImportError[] = [];
 
+    // Canonical Area → Province map, read once per run rather than per property.
+    // Keys are area slugs, values province names — see TenantSettings
+    // .locationAreaProvince for why this exists.
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: config.tenantId },
+      select: ['id', 'settings'],
+    });
+    const areaProvinceOverrides = this.normalizeAreaProvinceOverrides(
+      tenant?.settings?.locationAreaProvince,
+    );
+
     let totalFetched = 0;
     let createdCount = 0;
     let updatedCount = 0;
@@ -479,6 +490,7 @@ export class FeedService {
               feedProperty,
               config.fieldMapping,
               config.protectedFields || [],
+              areaProvinceOverrides,
             );
 
             if (outcome === 'created') {
@@ -581,6 +593,7 @@ export class FeedService {
     feedProperty: FeedProperty,
     fieldMapping: any,
     feedProtectedFields: string[] = [],
+    areaProvinceOverrides: Record<string, string> = {},
   ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -646,12 +659,12 @@ export class FeedService {
         // dataChanged covers location via the full propertyData block below.
         // This branch only fires when feed content is unchanged but the row lost
         // its locationId (e.g. after a wipe-and-sync).
-        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
         if (locationId !== null) updateData.locationId = locationId;
       }
 
       if (dataChanged) {
-        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
         const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
         const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
@@ -717,7 +730,7 @@ export class FeedService {
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {
-      const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location);
+      const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
       const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
       const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
@@ -897,6 +910,25 @@ export class FeedService {
     return result;
   }
 
+  // Normalizes the raw `locationAreaProvince` setting into a lookup keyed by
+  // area slug. Operators type area names however they like ("Costa Del Sol",
+  // "costa-del-sol", " Costa del Sol "), so keys are re-slugified here and
+  // matched against the slugified area from the feed. Non-string or empty
+  // entries are dropped rather than allowed to blank out a province.
+  private normalizeAreaProvinceOverrides(
+    raw: Record<string, string> | undefined,
+  ): Record<string, string> {
+    if (!raw || typeof raw !== 'object') return {};
+    const out: Record<string, string> = {};
+    for (const [area, province] of Object.entries(raw)) {
+      if (typeof province !== 'string') continue;
+      const key = this.slugify(String(area));
+      const value = province.trim();
+      if (key && value) out[key] = value;
+    }
+    return out;
+  }
+
   // Builds (or attaches) a Region → Province → Area → Municipality → Town →
   // Urbanization chain. Returns the leaf id (deepest available level).
   // Region and Urbanization are usually absent in feeds — AI enrichment fills
@@ -906,10 +938,22 @@ export class FeedService {
   private async findOrCreateLocation(
     tenantId: number,
     location: FeedProperty['location'],
+    // Canonical area-slug → province-name map from tenant settings. Passed in
+    // rather than fetched here because this runs once per imported property.
+    areaProvinceOverrides: Record<string, string> = {},
   ): Promise<number | null> {
     const region = (location.region || '').trim();
-    const province = (location.province || '').trim();
     const area = (location.area || '').trim();
+
+    // Feeds describe the hierarchy per property, and Resales sends no ID for
+    // Province/Area — only names. A single row saying `Cádiz / Costa del Sol`
+    // therefore creates a second "Costa del Sol" under Cádiz next to the real
+    // one under Málaga, which then shows up twice in the tree and in widget
+    // dropdowns. Rewriting the province here pins the area to one canonical
+    // parent regardless of what an individual property claims.
+    // Areas with no entry in the map are left exactly as the feed sent them.
+    const overrideProvince = area ? areaProvinceOverrides[this.slugify(area)] : undefined;
+    const province = (overrideProvince || location.province || '').trim();
     const municipality = (location.municipality || '').trim();
     const town = (location.town || '').trim();
     const urbanization = (location.urbanization || '').trim();

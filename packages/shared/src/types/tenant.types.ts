@@ -59,6 +59,27 @@ export interface TenantSettings {
   defaultLanguage: string;
   timezone: string;
 
+  /**
+   * Canonical Area → Province overrides for feed import, keyed by area slug.
+   *
+   *   { "costa-del-sol": "Málaga" }
+   *
+   * Feeds describe a property's hierarchy per-row, and Resales sends no ID for
+   * Province/Area/SubLocation — only names. So one property carrying
+   * `Province: "Cádiz", Area: "Costa del Sol"` is enough to create a second
+   * "Costa del Sol" node under Cádiz, alongside the real one under Málaga.
+   * The result is duplicate entries in the tree and in widget dropdowns.
+   *
+   * An entry here rewrites the province for that area before the chain is
+   * built, so the area always lands under one canonical parent no matter what
+   * an individual property claims. Unlisted areas are untouched — this only
+   * changes hierarchies you have explicitly mapped.
+   *
+   * Value is the province *name* (not slug) so the province node can be created
+   * with correct display text and accents if it doesn't exist yet.
+   */
+  locationAreaProvince?: Record<string, string>;
+
   // Widget Config
   enableMapView?: boolean;
   enableCurrencyConverter?: boolean;
