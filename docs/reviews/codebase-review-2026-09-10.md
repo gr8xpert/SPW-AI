@@ -1,7 +1,12 @@
 # SPW Codebase Review — 2026-09-10
 
 Scope: full monorepo (`apps/api`, `apps/dashboard`, `apps/widget`, `apps/wordpress-plugin`, `packages/*`).
-~83k LOC TypeScript + 15 PHP files. Review only — **no code changed**.
+~83k LOC TypeScript + 15 PHP files.
+
+> **Status — items 1, 2, 3, 6 of the suggested order are done** (commit `e43ab83`).
+> Fixed: WP plugin now tracked + stray ops scripts deleted (§1, §2), CI added (§3),
+> multer 2.3.0 and next 14.2.35 (§10), dashboard auth-token caching (§6).
+> Everything else below is still open.
 
 ---
 
