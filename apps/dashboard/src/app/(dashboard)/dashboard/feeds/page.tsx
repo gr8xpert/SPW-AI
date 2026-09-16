@@ -60,6 +60,7 @@ import {
   Eraser,
   FlaskConical,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -75,6 +76,7 @@ interface FeedConfig {
   nextSyncAt: string | null;
   credentials?: Record<string, string>;
   protectedFields?: string[] | null;
+  markAsFeatured?: boolean;
 }
 
 // Field names must match Property entity keys (see FEED_MANAGED_FIELDS in
@@ -131,6 +133,7 @@ const emptyForm = {
   endpoint: '',
   syncSchedule: '0 6 * * *',
   protectedFields: [] as string[],
+  markAsFeatured: false,
 };
 
 function formatDate(d: string): string {
@@ -226,6 +229,7 @@ export default function FeedsPage() {
         },
         syncSchedule: form.syncSchedule || '0 6 * * *',
         protectedFields: form.protectedFields,
+        markAsFeatured: form.markAsFeatured,
         isActive: true,
       });
       toast({ title: 'Feed source created' });
@@ -253,6 +257,7 @@ export default function FeedsPage() {
         },
         syncSchedule: form.syncSchedule || '0 6 * * *',
         protectedFields: form.protectedFields,
+        markAsFeatured: form.markAsFeatured,
       });
       toast({ title: 'Feed source updated' });
       setIsEditOpen(false);
@@ -348,6 +353,7 @@ export default function FeedsPage() {
       endpoint: feed.credentials?.endpoint || '',
       syncSchedule: feed.syncSchedule || '0 6 * * *',
       protectedFields: feed.protectedFields || [],
+      markAsFeatured: feed.markAsFeatured === true,
     });
     setIsEditOpen(true);
   };
@@ -434,6 +440,21 @@ export default function FeedsPage() {
         <Label>Sync Schedule (cron)</Label>
         <Input placeholder="0 6 * * *" value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />
         <p className="text-xs text-muted-foreground">Default: daily at 6 AM</p>
+      </div>
+      <div className="flex items-start justify-between gap-4 border-t pt-4">
+        <div className="space-y-1">
+          <Label htmlFor="feed-mark-featured">Mark imported properties as Featured</Label>
+          <p className="text-xs text-muted-foreground">
+            For a feed that is your featured list (e.g. a Resales filter of featured listings).
+            Properties are flagged Featured on sync and unflagged when they leave this feed.
+            Featured flags you set or clear by hand are left alone.
+          </p>
+        </div>
+        <Switch
+          id="feed-mark-featured"
+          checked={form.markAsFeatured}
+          onCheckedChange={(v) => setForm({ ...form, markAsFeatured: v })}
+        />
       </div>
       <div className="space-y-2 border-t pt-4">
         <Label>Protected Fields</Label>
@@ -622,6 +643,13 @@ export default function FeedsPage() {
                       </Badge>
                     )}
                   </div>
+
+                  {feed.markAsFeatured && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Imports as</span>
+                      <Badge variant="outline">Featured</Badge>
+                    </div>
+                  )}
 
                   {isSyncing && (
                     <div className="flex items-center justify-between">

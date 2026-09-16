@@ -65,6 +65,12 @@ export class FeedConfig {
   @Column({ type: 'json', nullable: true })
   protectedFields: string[] | null;
 
+  // Everything this feed imports is flagged isFeatured, and unflagged again
+  // when it leaves the feed. For a Resales filter the agency curates as its
+  // featured list.
+  @Column({ default: false })
+  markAsFeatured: boolean;
+
   @Column({ length: 50, default: '0 2 * * *' })
   syncSchedule: string;
 

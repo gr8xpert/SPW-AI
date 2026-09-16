@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { createHash } from 'crypto';
@@ -183,14 +183,51 @@ export class FeedService {
       });
     }
 
+    const featuredSwitchedOff = config.markAsFeatured && dto.markAsFeatured === false;
+
     Object.assign(config, dto);
     const saved = await this.feedConfigRepository.save(config);
+
+    if (featuredSwitchedOff) {
+      await this.releaseFeaturedFlags(tenantId, id);
+    }
     return maskedFeedConfig(saved);
   }
 
   async deleteConfig(tenantId: number, id: number): Promise<void> {
     const config = await this.findConfigById(tenantId, id);
+    await this.releaseFeaturedFlags(tenantId, id);
     await this.feedConfigRepository.remove(config);
+  }
+
+  // Unfeatures every listing a markAsFeatured feed flagged. `onlyIds` narrows
+  // it to listings that left the feed; omitted, it releases all of them (the
+  // option was switched off or the feed deleted). Hand-set featured flags
+  // (featuredByFeedId NULL) are never touched.
+  private async releaseFeaturedFlags(
+    tenantId: number,
+    feedConfigId: number,
+    onlyIds?: number[],
+  ): Promise<number> {
+    if (onlyIds && onlyIds.length === 0) return 0;
+    let released = 0;
+    const ids = onlyIds ?? null;
+    const chunks: Array<number[] | null> = [];
+    if (ids) {
+      for (let i = 0; i < ids.length; i += 500) chunks.push(ids.slice(i, i + 500));
+    } else {
+      chunks.push(null);
+    }
+    for (const chunk of chunks) {
+      const where: any = { tenantId, featuredByFeedId: feedConfigId };
+      if (chunk) where.id = In(chunk);
+      const res = await this.propertyRepository.update(where, {
+        isFeatured: false,
+        featuredByFeedId: null,
+      });
+      released += res.affected ?? 0;
+    }
+    return released;
   }
 
   // `scheduledWindow` is supplied by the scheduler (hour bucket like 2026051310).
@@ -475,6 +512,9 @@ export class FeedService {
     let skippedCount = 0;
     let page = 1;
     let hasMore = true;
+    // Every listing the feed returned this run — a markAsFeatured feed
+    // unfeatures whatever it flagged earlier that isn't in here.
+    const seenExternalIds = new Set<string>();
 
     try {
       while (hasMore) {
@@ -483,6 +523,7 @@ export class FeedService {
         totalFetched += result.properties.length;
 
         for (const feedProperty of result.properties) {
+          seenExternalIds.add(String(feedProperty.externalId));
           try {
             const outcome = await this.importProperty(
               config.tenantId,
@@ -492,6 +533,7 @@ export class FeedService {
               config.fieldMapping,
               config.protectedFields || [],
               areaProvinceOverrides,
+              config.markAsFeatured === true,
             );
 
             if (outcome === 'created') {
@@ -519,6 +561,27 @@ export class FeedService {
 
         hasMore = result.hasMore;
         page++;
+      }
+
+      // Only after the whole feed was paged through: a run that died half way
+      // would otherwise unfeature everything on the pages it never reached.
+      // An empty result is treated the same way — more likely an API hiccup
+      // than the agency emptying its featured list.
+      if (config.markAsFeatured && totalFetched > 0) {
+        const flagged = await this.propertyRepository.find({
+          where: { tenantId: config.tenantId, featuredByFeedId: config.id },
+          select: ['id', 'externalId'],
+        });
+        const departed = flagged
+          .filter((p) => !seenExternalIds.has(String(p.externalId)))
+          .map((p) => p.id);
+        const released = await this.releaseFeaturedFlags(config.tenantId, config.id, departed);
+        if (released > 0) {
+          updatedCount += released;
+          this.logger.log(
+            `Unfeatured ${released} properties no longer in featured feed ${config.id} (tenant=${config.tenantId})`,
+          );
+        }
       }
 
       importLog.status = errors.length > 0 ? 'partial' : 'success';
@@ -595,6 +658,7 @@ export class FeedService {
     fieldMapping: any,
     feedProtectedFields: string[] = [],
     areaProvinceOverrides: Record<string, string> = {},
+    markAsFeatured = false,
   ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -627,8 +691,17 @@ export class FeedService {
         feedProperty.location.urbanization
       );
       const missingLocation = !existing.locationId && hasIncomingLocation;
+      // Claim only listings nobody has featured or unfeatured yet: a marker
+      // left with isFeatured=false means a user switched it off by hand, and an
+      // already-featured listing without a marker was featured by hand.
+      const claimFeatured =
+        markAsFeatured &&
+        !existing.isFeatured &&
+        existing.featuredByFeedId == null &&
+        !feedProtectedFields.includes('isFeatured') &&
+        !(existing.lockedFields || []).includes('isFeatured');
 
-      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured) return 'skipped';
 
       // Per-property locks (user-edited fields) merged with per-feed protected
       // fields (tenant-wide setting on FeedConfig). Union wins: any field named
@@ -637,6 +710,11 @@ export class FeedService {
         new Set([...(existing.lockedFields || []), ...feedProtectedFields]),
       );
       const updateData: Partial<Property> = {};
+
+      if (claimFeatured) {
+        updateData.isFeatured = true;
+        updateData.featuredByFeedId = feedConfigId;
+      }
 
       if (promoteFromDraft && !lockedFields.includes('status')) {
         updateData.status = 'active';
@@ -779,6 +857,8 @@ export class FeedService {
         status: 'active',
         isPublished: true,
         publishedAt: new Date(),
+        isFeatured: markAsFeatured,
+        featuredByFeedId: markAsFeatured ? feedConfigId : null,
       });
 
       await this.propertyRepository.save(newProperty);

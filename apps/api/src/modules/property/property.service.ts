@@ -248,6 +248,13 @@ export class PropertyService {
       }
     }
 
+    // Featuring a listing by hand takes it out of any featured feed's hands,
+    // so that feed won't unfeature it when the listing leaves its results.
+    // Unfeaturing keeps the marker: it stops the next sync re-featuring it.
+    if (updateData.isFeatured === true && !property.isFeatured) {
+      property.featuredByFeedId = null;
+    }
+
     Object.assign(property, updateData);
 
     if (userId) {

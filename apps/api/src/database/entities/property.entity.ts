@@ -322,6 +322,14 @@ export class Property {
   @Column({ default: false })
   isFeatured: boolean;
 
+  // Set when a feed with markAsFeatured flagged this property, so that feed can
+  // unfeature it again once the listing drops out of its results. NULL means
+  // the featured flag (if any) was set by hand and no feed may clear it.
+  // Kept at the feed's id while isFeatured=false when a user unfeatured it —
+  // that marker stops the next sync from re-featuring it.
+  @Column({ type: 'int', nullable: true })
+  featuredByFeedId: number | null;
+
   @Column({ default: false })
   isPublished: boolean;
 
