@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,11 @@ export default function XeroSyncPage() {
   const [status, setStatus] = useState<string>('all');
   const [retrying, setRetrying] = useState<number | null>(null);
 
-  const fetchLogs = useCallback(async () => {
+  // Plain function, not useCallback. Wrapping it froze the closure on the
+  // first render — before the session hydrates — so the request went out with
+  // no Authorization header and 401'd every time, leaving the table
+  // permanently empty. Same trap as the locations page.
+  const fetchLogs = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -77,15 +81,16 @@ export default function XeroSyncPage() {
       setRows((body as XeroLogList).data ?? []);
     } catch (err) {
       console.error('Failed to load Xero sync log', err);
+      toast({ title: 'Failed to load Xero sync log', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  };
 
   useEffect(() => {
+    if (!api.isReady) return;
     fetchLogs();
-  }, [fetchLogs]);
+  }, [api.isReady, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRetry = async (id: number) => {
     setRetrying(id);

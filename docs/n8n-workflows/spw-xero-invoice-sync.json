@@ -1,0 +1,167 @@
+{
+  "name": "SPW Xero Invoice Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "xero-invoice",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000001",
+      "name": "Webhook: SPM Enqueue",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-160, 0],
+      "webhookId": "b2000000-0000-0000-0000-000000000001"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Manual Bearer check so the workflow imports without needing a credential.\n// Replace REPLACE_WITH_XERO_N8N_SECRET with the same value you set as\n// XERO_N8N_SECRET in the SPM prod .env.\nconst SECRET = 'REPLACE_WITH_XERO_N8N_SECRET';\n\nconst headers = $input.item.json.headers || {};\nconst auth = headers.authorization || headers.Authorization || '';\n\nif (auth !== `Bearer ${SECRET}`) {\n  throw new Error('Unauthorized: bad or missing Bearer token');\n}\n\n// Pass through the body so downstream nodes see it as $json.\nreturn { json: $input.item.json.body || {} };\n"
+      },
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "Verify Bearer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://api.xero.com/connections",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "Get Xero Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0],
+      "notes": "Resolves which Xero org the OAuth2 credential is connected to. Every Xero API call needs the resulting tenantId as the Xero-tenant-Id header."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── EDIT THESE FOUR, THEN NOTHING ELSE IN THIS WORKFLOW ──────────────\n//\n// ACCOUNT_CODE   Chart-of-accounts code the support revenue posts to.\n//                Xero: Accounting → Chart of Accounts → the Code column.\n// TAX_TYPE       Tax rate to apply. Xero: Accounting → Advanced → Tax Rates.\n//                Common: 'NONE' (no tax), 'OUTPUT2' (UK 20%),\n//                'ZERORATEDEUSERVICES' (EU B2B reverse charge).\n// LINE_AMOUNTS   'Inclusive' if the Stripe amount already contains tax\n//                (usually true), 'Exclusive' if tax should be added on top.\n// ORG_NAME       Leave '' to use the first connected org. Set it only if the\n//                credential is connected to more than one Xero org.\n//\nconst ACCOUNT_CODE = '200';\nconst TAX_TYPE = 'NONE';\nconst LINE_AMOUNTS = 'Inclusive';\nconst ORG_NAME = '';\n// ─────────────────────────────────────────────────────────────────────\n\nconst spm = $('Verify Bearer').first().json;\n\n// /connections returns one row per connected org.\nconst connections = $input.all().map((i) => i.json);\nconst connection = ORG_NAME\n  ? connections.find((c) => c.tenantName === ORG_NAME)\n  : connections[0];\n\nif (!connection || !connection.tenantId) {\n  throw new Error(\n    ORG_NAME\n      ? `No connected Xero org named \"${ORG_NAME}\". Connected: ${connections.map((c) => c.tenantName).join(', ') || 'none'}`\n      : 'No Xero org connected — reconnect the OAuth2 credential.',\n  );\n}\n\nconst hours = Number(spm.hours) || 0;\nconst amount = Number(spm.amountEur) || 0;\nif (hours <= 0) throw new Error(`Bad hours in SPM payload: ${spm.hours}`);\nif (amount <= 0) throw new Error(`Bad amountEur in SPM payload: ${spm.amountEur}`);\n\n// SPM sends the gross total; Xero wants a unit price. Divide back out and\n// keep 4dp so the line total reconstructs to the same figure Stripe charged.\nconst unitAmount = Number((amount / hours).toFixed(4));\n\n// If SPM already knows the Xero ContactID, use it. Otherwise pass the name —\n// Xero matches an existing contact by name, or auto-creates one.\nconst contact = spm.xeroContactId\n  ? { ContactID: spm.xeroContactId }\n  : {\n      Name: spm.tenantName || `SPM tenant ${spm.tenantId}`,\n      ...(spm.contactEmail ? { EmailAddress: spm.contactEmail } : {}),\n    };\n\nconst today = new Date().toISOString().slice(0, 10);\n\nconst invoicePayload = {\n  Invoices: [\n    {\n      Type: 'ACCREC',\n      Contact: contact,\n      Date: today,\n      // Already paid via Stripe, so no credit terms — due same day.\n      DueDate: today,\n      Status: 'AUTHORISED',\n      CurrencyCode: (spm.currency || 'EUR').toUpperCase(),\n      // Stripe session id lands in Reference so accounting can tie the Xero\n      // record back to the payment without leaving Xero.\n      Reference: spm.stripeSessionId || '',\n      LineAmountTypes: LINE_AMOUNTS,\n      LineItems: [\n        {\n          Description: spm.description || `SPM: ${hours} support-hour credits`,\n          Quantity: hours,\n          UnitAmount: unitAmount,\n          AccountCode: ACCOUNT_CODE,\n          TaxType: TAX_TYPE,\n        },\n      ],\n    },\n  ],\n};\n\nreturn [\n  {\n    json: {\n      xeroTenantId: connection.tenantId,\n      xeroTenantName: connection.tenantName,\n      stripeSessionId: spm.stripeSessionId ?? null,\n      invoicePayload,\n    },\n  },\n];\n"
+      },
+      "id": "a1000000-0000-0000-0000-000000000004",
+      "name": "Build Invoice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 0],
+      "notes": "The only node you need to edit: account code, tax type, line-amount mode."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.xero.com/api.xro/2.0/Invoices",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Xero-tenant-Id",
+              "value": "={{ $json.xeroTenantId }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.invoicePayload) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000005",
+      "name": "Create Xero Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.spw-ai.com/api/internal/xero/invoice-created",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_XERO_N8N_SECRET"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ stripeSessionId: $('Build Invoice').first().json.stripeSessionId, xeroInvoiceId: $json.Invoices[0].InvoiceID, invoiceUrl: 'https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=' + $json.Invoices[0].InvoiceID }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a1000000-0000-0000-0000-000000000006",
+      "name": "Callback: SPM Confirmed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 0],
+      "notes": "Flips the xero_invoice_log row to 'confirmed' and stores the invoice id."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, invoiceId: $('Create Xero Invoice').first().json.Invoices[0].InvoiceID }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-0000-0000-000000000007",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1160, 0]
+    }
+  ],
+  "connections": {
+    "Webhook: SPM Enqueue": {
+      "main": [[{ "node": "Verify Bearer", "type": "main", "index": 0 }]]
+    },
+    "Verify Bearer": {
+      "main": [[{ "node": "Get Xero Tenant", "type": "main", "index": 0 }]]
+    },
+    "Get Xero Tenant": {
+      "main": [[{ "node": "Build Invoice", "type": "main", "index": 0 }]]
+    },
+    "Build Invoice": {
+      "main": [[{ "node": "Create Xero Invoice", "type": "main", "index": 0 }]]
+    },
+    "Create Xero Invoice": {
+      "main": [[{ "node": "Callback: SPM Confirmed", "type": "main", "index": 0 }]]
+    },
+    "Callback: SPM Confirmed": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
