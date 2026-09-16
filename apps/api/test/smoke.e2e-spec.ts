@@ -20,6 +20,8 @@ process.env.STRIPE_WEBHOOK_SECRET = 'whsec_smoketest_stripe_v7a';
 // Stripe outbound checkout. fetchImpl is swapped per-test.
 process.env.STRIPE_SECRET_KEY = 'sk_test_smoketest_stripe_v7e';
 process.env.DASHBOARD_URL = 'http://localhost:3000';
+// Self-signup is off in real deployments; the suite still mints tenants via /register.
+process.env.PUBLIC_SIGNUP_ENABLED = 'true';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';

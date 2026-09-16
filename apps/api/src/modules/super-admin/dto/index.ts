@@ -4,3 +4,4 @@ export * from './query-clients.dto';
 export * from './license-key.dto';
 export * from './plan.dto';
 export * from './credit-package.dto';
+export * from './admin-password.dto';

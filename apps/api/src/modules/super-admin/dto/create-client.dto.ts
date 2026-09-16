@@ -13,7 +13,7 @@ import {
   IsUrl,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { SubscriptionStatus, BillingCycle, BillingSource, TenantSettings, TenantFeatureFlags, DashboardAddons, TenantTier } from '@spm/shared';
 
 export class CreateClientDto {
@@ -27,11 +27,15 @@ export class CreateClientDto {
   @MaxLength(100)
   slug: string;
 
+  // Normalised before validation: logins match on the lower-cased address.
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsEmail()
   adminEmail: string;
 
+  // 8 matches LoginDto: a shorter password would be accepted here and then
+  // rejected at every sign-in.
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   adminPassword: string;
 
   @IsString()

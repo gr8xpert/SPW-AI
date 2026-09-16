@@ -3,6 +3,8 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -15,6 +17,7 @@ import { User, Tenant, Plan } from '../../database/entities';
 import { LoginDto, LoginResponseDto, RegisterDto } from './dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
+import { PasswordResetService } from './password-reset.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { JwtPayload, UserRole } from '@spm/shared';
@@ -35,6 +38,7 @@ export class AuthService {
     private dataSource: DataSource,
     private refreshTokenService: RefreshTokenService,
     private emailVerificationService: EmailVerificationService,
+    private passwordResetService: PasswordResetService,
     private systemMailer: SystemMailerService,
   ) {}
 
@@ -232,14 +236,110 @@ export class AuthService {
     return { sent: true };
   }
 
+  // "Forgot your password?" — emails a one-hour reset link.
+  //
+  // Deliberately tells the visitor when no account exists. Accounts are only
+  // ever created by a super-admin, so a client mistyping their address needs
+  // to hear that rather than wait for an email that will never come. The
+  // trade-off (the endpoint confirms which emails are registered) is held in
+  // check by the tight per-IP throttle on the route.
+  async forgotPassword(email: string): Promise<{ sent: true }> {
+    const user = await this.userRepository.findOne({
+      where: { email: email.trim().toLowerCase() },
+      relations: ['tenant'],
+    });
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+    if (!user.isActive || !user.tenant?.isActive) {
+      throw new BadRequestException('This account is deactivated. Please contact support.');
+    }
+
+    const result = await this.sendPasswordResetEmail(user);
+    if (!result.delivered) {
+      throw new ServiceUnavailableException(
+        "We couldn't send the reset email right now. Please try again in a few minutes or contact support.",
+      );
+    }
+    return { sent: true };
+  }
+
+  // Also used by the super-admin "Send reset link" action.
+  async sendPasswordResetEmail(user: User): Promise<{ delivered: boolean; error?: string }> {
+    const token = await this.passwordResetService.issue(user);
+    const link = `${this.dashboardBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+    const text = [
+      `Hi ${user.name || 'there'},`,
+      '',
+      'We received a request to reset the password for your SPW dashboard account.',
+      'Open the link below to choose a new password:',
+      link,
+      '',
+      'This link expires in 1 hour and can only be used once. If you did not request this, you can ignore this email — your password will not change.',
+    ].join('\n');
+
+    const html = [
+      `<p>Hi ${escapeHtml(user.name || 'there')},</p>`,
+      `<p>We received a request to reset the password for your SPW dashboard account.</p>`,
+      `<p><a href="${link}">Choose a new password</a></p>`,
+      `<p style="color:#666;font-size:12px">Or paste this link into your browser:<br>${link}</p>`,
+      `<p>This link expires in 1 hour and can only be used once. If you did not request this, you can ignore this email — your password will not change.</p>`,
+    ].join('');
+
+    const result = await this.systemMailer.send({
+      to: user.email,
+      subject: 'Reset your password',
+      text,
+      html,
+    });
+
+    if (!result.delivered) {
+      this.logger.warn(
+        `password reset email not delivered for user=${user.id}: ${
+          result.skippedReason === 'no-transport' ? 'SMTP not configured' : result.error ?? 'unknown'
+        }`,
+      );
+    } else {
+      this.logger.log(`password reset email sent for user=${user.id}`);
+    }
+    return {
+      delivered: result.delivered,
+      error: result.skippedReason === 'no-transport' ? 'SMTP is not configured' : result.error,
+    };
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ reset: true }> {
+    const { userId } = await this.passwordResetService.consume(token);
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || !user.isActive) {
+      throw new BadRequestException('This reset link is invalid or has expired');
+    }
+
+    await this.userRepository.update(user.id, {
+      passwordHash: await bcrypt.hash(password, 13),
+      // Clicking a link we emailed proves they own the address — without this
+      // an unverified user would reset and still be locked out at login.
+      ...(user.emailVerifiedAt === null ? { emailVerifiedAt: new Date() } : {}),
+    });
+    await this.refreshTokenService.revokeAllForUser(user.id);
+    this.logger.log(`password reset completed for user=${user.id}`);
+
+    return { reset: true };
+  }
+
+  private dashboardBaseUrl(): string {
+    const baseUrl =
+      this.configService.get<string>('DASHBOARD_URL') ?? 'http://localhost:3000';
+    return baseUrl.replace(/\/$/, '');
+  }
+
   // Builds and dispatches the verification email. Keeps the URL construction
   // in one place so register + resend stay consistent. If the mailer is in
   // log-only mode (no SMTP configured), send() still logs the link so devs
   // can click through without reading source.
   private async sendVerificationEmail(user: User, token: string): Promise<void> {
-    const baseUrl =
-      this.configService.get<string>('DASHBOARD_URL') ?? 'http://localhost:3000';
-    const link = `${baseUrl.replace(/\/$/, '')}/verify?token=${encodeURIComponent(token)}`;
+    const link = `${this.dashboardBaseUrl()}/verify?token=${encodeURIComponent(token)}`;
 
     const text = [
       `Hi ${user.name || 'there'},`,

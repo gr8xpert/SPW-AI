@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -54,6 +54,12 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/webp': '.webp',
   'application/pdf': '.pdf',
 };
+
+export interface TenantStorageSnapshot {
+  tenantId: number;
+  config: TenantStorageConfig | null;
+  objects: Array<{ key: string; type: 'local' | 's3' }>;
+}
 
 @Injectable()
 export class UploadService {
@@ -427,6 +433,67 @@ export class UploadService {
       }
       throw err;
     }
+  }
+
+  // Everything a tenant has in storage, captured BEFORE the tenant row is
+  // deleted — the storage config and the media rows cascade away with it, and
+  // without them the objects can no longer be located or authenticated to.
+  async snapshotTenantStorage(tenantId: number): Promise<TenantStorageSnapshot> {
+    const config = await this.getStorageConfig(tenantId);
+    const blobs = await this.mediaBlobRepository.find({
+      where: { tenantId },
+      select: ['storageKey', 'storageType'],
+    });
+    // Deduped uploads live in media_blobs already; only legacy / non-image
+    // files (no contentHash) point at their own object.
+    const legacy = await this.mediaFileRepository.find({
+      where: { tenantId, contentHash: IsNull() },
+      select: ['storedPath', 'storageType', 'thumbnailPath'],
+    });
+    const objects: TenantStorageSnapshot['objects'] = blobs.map((b) => ({
+      key: b.storageKey,
+      type: b.storageType,
+    }));
+    for (const f of legacy) {
+      objects.push({ key: f.storedPath, type: f.storageType });
+      if (f.thumbnailPath) objects.push({ key: f.thumbnailPath, type: f.storageType });
+    }
+    return { tenantId, config, objects };
+  }
+
+  // Deletes every object in a snapshot. Meant to run in the background after a
+  // client is permanently deleted: a large catalog is thousands of R2 calls,
+  // far longer than the HTTP request should wait. Failures are logged and
+  // skipped — an orphaned object costs storage, not correctness.
+  async purgeStorageSnapshot(snapshot: TenantStorageSnapshot): Promise<{ deleted: number; failed: number }> {
+    let deleted = 0;
+    let failed = 0;
+    const BATCH = 10;
+    for (let i = 0; i < snapshot.objects.length; i += BATCH) {
+      await Promise.all(
+        snapshot.objects.slice(i, i + BATCH).map(async (o) => {
+          try {
+            if (o.type === 's3' && snapshot.config) {
+              await this.deleteFromS3(snapshot.config, o.key);
+            } else {
+              await this.deleteFromLocal(o.key);
+            }
+            deleted++;
+          } catch (err) {
+            failed++;
+            if (failed <= 5) {
+              this.logger.warn(
+                `purge tenant=${snapshot.tenantId}: failed to delete ${o.key}: ${(err as Error).message}`,
+              );
+            }
+          }
+        }),
+      );
+    }
+    this.logger.log(
+      `purge tenant=${snapshot.tenantId}: ${deleted} storage objects deleted, ${failed} failed`,
+    );
+    return { deleted, failed };
   }
 
   // Decrement refcount; if hit zero, delete from storage and remove the

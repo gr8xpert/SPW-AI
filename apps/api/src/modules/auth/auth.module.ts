@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
+import { PasswordResetService } from './password-reset.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { ImpersonationService } from './impersonation.service';
 import { ImpersonationController } from './impersonation.controller';
@@ -17,6 +18,7 @@ import {
   Plan,
   RefreshToken,
   EmailVerificationToken,
+  PasswordResetToken,
   ImpersonationAudit,
 } from '../../database/entities';
 
@@ -28,6 +30,7 @@ import {
       Plan,
       RefreshToken,
       EmailVerificationToken,
+      PasswordResetToken,
       ImpersonationAudit,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -47,6 +50,7 @@ import {
     AuthService,
     RefreshTokenService,
     EmailVerificationService,
+    PasswordResetService,
     JwtStrategy,
     ImpersonationService,
     ImpersonationAuditInterceptor,
@@ -55,6 +59,7 @@ import {
     AuthService,
     RefreshTokenService,
     EmailVerificationService,
+    PasswordResetService,
     JwtStrategy,
     ImpersonationService,
     ImpersonationAuditInterceptor,

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/form';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { ClientUsersCard, type ClientUser } from '@/components/admin/client-password-actions';
 import { ArrowLeft, Save, RefreshCw } from 'lucide-react';
 
 const clientSchema = z.object({
@@ -107,6 +108,7 @@ export default function EditClientPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [clientUsers, setClientUsers] = useState<ClientUser[]>([]);
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -154,6 +156,7 @@ export default function EditClientPage() {
         const clientRes = await api.get(`/api/super-admin/clients/${clientId}`);
 
         const client = clientRes.data;
+        setClientUsers(client.users ?? []);
 
         form.reset({
           name: client.name,
@@ -654,6 +657,9 @@ export default function EditClientPage() {
           </Tabs>
         </form>
       </Form>
+
+      {/* Outside the form: these buttons act immediately and must not submit it. */}
+      <ClientUsersCard clientId={String(clientId)} users={clientUsers} />
     </div>
   );
 }

@@ -167,6 +167,16 @@ export class RefreshTokenService {
     );
   }
 
+  // Signs a user out everywhere — used after a password change so a stolen
+  // session can't outlive the reset. Reason 'logout' avoids widening the
+  // enum column for what is, in effect, a forced logout.
+  async revokeAllForUser(userId: number): Promise<void> {
+    await this.repo.update(
+      { userId, revokedAt: IsNull() },
+      { revokedAt: new Date(), revokedReason: 'logout' },
+    );
+  }
+
   async revokeToken(
     rawRefreshJwt: string,
     reason: RefreshTokenRevokedReason,

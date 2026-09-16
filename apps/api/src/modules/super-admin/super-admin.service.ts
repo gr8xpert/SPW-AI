@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ServiceUnavailableException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Like, FindOptionsWhere } from 'typeorm';
@@ -23,6 +25,9 @@ import { generateApiKey } from '../../common/crypto/api-key';
 import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
 import { TenantService, CacheClearResult } from '../tenant/tenant.service';
 import { TierPolicyService } from '../tenant/tier-policy.service';
+import { AuthService } from '../auth/auth.service';
+import { RefreshTokenService } from '../auth/refresh-token.service';
+import { UploadService } from '../upload/upload.service';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -72,7 +77,27 @@ export class SuperAdminService {
     private dataSource: DataSource,
     private readonly tenantService: TenantService,
     private readonly tierPolicy: TierPolicyService,
+    private readonly authService: AuthService,
+    private readonly refreshTokenService: RefreshTokenService,
+    private readonly uploadService: UploadService,
   ) {}
+
+  private readonly logger = new Logger(SuperAdminService.name);
+
+  private async assertEmailAvailable(email: string, exceptUserId?: number): Promise<void> {
+    const existing = await this.userRepository.findOne({
+      where: { email },
+      relations: ['tenant'],
+    });
+    if (!existing || existing.id === exceptUserId) return;
+    const where = existing.tenant
+      ? ` (client: ${existing.tenant.name}${existing.tenant.isActive ? '' : ', deactivated'})`
+      : '';
+    throw new ConflictException(
+      `A user with the email ${email} already exists${where}. Use a different email` +
+        (existing.tenant && !existing.tenant.isActive ? ', or delete that client permanently first.' : '.'),
+    );
+  }
 
   /**
    * List all clients with pagination and filtering
@@ -169,7 +194,7 @@ export class SuperAdminService {
   /**
    * Get a single client with full details
    */
-  async getClient(clientId: number): Promise<TenantFull & { adminUser?: any }> {
+  async getClient(clientId: number): Promise<TenantFull & { adminUser?: any; users?: any[] }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: clientId },
       relations: ['plan'],
@@ -184,6 +209,8 @@ export class SuperAdminService {
       where: { tenantId: clientId, role: UserRole.ADMIN },
       select: ['id', 'email', 'name', 'lastLoginAt', 'isActive'],
     });
+
+    const users = await this.getClientUsers(clientId);
 
     return {
       id: tenant.id,
@@ -218,6 +245,7 @@ export class SuperAdminService {
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       adminUser,
+      users,
     };
   }
 
@@ -231,8 +259,17 @@ export class SuperAdminService {
     });
 
     if (existingTenant) {
-      throw new ConflictException('A client with this slug already exists');
+      throw new ConflictException(
+        existingTenant.isActive
+          ? `A client with the slug "${dto.slug}" already exists (${existingTenant.name}).`
+          : `A deactivated client still uses the slug "${dto.slug}" (${existingTenant.name}). Delete it permanently first, or use a different slug.`,
+      );
     }
+
+    // Login looks users up by email alone, so an email must be unique across
+    // ALL clients. The database only enforces uniqueness within one tenant.
+    dto.adminEmail = dto.adminEmail.trim().toLowerCase();
+    await this.assertEmailAvailable(dto.adminEmail);
 
     // Verify plan exists
     const plan = await this.planRepository.findOne({
@@ -700,6 +737,225 @@ export class SuperAdminService {
     );
 
     return { rawApiKey: apiKey.rawKey, last4: apiKey.last4 };
+  }
+
+  // ============ CLIENT USER PASSWORDS ============
+
+  // Every login on a client's account, for the super-admin Users card. Admin
+  // first, then by creation order.
+  async getClientUsers(clientId: number) {
+    const users = await this.userRepository.find({
+      where: { tenantId: clientId },
+      select: ['id', 'email', 'name', 'role', 'isActive', 'lastLoginAt', 'createdAt'],
+      order: { id: 'ASC' },
+    });
+    return users
+      .filter((u) => u.role !== UserRole.SUPER_ADMIN)
+      .sort((a, b) => Number(b.role === UserRole.ADMIN) - Number(a.role === UserRole.ADMIN));
+  }
+
+  private async findClientUser(clientId: number, userId: number): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id: userId, tenantId: clientId } });
+    // Super-admin accounts are never reset from a client page, even if one
+    // happens to sit on this tenant.
+    if (!user || user.role === UserRole.SUPER_ADMIN) {
+      throw new NotFoundException('User not found for this client');
+    }
+    return user;
+  }
+
+  // Support path for a client who is locked out: super-admin sets a new
+  // password directly and passes it on. Every existing session is revoked so
+  // the old password (or whoever had it) is fully cut off.
+  async setClientUserPassword(
+    clientId: number,
+    userId: number,
+    newPassword: string,
+    byUserId: number,
+  ): Promise<{ email: string }> {
+    const user = await this.findClientUser(clientId, userId);
+
+    await this.userRepository.update(user.id, {
+      passwordHash: await bcrypt.hash(newPassword, 13),
+      ...(user.emailVerifiedAt === null ? { emailVerifiedAt: new Date() } : {}),
+    });
+    await this.refreshTokenService.revokeAllForUser(user.id);
+
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: clientId,
+        userId: byUserId,
+        action: 'update',
+        entityType: 'user',
+        entityId: user.id,
+        // Never the password itself.
+        metadata: { action: 'super_admin_set_password' },
+      }),
+    );
+
+    return { email: user.email };
+  }
+
+  // Emails the user the same one-hour link "Forgot your password?" sends, so
+  // the super-admin never has to see or transmit a password.
+  async sendClientUserPasswordReset(
+    clientId: number,
+    userId: number,
+    byUserId: number,
+  ): Promise<{ email: string }> {
+    const user = await this.findClientUser(clientId, userId);
+    const { delivered, error } = await this.authService.sendPasswordResetEmail(user);
+
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: clientId,
+        userId: byUserId,
+        action: 'update',
+        entityType: 'user',
+        entityId: user.id,
+        metadata: { action: 'super_admin_sent_password_reset', delivered },
+      }),
+    );
+
+    if (!delivered) {
+      throw new ServiceUnavailableException(
+        `Reset email could not be sent (${error ?? 'unknown error'}). Use "Set password" instead.`,
+      );
+    }
+    return { email: user.email };
+  }
+
+  // Fix a client user's name or login email after creation.
+  async updateClientUser(
+    clientId: number,
+    userId: number,
+    dto: { name?: string; email?: string },
+    byUserId: number,
+  ) {
+    const user = await this.findClientUser(clientId, userId);
+    const changes: Partial<User> = {};
+
+    if (dto.name !== undefined && dto.name.trim() !== (user.name ?? '')) {
+      changes.name = dto.name.trim() || null;
+    }
+    if (dto.email !== undefined && dto.email !== user.email.toLowerCase()) {
+      await this.assertEmailAvailable(dto.email, user.id);
+      changes.email = dto.email;
+    }
+    if (Object.keys(changes).length === 0) {
+      return this.getClientUsers(clientId);
+    }
+
+    await this.userRepository.update(user.id, changes);
+    if (changes.email) {
+      // A changed login email is a changed identity: end sessions opened
+      // under the old one.
+      await this.refreshTokenService.revokeAllForUser(user.id);
+    }
+
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: clientId,
+        userId: byUserId,
+        action: 'update',
+        entityType: 'user',
+        entityId: user.id,
+        metadata: {
+          action: 'super_admin_updated_user',
+          ...(changes.email ? { emailFrom: user.email, emailTo: changes.email } : {}),
+          ...(changes.name !== undefined ? { nameChanged: true } : {}),
+        },
+      }),
+    );
+
+    return this.getClientUsers(clientId);
+  }
+
+  // Removes a client and everything it owns. Every tenant-scoped table has
+  // ON DELETE CASCADE to tenants, so deleting the row takes properties, users,
+  // feeds, leads, tickets and the rest with it in one statement. Stored files
+  // (R2 / local uploads) are snapshotted first and purged in the background,
+  // because the storage config that locates them cascades away too.
+  async deleteClientPermanently(
+    clientId: number,
+    confirmSlug: string,
+    by: { sub: number; tenantId: number },
+  ): Promise<{ deleted: true; name: string; properties: number; users: number; storageObjects: number }> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: clientId } });
+    if (!tenant) throw new NotFoundException('Client not found');
+
+    if ((confirmSlug ?? '').trim() !== tenant.slug) {
+      throw new BadRequestException(`Type the client slug "${tenant.slug}" exactly to confirm.`);
+    }
+    if (tenant.isInternal || tenant.id === by.tenantId) {
+      throw new BadRequestException('The internal platform client cannot be deleted.');
+    }
+    const superAdmins = await this.userRepository.count({
+      where: { tenantId: clientId, role: UserRole.SUPER_ADMIN },
+    });
+    if (superAdmins > 0) {
+      throw new BadRequestException('This client has a super-admin user and cannot be deleted.');
+    }
+    if (tenant.billingSource === 'stripe' && ['active', 'grace'].includes(tenant.subscriptionStatus)) {
+      throw new BadRequestException(
+        'This client still has a live Stripe subscription. Cancel it in Stripe first so they stop being charged, then delete.',
+      );
+    }
+
+    const users = await this.userRepository.find({ where: { tenantId: clientId }, select: ['email'] });
+    const counted = await this.dataSource.query(
+      'SELECT COUNT(*) AS n FROM properties WHERE tenantId = ?',
+      [clientId],
+    );
+    const propertyCount = Number(counted?.[0]?.n ?? 0);
+    const storage = await this.uploadService.snapshotTenantStorage(clientId);
+
+    await this.dataSource.transaction(async (manager) => {
+      // email_campaigns.templateId -> email_templates is ON DELETE RESTRICT.
+      // Both tables cascade from tenants, and InnoDB can reach the templates
+      // first and abort the whole delete, so clear the campaigns up front.
+      await manager.query('DELETE FROM email_campaigns WHERE tenantId = ?', [clientId]);
+      await manager.query('DELETE FROM tenants WHERE id = ?', [clientId]);
+    });
+
+    // Logged against the operator's own tenant: the client's audit_logs rows
+    // were just cascade-deleted, and this record must outlive the client.
+    await this.auditLogRepository.save(
+      this.auditLogRepository.create({
+        tenantId: by.tenantId,
+        userId: by.sub,
+        action: 'delete',
+        entityType: 'tenant',
+        entityId: clientId,
+        metadata: {
+          type: 'permanent',
+          clientName: tenant.name,
+          clientSlug: tenant.slug,
+          domain: tenant.domain,
+          userEmails: users.map((u) => u.email),
+          propertyCount,
+          storageObjects: storage.objects.length,
+        },
+      }),
+    );
+    this.logger.log(
+      `client #${clientId} "${tenant.name}" permanently deleted by user #${by.sub}: ` +
+        `${propertyCount} properties, ${users.length} users, ${storage.objects.length} storage objects queued`,
+    );
+
+    if (storage.objects.length > 0) {
+      void this.uploadService.purgeStorageSnapshot(storage).catch((err) =>
+        this.logger.warn(`storage purge for deleted client #${clientId} failed: ${(err as Error).message}`),
+      );
+    }
+
+    return {
+      deleted: true,
+      name: tenant.name,
+      properties: propertyCount,
+      users: users.length,
+      storageObjects: storage.objects.length,
+    };
   }
 
   /**

@@ -91,6 +91,12 @@ export class SystemMailerService {
         port,
         secure,
         auth: user ? { user, pass } : undefined,
+        // nodemailer's defaults (2 min connect, 10 min socket) are far longer
+        // than any HTTP request should wait — a password-reset request that
+        // awaits the send would leave the user staring at a spinner.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
         ...(dkim ? { dkim } : {}),
       }) as Transporter;
 

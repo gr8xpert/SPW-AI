@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { ClientUsersCard, type ClientUser } from '@/components/admin/client-password-actions';
+import { DeleteClientDialog } from '@/components/admin/delete-client-dialog';
 import {
   ArrowLeft,
   Edit,
@@ -72,6 +74,7 @@ interface ClientDetail {
   };
   planId: number;
   lastCacheClearedAt: string | null;
+  users?: ClientUser[];
   adminUser?: {
     id: number;
     email: string;
@@ -118,13 +121,16 @@ export default function ClientDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
-  const handleDelete = async () => {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Soft delete: blocks logins, keeps every row. Reversible from Edit → Active.
+  const handleDeactivate = async () => {
     try {
       await api.delete(`/api/super-admin/clients/${clientId}`);
+      toast({ title: 'Client deactivated', description: 'Users can no longer sign in. All data is kept.' });
       router.push('/admin/clients');
-    } catch (error) {
-      console.error('Failed to delete client:', error);
-      toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ title: 'Deactivate failed', description: error?.message, variant: 'destructive' });
     }
   };
 
@@ -253,29 +259,38 @@ export default function ClientDetailPage() {
               Edit
             </Button>
           </Link>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="shadow-sm">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Client</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{client.name}&quot;? This action cannot be undone
-                  and will permanently delete all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {client.isActive && !client.isInternal && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">Deactivate</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Deactivate {client.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Their users can no longer sign in and their widget stops working, but all data is
+                    kept. You can reactivate them from Edit.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeactivate}>Deactivate</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {!client.isInternal && (
+            <Button variant="destructive" className="shadow-sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete permanently
+            </Button>
+          )}
+          <DeleteClientDialog
+            client={client}
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onDeleted={() => router.push('/admin/clients')}
+          />
         </div>
       </div>
 
@@ -288,6 +303,7 @@ export default function ClientDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <ClientUsersCard clientId={String(clientId)} users={client.users} />
           <div className="grid gap-4 md:grid-cols-2">
             {/* Basic Info */}
             <Card>

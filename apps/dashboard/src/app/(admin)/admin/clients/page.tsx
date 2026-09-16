@@ -33,6 +33,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { setImpersonationSession } from '@/lib/impersonation';
+import { DeleteClientDialog, type DeletableClient } from '@/components/admin/delete-client-dialog';
 import {
   Plus,
   Search,
@@ -129,17 +130,20 @@ export default function ClientsPage() {
     fetchClients();
   };
 
-  const handleDelete = async (client: Client) => {
-    if (!confirm(`Are you sure you want to delete "${client.name}"? This action cannot be undone.`)) {
+  const [deleteTarget, setDeleteTarget] = useState<DeletableClient | null>(null);
+
+  // Soft delete: blocks logins, keeps every row. Reversible from Edit → Active.
+  const handleDeactivate = async (client: Client) => {
+    if (!confirm(`Deactivate "${client.name}"? Their users can no longer sign in, but all data is kept and you can reactivate them from Edit.`)) {
       return;
     }
 
     try {
       await api.delete(`/api/super-admin/clients/${client.id}`);
+      toast({ title: `${client.name} deactivated` });
       fetchClients();
-    } catch (error) {
-      console.error('Failed to delete client:', error);
-      toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ title: 'Deactivate failed', description: error?.message, variant: 'destructive' });
     }
   };
 
@@ -271,7 +275,6 @@ export default function ClientsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Client</TableHead>
-                    <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Expires</TableHead>
                     <TableHead>Users</TableHead>
@@ -296,7 +299,6 @@ export default function ClientsPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{client.planName || `Plan ${client.planId}`}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge
@@ -363,13 +365,21 @@ export default function ClientsPage() {
                               Toggle Override
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleDelete(client)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {client.isActive && !client.isInternal && (
+                              <DropdownMenuItem onClick={() => handleDeactivate(client)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Deactivate
+                              </DropdownMenuItem>
+                            )}
+                            {!client.isInternal && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget(client)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete permanently…
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -413,6 +423,12 @@ export default function ClientsPage() {
           )}
         </CardContent>
       </Card>
+      <DeleteClientDialog
+        client={deleteTarget}
+        open={deleteTarget !== null}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        onDeleted={fetchClients}
+      />
     </div>
   );
 }

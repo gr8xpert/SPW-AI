@@ -23,7 +23,7 @@ export class InviteUserDto {
   role: UserRoleType;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 }
 
@@ -49,16 +49,16 @@ export class UpdateUserDto {
 
 export class ChangePasswordDto {
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   currentPassword: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   newPassword: string;
 }
 
 export class ResetPasswordDto {
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   newPassword: string;
 }

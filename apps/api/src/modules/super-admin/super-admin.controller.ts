@@ -15,7 +15,7 @@ import {
 import { SuperAdminService } from './super-admin.service';
 import { RateLimitHeadroomService } from './rate-limit-headroom.service';
 import { QueueDepthService } from './queue-depth.service';
-import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto } from './dto';
+import { CreateClientDto, UpdateClientDto, QueryClientsDto, ExtendSubscriptionDto, ManualActivationDto, GenerateLicenseKeyDto, CreatePlanDto, UpdatePlanDto, CreateCreditPackageDto, UpdateCreditPackageDto, SetAdminPasswordDto, UpdateClientUserDto, DeleteClientPermanentlyDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators';
@@ -84,6 +84,7 @@ export class SuperAdminController {
     return this.superAdminService.updateClient(id, dto, user.sub);
   }
 
+  // Soft delete: deactivates the client (blocks logins, keeps all data).
   @Delete('clients/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteClient(
@@ -145,6 +146,52 @@ export class SuperAdminController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.superAdminService.rotateApiKey(id, user.sub);
+  }
+
+  // Hard delete: removes the client and all of its data. The body must repeat
+  // the client's slug. POST rather than DELETE so the confirmation travels in
+  // a body every client library will send.
+  @Post('clients/:id/delete-permanently')
+  @HttpCode(HttpStatus.OK)
+  async deleteClientPermanently(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: DeleteClientPermanentlyDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.deleteClientPermanently(id, dto.confirmSlug, user);
+  }
+
+  @Put('clients/:id/users/:userId')
+  async updateClientUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() dto: UpdateClientUserDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.updateClientUser(id, userId, dto, user.sub);
+  }
+
+  // Locked-out client user: set a new password for them...
+  @Post('clients/:id/users/:userId/password')
+  @HttpCode(HttpStatus.OK)
+  async setUserPassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() dto: SetAdminPasswordDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.setClientUserPassword(id, userId, dto.newPassword, user.sub);
+  }
+
+  // ...or email them a one-hour reset link instead.
+  @Post('clients/:id/users/:userId/send-password-reset')
+  @HttpCode(HttpStatus.OK)
+  async sendUserPasswordReset(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.superAdminService.sendClientUserPasswordReset(id, userId, user.sub);
   }
 
   // ============ LICENSE KEY MANAGEMENT ============

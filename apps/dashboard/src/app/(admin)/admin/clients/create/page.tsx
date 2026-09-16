@@ -46,7 +46,7 @@ const createClientSchema = z.object({
     .min(2, 'Slug must be at least 2 characters')
     .regex(/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens'),
   adminEmail: z.string().email('Valid email required'),
-  adminPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  adminPassword: z.string().min(8, 'Password must be at least 8 characters'),
   adminName: z.string().optional(),
   domain: z.string().optional(),
   ownerEmail: z.string().email().optional().or(z.literal('')),
@@ -219,7 +219,13 @@ export default function CreateClientPage() {
       }
     } catch (error: any) {
       console.error('Failed to create client:', error);
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to create client', variant: 'destructive' });
+      // useApi throws an Error carrying the API's message, e.g. "A user with the
+      // email … already exists (client: …)".
+      toast({
+        title: 'Could not create client',
+        description: error?.message || 'Failed to create client',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }

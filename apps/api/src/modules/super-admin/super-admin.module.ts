@@ -21,6 +21,8 @@ import {
   TimeEntry,
 } from '../../database/entities';
 import { TenantModule } from '../tenant/tenant.module';
+import { AuthModule } from '../auth/auth.module';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
@@ -37,6 +39,11 @@ import { TenantModule } from '../tenant/tenant.module';
       TimeEntry,
     ]),
     TenantModule,
+    // Password reset actions reuse AuthService's reset-link email and
+    // RefreshTokenService's sign-out-everywhere.
+    AuthModule,
+    // Permanent client delete purges the client's stored files.
+    UploadModule,
     // 6C — queue-depth observability. We re-register each tracked queue
     // here (BullModule uses 'registerQueue' per module, but the same
     // queue name resolves to the same Redis keys, so InjectQueue below

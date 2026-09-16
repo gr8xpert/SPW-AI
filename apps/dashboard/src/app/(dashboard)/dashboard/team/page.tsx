@@ -164,7 +164,7 @@ function TeamPageInner() {
     if (!selectedMember) return;
     setSaving(true);
     try {
-      await api.post(`/api/dashboard/team/${selectedMember.id}/reset-password`, { password: newPassword });
+      await api.post(`/api/dashboard/team/${selectedMember.id}/reset-password`, { newPassword });
       setResetPasswordOpen(false);
       setNewPassword('');
       setSelectedMember(null);

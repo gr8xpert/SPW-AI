@@ -162,15 +162,6 @@ function LoginForm() {
               Forgot your password?
             </Link>
           </div>
-          <div className="text-sm text-muted-foreground text-center">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              className="text-primary underline-offset-4 hover:underline transition-colors"
-            >
-              Sign up
-            </Link>
-          </div>
         </CardFooter>
       </Card>
     </motion.div>
