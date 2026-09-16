@@ -91,8 +91,27 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as
-      | (InternalAxiosRequestConfig & { _authRetry?: boolean })
+      | (InternalAxiosRequestConfig & { _authRetry?: boolean; _networkRetries?: number })
       | undefined;
+
+    // No response at all = the request died on the way (dropped connection),
+    // not a server answer. Retry reads twice with a short backoff; see
+    // fetchWithReadRetry in hooks/use-api.ts for why. Writes are never repeated.
+    const method = (original?.method || 'get').toLowerCase();
+    if (
+      original &&
+      !error.response &&
+      error.code !== 'ERR_CANCELED' &&
+      (method === 'get' || method === 'head')
+    ) {
+      const attempt = original._networkRetries ?? 0;
+      const delays = [400, 1200];
+      if (attempt < delays.length) {
+        original._networkRetries = attempt + 1;
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+        return api.request(original);
+      }
+    }
 
     const isAuthFailure =
       error.response?.status === 401 &&

@@ -4,6 +4,28 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useImpersonation } from './use-impersonation';
 
+// A read that fails before any response arrives ("Failed to fetch") is retried
+// twice with a short backoff. Browsers silently retry page navigations when a
+// pooled connection has died (seen with HTTP/3 to Cloudflare on some networks)
+// but never fetch() calls, so without this a data request can fail while the
+// page itself loads, leaving it empty until a manual refresh. Only GET/HEAD:
+// a write may already have reached the server, so repeating it is unsafe.
+const READ_RETRY_DELAYS_MS = [400, 1200];
+
+export async function fetchWithReadRetry(url: string, init: RequestInit): Promise<Response> {
+  const method = (init.method || 'GET').toUpperCase();
+  const retryable = method === 'GET' || method === 'HEAD';
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      const aborted = (err as { name?: string })?.name === 'AbortError';
+      if (!retryable || aborted || attempt >= READ_RETRY_DELAYS_MS.length) throw err;
+      await new Promise((resolve) => setTimeout(resolve, READ_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
 interface UseApiOptions {
   onSuccess?: (data: any) => void;
   onError?: (error: Error) => void;
@@ -56,7 +78,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
             `Bearer ${effectiveAccessToken}`;
         }
 
-        let response = await fetch(`${apiUrl}${endpoint}`, {
+        let response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, {
           ...requestOptions,
           headers,
         });
@@ -72,7 +94,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
             const newToken = (refreshed as any)?.accessToken;
             if (newToken && newToken !== session.accessToken) {
               (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
-              response = await fetch(`${apiUrl}${endpoint}`, { ...requestOptions, headers });
+              response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { ...requestOptions, headers });
             }
           } catch {
             // Refresh failed — fall through to throw below so the caller can react.
@@ -159,7 +181,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         (headers as Record<string, string>)['Authorization'] =
           `Bearer ${effectiveAccessToken}`;
       }
-      const response = await fetch(`${apiUrl}${endpoint}`, { headers });
+      const response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { headers });
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
@@ -192,7 +214,7 @@ export const fetcher = async (url: string, token?: string) => {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${apiUrl}${url}`, { headers });
+  const response = await fetchWithReadRetry(`${apiUrl}${url}`, { headers });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
