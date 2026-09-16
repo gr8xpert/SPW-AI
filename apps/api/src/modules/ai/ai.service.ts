@@ -65,7 +65,16 @@ export class AiService {
   async chatCompletion(
     tenantId: number,
     messages: ChatMessage[],
-    options?: { model?: string; temperature?: number; maxTokens?: number },
+    options?: {
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+      // Bill the platform key when the tenant hasn't configured their own.
+      // Opt-in per caller: interactive features want the "add your key"
+      // error, while platform-run work (bulk SEO, enrichment) should keep
+      // working for tenants who never set one up.
+      allowPlatformKey?: boolean;
+    },
   ): Promise<string> {
     // Single source of truth for key resolution — reads the encrypted column
     // first (post-5Q split), falls back to the legacy settings JSON for any
@@ -73,6 +82,7 @@ export class AiService {
     const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(
       tenantId,
       options?.model,
+      options?.allowPlatformKey === true,
     );
     const model = resolvedModel;
 

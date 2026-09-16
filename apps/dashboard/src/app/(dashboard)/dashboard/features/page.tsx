@@ -57,6 +57,7 @@ import {
   Trees,
   Thermometer,
   Eye,
+  EyeOff,
   Home,
   Loader2,
   GripVertical,
@@ -67,6 +68,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
+import { useBulkJob } from '@/hooks/use-bulk-job';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 
@@ -135,6 +137,20 @@ export default function FeaturesPage() {
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
 
   const api = useApi();
+  // Server-tracked, so progress survives a refresh or leaving the page and a
+  // second click can't queue a duplicate (paid) run.
+  const bulkTranslate = useBulkJob({
+    activeUrl: '/api/dashboard/translate/jobs/active?entityType=feature',
+    statusUrl: (jobId) => `/api/dashboard/translate/job/${jobId}`,
+    onFinished: (st) => {
+      toast(
+        st.status === 'completed' && st.failed === 0
+          ? { title: 'Bulk translation complete', description: `${st.completed} features translated` }
+          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+      );
+      fetchFeatures();
+    },
+  });
   const { toast } = useToast();
 
   const runAiOrganize = async () => {
@@ -333,30 +349,13 @@ export default function FeaturesPage() {
         sourceLanguage: 'en',
       });
       const jobId = res?.data?.jobId;
-      toast({ title: 'Bulk translation started' });
       setIsBulkTranslateOpen(false);
-      if (jobId) {
-        const poll = () => {
-          setTimeout(async () => {
-            try {
-              const s = await api.get(`/api/dashboard/translate/job/${jobId}`);
-              const st = s?.data;
-              if (st?.status === 'completed') {
-                toast({ title: 'Bulk translation complete', description: `${st.completed} items translated` });
-                fetchFeatures();
-                return;
-              }
-              if (st?.status === 'failed') {
-                toast({ title: 'Bulk translation had errors', variant: 'destructive' });
-                fetchFeatures();
-                return;
-              }
-              poll();
-            } catch { poll(); }
-          }, 3000);
-        };
-        poll();
-      }
+      if (jobId) bulkTranslate.track(jobId);
+      toast(
+        res?.data?.alreadyRunning
+          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
+          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+      );
     } catch (e: any) {
       toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -407,6 +406,17 @@ export default function FeaturesPage() {
     return { filled, total: languages.length };
   };
 
+  const handleToggleVisibility = async (feature: Feature) => {
+    const newActive = !(feature.isActive ?? true);
+    try {
+      await api.put(`/api/dashboard/features/${feature.id}`, { isActive: newActive });
+      toast({ title: newActive ? 'Feature visible on website' : 'Feature hidden from website' });
+      fetchFeatures();
+    } catch {
+      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
@@ -420,9 +430,9 @@ export default function FeaturesPage() {
             AI Organize
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
-              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              AI Translate All
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
             </Button>
           )}
           <Button className="shadow-sm" onClick={() => { setForm({ names: {}, category: 'interior', icon: '' }); setIsAddOpen(true); }}>
@@ -523,7 +533,7 @@ export default function FeaturesPage() {
                         onDragLeave={() => setDragOverIndex(null)}
                         onDrop={() => handleDrop(i)}
                         onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''} ${selectedIds.has(feature.id) ? 'bg-primary/5 border-primary/40' : ''}`}
+                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''} ${selectedIds.has(feature.id) ? 'bg-primary/5 border-primary/40' : ''} ${feature.isActive === false ? 'opacity-50' : ''}`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <Checkbox
@@ -559,6 +569,21 @@ export default function FeaturesPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant="outline">{feature.propertyCount ?? 0}</Badge>
+                          <div
+                            className="flex items-center gap-1.5"
+                            title={feature.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+                          >
+                            {feature.isActive !== false ? (
+                              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                            <Switch
+                              checked={feature.isActive !== false}
+                              onCheckedChange={() => handleToggleVisibility(feature)}
+                              className="scale-75"
+                            />
+                          </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -706,7 +731,7 @@ export default function FeaturesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
+            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Start Translation
             </AlertDialogAction>

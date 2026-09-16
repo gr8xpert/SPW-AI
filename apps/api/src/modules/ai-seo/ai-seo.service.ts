@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Job, Queue } from 'bullmq';
 import { Property } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
+import { BulkGenerateSeoDto } from './dto/bulk-generate-seo.dto';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French',
@@ -25,6 +28,27 @@ export interface PropertySeoLangResult {
 
 export type PropertySeoResult = Record<string, PropertySeoLangResult>;
 
+export interface BulkSeoJob {
+  tenantId: number;
+  targetLanguages: string[];
+  overwrite?: boolean;
+  includeSchema?: boolean;
+  includeSlug?: boolean;
+  propertyIds?: number[];
+}
+
+export interface BulkSeoJobStatus {
+  jobId: string;
+  status: string;
+  progress: number;
+  total: number;
+  completed: number;
+  failed: number;
+  // Properties whose SEO was already filled in every requested language, so no
+  // AI call was made for them.
+  skipped: number;
+}
+
 @Injectable()
 export class AiSeoService {
   private readonly logger = new Logger(AiSeoService.name);
@@ -32,8 +56,84 @@ export class AiSeoService {
   constructor(
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
+    @InjectQueue('ai-seo')
+    private readonly seoQueue: Queue,
     private readonly aiService: AiService,
   ) {}
+
+  // Queues a catalog-wide SEO pass. Returns the candidate count up front so the
+  // dashboard can show what it's about to spend before anything runs — at a few
+  // thousand properties x languages this is real money on the tenant's
+  // OpenRouter key.
+  async bulkGenerate(
+    tenantId: number,
+    dto: BulkGenerateSeoDto,
+  ): Promise<{ jobId: string; total: number; alreadyRunning?: boolean }> {
+    if (!Array.isArray(dto.targetLanguages) || dto.targetLanguages.length === 0) {
+      throw new BadRequestException('At least one target language is required');
+    }
+
+    // One run per tenant. A second click — after a refresh, from another tab,
+    // or by a teammate — hands back the job already in flight instead of
+    // queueing a duplicate that would pay for the same properties again.
+    const running = await this.findActiveJob(tenantId);
+    if (running) {
+      return { jobId: running.jobId, total: running.total, alreadyRunning: true };
+    }
+
+    const where: any = { tenantId };
+    if (dto.propertyIds?.length) where.id = In(dto.propertyIds);
+    const total = await this.propertyRepository.count({ where });
+    if (total === 0) {
+      throw new BadRequestException('No properties match this selection.');
+    }
+
+    const job = await this.seoQueue.add(
+      'bulk-seo',
+      {
+        tenantId,
+        targetLanguages: dto.targetLanguages,
+        overwrite: dto.overwrite === true,
+        includeSchema: dto.includeSchema === true,
+        includeSlug: dto.includeSlug === true,
+        propertyIds: dto.propertyIds,
+      } as BulkSeoJob,
+      // One attempt: a retry would re-pay for every property already done.
+      { attempts: 1, removeOnComplete: { age: 3600 }, removeOnFail: { age: 7200 } },
+    );
+
+    return { jobId: job.id!, total };
+  }
+
+  // The dashboard asks this on mount so progress survives a refresh or
+  // navigating away — the job runs server-side regardless of the page.
+  async findActiveJob(tenantId: number): Promise<BulkSeoJobStatus | null> {
+    const jobs = await this.seoQueue.getJobs(['active', 'waiting', 'delayed', 'prioritized']);
+    const job = jobs.find((j) => j?.data?.tenantId === tenantId);
+    return job ? this.toStatus(job) : null;
+  }
+
+  async getJobStatus(jobId: string, tenantId: number): Promise<BulkSeoJobStatus | null> {
+    const job = await this.seoQueue.getJob(jobId);
+    // Job ids are sequential — don't let one tenant read another's run.
+    if (!job || job.data?.tenantId !== tenantId) return null;
+    return this.toStatus(job);
+  }
+
+  private async toStatus(job: Job<BulkSeoJob>): Promise<BulkSeoJobStatus> {
+    const state = await job.getState();
+    const progress = (job.progress as any) || { total: 0, completed: 0, failed: 0, skipped: 0 };
+
+    return {
+      jobId: job.id!,
+      status: state,
+      progress: progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0,
+      total: progress.total || 0,
+      completed: progress.completed || 0,
+      failed: progress.failed || 0,
+      skipped: progress.skipped || 0,
+    };
+  }
 
   // Generates SEO fields for one property in each requested target language.
   // Sources the base content from the property's own title/description in the
@@ -130,6 +230,7 @@ Requirements:
     const raw = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.2,
       maxTokens: 1500,
+      allowPlatformKey: true,
     });
 
     let cleaned = raw.trim();
@@ -191,9 +292,13 @@ Requirements:
       },
     ];
 
+    // Tenant's own OpenRouter key when they've set one, otherwise the platform
+    // key from OPENROUTER_API_KEY — a bulk run must not stop at tenants who
+    // never configured AI themselves.
     const raw = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.4,
       maxTokens: 800,
+      allowPlatformKey: true,
     });
 
     return this.parseResponse(raw);

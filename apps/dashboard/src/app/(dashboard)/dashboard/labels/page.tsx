@@ -52,6 +52,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
+import { useBulkJob } from '@/hooks/use-bulk-job';
 
 interface Label {
   id: number;
@@ -119,6 +120,20 @@ export default function LabelsPage() {
   const aiTranslation = useAiTranslationGuard();
 
   const api = useApi();
+  // Server-tracked, so progress survives a refresh or leaving the page and a
+  // second click can't queue a duplicate (paid) run.
+  const bulkTranslate = useBulkJob({
+    activeUrl: '/api/dashboard/translate/jobs/active?entityType=label',
+    statusUrl: (jobId) => `/api/dashboard/translate/job/${jobId}`,
+    onFinished: (st) => {
+      toast(
+        st.status === 'completed' && st.failed === 0
+          ? { title: 'Bulk translation complete', description: `${st.completed} labels translated` }
+          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+      );
+      fetchLabels();
+    },
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -284,30 +299,13 @@ export default function LabelsPage() {
         sourceLanguage: 'en',
       });
       const jobId = res?.data?.jobId;
-      toast({ title: 'Bulk translation started' });
       setIsBulkTranslateOpen(false);
-      if (jobId) {
-        const poll = () => {
-          setTimeout(async () => {
-            try {
-              const s = await api.get(`/api/dashboard/translate/job/${jobId}`);
-              const st = s?.data;
-              if (st?.status === 'completed') {
-                toast({ title: 'Bulk translation complete', description: `${st.completed} labels translated` });
-                fetchLabels();
-                return;
-              }
-              if (st?.status === 'failed') {
-                toast({ title: 'Bulk translation had errors', variant: 'destructive' });
-                fetchLabels();
-                return;
-              }
-              poll();
-            } catch { poll(); }
-          }, 3000);
-        };
-        poll();
-      }
+      if (jobId) bulkTranslate.track(jobId);
+      toast(
+        res?.data?.alreadyRunning
+          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
+          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+      );
     } catch (e: any) {
       toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -343,9 +341,9 @@ export default function LabelsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {languages.length > 1 && (
-            <Button size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
-              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              AI Translate All
+            <Button size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
             </Button>
           )}
         </div>
@@ -567,7 +565,7 @@ export default function LabelsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
+            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Start Translation
             </AlertDialogAction>

@@ -10,6 +10,7 @@ import {
 } from '../../database/entities';
 import { AiService, ENRICHMENT_MODEL } from '../ai/ai.service';
 import { LocationService } from '../location/location.service';
+import { PropertyTypeService } from '../property-type/property-type.service';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -24,9 +25,30 @@ export interface EnrichmentResult {
     // "Costa del Sol" imported under Cádiz merged into the Málaga one).
     areasMerged: number;
   };
-  propertyTypes: { parentsCreated: number; childrenAttached: number; skipped: number };
+  propertyTypes: {
+    parentsCreated: number;
+    childrenAttached: number;
+    // Duplicate type rows folded into the one holding the listings (e.g. an
+    // imported "Apartments" merged into "Apartment").
+    typesMerged: number;
+    // Types lifted back to top level because the model says they don't belong
+    // under the parent a previous run gave them.
+    detached: number;
+    skipped: number;
+  };
   features: { recategorised: number; skipped: number };
   errors: string[];
+}
+
+// What the model returns for a property-type organise pass.
+interface TypeOrganisation {
+  // Canonical name → names that mean the same kind of property.
+  merges?: Record<string, string[]>;
+  // Parent name → the subtypes that belong under it.
+  groups?: Record<string, string[]>;
+  // Types that are currently nested but belong at top level. Must be explicit:
+  // omission always means "leave it where it is".
+  root?: string[];
 }
 
 @Injectable()
@@ -45,6 +67,9 @@ export class AiEnrichmentService {
     // same-slug sibling under the target parent, carrying properties and
     // children across. Reimplementing that here would duplicate the recursion.
     private readonly locationService: LocationService,
+    // Same reasoning for property types: merge() re-points listings and child
+    // types onto the survivor before deleting the duplicate row.
+    private readonly propertyTypeService: PropertyTypeService,
   ) {}
 
   // Runs all three enrichments in sequence. Each is idempotent — rows the
@@ -53,7 +78,7 @@ export class AiEnrichmentService {
   async enrichAll(tenantId: number): Promise<EnrichmentResult> {
     const result: EnrichmentResult = {
       locations: { regionsCreated: 0, provincesAttached: 0, skipped: 0, areasMerged: 0 },
-      propertyTypes: { parentsCreated: 0, childrenAttached: 0, skipped: 0 },
+      propertyTypes: { parentsCreated: 0, childrenAttached: 0, typesMerged: 0, detached: 0, skipped: 0 },
       features: { recategorised: 0, skipped: 0 },
       errors: [],
     };
@@ -242,70 +267,239 @@ export class AiEnrichmentService {
     return merged;
   }
 
-  // Groups obvious property-type subtypes under broader parents
-  // (e.g. Detached Villa + Semi-Detached Villa → Villas). Conservative — only
-  // groups when subtype clearly belongs to a single parent. Leaves the rest
-  // flat for the user to handle.
+  // Tidies the property-type list: folds duplicate rows together, then nests
+  // subtypes under the broad type they belong to (Detached Villa → Villas).
+  //
+  // Looks at EVERY type, not just the orphans, so a re-run can correct a
+  // parent an earlier run got wrong. What it will never touch is a row the
+  // user arranged themselves — aiAssigned=false with a parent set. Those are
+  // "locked": not moved, not detached, not merged away. Everything else is
+  // fair game, because it was either left flat by the feed importer or put
+  // there by a previous AI run.
   async enrichPropertyTypes(tenantId: number): Promise<EnrichmentResult['propertyTypes']> {
-    const ungrouped = await this.propertyTypeRepository.find({
-      where: { tenantId, parentId: IsNull() },
-    });
+    const empty = { parentsCreated: 0, childrenAttached: 0, typesMerged: 0, detached: 0, skipped: 0 };
 
-    if (ungrouped.length < 2) {
-      return { parentsCreated: 0, childrenAttached: 0, skipped: 0 };
+    const all = await this.propertyTypeRepository.find({ where: { tenantId } });
+    if (all.length < 2) return empty;
+
+    const counts = await this.countPropertiesByType(tenantId);
+    const answer = await this.askAiForTypeOrganisation(tenantId, all, counts);
+    if (!answer) return { ...empty, skipped: all.length };
+
+    const typesMerged = await this.applyTypeMerges(tenantId, all, counts, answer.merges);
+
+    // Merges delete rows, so re-read before grouping rather than working from
+    // a list that still contains them.
+    const survivors = typesMerged > 0
+      ? await this.propertyTypeRepository.find({ where: { tenantId } })
+      : all;
+
+    const grouped = await this.applyTypeGroups(tenantId, survivors, answer);
+    return { ...grouped, typesMerged };
+  }
+
+  // A type is locked when the user put it under a parent themselves. The feed
+  // importer leaves types flat, and AI runs stamp aiAssigned=true, so this
+  // combination only happens through a manual edit.
+  private isLockedType(type: PropertyType): boolean {
+    return type.parentId != null && !type.aiAssigned;
+  }
+
+  private async countPropertiesByType(tenantId: number): Promise<Map<number, number>> {
+    const counts = new Map<number, number>();
+    try {
+      const rows: Array<{ propertyTypeId: number; cnt: string }> =
+        await this.propertyTypeRepository.manager.query(
+          `SELECT propertyTypeId, COUNT(*) AS cnt
+           FROM properties
+           WHERE tenantId = ? AND propertyTypeId IS NOT NULL
+           GROUP BY propertyTypeId`,
+          [tenantId],
+        );
+      for (const row of rows || []) {
+        counts.set(Number(row.propertyTypeId), parseInt(row.cnt, 10) || 0);
+      }
+    } catch (err) {
+      // Counts only influence which duplicate survives; a failure here should
+      // degrade the pass, not abort it.
+      this.logger.warn(`Property counts unavailable for tenant=${tenantId}: ${(err as Error).message}`);
+    }
+    return counts;
+  }
+
+  private async applyTypeMerges(
+    tenantId: number,
+    all: PropertyType[],
+    counts: Map<number, number>,
+    merges: TypeOrganisation['merges'],
+  ): Promise<number> {
+    if (!merges || typeof merges !== 'object') return 0;
+
+    const byName = new Map(all.map((t) => [this.normaliseName(t.name?.en), t]));
+    const consumed = new Set<number>();
+    let merged = 0;
+
+    for (const [canonicalName, duplicateNames] of Object.entries(merges)) {
+      if (!Array.isArray(duplicateNames) || duplicateNames.length === 0) continue;
+
+      const names = [canonicalName, ...duplicateNames].map((n) => this.normaliseName(n));
+      const rows = names.map((n) => byName.get(n)).filter((t): t is PropertyType => !!t);
+      // A name that resolves to nothing means the model invented or reworded a
+      // type. Can't tell which pairing it meant, so drop the whole group.
+      if (rows.length !== names.length) continue;
+
+      const unique = [...new Map(rows.map((r) => [r.id, r])).values()];
+      if (unique.length < 2) continue;
+      if (unique.some((r) => consumed.has(r.id) || this.isLockedType(r))) continue;
+
+      // Parent and child are a hierarchy someone built, not a duplicate pair —
+      // merging them would delete a level of the tree.
+      const ids = new Set(unique.map((r) => r.id));
+      if (unique.some((r) => r.parentId != null && ids.has(r.parentId))) continue;
+
+      // The survivor is the row with the listings, not the name the model
+      // preferred: that row is the one feeds and public URLs already point at.
+      const keeper = [...unique].sort(
+        (a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.id - b.id,
+      )[0];
+      const losers = unique.filter((r) => r.id !== keeper.id).map((r) => r.id);
+
+      try {
+        const result = await this.propertyTypeService.merge(tenantId, losers, keeper.id);
+        merged += result.mergedTypes;
+        for (const r of unique) consumed.add(r.id);
+      } catch (err) {
+        this.logger.warn(
+          `Merging property types [${losers.join(', ')}] into ${keeper.id} failed: ${(err as Error).message}`,
+        );
+      }
     }
 
-    const typeNames = ungrouped.map((t) => t.name?.en || '').filter(Boolean);
-    const grouping = await this.askAiForTypeGroupings(tenantId, typeNames);
-    if (!grouping) return { parentsCreated: 0, childrenAttached: 0, skipped: ungrouped.length };
+    return merged;
+  }
+
+  private async applyTypeGroups(
+    tenantId: number,
+    types: PropertyType[],
+    answer: TypeOrganisation,
+  ): Promise<Omit<EnrichmentResult['propertyTypes'], 'typesMerged'>> {
+    const groups = answer.groups && typeof answer.groups === 'object' ? answer.groups : {};
+    const byName = new Map(types.map((t) => [this.normaliseName(t.name?.en), t]));
+    const byId = new Map(types.map((t) => [t.id, t]));
 
     let parentsCreated = 0;
     let childrenAttached = 0;
+    let detached = 0;
     let skipped = 0;
 
-    // grouping: { "Villas": ["Detached Villa", "Semi-Detached Villa", ...], ... }
-    for (const [parentName, childNames] of Object.entries(grouping)) {
-      if (!Array.isArray(childNames) || childNames.length < 2) {
-        // No real group — skip
-        continue;
-      }
-      // Don't auto-create a parent that's identical to one of its children
-      // (the AI shouldn't do this but guard anyway).
-      const lowerParent = parentName.toLowerCase();
-      const safeChildren = childNames.filter((c) => c.toLowerCase() !== lowerParent);
-      if (safeChildren.length < 2) continue;
+    for (const [parentName, childNames] of Object.entries(groups)) {
+      if (!Array.isArray(childNames) || childNames.length < 2) continue;
 
-      const parentSlug = this.slugify(parentName);
-      let parent = await this.propertyTypeRepository.findOne({
-        where: { tenantId, slug: parentSlug },
-      });
-      if (!parent) {
-        parent = await this.propertyTypeRepository.save(
-          this.propertyTypeRepository.create({
-            tenantId,
-            name: { en: parentName, es: parentName },
-            slug: parentSlug,
-            aiAssigned: true,
-          }),
-        );
-        parentsCreated++;
-      }
+      const normalisedParent = this.normaliseName(parentName);
+      const children = childNames
+        .map((n) => byName.get(this.normaliseName(n)))
+        .filter((t): t is PropertyType => !!t && this.normaliseName(t.name?.en) !== normalisedParent);
+      // Two members is what makes it a group; one is just a rename.
+      if (children.length < 2) continue;
 
-      for (const childName of safeChildren) {
-        const child = ungrouped.find((t) => (t.name?.en || '').toLowerCase() === childName.toLowerCase());
-        if (!child || child.id === parent.id) {
+      const movable = children.filter((c) => !this.isLockedType(c));
+      skipped += children.length - movable.length;
+      if (movable.length === 0) continue;
+
+      const parent = await this.findOrCreateTypeParent(tenantId, parentName, byName, byId);
+      if (parent.created) parentsCreated++;
+
+      for (const child of movable) {
+        if (child.id === parent.row.id) {
           skipped++;
           continue;
         }
+        if (child.parentId === parent.row.id) continue; // already in place
+        // The parent may itself sit under one of these children from an earlier
+        // run — attaching would make the child its own ancestor.
+        if (this.isDescendantType(byId, parent.row.id, child.id)) {
+          skipped++;
+          continue;
+        }
+
         await this.propertyTypeRepository.update(child.id, {
-          parentId: parent.id,
+          parentId: parent.row.id,
           aiAssigned: true,
         });
+        child.parentId = parent.row.id;
         childrenAttached++;
       }
     }
 
-    return { parentsCreated, childrenAttached, skipped };
+    // Lifting a type back to top level needs an explicit mention in `root`.
+    // Treating omission as "detach" would flatten the whole tree the moment a
+    // response came back truncated.
+    const rootNames = new Set(
+      (Array.isArray(answer.root) ? answer.root : []).map((n) => this.normaliseName(n)),
+    );
+    for (const type of types) {
+      if (type.parentId == null) continue;
+      if (this.isLockedType(type)) continue;
+      if (!rootNames.has(this.normaliseName(type.name?.en))) continue;
+
+      await this.propertyTypeRepository.update(type.id, { parentId: null, aiAssigned: true });
+      type.parentId = null;
+      detached++;
+    }
+
+    return { parentsCreated, childrenAttached, detached, skipped };
+  }
+
+  private async findOrCreateTypeParent(
+    tenantId: number,
+    parentName: string,
+    byName: Map<string, PropertyType>,
+    byId: Map<number, PropertyType>,
+  ): Promise<{ row: PropertyType; created: boolean }> {
+    const existingByName = byName.get(this.normaliseName(parentName));
+    if (existingByName) return { row: existingByName, created: false };
+
+    const slug = this.slugify(parentName);
+    const existingBySlug = await this.propertyTypeRepository.findOne({ where: { tenantId, slug } });
+    if (existingBySlug) {
+      byName.set(this.normaliseName(parentName), existingBySlug);
+      byId.set(existingBySlug.id, existingBySlug);
+      return { row: existingBySlug, created: false };
+    }
+
+    const row = await this.propertyTypeRepository.save(
+      this.propertyTypeRepository.create({
+        tenantId,
+        name: { en: parentName, es: parentName },
+        slug,
+        aiAssigned: true,
+      }),
+    );
+    // Registered immediately so a later group in the same run reuses it.
+    byName.set(this.normaliseName(parentName), row);
+    byId.set(row.id, row);
+    return { row, created: true };
+  }
+
+  // True when `candidateId` sits anywhere below `ancestorId` in the tree.
+  private isDescendantType(
+    byId: Map<number, PropertyType>,
+    candidateId: number,
+    ancestorId: number,
+  ): boolean {
+    let current = byId.get(candidateId);
+    const seen = new Set<number>();
+    while (current?.parentId != null) {
+      if (current.parentId === ancestorId) return true;
+      if (seen.has(current.parentId)) return false; // pre-existing cycle
+      seen.add(current.parentId);
+      current = byId.get(current.parentId);
+    }
+    return false;
+  }
+
+  private normaliseName(name?: string | null): string {
+    return (name || '').trim().toLowerCase();
   }
 
   // Recategorises features currently in 'other'. Respects user edits — only
@@ -388,20 +582,70 @@ Return {} if none of them can be resolved confidently.`;
     return this.callOpenRouterJson(tenantId, prompt);
   }
 
-  private async askAiForTypeGroupings(tenantId: number, types: string[]): Promise<Record<string, string[]> | null> {
-    const prompt = `Group these real-estate property types into broad parent categories. Only group types that clearly share a parent (e.g. "Detached Villa" and "Semi-Detached Villa" → "Villas"). Leave singletons un-grouped (do not include them in the output).
+  // Asks for one organisation pass over the whole type list: duplicates to
+  // fold together, subtypes to nest, and types that were nested wrongly.
+  // Sends the current tree and listing counts so the model can tell a real
+  // duplicate from a subtype, and knows which rows it is not allowed to move.
+  private async askAiForTypeOrganisation(
+    tenantId: number,
+    types: PropertyType[],
+    counts: Map<number, number>,
+  ): Promise<TypeOrganisation | null> {
+    const nameById = new Map(types.map((t) => [t.id, t.name?.en || '']));
+
+    const lines = types
+      .filter((t) => (t.name?.en || '').trim())
+      .map((t) => {
+        const parts = [`"${t.name!.en}"`, `${counts.get(t.id) || 0} listings`];
+        parts.push(
+          t.parentId != null
+            ? `currently under "${nameById.get(t.parentId) || 'unknown'}"`
+            : 'currently top level',
+        );
+        if (this.isLockedType(t)) parts.push('[locked]');
+        return `- ${parts.join(' — ')}`;
+      })
+      .join('\n');
+
+    const prompt = `You are tidying the property-type list of a real-estate website. These types come from imported feeds, so the same kind of property often appears more than once under slightly different names, and subtypes usually sit flat next to the broad type they belong to.
+
+These are Spanish / Mediterranean property listings. Several type names mean something different here than in UK or US real estate, and the local meaning is the correct one:
+- "Duplex" (dúplex) is an APARTMENT spread over two floors — it belongs under Apartments, NOT under Townhouses. It does not mean a two-unit building.
+- "Penthouse" (ático) and "Ground Floor Apartment" (bajo) are Apartments.
+- "Bungalow" in coastal listings is usually a single-storey apartment or a small terraced unit, not a detached house.
+- "Townhouse" (adosado / casa adosada) is a house sharing side walls — a Townhouse, not an Apartment.
+- "Finca", "Cortijo" and "Country House" are Country Properties.
+- "Plot", "Land" and "Residential Plot" are Plots — never nest them under a building type.
 
 Property types:
-${types.map((t) => `- ${t}`).join('\n')}
-
-Common parent categories to use: "Villas", "Apartments", "Townhouses", "Penthouses", "Plots", "Commercial", "Country Properties". You may invent a parent if a group clearly fits a different category.
+${lines}
 
 Reply ONLY with valid JSON (no markdown, no commentary):
-{ "<ParentName>": ["<ChildName1>", "<ChildName2>", ...], ... }
+{
+  "merges": { "<CanonicalName>": ["<DuplicateName>", ...] },
+  "groups": { "<ParentName>": ["<ChildName>", "<ChildName>", ...] },
+  "root": ["<TypeName>", ...]
+}
 
-Do NOT include a parent if it has fewer than 2 children. Do NOT include any child in more than one parent.`;
+Rules for "merges":
+- Only names meaning EXACTLY the same kind of property: singular/plural ("Apartment" / "Apartments"), spelling variants, or direct synonyms ("Flat" / "Apartment").
+- A narrower type is NEVER a duplicate of a broader one. "Penthouse" is not a duplicate of "Apartment"; "Detached Villa" is not a duplicate of "Villa".
+- Omit "merges" entirely if nothing is a true duplicate. Merging is destructive — when unsure, leave it out.
 
-    return this.callOpenRouterJson(tenantId, prompt);
+Rules for "groups":
+- Nest subtypes under the broad type they belong to, e.g. "Villas": ["Detached Villa", "Semi-Detached Villa"].
+- A parent may be a name already in the list, or a new one you invent ("Villas", "Apartments", "Townhouses", "Penthouses", "Plots", "Commercial", "Country Properties").
+- A parent needs at least 2 children. No type may appear under two parents, or as both a parent and a child.
+
+Rules for "root":
+- List ONLY types that are currently nested under a parent they do not belong to and should sit at top level instead.
+- Leaving a type out of your answer always means "leave it exactly where it is". Never use omission to mean "move it".
+
+Types marked [locked] were arranged by the user. You may name one as a parent, but never list one as a child, in "root", or anywhere in "merges".
+
+Use type names exactly as written above. Return {} if nothing needs changing.`;
+
+    return this.callOpenRouterJson(tenantId, prompt) as Promise<TypeOrganisation | null>;
   }
 
   private async askAiForFeatureCategories(tenantId: number, features: string[]): Promise<Record<string, string> | null> {

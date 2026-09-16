@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -52,6 +52,8 @@ import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
+import { BulkSeoDialog } from '@/components/bulk-seo-dialog';
+import { useBulkJob } from '@/hooks/use-bulk-job';
 
 interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
 
@@ -89,6 +91,10 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'destruct
   archived: 'destructive',
 };
 
+// Module-level so BulkSeoDialog gets a stable reference — it resets its
+// language selection whenever this prop changes identity.
+const DEFAULT_LANGUAGES = ['en'];
+
 function displayName(name: Record<string, string> | string): string {
   if (typeof name === 'string') return name;
   return name?.en || name?.es || Object.values(name)[0] || '';
@@ -101,10 +107,7 @@ export default function PropertiesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [bulkTranslating, setBulkTranslating] = useState(false);
-  const [bulkJobId, setBulkJobId] = useState<string | null>(null);
-  const [bulkProgress, setBulkProgress] = useState(0);
-  const [tenantLanguages, setTenantLanguages] = useState<string[]>([]);
+  const [startingTranslate, setStartingTranslate] = useState(false);
 
   // Filters
   const [status, setStatus] = useState('');
@@ -113,7 +116,6 @@ export default function PropertiesPage() {
   const [source, setSource] = useState('');
   const [isOwnProperty, setIsOwnProperty] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
-  const [propertyTypes, setPropertyTypes] = useState<PropertyTypeOption[]>([]);
 
   const hasActiveFilters = !!(status || listingType || propertyTypeId || source || isOwnProperty || isFeatured);
 
@@ -153,21 +155,45 @@ export default function PropertiesPage() {
   const properties = data?.data || [];
   const meta = data?.meta;
 
-  // Load tenant languages + property types for filters
-  useEffect(() => {
-    apiGet<{ data: { settings?: { languages?: string[] } } }>('/api/dashboard/tenant')
-      .then((res) => {
-        const langs = res?.data?.settings?.languages;
-        if (langs && langs.length > 1) setTenantLanguages(langs);
-      })
-      .catch(() => {});
-    apiGet<{ data: PropertyTypeOption[] }>('/api/dashboard/property-types')
-      .then((res) => {
-        const types = res?.data || res;
-        if (Array.isArray(types)) setPropertyTypes(types);
-      })
-      .catch(() => {});
-  }, []);
+  // Tenant languages + property types for the header buttons and filters.
+  // Through react-query rather than a one-shot effect: a request that fails
+  // while the session is still settling is retried instead of silently
+  // leaving Translate All hidden and the type filter empty until a reload.
+  const { data: tenantData } = useQuery({
+    queryKey: ['dashboard-tenant'],
+    queryFn: () =>
+      apiGet<{ data: { settings?: { languages?: string[] } } }>('/api/dashboard/tenant'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const configuredLanguages = tenantData?.data?.settings?.languages;
+  const tenantLanguages =
+    configuredLanguages && configuredLanguages.length > 1 ? configuredLanguages : [];
+
+  const { data: typesData } = useQuery({
+    queryKey: ['dashboard-property-types'],
+    queryFn: () =>
+      apiGet<{ data: PropertyTypeOption[] } | PropertyTypeOption[]>('/api/dashboard/property-types'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const propertyTypes: PropertyTypeOption[] = Array.isArray(typesData)
+    ? typesData
+    : Array.isArray(typesData?.data)
+      ? typesData.data
+      : [];
+
+  // Progress comes from the server, so it survives a refresh or leaving the
+  // page, and the button stays disabled while a run is in flight.
+  const bulkTranslate = useBulkJob({
+    activeUrl: '/api/dashboard/translate/jobs/active?entityType=property',
+    statusUrl: (jobId) => `/api/dashboard/translate/job/${jobId}`,
+    onFinished: (s) =>
+      toast({
+        title: s.status === 'completed' ? 'Bulk translation complete' : 'Bulk translation finished with errors',
+        description: `${s.completed - s.failed} succeeded, ${s.failed} failed out of ${s.total} translations.`,
+        variant: s.failed > 0 ? 'destructive' : 'default',
+      }),
+  });
+  const bulkTranslating = startingTranslate || bulkTranslate.running;
 
   const onBulkTranslate = async () => {
     if (tenantLanguages.length < 2) {
@@ -179,42 +205,23 @@ export default function PropertiesPage() {
     );
     if (!confirmed) return;
 
-    setBulkTranslating(true);
-    setBulkProgress(0);
+    setStartingTranslate(true);
     try {
-      const res = await apiPost<{ data: { jobId: string } }>('/api/dashboard/translate/properties/bulk', {
+      const res = await apiPost<{ data: { jobId: string; alreadyRunning?: boolean } }>('/api/dashboard/translate/properties/bulk', {
         targetLanguages: tenantLanguages,
       });
       const jobId = res.data?.jobId;
       if (!jobId) throw new Error('No job ID returned');
-      setBulkJobId(jobId);
-      toast({ title: 'Bulk translation started', description: 'Translating all properties in the background. This may take a few minutes.' });
-
-      const poll = setInterval(async () => {
-        try {
-          const status = await apiGet<{ data: { status: string; progress: number; completed: number; failed: number; total: number } }>(
-            `/api/dashboard/translate/job/${jobId}`,
-          );
-          const s = status.data;
-          setBulkProgress(s.progress);
-          if (s.status === 'completed' || s.status === 'failed') {
-            clearInterval(poll);
-            setBulkTranslating(false);
-            setBulkJobId(null);
-            toast({
-              title: s.status === 'completed' ? 'Bulk translation complete' : 'Bulk translation finished with errors',
-              description: `${s.completed - s.failed} succeeded, ${s.failed} failed out of ${s.total} translations.`,
-              variant: s.failed > 0 ? 'destructive' : 'default',
-            });
-          }
-        } catch {
-          clearInterval(poll);
-          setBulkTranslating(false);
-        }
-      }, 3000);
+      bulkTranslate.track(jobId);
+      toast(
+        res.data.alreadyRunning
+          ? { title: 'Bulk translation is already running', description: 'Showing the progress of the run in flight — no second run was started.' }
+          : { title: 'Bulk translation started', description: 'Translating all properties in the background. You can leave this page — progress shows on the button.' },
+      );
     } catch (err) {
-      setBulkTranslating(false);
       toast({ title: 'Bulk translate failed', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setStartingTranslate(false);
     }
   };
 
@@ -227,12 +234,13 @@ export default function PropertiesPage() {
           <p className="page-description mt-1">Manage your property listings</p>
         </div>
         <div className="flex items-center gap-2">
+          <BulkSeoDialog tenantLanguages={configuredLanguages?.length ? configuredLanguages : DEFAULT_LANGUAGES} />
           {tenantLanguages.length > 1 && (
             <Button variant="outline" onClick={onBulkTranslate} disabled={bulkTranslating}>
               {bulkTranslating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Translating {bulkProgress}%
+                  Translating {bulkTranslate.progress}%
                 </>
               ) : (
                 <>

@@ -5,6 +5,7 @@ import { AiEnrichmentService } from './ai-enrichment.service';
 import { AiEnrichmentController } from './ai-enrichment.controller';
 import { AiModule } from '../ai/ai.module';
 import { LocationModule } from '../location/location.module';
+import { PropertyTypeModule } from '../property-type/property-type.module';
 
 @Module({
   imports: [
@@ -14,6 +15,8 @@ import { LocationModule } from '../location/location.module';
     // One-directional: LocationModule does not depend on AiEnrichmentModule,
     // so no forwardRef is needed.
     LocationModule,
+    // Same for PropertyTypeService.merge, which folds duplicate type rows.
+    PropertyTypeModule,
   ],
   controllers: [AiEnrichmentController],
   providers: [AiEnrichmentService],

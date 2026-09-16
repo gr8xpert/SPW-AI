@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Post,
@@ -8,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { AiSeoService } from './ai-seo.service';
 import { GenerateSeoDto } from './dto/generate-seo.dto';
+import { BulkGenerateSeoDto } from './dto/bulk-generate-seo.dto';
 import { CurrentTenant, RequiresAddon } from '../../common/decorators';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 
@@ -35,5 +38,29 @@ export class AiSeoController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.aiSeoService.generateSchemaForProperty(tenantId, id);
+  }
+
+  // Queues a catalog-wide pass. Returns immediately with a job id — poll
+  // job/:jobId for progress, same contract as bulk translate.
+  @Post('properties/bulk')
+  async bulkGenerate(
+    @CurrentTenant() tenantId: number,
+    @Body() dto: BulkGenerateSeoDto,
+  ) {
+    return this.aiSeoService.bulkGenerate(tenantId, dto);
+  }
+
+  // The tenant's in-flight bulk run, if any — lets the dashboard resume its
+  // progress indicator after a refresh instead of offering a fresh start.
+  @Get('jobs/active')
+  async getActiveJob(@CurrentTenant() tenantId: number) {
+    return { job: await this.aiSeoService.findActiveJob(tenantId) };
+  }
+
+  @Get('job/:jobId')
+  async getJobStatus(@CurrentTenant() tenantId: number, @Param('jobId') jobId: string) {
+    const status = await this.aiSeoService.getJobStatus(jobId, tenantId);
+    if (!status) throw new NotFoundException('Job not found');
+    return status;
   }
 }

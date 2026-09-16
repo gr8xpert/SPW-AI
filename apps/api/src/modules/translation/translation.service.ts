@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { Property, PropertyType, Feature, Label } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
 
@@ -174,7 +174,12 @@ export class TranslationService {
     targetLanguages: string[],
     sourceLanguage?: string,
     propertyIds?: number[],
-  ): Promise<{ jobId: string }> {
+  ): Promise<{ jobId: string; alreadyRunning?: boolean }> {
+    // One run per tenant + entity type: a repeat click resumes the job in
+    // flight rather than paying to translate the same catalog twice.
+    const running = await this.findActiveJob(tenantId, 'property');
+    if (running) return { jobId: running.jobId, alreadyRunning: true };
+
     const job = await this.translationQueue.add('bulk-translate', {
       tenantId,
       targetLanguages,
@@ -195,7 +200,10 @@ export class TranslationService {
     entityType: 'propertyType' | 'feature' | 'label',
     targetLanguages: string[],
     sourceLanguage?: string,
-  ): Promise<{ jobId: string }> {
+  ): Promise<{ jobId: string; alreadyRunning?: boolean }> {
+    const running = await this.findActiveJob(tenantId, entityType);
+    if (running) return { jobId: running.jobId, alreadyRunning: true };
+
     const job = await this.translationQueue.add('bulk-translate', {
       tenantId,
       targetLanguages,
@@ -210,10 +218,27 @@ export class TranslationService {
     return { jobId: job.id! };
   }
 
-  async getJobStatus(jobId: string): Promise<BulkJobStatus | null> {
-    const job = await this.translationQueue.getJob(jobId);
-    if (!job) return null;
+  // The dashboard asks this on mount so progress survives a refresh or
+  // navigating away — the job keeps running server-side regardless.
+  async findActiveJob(
+    tenantId: number,
+    entityType: NonNullable<BulkTranslateJob['entityType']>,
+  ): Promise<BulkJobStatus | null> {
+    const jobs = await this.translationQueue.getJobs(['active', 'waiting', 'delayed', 'prioritized']);
+    const job = jobs.find(
+      (j) => j?.data?.tenantId === tenantId && (j.data.entityType ?? 'property') === entityType,
+    );
+    return job ? this.toStatus(job) : null;
+  }
 
+  async getJobStatus(jobId: string, tenantId: number): Promise<BulkJobStatus | null> {
+    const job = await this.translationQueue.getJob(jobId);
+    // Job ids are sequential — don't let one tenant read another's run.
+    if (!job || job.data?.tenantId !== tenantId) return null;
+    return this.toStatus(job);
+  }
+
+  private async toStatus(job: Job<BulkTranslateJob>): Promise<BulkJobStatus> {
     const state = await job.getState();
     const progress = (job.progress as any) || { total: 0, completed: 0, failed: 0 };
 

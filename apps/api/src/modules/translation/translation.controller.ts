@@ -107,10 +107,23 @@ export class TranslationController {
     );
   }
 
+  // The tenant's in-flight bulk run for one entity type, if any — lets the
+  // dashboard resume its progress indicator after a refresh.
+  @Get('jobs/active')
+  async getActiveJob(
+    @CurrentTenant() tenantId: number,
+    @Query('entityType') entityType?: string,
+  ) {
+    const type = (['property', 'propertyType', 'feature', 'label'] as const).find(
+      (t) => t === entityType,
+    ) ?? 'property';
+    return { job: await this.translationService.findActiveJob(tenantId, type) };
+  }
+
   // Job status
   @Get('job/:jobId')
-  async getJobStatus(@Param('jobId') jobId: string) {
-    const status = await this.translationService.getJobStatus(jobId);
+  async getJobStatus(@CurrentTenant() tenantId: number, @Param('jobId') jobId: string) {
+    const status = await this.translationService.getJobStatus(jobId, tenantId);
     if (!status) {
       return { jobId, status: 'not_found' };
     }

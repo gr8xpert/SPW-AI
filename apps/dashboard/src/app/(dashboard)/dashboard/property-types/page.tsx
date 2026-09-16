@@ -63,10 +63,13 @@ import {
   Sparkles,
   Check,
   Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
+import { useBulkJob } from '@/hooks/use-bulk-job';
 
 interface PropertyType {
   id: number;
@@ -76,6 +79,7 @@ interface PropertyType {
   parentId?: number | null;
   propertyCount?: number;
   sortOrder?: number;
+  isActive?: boolean;
 }
 
 const LANG_NAMES: Record<string, string> = {
@@ -116,6 +120,20 @@ export default function PropertyTypesPage() {
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
 
   const api = useApi();
+  // Server-tracked, so progress survives a refresh or leaving the page and a
+  // second click can't queue a duplicate (paid) run.
+  const bulkTranslate = useBulkJob({
+    activeUrl: '/api/dashboard/translate/jobs/active?entityType=propertyType',
+    statusUrl: (jobId) => `/api/dashboard/translate/job/${jobId}`,
+    onFinished: (st) => {
+      toast(
+        st.status === 'completed' && st.failed === 0
+          ? { title: 'Bulk translation complete', description: `${st.completed} property types translated` }
+          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+      );
+      fetchTypes();
+    },
+  });
   const { toast } = useToast();
 
   const runAiOrganize = async () => {
@@ -124,9 +142,18 @@ export default function PropertyTypesPage() {
       const res: any = await api.post('/api/dashboard/ai-enrichment/run', { scope: 'property-types' });
       const r = res?.data?.propertyTypes ?? res?.propertyTypes;
       if (r) {
+        // Only mention what actually happened — listing four zeroes reads as a
+        // failure even when the tree was simply already tidy.
+        const parts = [
+          r.parentsCreated ? `+${r.parentsCreated} parent group${r.parentsCreated === 1 ? '' : 's'}` : '',
+          r.childrenAttached ? `${r.childrenAttached} grouped` : '',
+          r.typesMerged ? `${r.typesMerged} duplicate${r.typesMerged === 1 ? '' : 's'} merged` : '',
+          r.detached ? `${r.detached} moved to top level` : '',
+          r.skipped ? `${r.skipped} skipped` : '',
+        ].filter(Boolean);
         toast({
           title: 'AI organize complete',
-          description: `+${r.parentsCreated} parent groups, ${r.childrenAttached} types grouped, ${r.skipped} skipped`,
+          description: parts.length ? parts.join(', ') : 'Everything already looks right',
         });
       } else {
         toast({ title: 'AI organize finished', description: 'No changes needed' });
@@ -302,30 +329,13 @@ export default function PropertyTypesPage() {
         sourceLanguage: 'en',
       });
       const jobId = res?.data?.jobId;
-      toast({ title: 'Bulk translation started' });
       setIsBulkTranslateOpen(false);
-      if (jobId) {
-        const poll = () => {
-          setTimeout(async () => {
-            try {
-              const s = await api.get(`/api/dashboard/translate/job/${jobId}`);
-              const st = s?.data;
-              if (st?.status === 'completed') {
-                toast({ title: 'Bulk translation complete', description: `${st.completed} items translated` });
-                fetchTypes();
-                return;
-              }
-              if (st?.status === 'failed') {
-                toast({ title: 'Bulk translation had errors', variant: 'destructive' });
-                fetchTypes();
-                return;
-              }
-              poll();
-            } catch { poll(); }
-          }, 3000);
-        };
-        poll();
-      }
+      if (jobId) bulkTranslate.track(jobId);
+      toast(
+        res?.data?.alreadyRunning
+          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
+          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+      );
     } catch (e: any) {
       toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -430,6 +440,17 @@ export default function PropertyTypesPage() {
     return { filled, total: languages.length };
   };
 
+  const handleToggleVisibility = async (type: PropertyType) => {
+    const newActive = !(type.isActive ?? true);
+    try {
+      await api.put(`/api/dashboard/property-types/${type.id}`, { isActive: newActive });
+      toast({ title: newActive ? 'Type visible on website' : 'Type hidden from website' });
+      fetchTypes();
+    } catch {
+      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
@@ -443,9 +464,9 @@ export default function PropertyTypesPage() {
             AI Organize
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
-              {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              AI Translate All
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+              {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
             </Button>
           )}
           <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '', parentId: null }); }}>
@@ -557,6 +578,7 @@ export default function PropertyTypesPage() {
                   <TableHead>Slug</TableHead>
                   {languages.length > 1 && <TableHead>Translations</TableHead>}
                   <TableHead>Properties</TableHead>
+                  <TableHead className="w-[100px]">Visible</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -572,7 +594,7 @@ export default function PropertyTypesPage() {
                       onDragLeave={() => setDragOverIndex(null)}
                       onDrop={() => handleDrop(i)}
                       onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                      className={`${dragOverIndex === i ? 'border-t-2 border-primary' : ''} ${selectedIds.has(type.id) ? 'bg-primary/5' : ''}`}
+                      className={`${dragOverIndex === i ? 'border-t-2 border-primary' : ''} ${selectedIds.has(type.id) ? 'bg-primary/5' : ''} ${type.isActive === false ? 'opacity-50' : ''}`}
                     >
                       <TableCell>
                         <Checkbox
@@ -615,6 +637,23 @@ export default function PropertyTypesPage() {
                       )}
                       <TableCell>
                         <Badge variant="outline">{type.propertyCount ?? 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div
+                          className="flex items-center gap-1.5"
+                          title={type.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+                        >
+                          {type.isActive !== false ? (
+                            <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          <Switch
+                            checked={type.isActive !== false}
+                            onCheckedChange={() => handleToggleVisibility(type)}
+                            className="scale-75"
+                          />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -741,7 +780,7 @@ export default function PropertyTypesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating}>
+            <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Start Translation
             </AlertDialogAction>
