@@ -20,6 +20,19 @@ import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { isValidCronExpression } from './cron-validator';
 import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
 
+// Listings that left a feed are only removed after a run that received at
+// least this share of the total the feed reported...
+const FEED_COMPLETE_RUN_RATIO = 0.95;
+// ...and never when one run would remove more than this share of the feed's
+// properties (and more than FEED_MASS_REMOVAL_MIN of them).
+const FEED_MASS_REMOVAL_RATIO = 0.3;
+const FEED_MASS_REMOVAL_MIN = 20;
+
+interface FeedOwnershipContext {
+  liveFeedIds: Set<number>;
+  featuredFeedIds: Set<number>;
+}
+
 // Returns a credentials object safe to send to API consumers — secret fields
 // are reduced to a "last 4 chars" hint so the dashboard can re-render the
 // configured state without exposing the underlying value.
@@ -359,23 +372,8 @@ export class FeedService {
       return { propertiesDeleted: 0, locationsDeleted: 0, propertyTypesDeleted: 0, featuresDeleted: 0 };
     }
 
-    // Release R2 blobs held by images we're deleting. Non-fatal per image so
-    // one bad blob doesn't block the whole wipe. Uses tenant storage config
-    // (R2 or local) resolved once.
-    const storageConfig = await this.uploadService.getStorageConfig(tenantId);
-    for (const p of doomed) {
-      if (!p.images) continue;
-      for (const img of p.images) {
-        if (!img.contentHash) continue;
-        try {
-          await this.uploadService.releaseBlob(tenantId, img.contentHash, storageConfig);
-        } catch (err) {
-          this.logger.warn(
-            `wipeFeedData: releaseBlob failed for prop=${p.id} hash=${img.contentHash}: ${(err as Error).message}`,
-          );
-        }
-      }
-    }
+    // Release R2 blobs held by images we're deleting.
+    await this.releasePropertyImages(tenantId, doomed, 'wipeFeedData');
 
     // Delete in one shot — FK relations to locationId / propertyTypeId are
     // ON DELETE SET NULL on the *other* direction, so we don't need to null
@@ -510,8 +508,22 @@ export class FeedService {
     let createdCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
+    let removedCount = 0;
+    // Largest total the feed reported, to tell a complete run from one that
+    // silently came back short before removing anything.
+    let reportedTotal = 0;
     let page = 1;
     let hasMore = true;
+    // The tenant's feeds decide who owns a property (see importProperty), and
+    // ownership decides which feed may remove it.
+    const tenantFeeds = await this.feedConfigRepository.find({
+      where: { tenantId: config.tenantId },
+      select: ['id', 'provider', 'markAsFeatured'],
+    });
+    const ownership: FeedOwnershipContext = {
+      liveFeedIds: new Set(tenantFeeds.map((f) => f.id)),
+      featuredFeedIds: new Set(tenantFeeds.filter((f) => f.markAsFeatured).map((f) => f.id)),
+    };
     // Every listing the feed returned this run — a markAsFeatured feed
     // unfeatures whatever it flagged earlier that isn't in here.
     const seenExternalIds = new Set<string>();
@@ -521,6 +533,7 @@ export class FeedService {
         const result = await adapter.fetchProperties(config.credentials, page, 100);
 
         totalFetched += result.properties.length;
+        reportedTotal = Math.max(reportedTotal, result.totalCount || 0);
 
         for (const feedProperty of result.properties) {
           seenExternalIds.add(String(feedProperty.externalId));
@@ -534,6 +547,7 @@ export class FeedService {
               config.protectedFields || [],
               areaProvinceOverrides,
               config.markAsFeatured === true,
+              ownership,
             );
 
             if (outcome === 'created') {
@@ -559,7 +573,9 @@ export class FeedService {
         importLog.errorCount = errors.length;
         await this.importLogRepository.save(importLog);
 
-        hasMore = result.hasMore;
+        // An empty page always ends the run, so an adapter that misjudges
+        // hasMore can't loop forever.
+        hasMore = result.hasMore && result.properties.length > 0;
         page++;
       }
 
@@ -584,8 +600,24 @@ export class FeedService {
         }
       }
 
+      // Mirror the source: listings that left the feed (sold, withdrawn) go.
+      // A featured feed leaves this to an ordinary feed of the same source when
+      // there is one: leaving the featured list doesn't mean leaving the market.
+      const removalHandledElsewhere =
+        config.markAsFeatured &&
+        tenantFeeds.some((f) => f.id !== config.id && !f.markAsFeatured && f.provider === config.provider);
+      if (config.removeMissing !== false && !removalHandledElsewhere) {
+        const removal = await this.removeListingsNoLongerInFeed(config, seenExternalIds, reportedTotal);
+        removedCount = removal.removed;
+        if (removal.skippedReason) {
+          errors.push({ ref: 'removal', error: removal.skippedReason });
+          this.logger.warn(`Feed ${config.id} (tenant=${config.tenantId}): ${removal.skippedReason}`);
+        }
+      }
+
       importLog.status = errors.length > 0 ? 'partial' : 'success';
       importLog.completedAt = new Date();
+      importLog.removedCount = removedCount;
       importLog.totalFetched = totalFetched;
       importLog.createdCount = createdCount;
       importLog.updatedCount = updatedCount;
@@ -602,7 +634,7 @@ export class FeedService {
 
       await this.feedConfigRepository.save(config);
 
-      if (createdCount > 0 || updatedCount > 0) {
+      if (createdCount > 0 || updatedCount > 0 || removedCount > 0) {
         try {
           await this.tenantService.clearCache(config.tenantId, {
             reason: `feed_import:${config.provider}`,
@@ -650,6 +682,83 @@ export class FeedService {
     }
   }
 
+  // Deletes the properties this feed owns that a complete run did not return,
+  // so the site mirrors the source. Called only after every page was fetched
+  // without error. Properties with "Enable Feed Sync" off are always kept.
+  private async removeListingsNoLongerInFeed(
+    config: FeedConfig,
+    seenExternalIds: Set<string>,
+    reportedTotal: number,
+  ): Promise<{ removed: number; skippedReason?: string }> {
+    if (seenExternalIds.size === 0) {
+      return { removed: 0, skippedReason: 'Removal skipped: the feed returned no properties.' };
+    }
+    // Listings added or withdrawn while paging can shift a few between pages,
+    // but a run that saw clearly fewer than the feed reported is incomplete.
+    if (reportedTotal > 0 && seenExternalIds.size < reportedTotal * FEED_COMPLETE_RUN_RATIO) {
+      return {
+        removed: 0,
+        skippedReason: `Removal skipped: received ${seenExternalIds.size} of ${reportedTotal} properties the feed reported.`,
+      };
+    }
+
+    const owned = await this.propertyRepository.find({
+      where: { tenantId: config.tenantId, feedConfigId: config.id, source: config.provider as any },
+      select: ['id', 'externalId', 'images', 'syncEnabled'],
+    });
+    const departed = owned.filter(
+      (p) => p.syncEnabled !== false && !!p.externalId && !seenExternalIds.has(String(p.externalId)),
+    );
+    if (departed.length === 0) return { removed: 0 };
+
+    // A daily sync losing a large share at once is far more likely a changed
+    // filter or a source-side fault than that many sales.
+    if (departed.length > FEED_MASS_REMOVAL_MIN && departed.length > owned.length * FEED_MASS_REMOVAL_RATIO) {
+      return {
+        removed: 0,
+        skippedReason:
+          `Removal skipped: ${departed.length} of ${owned.length} properties would be removed at once. ` +
+          `Check the feed's filter, or switch off "Remove properties that leave this feed" to keep them.`,
+      };
+    }
+
+    await this.releasePropertyImages(config.tenantId, departed, 'removeListingsNoLongerInFeed');
+    const ids = departed.map((p) => p.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      await this.propertyRepository.delete({ tenantId: config.tenantId, id: In(ids.slice(i, i + 500)) });
+    }
+    this.logger.log(
+      `Removed ${ids.length} properties no longer in feed ${config.id} (tenant=${config.tenantId}): ` +
+        departed.slice(0, 20).map((p) => p.externalId).join(', ') +
+        (departed.length > 20 ? ', ...' : ''),
+    );
+    return { removed: ids.length };
+  }
+
+  // Releases R2 blobs held by the images of properties about to be deleted.
+  // Non-fatal per image so one bad blob doesn't block the delete.
+  private async releasePropertyImages(
+    tenantId: number,
+    properties: Array<Pick<Property, 'id' | 'images'>>,
+    caller: string,
+  ): Promise<void> {
+    if (!properties.some((p) => p.images?.some((img) => img.contentHash))) return;
+    const storageConfig = await this.uploadService.getStorageConfig(tenantId);
+    for (const p of properties) {
+      if (!p.images) continue;
+      for (const img of p.images) {
+        if (!img.contentHash) continue;
+        try {
+          await this.uploadService.releaseBlob(tenantId, img.contentHash, storageConfig);
+        } catch (err) {
+          this.logger.warn(
+            `${caller}: releaseBlob failed for prop=${p.id} hash=${img.contentHash}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+  }
+
   private async importProperty(
     tenantId: number,
     feedConfigId: number,
@@ -659,6 +768,7 @@ export class FeedService {
     feedProtectedFields: string[] = [],
     areaProvinceOverrides: Record<string, string> = {},
     markAsFeatured = false,
+    ownership?: FeedOwnershipContext,
   ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -700,8 +810,21 @@ export class FeedService {
         existing.featuredByFeedId == null &&
         !feedProtectedFields.includes('isFeatured') &&
         !(existing.lockedFields || []).includes('isFeatured');
+      // The owning feed is the one allowed to remove the row when it leaves.
+      // A featured feed lists a subset of another feed's properties, so it
+      // never takes a row from another live feed, while an ordinary feed takes
+      // rows from a featured one. Rows without a live owner go to whoever sees
+      // them; rows of another live ordinary feed stay put so two overlapping
+      // feeds don't swap them every run.
+      const currentOwner = existing.feedConfigId;
+      const claimOwnership =
+        currentOwner !== feedConfigId &&
+        (!ownership ||
+          currentOwner == null ||
+          !ownership.liveFeedIds.has(currentOwner) ||
+          (ownership.featuredFeedIds.has(currentOwner) && !markAsFeatured));
 
-      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured && !claimOwnership) return 'skipped';
 
       // Per-property locks (user-edited fields) merged with per-feed protected
       // fields (tenant-wide setting on FeedConfig). Union wins: any field named
@@ -795,11 +918,11 @@ export class FeedService {
         );
       }
 
-      // Tag ownership with the current feed regardless of what else changed,
-      // so backfilled-NULL rows and rows previously tagged to a removed feed
-      // get re-associated with the feed that just touched them. Also lets the
-      // per-feed wipe button target them cleanly.
-      if (existing.feedConfigId !== feedConfigId) {
+      // Tag ownership (see claimOwnership) regardless of what else changed, so
+      // backfilled-NULL rows and rows of a deleted feed get re-associated with
+      // the feed that just touched them. Also lets the per-feed wipe button and
+      // listing removal target them cleanly.
+      if (claimOwnership) {
         updateData.feedConfigId = feedConfigId;
       }
 
@@ -1216,6 +1339,8 @@ export class FeedService {
       updatedCount: latest.updatedCount,
       skippedCount: latest.skippedCount,
       errorCount: latest.errorCount,
+      removedCount: latest.removedCount ?? 0,
+      removalNote: latest.errors?.find((e) => e.ref === 'removal')?.error ?? null,
       startedAt: latest.startedAt,
       completedAt: latest.completedAt,
       // Best-effort target: last successful sync's count gives a rough total to render percentage

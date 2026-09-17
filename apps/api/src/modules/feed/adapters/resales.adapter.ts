@@ -17,6 +17,9 @@ export class ResalesAdapter extends BaseFeedAdapter {
 
   private readonly logger = new Logger(ResalesAdapter.name);
   private readonly baseUrl = 'https://webapi.resales-online.com/V6';
+  // SearchProperties never returns more than 40 per page, whatever P_PageSize
+  // asks for (QueryInfo.PropertiesPerPage says 40).
+  private static readonly MAX_PAGE_SIZE = 40;
   private readonly parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -80,7 +83,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
       params: {
         ...this.getAuthParams(credentials),
         P_PageNo: page,
-        P_PageSize: limit,
+        P_PageSize: Math.min(limit, ResalesAdapter.MAX_PAGE_SIZE),
       },
       timeout: 60000,
     });
@@ -99,6 +102,9 @@ export class ResalesAdapter extends BaseFeedAdapter {
     const queryInfo = root.QueryInfo || {};
     const totalCount = parseInt(String(queryInfo.PropertyCount || '0'), 10);
     const searchType = String(queryInfo.SearchType || 'Sale');
+    // Page through at the size the API actually used. Computing this from the
+    // requested size stopped imports at 520 of 1227 (13 pages x 40).
+    const perPage = parseInt(String(queryInfo.PropertiesPerPage || '0'), 10);
 
     const rawProperties = root.Property || [];
     const propertyArray = Array.isArray(rawProperties) ? rawProperties : [rawProperties];
@@ -118,7 +124,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
     return {
       properties: enriched,
       totalCount,
-      hasMore: page * limit < totalCount,
+      hasMore: propertyArray.length > 0 && page * (perPage || propertyArray.length) < totalCount,
       page,
     };
   }

@@ -152,10 +152,12 @@ describe('unfeaturing listings that left the feed', () => {
       provider: 'resales',
       credentials: {},
       markAsFeatured: true,
+      // Removal of departed listings has its own spec (feed-remove-missing).
+      removeMissing: false,
       protectedFields: [],
     };
     const importLog = { id: 1 };
-    svc.feedConfigRepository = { findOne: jest.fn().mockResolvedValue(config), save: jest.fn() };
+    svc.feedConfigRepository = { findOne: jest.fn().mockResolvedValue(config), find: jest.fn().mockResolvedValue([config]), save: jest.fn() };
     svc.importLogRepository = { findOne: jest.fn().mockResolvedValue(importLog), save: jest.fn() };
     svc.tenantRepository = { findOne: jest.fn().mockResolvedValue({ id: TENANT_ID, settings: {} }) };
     svc.tenantService = { clearCache: jest.fn() };

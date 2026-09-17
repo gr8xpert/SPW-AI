@@ -64,6 +64,10 @@ export class FeedImportLog {
   @Column({ default: 0 })
   errorCount: number;
 
+  // Properties deleted because they were no longer in the feed.
+  @Column({ default: 0 })
+  removedCount: number;
+
   @Column({ type: 'json', nullable: true })
   errors: ImportError[] | null;
 }

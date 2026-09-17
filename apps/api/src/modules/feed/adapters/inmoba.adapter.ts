@@ -60,7 +60,9 @@ export class InmobaAdapter extends BaseFeedAdapter {
     return {
       properties,
       totalCount,
-      hasMore: page * limit < totalCount,
+      // The API may return fewer than `limit` per page (a server-side cap), so
+      // page through at the size it actually returned; an empty page ends it.
+      hasMore: properties.length > 0 && page * properties.length < totalCount,
       page,
     };
   }

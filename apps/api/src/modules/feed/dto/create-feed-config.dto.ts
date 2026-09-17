@@ -46,4 +46,8 @@ export class CreateFeedConfigDto {
   @IsBoolean()
   @IsOptional()
   markAsFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  removeMissing?: boolean;
 }

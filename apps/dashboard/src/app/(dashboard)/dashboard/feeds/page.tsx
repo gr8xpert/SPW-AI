@@ -77,6 +77,7 @@ interface FeedConfig {
   credentials?: Record<string, string>;
   protectedFields?: string[] | null;
   markAsFeatured?: boolean;
+  removeMissing?: boolean;
 }
 
 // Field names must match Property entity keys (see FEED_MANAGED_FIELDS in
@@ -134,6 +135,7 @@ const emptyForm = {
   syncSchedule: '0 6 * * *',
   protectedFields: [] as string[],
   markAsFeatured: false,
+  removeMissing: true,
 };
 
 function formatDate(d: string): string {
@@ -148,6 +150,8 @@ interface SyncStatus {
   updatedCount?: number;
   skippedCount?: number;
   errorCount?: number;
+  removedCount?: number;
+  removalNote?: string | null;
   status?: string | null;
 }
 
@@ -230,6 +234,7 @@ export default function FeedsPage() {
         syncSchedule: form.syncSchedule || '0 6 * * *',
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
+        removeMissing: form.removeMissing,
         isActive: true,
       });
       toast({ title: 'Feed source created' });
@@ -258,6 +263,7 @@ export default function FeedsPage() {
         syncSchedule: form.syncSchedule || '0 6 * * *',
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
+        removeMissing: form.removeMissing,
       });
       toast({ title: 'Feed source updated' });
       setIsEditOpen(false);
@@ -354,6 +360,7 @@ export default function FeedsPage() {
       syncSchedule: feed.syncSchedule || '0 6 * * *',
       protectedFields: feed.protectedFields || [],
       markAsFeatured: feed.markAsFeatured === true,
+      removeMissing: feed.removeMissing !== false,
     });
     setIsEditOpen(true);
   };
@@ -454,6 +461,21 @@ export default function FeedsPage() {
           id="feed-mark-featured"
           checked={form.markAsFeatured}
           onCheckedChange={(v) => setForm({ ...form, markAsFeatured: v })}
+        />
+      </div>
+      <div className="flex items-start justify-between gap-4 border-t pt-4">
+        <div className="space-y-1">
+          <Label htmlFor="feed-remove-missing">Remove properties that leave this feed</Label>
+          <p className="text-xs text-muted-foreground">
+            After each complete sync, properties no longer in the feed (sold, withdrawn) are deleted,
+            so your site matches the source. Turn off to keep them. A single property is always kept
+            when its &ldquo;Enable Feed Sync&rdquo; is off.
+          </p>
+        </div>
+        <Switch
+          id="feed-remove-missing"
+          checked={form.removeMissing}
+          onCheckedChange={(v) => setForm({ ...form, removeMissing: v })}
         />
       </div>
       <div className="space-y-2 border-t pt-4">
@@ -674,7 +696,23 @@ export default function FeedsPage() {
                         <span className="text-sm text-muted-foreground">Properties</span>
                         <span className="text-sm font-medium">{feed.lastSyncCount || 0} imported</span>
                       </div>
+                      {!isSyncing && (sync?.removedCount ?? 0) > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Removed (left feed)</span>
+                          <span className="text-sm font-medium">{sync!.removedCount}</span>
+                        </div>
+                      )}
+                      {!isSyncing && sync?.removalNote && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">{sync.removalNote}</p>
+                      )}
                     </>
+                  )}
+
+                  {feed.removeMissing === false && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Left-feed properties</span>
+                      <Badge variant="outline">Kept</Badge>
+                    </div>
                   )}
 
                   {feed.isActive && feed.nextSyncAt && (

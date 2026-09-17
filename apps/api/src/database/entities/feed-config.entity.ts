@@ -71,6 +71,12 @@ export class FeedConfig {
   @Column({ default: false })
   markAsFeatured: boolean;
 
+  // After a complete sync, delete properties this feed imported that are no
+  // longer in it (sold, withdrawn), so the site mirrors the source. Off keeps
+  // them. Properties with syncEnabled=false are always kept.
+  @Column({ default: true })
+  removeMissing: boolean;
+
   @Column({ length: 50, default: '0 2 * * *' })
   syncSchedule: string;
 
