@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentSession } from '@/lib/server-session';
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentSession();
   if (session?.user?.role === 'super_admin') {
     redirect('/admin');
   }

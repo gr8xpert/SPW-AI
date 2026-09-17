@@ -1,6 +1,16 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
-import { getSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import { getImpersonationSession } from './impersonation';
+import { readServerSession } from './session-check';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    // Opt a write into the no-response retry below. Only for writes that are
+    // harmless to repeat (e.g. creating a Stripe checkout session: an unused
+    // one just expires), since the first attempt may have reached the server.
+    retryOnNetworkError?: boolean;
+  }
+}
 
 export interface ApiResponse<T> {
   data: T;
@@ -41,12 +51,13 @@ export function clearAuthToken(): void {
   cachedAccessToken = null;
 }
 
-// Concurrent cold-start requests share one in-flight getSession() rather than
-// each firing their own.
+// Concurrent cold-start requests share one in-flight session read rather than
+// each firing their own. Rejects with SessionUnavailableError when the session
+// endpoint didn't answer; resolves null only for a real "signed out".
 async function resolveSessionToken(): Promise<string | null> {
   if (cachedAccessToken) return cachedAccessToken;
   if (!inFlightSessionFetch) {
-    inFlightSessionFetch = getSession()
+    inFlightSessionFetch = readServerSession()
       .then((session) => {
         cachedAccessToken = session?.accessToken ?? null;
         return cachedAccessToken;
@@ -68,7 +79,9 @@ api.interceptors.request.use(
   async (config) => {
     if (typeof window !== 'undefined') {
       const impersonationToken = getImpersonationSession()?.accessToken;
-      const token = impersonationToken ?? (await resolveSessionToken());
+      // An unanswered session read sends the request without a token; the
+      // 401 path below then decides without signing anyone out over it.
+      const token = impersonationToken ?? (await resolveSessionToken().catch(() => null));
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -96,13 +109,14 @@ api.interceptors.response.use(
 
     // No response at all = the request died on the way (dropped connection),
     // not a server answer. Retry reads twice with a short backoff; see
-    // fetchWithReadRetry in hooks/use-api.ts for why. Writes are never repeated.
+    // fetchWithReadRetry in hooks/use-api.ts for why. Writes are only repeated
+    // when the call opts in with retryOnNetworkError.
     const method = (original?.method || 'get').toLowerCase();
     if (
       original &&
       !error.response &&
       error.code !== 'ERR_CANCELED' &&
-      (method === 'get' || method === 'head')
+      (method === 'get' || method === 'head' || original.retryOnNetworkError)
     ) {
       const attempt = original._networkRetries ?? 0;
       const delays = [400, 1200];
@@ -129,7 +143,14 @@ api.interceptors.response.use(
 
       const staleToken = cachedAccessToken;
       clearAuthToken();
-      const freshToken = await resolveSessionToken();
+      let freshToken: string | null;
+      try {
+        freshToken = await resolveSessionToken();
+      } catch {
+        // The session couldn't be checked (connection dropped). Fail this
+        // request only; signing out here logged users out over a network blip.
+        return Promise.reject(error);
+      }
 
       // Only worth retrying if the session actually handed us a different
       // token. An identical (or absent) one means this 401 is real, not a

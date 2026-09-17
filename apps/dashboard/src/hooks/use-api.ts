@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useImpersonation } from './use-impersonation';
+import { readServerSession } from '@/lib/session-check';
 
 // A read that fails before any response arrives ("Failed to fetch") is retried
 // twice with a short backoff. Browsers silently retry page navigations when a
@@ -101,7 +102,11 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
           }
           if (response.status === 401) {
             // Persistent 401 → session is unrecoverable; bounce user to login.
-            signOut({ callbackUrl: '/login' });
+            // Unless the session check itself got no answer: update() returns
+            // nothing for a dropped connection too, and that is not a reason
+            // to sign the user out.
+            const sessionReachable = await readServerSession().then(() => true, () => false);
+            if (sessionReachable) signOut({ callbackUrl: '/login' });
           }
         }
 

@@ -16,6 +16,11 @@ import { clearAuthToken, primeAuthToken } from '@/lib/api';
 export function AuthTokenSync() {
   const { data: session, status } = useSession();
 
+  // Also set during render: the session now arrives with the page, and a
+  // child's mount effect must not fire its first request before the token is
+  // cached (that request would otherwise have to read the session itself).
+  if (status === 'authenticated' && session?.accessToken) primeAuthToken(session.accessToken);
+
   useEffect(() => {
     if (status === 'loading') return;
     primeAuthToken(session?.accessToken ?? null);
