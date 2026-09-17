@@ -8,7 +8,10 @@ if (!defined('ABSPATH')) exit;
 class SPW_API_Client {
 
     public static function get($path, $params = [], $timeout = 15) {
-        $base = rtrim(SPW_Plugin::get('api_url', SPW_API_DEFAULT), '/');
+        // Same base URL the browser widget gets (SPW_Plugin::inject_config), so
+        // a wp-config SPW_API_URL override applies to Test Connection, sync,
+        // OG tags and the sitemap too.
+        $base = rtrim(defined('SPW_API_URL') ? SPW_API_URL : SPW_API_DEFAULT, '/');
         $key  = SPW_Plugin::get('api_key');
 
         if (!$key) return new WP_Error('spw_no_api_key', 'API key not configured');

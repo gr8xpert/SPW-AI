@@ -57,6 +57,7 @@ export type ActionType =
   | 'SET_PROPERTY_TYPES'
   | 'SET_FEATURES'
   | 'SET_CURRENCY'
+  | 'SET_CURRENCY_BASE'
   | 'SET_CURRENCY_RATES'
   | 'SET_UI'
   | 'MERGE_UI'

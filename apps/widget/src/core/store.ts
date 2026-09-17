@@ -69,6 +69,13 @@ function reduce(state: SPMState, action: Action): SPMState {
       return { ...state, features: payload as SPMState['features'] };
     case 'SET_CURRENCY':
       return { ...state, currency: { ...state.currency, current: payload as string } };
+    case 'SET_CURRENCY_BASE': {
+      // The site's display currency. Rates are relative to it, so a change
+      // discards rates fetched for the previous base.
+      const base = payload as string;
+      const rates = base === state.currency.base ? state.currency.rates : {};
+      return { ...state, currency: { base, current: base, rates } };
+    }
     case 'SET_CURRENCY_RATES':
       return { ...state, currency: { ...state.currency, rates: payload as Record<string, number> } };
     case 'SET_UI':

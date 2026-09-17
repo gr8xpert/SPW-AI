@@ -77,6 +77,11 @@ const emailSchema = z.object({
 // Public widget + WP plugin read from tenant.syncVersion to decide when to
 // drop their local cache. Bumping it on demand replaces the old PHP "clear
 // cache" script operators used to run by hand.
+// Mirrors SUPPORTED_CURRENCIES in packages/shared (the dashboard doesn't depend
+// on that package). Codes the exchange-rate feed can't convert fall back to
+// showing each property in its own currency.
+const SUPPORTED_CURRENCIES = ['EUR', 'GBP', 'USD', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RUB', 'AED', 'CNY'];
+
 interface CacheClearResponse {
   data: { tenantId: number; syncVersion: number; clearedAt: string };
 }
@@ -108,6 +113,7 @@ interface TenantSettings {
   recaptchaSiteKey?: string;
   recaptchaSecretKey?: string;
   similarPropertiesLimit?: number;
+  baseCurrency?: string;
   inquiryNotificationEmails?: string[];
   inquiryWebhookUrl?: string;
   inquiryAutoReplyEnabled?: boolean;
@@ -265,6 +271,7 @@ export default function SettingsPage() {
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
   const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
   const [similarPropertiesLimit, setSimilarPropertiesLimit] = useState(6);
+  const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [inquiryNotificationEmails, setInquiryNotificationEmails] = useState<string[]>([]);
   const [inquiryEmailInput, setInquiryEmailInput] = useState('');
   const [inquiryWebhookUrl, setInquiryWebhookUrl] = useState('');
@@ -363,6 +370,7 @@ export default function SettingsPage() {
         if (settings?.recaptchaSiteKey) setRecaptchaSiteKey(settings.recaptchaSiteKey);
         if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
         if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
+        if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
         if (Array.isArray(settings?.inquiryNotificationEmails)) setInquiryNotificationEmails(settings.inquiryNotificationEmails);
         if (tenantData.inquiryWebhookUrlConfigured) setInquiryWebhookUrl('••••••••');
         if (typeof settings?.inquiryAutoReplyEnabled === 'boolean') setInquiryAutoReplyEnabled(settings.inquiryAutoReplyEnabled);
@@ -770,6 +778,7 @@ export default function SettingsPage() {
         recaptchaSiteKey: recaptchaSiteKey.trim() || undefined,
         recaptchaSecretKey: recaptchaSecretKey.trim() || undefined,
         similarPropertiesLimit,
+        baseCurrency,
       });
       toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
     } catch (err) {
@@ -1312,6 +1321,22 @@ export default function SettingsPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Display Currency</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Currency prices are shown in on your website. Prices in another currency are converted at
+                    the daily exchange rate.
+                  </p>
+                  <Select value={baseCurrency} onValueChange={setBaseCurrency}>
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((code) => (
+                        <SelectItem key={code} value={code}>{code}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

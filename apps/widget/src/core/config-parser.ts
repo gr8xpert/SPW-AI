@@ -9,7 +9,8 @@ declare global {
 const DEFAULT_CONFIG: Partial<WidgetConfig> = {
   dataPath: '/spm-data',
   language: 'en',
-  currency: 'EUR',
+  // No currency default here: an unset page currency lets the dashboard's
+  // display currency apply (see mergeWithDashboardConfig), then EUR.
   theme: 'light',
   resultsPerPage: 12,
   enableFavorites: true,
@@ -62,6 +63,8 @@ function parseLegacyConfig(): Partial<WidgetConfig> {
   if (rc.defaultListingType) config.defaultListingType = rc.defaultListingType;
   if (rc.enabledListingTypes) config.enabledListingTypes = rc.enabledListingTypes;
   if (rc.resultsPage) config.resultsPage = rc.resultsPage;
+  if (rc.wishlistPage) config.wishlistPage = rc.wishlistPage;
+  if (rc.dataBundleUrl) config.dataBundleUrl = rc.dataBundleUrl;
   if (rc.searchTemplate) config.searchTemplateId = rc.searchTemplate;
   if (rc.listingTemplate) config.listingTemplateId = rc.listingTemplate;
   if (rc.mapTemplate) config.defaultMapTemplate = rc.mapTemplate;
@@ -106,6 +109,7 @@ function parseV2Attributes(el: HTMLElement): Partial<WidgetConfig> {
 }
 
 const USER_PROTECTED_KEYS: (keyof WidgetConfig)[] = [
+  'currency',
   'enabledListingTypes',
   'defaultListingType',
   'propertyPageSlug',

@@ -42,8 +42,10 @@ export class DataLoader {
   private memoryCache = new Map<string, { data: unknown; ts: number }>();
   private readonly MEMORY_TTL = 5 * 60 * 1000;
   private localDataAvailable: boolean | null = null;
+  private config: WidgetConfig;
 
   constructor(config: WidgetConfig) {
+    this.config = config;
     this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
@@ -58,6 +60,10 @@ export class DataLoader {
       this.persistToIDB(inline);
       return inline;
     }
+
+    // Layer 0b: the WordPress plugin's per-language bundle file
+    const pluginBundle = await this.tryPluginBundle();
+    if (pluginBundle) return pluginBundle;
 
     // Layer 1: IndexedDB cache
     const cached = await this.tryIDBCache();
@@ -75,6 +81,43 @@ export class DataLoader {
 
     // Layer 3: API fallback (individual endpoints)
     return this.loadFromAPI();
+  }
+
+  // One request for all four lookup lists, served (and browser/CDN cached)
+  // from the WordPress site. Dashboard settings still come live from the API
+  // in parallel — they change independently of the lookup data. A bundle for a
+  // different language, or one that fails to load, falls back to the normal
+  // layers. A stale bundle is corrected by the regular sync-version polling.
+  private async tryPluginBundle(): Promise<BundleData | null> {
+    const url = this.config.dataBundleUrl;
+    if (!url) return null;
+    try {
+      const [res, dashboardConfig] = await Promise.all([
+        fetch(url),
+        this.api.get<Partial<WidgetConfig>>('/v1/widget-config').catch(() => null),
+      ]);
+      if (!res.ok) return null;
+      const json = await res.json() as {
+        lang?: string;
+        syncVersion?: number;
+        locations?: Location[];
+        types?: PropertyType[];
+        features?: Feature[];
+        labels?: Record<string, string>;
+      };
+      if (json.lang && json.lang !== (this.config.language || 'en')) return null;
+      if (!Array.isArray(json.locations) || !Array.isArray(json.types)) return null;
+      return {
+        syncVersion: json.syncVersion ?? 0,
+        config: dashboardConfig ?? undefined,
+        locations: json.locations,
+        types: json.types,
+        features: json.features ?? [],
+        labels: json.labels ?? {},
+      };
+    } catch {
+      return null;
+    }
   }
 
   private tryInlineData(): BundleData | null {
@@ -251,6 +294,22 @@ export class DataLoader {
       actions.setCurrencyRates(rates);
       this.setMemoryCache(cacheKey, rates);
     } catch { /* exchange rates unavailable — prices show unconverted */ }
+  }
+
+  // Loads specific properties by id, in batches the API accepts. Used by the
+  // wishlist, whose saved ids are not tied to any page of search results.
+  async getPropertiesByIds(ids: number[]): Promise<Property[]> {
+    const unique = [...new Set(ids)].filter((id) => Number.isFinite(id));
+    const out: Property[] = [];
+    for (let i = 0; i < unique.length; i += 100) {
+      const chunk = unique.slice(i, i + 100);
+      const res = await this.api.get<SearchResults>('/v1/properties', {
+        ids: chunk.join(','),
+        limit: chunk.length,
+      });
+      out.push(...(res?.data ?? []));
+    }
+    return out;
   }
 
   async getProperty(reference: string): Promise<Property> {

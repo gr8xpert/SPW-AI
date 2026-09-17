@@ -10,20 +10,10 @@ if (!current_user_can('manage_options')) return;
  * is served from the JSON cache.
  */
 
-$up        = wp_upload_dir();
-$cache_dir = trailingslashit($up['basedir']) . 'spw-data/';
-
-function spw_read_cache_list($cache_dir, $file) {
-    $p = $cache_dir . $file;
-    if (!file_exists($p)) return null;
-    $j = json_decode(file_get_contents($p), true);
-    if (!is_array($j)) return null;
-    return isset($j['data']) && is_array($j['data']) ? $j['data'] : null;
-}
-
-$locations = spw_read_cache_list($cache_dir, 'locations.json');
-$types     = spw_read_cache_list($cache_dir, 'property-types.json');
-$features  = spw_read_cache_list($cache_dir, 'features.json');
+$sync      = SPW_Data_Sync::instance();
+$locations = $sync->read_list('locations');
+$types     = $sync->read_list('types');
+$features  = $sync->read_list('features');
 
 /**
  * Build a parentId-keyed tree from a flat list with `id` and `parentId`.

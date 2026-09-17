@@ -11,9 +11,10 @@ import { mountAll, unmountAll } from './core/component-mounter';
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
-import { installLegacyAPI, setSearchHandler } from './core/legacy-api';
+import { installLegacyAPI, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
-import { extractRefFromSegment } from './core/url-utils';
+import { extractRefCandidates } from './core/url-utils';
+import { filtersFromQuery, filtersToQuery } from './core/search-url';
 import type { SearchFilters } from './types';
 
 let dataLoader: DataLoader | null = null;
@@ -40,17 +41,24 @@ async function init(): Promise<void> {
   }
 
   applyTheme(config);
+  // Page-set currency now; refined once the dashboard config arrives.
+  actions.setCurrencyBase(config.currency || 'EUR');
 
   const favorites = loadPersistedFavorites();
   if (favorites.length) actions.setFavorites(favorites);
 
   const prefilled = parsePrefilledFilters();
   const locked = parseLockedFilters();
-  if (Object.keys(prefilled).length) actions.setFilters(prefilled);
+  // A search sent from another page (see the search handler below) arrives as
+  // query parameters and overrides the page's own prefilled values; locked
+  // filters still win when the search runs.
+  const fromUrl = filtersFromQuery();
+  const initialFilters = { ...prefilled, ...fromUrl };
+  if (Object.keys(initialFilters).length) actions.setFilters(initialFilters);
   if (Object.keys(locked).length) actions.setLockedFilters(locked);
 
   // Apply defaultListingType if no URL/attribute override set it
-  if (config.defaultListingType && !prefilled.listingType && !locked.listingType) {
+  if (config.defaultListingType && !initialFilters.listingType && !locked.listingType) {
     actions.setFilters({ ...store.getState().filters, listingType: config.defaultListingType });
   }
 
@@ -71,6 +79,7 @@ async function init(): Promise<void> {
       const merged = mergeWithDashboardConfig(config, bundle.config);
       actions.setConfig(merged);
       applyTheme(merged);
+      actions.setCurrencyBase(merged.currency || 'EUR');
     }
     dataLoader.hydrateStore(bundle);
     console.log('[SPM] Store hydrated. Results:', !!store.getState().results);
@@ -87,17 +96,27 @@ async function init(): Promise<void> {
     (e) => e.isTemplate && e.templateId?.startsWith('detail-template')
   );
   if (hasDetailTemplate && !store.getState().selectedProperty) {
-    const slug = config.propertyPageSlug || 'property';
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    const slugIdx = pathSegments.indexOf(slug);
-    const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
-    const ref = segment ? extractRefFromSegment(segment, config.propertyRefPosition) : null;
-    if (ref) {
+    // `propertyPageUrl` links carry the ref as ?ref=; pretty links carry it in
+    // the path after the detail slug (which may be language-prefixed, e.g.
+    // "de/property", so match on its last part).
+    const queryRef = new URLSearchParams(window.location.search).get('ref');
+    let candidates: string[] = [];
+    if (queryRef) {
+      candidates = [queryRef];
+    } else {
+      const slug = (config.propertyPageSlug || 'property').split('/').filter(Boolean).pop() || 'property';
+      const pathSegments = window.location.pathname.split('/').filter(Boolean);
+      const slugIdx = pathSegments.indexOf(slug);
+      const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
+      candidates = segment ? extractRefCandidates(decodeURIComponent(segment), config.propertyRefPosition) : [];
+    }
+    for (const ref of candidates) {
       try {
         const property = await dataLoader.getProperty(ref);
         actions.setSelectedProperty(property);
+        break;
       } catch (err) {
-        console.warn('[SPM] Failed to load property from URL:', err);
+        console.warn(`[SPM] No property for ref "${ref}":`, err);
       }
     }
   }
@@ -107,8 +126,29 @@ async function init(): Promise<void> {
 
   installLegacyAPI();
 
-  setSearchHandler(async (filters: SearchFilters) => {
+  // Pages with only a search box (typically the homepage) have nowhere to show
+  // results, so a search there goes to the configured results page instead.
+  const RESULT_COMPONENTS = new Set([
+    'property_grid', 'property_carousel', 'pagination', 'results_count',
+    'map_view', 'map_container', 'map_results_panel',
+  ]);
+  const hasResultsView = mountEntries.some((e) =>
+    e.isTemplate
+      ? /^(listing|map)-template/.test(e.templateId || '')
+      : RESULT_COMPONENTS.has(e.componentType),
+  );
+
+  setSearchHandler(async (filters: SearchFilters, options?: SearchOptions) => {
     if (!dataLoader) return;
+    const resultsPage = store.getState().config.resultsPage;
+    if (options?.navigate && !hasResultsView && resultsPage) {
+      const target = new URL(resultsPage, window.location.href);
+      if (target.pathname !== window.location.pathname) {
+        target.search = filtersToQuery(filters);
+        window.location.href = target.toString();
+        return;
+      }
+    }
     actions.setSearchLoading(true);
     try {
       const results = await dataLoader.searchProperties(filters);
@@ -144,7 +184,7 @@ async function init(): Promise<void> {
     }
   }
 
-  dataLoader.loadExchangeRates(config.currency || 'EUR');
+  dataLoader.loadExchangeRates(store.getState().currency.base || 'EUR');
 
   dataLoader.startSyncPolling(config.syncPollIntervalMs || 60_000, () => {
     unmountAll();

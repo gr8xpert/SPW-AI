@@ -105,11 +105,13 @@ class SPW_Settings {
                 }
                 $clean['slugs_' . $type] = $map;
             }
-            // Detail-page rewrites are slug-keyed, so any change to the
-            // detail slug map invalidates the registered rules.
+            // Detail-page rewrites are slug-keyed, so a changed detail slug
+            // invalidates the registered rules. Flushing here would rebuild
+            // them from the OLD option (this runs before the save), leaving
+            // the new slug 404 until Permalinks was re-saved by hand — so ask
+            // for a flush on the next request instead, after the save.
             if (($existing['slugs_detail'] ?? []) != $clean['slugs_detail']) {
-                SPW_Rewrite::add_rules();
-                flush_rewrite_rules();
+                update_option('spw_flush_rewrites', 1);
                 SPW_Sitemap::flush();
             }
         }

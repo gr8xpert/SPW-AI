@@ -268,6 +268,11 @@ export class TenantService {
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
     if (s.recaptchaSiteKey) config.recaptchaSiteKey = s.recaptchaSiteKey;
+    // Site display currency. A currency set on the embedding page itself
+    // (RealtySoftConfig.currency / data-spm-currency) still wins in the widget.
+    if (typeof s.baseCurrency === 'string' && /^[A-Z]{3}$/.test(s.baseCurrency)) {
+      config.currency = s.baseCurrency;
+    }
     // Map super-admin-controlled feature flags into widget-facing flags so
     // the embed renders the right surfaces. Defaults to true when unset so
     // existing tenants don't suddenly lose features after this rolls out.

@@ -8,6 +8,7 @@
     "build:api": "pnpm --filter api build",
     "build:dashboard": "pnpm --filter dashboard build",
     "build:widget": "pnpm --filter widget build",
+    "build:wp-plugin": "node scripts/build-wp-plugin.mjs",
     "dev": "turbo run dev",
     "dev:api": "pnpm --filter api dev",
     "dev:dashboard": "pnpm --filter dashboard dev",

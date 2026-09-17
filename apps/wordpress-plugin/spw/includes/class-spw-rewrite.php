@@ -134,21 +134,41 @@ class SPW_Rewrite {
         status_header(200);
     }
 
-    /** Returns the current ref or null. Splits on the LAST underscore. */
+    /** Returns the most likely ref for the current URL, or null. */
     public static function current_ref() {
-        $raw = get_query_var('spw_ref');
-        if (!$raw) return null;
-        $under = strrpos($raw, '_');
-        if ($under === false) return $raw;
-        return substr($raw, $under + 1);
+        $candidates = self::ref_candidates();
+        return $candidates ? $candidates[0] : null;
+    }
+
+    /**
+     * Possible refs in the URL segment, most likely first — same rules as the
+     * widget's extractRefCandidates (apps/widget/src/core/url-utils.ts).
+     * Links are `{title-slug}_{ref}`, and title slugs only contain [a-z0-9-],
+     * so the ref is everything after the FIRST underscore (refs may contain
+     * underscores themselves). A left side with other characters means a
+     * `{ref}_{title}` link.
+     */
+    public static function ref_candidates() {
+        $raw = rawurldecode((string) get_query_var('spw_ref'));
+        if ($raw === '') return [];
+        $under = strpos($raw, '_');
+        if ($under === false) return [$raw];
+        $left  = substr($raw, 0, $under);
+        $right = substr($raw, $under + 1);
+        $before_last = substr($raw, 0, strrpos($raw, '_'));
+        $list = preg_match('/^[a-z0-9-]+$/', $left)
+            ? [$right, $left]
+            : [$left, $before_last, $right];
+        return array_values(array_unique(array_filter($list, 'strlen')));
     }
 
     /** Returns the title-slug portion of the URL (before the ref), if any. */
     public static function current_title_slug() {
-        $raw = get_query_var('spw_ref');
-        if (!$raw) return '';
-        $under = strrpos($raw, '_');
+        $raw = rawurldecode((string) get_query_var('spw_ref'));
+        if ($raw === '') return '';
+        $under = strpos($raw, '_');
         if ($under === false) return '';
-        return substr($raw, 0, $under);
+        $left = substr($raw, 0, $under);
+        return preg_match('/^[a-z0-9-]+$/', $left) ? $left : substr($raw, $under + 1);
     }
 }

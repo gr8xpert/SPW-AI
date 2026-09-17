@@ -4,6 +4,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { useWishlistProperties } from '@/hooks/useWishlistProperties';
 import { buildPropertyUrl } from '@/core/url-utils';
 import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
@@ -12,15 +13,13 @@ import RsWishlistEmpty from './RsWishlistEmpty';
 
 export default function RsWishlistGrid() {
   const { t } = useLabels();
-  const { favorites, remove } = useFavorites();
+  const { remove } = useFavorites();
   const { formatPrice } = useCurrency();
-  const results = useSelector(selectors.getResults);
   const config = useSelector(selectors.getConfig);
   const { compareSelection, notes, sortBy, editingNote } = useWishlistState();
+  const { properties: saved, loading } = useWishlistProperties();
 
-  let properties: Property[] = results?.data.filter((p) =>
-    favorites.includes(p.id)
-  ) ?? [];
+  let properties: Property[] = saved;
 
   if (sortBy === 'price_asc') {
     properties = [...properties].sort((a, b) => a.price - b.price);
@@ -29,7 +28,7 @@ export default function RsWishlistGrid() {
   }
 
   if (properties.length === 0) {
-    return <RsWishlistEmpty />;
+    return loading ? <div class="rs-skeleton" style="height:240px" /> : <RsWishlistEmpty />;
   }
 
   const getUrl = (p: Property) => buildPropertyUrl(p, config) || '#';

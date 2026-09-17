@@ -2,15 +2,26 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * Caches static lookup data (locations, property types, features, labels) as
- * local JSON files in /wp-content/uploads/spw-data/. The widget reads these
- * via {locationsUrl, propertyTypesUrl, featuresUrl, labelsUrl} config so
- * dropdowns render instantly without an API roundtrip.
+ * Caches the static lookup data every widget page needs — locations, property
+ * types, features and UI labels — in /wp-content/uploads/spw-data/, one file
+ * per site language:
  *
- * Polls /api/v1/sync-meta first — only refetches lists whose version changed.
- * Daily cron (spw_daily_sync) + manual button in the admin.
+ *   bundle-en.json = { lang, syncVersion, syncedAt, locations, types, features, labels }
+ *
+ * The widget gets the URL for the page's language (SPW_Plugin::inject_config →
+ * RealtySoftConfig.dataBundleUrl) and loads all four lists in ONE cacheable
+ * request instead of four API round-trips per page view. Names are translated
+ * server-side, so every language has its own file.
+ *
+ * Freshness: the API's single tenant-wide `syncVersion` (bumped by feed
+ * imports, dashboard edits and cache clears) is compared with the version each
+ * file was built from; only stale languages are re-downloaded. Checks run
+ * hourly via WP-Cron, and a page view schedules a background check when the
+ * last one is over 10 minutes old — never blocking the page itself.
  */
 class SPW_Data_Sync {
+    const CHECK_INTERVAL = 10 * MINUTE_IN_SECONDS;
+
     private static $instance = null;
     private $cache_dir;
     private $cache_url;
@@ -27,14 +38,27 @@ class SPW_Data_Sync {
         add_action('spw_daily_sync', [$this, 'sync_all']);
     }
 
-    /** Map of cache filename → API endpoint. */
+    /** Bundle key → public API endpoint. */
     private function endpoints() {
         return [
-            'locations.json'      => 'api/v1/locations',
-            'property-types.json' => 'api/v1/property-types',
-            'features.json'       => 'api/v1/features',
-            'labels.json'         => 'api/v1/labels',
+            'locations' => 'api/v1/locations',
+            'types'     => 'api/v1/property-types',
+            'features'  => 'api/v1/features',
+            'labels'    => 'api/v1/labels',
         ];
+    }
+
+    /** Every language the site serves: default first, then the others. */
+    public function languages() {
+        if (!class_exists('SPW_I18n')) return ['en'];
+        $i18n = SPW_I18n::instance();
+        $langs = array_merge([$i18n->default_lang_code() ?: 'en'], $i18n->all_language_codes());
+        $langs = array_map(function ($l) { return strtolower(sanitize_key($l)); }, $langs);
+        return array_values(array_unique(array_filter($langs)));
+    }
+
+    private function bundle_file($lang) {
+        return 'bundle-' . strtolower(sanitize_key($lang)) . '.json';
     }
 
     private function ensure_dir() {
@@ -42,130 +66,171 @@ class SPW_Data_Sync {
             wp_mkdir_p($this->cache_dir);
             @file_put_contents($this->cache_dir . 'index.php', "<?php // Silence is golden\n");
         }
+        // Bundle URLs carry ?v=<mtime>, so browsers may cache them for a year:
+        // a rebuilt bundle gets a new URL. Guarded so Apache without
+        // mod_headers ignores it (nginx ignores .htaccess entirely).
+        $htaccess = $this->cache_dir . '.htaccess';
+        if (is_dir($this->cache_dir) && !file_exists($htaccess)) {
+            @file_put_contents($htaccess, implode("\n", [
+                '<IfModule mod_headers.c>',
+                '  <FilesMatch "^bundle-.*\.json$">',
+                '    Header set Cache-Control "public, max-age=31536000, immutable"',
+                '  </FilesMatch>',
+                '</IfModule>',
+                '',
+            ]));
+        }
         return is_dir($this->cache_dir) && wp_is_writable($this->cache_dir);
     }
 
     /**
-     * Sync everything. If $force is false, checks /api/v1/sync-meta and only
-     * refetches lists whose version changed since last sync.
+     * Refresh the language bundles. Without $force, a bundle is only rebuilt
+     * when the API's syncVersion differs from the one it was built from.
      */
     public function sync_all($force = false) {
+        update_option('spw_last_check', time(), false);
+
         if (!$this->ensure_dir()) {
             return ['error' => 'Cache directory not writable: ' . $this->cache_dir];
         }
 
-        $versions_remote = $this->fetch_versions();
-        $versions_local  = get_option('spw_data_versions', []);
+        $remote_v = $this->fetch_sync_version();
+        $versions_local = get_option('spw_data_versions', []);
+        if (!is_array($versions_local)) $versions_local = [];
         $results = [];
 
-        foreach ($this->endpoints() as $file => $endpoint) {
-            $key = $this->version_key($file);
-            $remote_v = $versions_remote[$key] ?? null;
-            $local_v  = $versions_local[$file] ?? null;
+        foreach ($this->languages() as $lang) {
+            $file = $this->bundle_file($lang);
+            $local_v = $versions_local[$file] ?? null;
 
-            if (!$force && $remote_v !== null && $remote_v === $local_v && file_exists($this->cache_dir . $file)) {
+            if (!$force && $remote_v !== null && $local_v === $remote_v && file_exists($this->cache_dir . $file)) {
                 $results[$file] = ['success' => true, 'skipped' => true, 'reason' => 'cache fresh'];
                 continue;
             }
 
-            // API resolves i18n name/title server-side via the requested lang.
-            // Cron has no Accept-Language, so we MUST pass ?lang= explicitly,
-            // otherwise the cache silently bakes whichever locale the server
-            // defaults to. We use the translation plugin's default lang when
-            // available; falls back to 'en'.
-            $lang = (class_exists('SPW_I18n') ? SPW_I18n::instance()->default_lang_code() : 'en') ?: 'en';
-            $r = SPW_API_Client::get($endpoint, ['limit' => 1000, 'lang' => $lang]);
-            if (is_wp_error($r)) {
-                $data = $r->get_error_data();
-                $results[$file] = [
-                    'success' => false,
-                    'error'   => $r->get_error_message(),
-                    'status'  => is_array($data) ? ($data['status'] ?? 0) : 0,
-                    'details' => is_array($data) ? (string)($data['raw'] ?? '') : '',
-                ];
+            $bundle = [
+                'lang'        => $lang,
+                'syncVersion' => $remote_v ?? 0,
+                'syncedAt'    => time(),
+            ];
+            $failure = null;
+            foreach ($this->endpoints() as $key => $endpoint) {
+                $r = SPW_API_Client::get($endpoint, ['lang' => $lang]);
+                if (is_wp_error($r)) {
+                    $data = $r->get_error_data();
+                    $failure = [
+                        'success' => false,
+                        'error'   => $r->get_error_message(),
+                        'status'  => is_array($data) ? ($data['status'] ?? 0) : 0,
+                        'details' => $key . ': ' . (is_array($data) ? (string)($data['raw'] ?? '') : ''),
+                    ];
+                    break;
+                }
+                $bundle[$key] = $r['data'] ?? $r;
+            }
+
+            // Keep the last good bundle rather than replacing it with a partial one.
+            if ($failure) {
+                $results[$file] = $failure;
                 continue;
             }
 
-            $payload = ['data' => $r['data'] ?? $r, 'lang' => $lang, 'syncedAt' => time()];
+            // Write to a temp file and rename, so a page never reads a half-written bundle.
+            $tmp = $this->cache_dir . $file . '.tmp';
             $written = @file_put_contents(
-                $this->cache_dir . $file,
-                wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                $tmp,
+                wp_json_encode($bundle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
             );
-
-            if ($written === false) {
+            if ($written === false || !@rename($tmp, $this->cache_dir . $file)) {
+                @unlink($tmp);
                 $results[$file] = ['success' => false, 'error' => 'write failed'];
                 continue;
             }
 
-            $count = is_array($payload['data']) ? count($payload['data']) : 0;
-            $results[$file] = ['success' => true, 'count' => $count];
+            $results[$file] = ['success' => true, 'count' => $this->bundle_count($bundle)];
             if ($remote_v !== null) $versions_local[$file] = $remote_v;
         }
 
-        update_option('spw_data_versions', $versions_local);
-        update_option('spw_last_sync', time());
-        update_option('spw_last_sync_results', $results);
+        update_option('spw_data_versions', $versions_local, false);
+        update_option('spw_last_sync', time(), false);
+        update_option('spw_last_sync_results', $results, false);
         return $results;
+    }
+
+    /**
+     * Called on front-end page views. Schedules a background check (WP-Cron
+     * runs it asynchronously) when the last one is older than CHECK_INTERVAL,
+     * so a feed import or dashboard edit reaches the bundles within minutes.
+     */
+    public function maybe_schedule_refresh() {
+        $last = (int) get_option('spw_last_check', 0);
+        if (time() - $last < self::CHECK_INTERVAL) return;
+        if (wp_next_scheduled('spw_daily_sync', [false])) return;
+        // Stamp first so concurrent page views don't all schedule one.
+        update_option('spw_last_check', time(), false);
+        wp_schedule_single_event(time(), 'spw_daily_sync', [false]);
     }
 
     public function get_last_results() {
         return get_option('spw_last_sync_results', []);
     }
 
-    private function fetch_versions() {
+    private function fetch_sync_version() {
         $r = SPW_API_Client::get('api/v1/sync-meta');
-        if (is_wp_error($r)) return [];
+        if (is_wp_error($r)) return null;
         $data = $r['data'] ?? $r;
-        return is_array($data) ? $data : [];
+        return (is_array($data) && isset($data['syncVersion'])) ? (int) $data['syncVersion'] : null;
     }
 
-    /** Map cache filename → sync-meta version key. Adjust if API names differ. */
-    private function version_key($file) {
-        return [
-            'locations.json'      => 'locationsVersion',
-            'property-types.json' => 'propertyTypesVersion',
-            'features.json'       => 'featuresVersion',
-            'labels.json'         => 'labelsVersion',
-        ][$file] ?? null;
-    }
-
-    public function get_local_data_urls() {
-        $urls = [];
-        $map = [
-            'locations.json'      => 'locationsUrl',
-            'property-types.json' => 'propertyTypesUrl',
-            'features.json'       => 'featuresUrl',
-            'labels.json'         => 'labelsUrl',
-        ];
-        foreach ($map as $file => $key) {
-            $path = $this->cache_dir . $file;
-            if (file_exists($path)) {
-                $urls[$key] = $this->cache_url . $file . '?v=' . filemtime($path);
-            }
+    private function bundle_count($bundle) {
+        $n = 0;
+        foreach (['locations', 'types', 'features'] as $k) {
+            if (isset($bundle[$k]) && is_array($bundle[$k])) $n += count($bundle[$k]);
         }
-        return $urls;
+        return $n;
+    }
+
+    private function read_bundle($lang) {
+        $p = $this->cache_dir . $this->bundle_file($lang);
+        if (!file_exists($p)) return null;
+        $j = json_decode(file_get_contents($p), true);
+        return is_array($j) ? $j : null;
+    }
+
+    /** Bundle URL for a language (cache-busted by mtime), or null if not synced yet. */
+    public function bundle_url($lang) {
+        $file = $this->bundle_file($lang ?: 'en');
+        $path = $this->cache_dir . $file;
+        if (!file_exists($path)) return null;
+        return $this->cache_url . $file . '?v=' . filemtime($path);
+    }
+
+    /** One cached list (locations|types|features|labels) in the default language, for admin screens. */
+    public function read_list($key) {
+        $langs = $this->languages();
+        $bundle = $this->read_bundle($langs[0] ?? 'en');
+        return ($bundle && isset($bundle[$key]) && is_array($bundle[$key])) ? $bundle[$key] : null;
     }
 
     public function get_status() {
-        $files = array_keys($this->endpoints());
         $status = [
             'last_sync'           => (int) get_option('spw_last_sync', 0),
             'last_sync_formatted' => get_option('spw_last_sync') ? date_i18n('Y-m-d H:i:s', (int) get_option('spw_last_sync')) : 'Never',
             'files' => [],
         ];
-        foreach ($files as $f) {
-            $p = $this->cache_dir . $f;
-            if (file_exists($p)) {
-                $data = json_decode(file_get_contents($p), true);
-                $count = isset($data['data']) && is_array($data['data']) ? count($data['data']) : 0;
-                $status['files'][$f] = [
+        foreach ($this->languages() as $lang) {
+            $file = $this->bundle_file($lang);
+            $p = $this->cache_dir . $file;
+            $bundle = $this->read_bundle($lang);
+            if ($bundle) {
+                $status['files'][$file] = [
                     'exists'   => true,
-                    'count'    => $count,
+                    'count'    => $this->bundle_count($bundle),
                     'size'     => filesize($p),
                     'modified' => filemtime($p),
                 ];
             } else {
-                $status['files'][$f] = ['exists' => false];
+                $status['files'][$file] = ['exists' => false];
             }
         }
         return $status;
@@ -173,12 +238,18 @@ class SPW_Data_Sync {
 
     public function clear_cache() {
         $n = 0;
-        foreach (array_keys($this->endpoints()) as $f) {
-            $p = $this->cache_dir . $f;
-            if (file_exists($p) && @unlink($p)) $n++;
+        // Current per-language bundles plus the per-list files older versions wrote.
+        $paths = array_merge(
+            (array) glob($this->cache_dir . 'bundle-*.json'),
+            array_map(function ($f) { return $this->cache_dir . $f; },
+                ['locations.json', 'property-types.json', 'features.json', 'labels.json'])
+        );
+        foreach ($paths as $p) {
+            if ($p && file_exists($p) && @unlink($p)) $n++;
         }
         delete_option('spw_last_sync');
         delete_option('spw_data_versions');
+        delete_option('spw_last_check');
         return $n;
     }
 }

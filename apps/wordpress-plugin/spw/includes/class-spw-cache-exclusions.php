@@ -13,12 +13,14 @@ class SPW_Cache_Exclusions {
     }
 
     private function __construct() {
-        $tokens = ['spw-widget', 'spw-widget.umd', 'RealtySoftConfig', 'realtysoft-loader'];
+        // The bundle is spm-widget.umd.js (enqueued under the handle
+        // "spw-widget"); match both so no optimizer defers or combines it.
+        $tokens = ['spm-widget', 'spm-widget.umd', 'spw-widget', 'RealtySoftConfig', 'realtysoft-loader'];
 
         // WP Rocket
         add_filter('rocket_exclude_defer_js', fn($x) => array_merge($x, $tokens));
         add_filter('rocket_delay_js_exclusions', fn($x) => array_merge($x, $tokens));
-        add_filter('rocket_exclude_js', fn($x) => array_merge($x, ['spw-widget(.*)\.js']));
+        add_filter('rocket_exclude_js', fn($x) => array_merge($x, ['spm-widget(.*)\.js', 'spw-widget(.*)\.js']));
 
         // Autoptimize
         add_filter('autoptimize_filter_js_exclude', fn($x) => $x . ',' . implode(',', $tokens));

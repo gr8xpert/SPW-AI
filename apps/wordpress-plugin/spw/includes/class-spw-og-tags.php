@@ -28,10 +28,11 @@ class SPW_OG_Tags {
 
     public function render() {
         if (!SPW_Rewrite::is_property_detail()) return;
-        $ref = SPW_Rewrite::current_ref();
-        if (!$ref) return;
-
-        $property = $this->fetch($ref);
+        $property = null;
+        foreach (SPW_Rewrite::ref_candidates() as $ref) {
+            $property = $this->fetch($ref);
+            if ($property) break;
+        }
         if (!$property) return;
 
         $lang  = class_exists('SPW_I18n') ? (SPW_I18n::instance()->current_lang() ?: 'en') : 'en';
@@ -132,9 +133,12 @@ class SPW_OG_Tags {
         return $node;
     }
 
-    /** Invalidate a single ref (e.g. when widget pushes updated data). */
+    /** Invalidate a single ref in every language (e.g. when widget pushes updated data). */
     public static function bust_cache($ref) {
-        delete_transient(self::TRANSIENT_PREFIX . md5($ref));
+        $langs = SPW_Data_Sync::instance()->languages();
+        foreach ($langs as $lang) {
+            delete_transient(self::TRANSIENT_PREFIX . md5($ref . '|' . $lang));
+        }
     }
 
     /**

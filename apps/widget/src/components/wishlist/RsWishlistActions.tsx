@@ -5,6 +5,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { wishlistActions } from '@/hooks/useWishlistState';
+import { useWishlistProperties } from '@/hooks/useWishlistProperties';
 import { generateWishlistPDF } from './generate-pdf';
 import type { Property } from '@/types';
 
@@ -14,15 +15,13 @@ interface Props {
 
 export default function RsWishlistActions(_props: Props) {
   const { t } = useLabels();
-  const { favorites, count } = useFavorites();
+  const { count } = useFavorites();
   const { formatPrice } = useCurrency();
-  const results = useSelector(selectors.getResults);
+  const { properties: saved } = useWishlistProperties();
 
   const hasFavorites = count > 0;
 
-  const properties: Property[] = hasFavorites
-    ? (results?.data.filter((p) => favorites.includes(p.id)) ?? [])
-    : [];
+  const properties: Property[] = hasFavorites ? saved : [];
 
   const handleClearAll = () => {
     if (confirm(t('wishlist_clear_confirm', 'Remove all properties from your wishlist?'))) {

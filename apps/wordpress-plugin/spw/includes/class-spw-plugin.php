@@ -32,6 +32,13 @@ class SPW_Plugin {
         SPW_Cache_Exclusions::instance();
         SPW_Sitemap::instance();
 
+        // Rewrite flush requested by a settings save (see SPW_Settings::sanitize).
+        // Runs after SPW_Rewrite::add_rules (init, 10) so the flush writes the
+        // rules for the slugs that were just saved.
+        add_action('init', [self::class, 'maybe_flush_rewrites'], 20);
+        // Older installs scheduled the lookup-data sync daily; it now runs hourly.
+        add_action('init', [self::class, 'ensure_sync_schedule']);
+
         add_action('wp_head', [$this, 'inject_config'], 1);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_loader']);
         add_action('wp_body_open', [$this, 'inject_loading_overlay']);
@@ -48,9 +55,47 @@ class SPW_Plugin {
         // the settings page via the "Create Pages" button. Avoids surprising
         // posts on activation when an install already has hand-built pages.
 
-        if (!wp_next_scheduled('spw_daily_sync')) {
-            wp_schedule_event(time() + 60, 'daily', 'spw_daily_sync');
+        self::ensure_sync_schedule();
+    }
+
+    public static function maybe_flush_rewrites() {
+        if (!get_option('spw_flush_rewrites')) return;
+        delete_option('spw_flush_rewrites');
+        flush_rewrite_rules();
+    }
+
+    /**
+     * Lookup data (locations, types, features, labels) is re-checked hourly.
+     * A check is one small sync-meta call; lists are only re-downloaded when
+     * the tenant's syncVersion moved (feed import, dashboard edit, cache clear).
+     */
+    public static function ensure_sync_schedule() {
+        $event = function_exists('wp_get_scheduled_event') ? wp_get_scheduled_event('spw_daily_sync') : null;
+        if ($event && $event->schedule === 'hourly') return;
+        wp_clear_scheduled_hook('spw_daily_sync');
+        wp_schedule_event(time() + 60, 'hourly', 'spw_daily_sync');
+    }
+
+    /**
+     * Public URL of a generated page (listings / wishlist) in the current
+     * language. Uses the page's translation when WPML or Polylang provides one,
+     * else the configured slug under the language prefix.
+     */
+    public static function page_url($type) {
+        $id = (int) self::get($type . '_page_id');
+        $lang = class_exists('SPW_I18n') ? (SPW_I18n::instance()->current_lang() ?: 'en') : 'en';
+        if ($id && get_post_status($id) === 'publish') {
+            $translated = $id;
+            if (function_exists('pll_get_post')) {
+                $translated = (int) (pll_get_post($id, $lang) ?: $id);
+            } else {
+                $translated = (int) apply_filters('wpml_object_id', $id, 'page', true, $lang);
+            }
+            $url = get_permalink($translated ?: $id);
+            if ($url) return $url;
         }
+        $prefix = class_exists('SPW_I18n') ? SPW_I18n::instance()->language_prefix() : '';
+        return home_url(trailingslashit(($prefix ? $prefix . '/' : '') . self::slug($type, $lang)));
     }
 
     public static function deactivate() {
@@ -123,7 +168,7 @@ class SPW_Plugin {
      *   - api_key + base url           (auth)
      *   - language + locale + prefix   (per-page locale from translation plugin)
      *   - propertyPageSlug             (lang-prefixed slug widget uses for property links)
-     *   - local cache URLs             (so widget skips API for static lookups)
+     *   - dataBundleUrl                (per-language lookup cache, see SPW_Data_Sync)
      */
     public function inject_config() {
         $api_key = self::get('api_key');
@@ -144,10 +189,19 @@ class SPW_Plugin {
             'locale'           => $locale,
             'languagePrefix'   => $prefix,
             'propertyPageSlug' => $detail_slug,
+            // Where a search box on any other page (e.g. the homepage) sends
+            // the visitor, and where the detail page's Back button and the
+            // wishlist counter link to.
+            'resultsPage'      => self::page_url('listings'),
+            'wishlistPage'     => self::page_url('wishlist'),
         ];
 
-        $local = SPW_Data_Sync::instance()->get_local_data_urls();
-        if (!empty($local)) $config = array_merge($config, $local);
+        // Locations / types / features / labels for this language in one
+        // cached file, so the widget skips four API calls per page view.
+        $sync = SPW_Data_Sync::instance();
+        $bundle_url = $sync->bundle_url($lang);
+        if ($bundle_url) $config['dataBundleUrl'] = $bundle_url;
+        $sync->maybe_schedule_refresh();
 
         ?>
 <!-- Smart Property Widget v<?php echo esc_attr(SPW_VERSION); ?> -->

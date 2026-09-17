@@ -1,10 +1,10 @@
 === Smart Property Manager ===
 Contributors: realtysoft
-Tags: real estate, property, listings, idx, mls, shortcode
+Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.3.2
+Stable tag: 2.4.0
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -17,20 +17,35 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 * SEO-friendly property URLs with per-language slugs: /property/villa-marbella_R5P-371150, /es/propiedad/..., /de/immobilie/...
 * Server-side Open Graph + Twitter Card meta tags so links shared on WhatsApp/Facebook/Twitter show the actual property
 * Schema.org RealEstateListing JSON-LD for Google rich results
-* Local JSON cache for locations / types / features / labels (daily auto-refresh + manual sync button)
+* Per-language data cache: locations / types / features / labels for every site language in one file per language, so pages load them in a single cached request instead of four API calls. Refreshed within minutes of a change (hourly check + background check on page views) and via the Sync Now button
 * Compatibility shims for WP Rocket, Autoptimize, LiteSpeed Cache, FlyingPress, SG Optimizer, W3 Total Cache
 * Translation plugin support: Polylang, WPML, TranslatePress, Weglot, GTranslate — per-page locale, language-prefixed URLs, hreflang alternates
 * XML sitemap: auto-injects property URLs into Yoast, Rank Math, and native WP sitemaps + standalone /spw-sitemap.xml
-* Theme, currency, listing types, feature toggles, analytics, and custom CSS — all configured per-tenant in your SPM dashboard, not here
+* Search box on any page (e.g. the homepage) sends visitors to the Properties page with their search applied
+* Display currency, listing types, search options, primary colour and feature toggles are configured per client in the SPM dashboard (Settings → Widget), not here
 
 == Installation ==
 
-1. Upload the plugin folder to `wp-content/plugins/spw/` or install via Plugins → Add New.
-2. Activate.
-3. Go to SPM → Settings, paste your API Key, click **Test Connection**, save.
-4. The Property Search / Listings / Detail pages are created automatically.
+1. Plugins → Add New → Upload Plugin → choose `spw-<version>.zip` (build it with `pnpm build:wp-plugin` from the repo root) → Activate.
+2. Settings → Permalinks: choose any structure except "Plain" and Save.
+3. SPM → Settings: paste the client's API key, click **Test Connection**, then **Save Settings** and **Sync Now**.
+4. SPM → Pages → **Create Missing Pages** (Properties, Property Detail, Wishlist).
+5. Add Properties and Wishlist to the site menu.
 
 == Changelog ==
+
+= 2.4.0 =
+* New: lookup data (locations, property types, features, labels) is cached for EVERY site language, one bundle file per language, and the widget loads it in a single request. Previously only the default language was cached and the widget never used the cache, so every page made four API calls.
+* New: cache freshness follows the API's syncVersion — checked hourly and, in the background, on page views when the last check is over 10 minutes old. A feed import or dashboard edit reaches the site within minutes instead of the next day.
+* New: a search box on a page without results (e.g. the homepage) takes the visitor to the Properties page with the search applied. The widget also gets the Wishlist page URL, so the wishlist counter links to it.
+* New: display currency is set in the SPM dashboard (Settings → Widget) and prices in other currencies are converted.
+* New: `uninstall.php` removes the plugin's options, transients, scheduled sync and cached files when the plugin is deleted.
+* Fixed: the property sitemap (/spw-sitemap.xml and the Yoast / Rank Math / core providers) was always empty — the API endpoint it relied on did not exist.
+* Fixed: changing the detail slug no longer needs a manual Settings → Permalinks re-save.
+* Fixed: detail URLs whose title is a single word (`/property/villa_R5P-1`) now resolve; the reference is read the same way in PHP (OG tags) and in the widget.
+* Fixed: the wishlist page shows every saved property, not only those in the first page of search results.
+* Fixed: a `SPW_API_URL` wp-config override now also applies to Test Connection, sync, OG tags and the sitemap.
+* Fixed: caching/optimisation plugin exclusions now match the real bundle name (spm-widget.umd.js).
 
 = 2.3.2 =
 * Moved the **Pages** card to its own submenu (SPM &rarr; Pages). Three large cards with title editor + status + Create Missing Pages, side by side. Sidebar on Settings now has a link card.

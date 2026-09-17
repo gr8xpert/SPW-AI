@@ -10,7 +10,7 @@ export default function RsSearchButton() {
 
   const handleClick = useCallback(() => {
     if (window.RealtySoft) {
-      window.RealtySoft.search();
+      window.RealtySoft.search(undefined, { navigate: true });
     }
   }, []);
 

@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'preact/hooks';
+import { useWishlistProperties } from '@/hooks/useWishlistProperties';
 import { useLabels } from '@/hooks/useLabels';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
-import { useSelector } from '@/hooks/useStore';
-import { selectors } from '@/core/selectors';
 import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import type { Property } from '@/types';
 
@@ -201,11 +200,9 @@ function CompareModal() {
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
   const { compareSelection } = useWishlistState();
-  const results = useSelector(selectors.getResults);
+  const { properties: saved } = useWishlistProperties();
 
-  const properties: Property[] = results?.data.filter((p) =>
-    compareSelection.includes(p.id)
-  ) ?? [];
+  const properties: Property[] = saved.filter((p) => compareSelection.includes(p.id));
 
   if (properties.length < 2) {
     return (

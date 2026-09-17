@@ -127,6 +127,9 @@ export class PropertySearchService {
     if (dto.reference) {
       query.andWhere('p.reference = :reference', { reference: dto.reference });
     }
+    if (dto.ids?.length) {
+      query.andWhere('p.id IN (:...ids)', { ids: dto.ids });
+    }
     // Multi-location: union of expanded subtrees so picking several cities
     // returns properties across all of them.
     if (dto.locationIds?.length) {

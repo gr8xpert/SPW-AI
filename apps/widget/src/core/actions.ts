@@ -17,6 +17,7 @@ export const actions = {
   setPropertyTypes: (types: SPMState['propertyTypes']) => store.dispatch('SET_PROPERTY_TYPES', types),
   setFeatures: (features: SPMState['features']) => store.dispatch('SET_FEATURES', features),
   setCurrency: (currency: string) => store.dispatch('SET_CURRENCY', currency),
+  setCurrencyBase: (currency: string) => store.dispatch('SET_CURRENCY_BASE', currency),
   setCurrencyRates: (rates: Record<string, number>) => store.dispatch('SET_CURRENCY_RATES', rates),
   setUI: (ui: SPMState['ui']) => store.dispatch('SET_UI', ui),
   mergeUI: (ui: Partial<SPMState['ui']>) => store.dispatch('MERGE_UI', ui),

@@ -48,7 +48,9 @@ class SPW_Sitemap {
         if ($cached !== false) return $cached;
 
         $max = 5000;
-        $r = SPW_API_Client::get('api/v1/property-refs', ['limit' => $max]);
+        // Title slugs must be in the language the sitemap URLs use (default).
+        $lang = class_exists('SPW_I18n') ? SPW_I18n::instance()->default_lang_code() : 'en';
+        $r = SPW_API_Client::get('api/v1/property-refs', ['limit' => $max, 'lang' => $lang ?: 'en']);
         if (is_wp_error($r)) {
             set_transient(self::TRANSIENT_REFS, [], 5 * MINUTE_IN_SECONDS);
             return [];

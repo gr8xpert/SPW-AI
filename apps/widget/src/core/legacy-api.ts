@@ -15,7 +15,10 @@ export interface RealtySoftAPI {
     get: (key: string) => unknown;
     set: (key: string, value: unknown) => void;
   };
-  search: (filters?: SearchFilters) => void;
+  // `navigate: true` = an explicit search submission (the Search button). Only
+  // those may leave the page for the results page; automatic searches (tab
+  // switches, reset, paging) always stay put.
+  search: (filters?: SearchFilters, options?: SearchOptions) => void;
   reset: () => void;
   setFilters: (filters: Partial<SearchFilters>) => void;
   getFilters: () => SearchFilters;
@@ -25,9 +28,13 @@ export interface RealtySoftAPI {
   on: (event: string, callback: (...args: unknown[]) => void) => () => void;
 }
 
-let searchHandler: ((filters: SearchFilters) => void) | null = null;
+export interface SearchOptions {
+  navigate?: boolean;
+}
 
-export function setSearchHandler(handler: (filters: SearchFilters) => void): void {
+let searchHandler: ((filters: SearchFilters, options?: SearchOptions) => void) | null = null;
+
+export function setSearchHandler(handler: (filters: SearchFilters, options?: SearchOptions) => void): void {
   searchHandler = handler;
 }
 
@@ -45,11 +52,11 @@ export function installLegacyAPI(): void {
       },
     },
 
-    search: (filters?: SearchFilters) => {
+    search: (filters?: SearchFilters, options?: SearchOptions) => {
       if (filters) {
         actions.setFilters(filters);
       }
-      searchHandler?.(selectors.getEffectiveFilters(store.getState()));
+      searchHandler?.(selectors.getEffectiveFilters(store.getState()), options);
     },
 
     reset: () => {

@@ -309,14 +309,14 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
                             Open Filter IDs Reference
                         </a>
                     </p>
-                    <p class="description">Example: <code>&lt;div data-spm-widget="search" data-spm-lock-location="5"&gt;&lt;/div&gt;</code></p>
+                    <p class="description">Example: <code>&lt;div data-spm-widget="listing-template-01" data-spm-lock-location="5"&gt;&lt;/div&gt;</code></p>
                 </div>
             </div>
 
             <div class="spw-card spw-card--hint">
                 <div class="spw-card-body">
                     <h3>Everything else lives in your dashboard</h3>
-                    <p>Currency, theme, results-per-page, feature toggles, listing types, analytics and styling are managed per tenant in your <strong>SPM dashboard</strong>. Save once there and every embed picks it up &mdash; this plugin included.</p>
+                    <p>Display currency, listing types, search options, primary colour and feature toggles are managed in your <strong>SPM dashboard &rarr; Settings &rarr; Widget</strong>. Save once there and every embed picks it up &mdash; this plugin included.</p>
                     <p class="description">Want to embed a custom widget anywhere else on your site? Paste this anywhere:</p>
 <pre class="spw-snippet"><code>&lt;div data-spm-widget="listing-template-03"
      data-spm-sort="is_featured_desc"

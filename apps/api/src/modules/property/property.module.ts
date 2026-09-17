@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PropertyController } from './property.controller';
 import { PublicPropertyController } from './public-property.controller';
+import { PublicPropertyRefsController } from './public-property-refs.controller';
 import { PropertyService } from './property.service';
 import { PropertySearchService } from './property-search.service';
 import { Property, User, Location, PropertyType, Tenant, Plan } from '../../database/entities';
@@ -13,7 +14,7 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Property, User, Location, PropertyType, Tenant, Plan]), LocationModule, TenantModule, WebhookModule],
-  controllers: [PropertyController, PublicPropertyController],
+  controllers: [PropertyController, PublicPropertyController, PublicPropertyRefsController],
   providers: [PropertyService, PropertySearchService, ApiKeyThrottlerGuard, DashboardAddonGuard],
   exports: [PropertyService, PropertySearchService],
 })

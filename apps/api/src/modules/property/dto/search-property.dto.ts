@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, IsIn, IsArray, IsBoolean, IsString, Min, Max, Matches, MaxLength } from 'class-validator';
+import { IsOptional, IsNumber, IsIn, IsArray, IsBoolean, IsString, Min, Max, Matches, MaxLength, ArrayMaxSize } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ListingType } from '../../../database/entities/property.entity';
 
@@ -26,6 +26,16 @@ export class SearchPropertyDto {
   @IsString()
   @MaxLength(64)
   reference?: string;
+
+  // Exact property ids (ids=12,45,78). The widget's wishlist page uses this to
+  // load saved properties directly — filtering the current search results
+  // only ever showed the saved ones that happened to be on that page.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsNumber({}, { each: true })
+  @Transform(toIntArray)
+  ids?: number[];
 
   @IsOptional()
   @Type(() => Number)

@@ -36,6 +36,11 @@ export interface WidgetConfig {
   resultsPage?: string;
   wishlistPage?: string;
 
+  // Pre-built lookup bundle for this page's language (the WordPress plugin
+  // writes uploads/spw-data/bundle-<lang>.json): locations, types, features
+  // and labels in one cacheable file instead of four API calls.
+  dataBundleUrl?: string;
+
   locationSearchConfig?: {
     dropdown1: { levels: string[]; visible?: boolean };
     dropdown2: { levels: string[]; visible?: boolean };
@@ -81,6 +86,8 @@ export interface RealtySoftConfig {
   defaultListingType?: string;
   enabledListingTypes?: string[];
   resultsPage?: string;
+  wishlistPage?: string;
+  dataBundleUrl?: string;
   searchTemplate?: number;
   listingTemplate?: number;
   mapTemplate?: number;
