@@ -1,5 +1,6 @@
 'use client';
 
+import { formatHM, formatSignedHM } from '@/lib/time';
 import { useEffect, useState, useCallback } from 'react';
 import {
   Card,
@@ -216,7 +217,7 @@ export default function CreditsPage() {
       });
       toast({
         title: 'Credits adjusted',
-        description: `Successfully ${adjustType === 'add' ? 'added' : 'deducted'} ${amount} credits for ${adjustTenant.tenantName}.`,
+        description: `Successfully ${adjustType === 'add' ? 'added' : 'deducted'} ${formatHM(amount)} for ${adjustTenant.tenantName}.`,
       });
       setAdjustOpen(false);
       fetchTenants();
@@ -264,7 +265,7 @@ export default function CreditsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
-              {loading ? '...' : totalOutstanding.toLocaleString()}
+              {loading ? '...' : formatSignedHM(totalOutstanding)}
             </div>
             <p className="text-xs text-muted-foreground">Across all clients</p>
           </CardContent>
@@ -347,7 +348,7 @@ export default function CreditsPage() {
                             : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {tenant.balance.toLocaleString()}
+                        {formatSignedHM(tenant.balance)}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -398,7 +399,7 @@ export default function CreditsPage() {
                 {historyTenant?.slug}
               </code>
               . Current balance:{' '}
-              <strong>{historyTenant?.balance.toLocaleString()}</strong> credits.
+              <strong>{formatSignedHM(historyTenant?.balance)}</strong>.
             </DialogDescription>
           </DialogHeader>
 
@@ -445,7 +446,7 @@ export default function CreditsPage() {
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {tx.type === 'add' ? '+' : '-'}
-                          {tx.amount.toLocaleString()}
+                          {formatSignedHM(tx.amount)}
                         </TableCell>
                         <TableCell className="text-sm max-w-[200px] truncate">
                           {tx.reason}
@@ -502,7 +503,7 @@ export default function CreditsPage() {
             <DialogDescription>
               {adjustType === 'add' ? 'Add credits to' : 'Deduct credits from'}{' '}
               <strong>{adjustTenant?.tenantName}</strong>. Current balance:{' '}
-              <strong>{adjustTenant?.balance.toLocaleString()}</strong>.
+              <strong>{formatSignedHM(adjustTenant?.balance)}</strong>.
             </DialogDescription>
           </DialogHeader>
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { formatHM } from '@/lib/time';
+import { formatMoney } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -189,7 +191,7 @@ export default function XeroSyncPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {r.hours}h · {r.amountEur} {r.currency}
+                      {formatHM(r.hours)} · {formatMoney(r.amountEur, r.currency)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusBadge(r.status)}>{r.status}</Badge>

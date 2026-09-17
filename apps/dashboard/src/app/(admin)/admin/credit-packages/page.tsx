@@ -1,5 +1,7 @@
 'use client';
 
+import { formatHM } from '@/lib/time';
+import { formatMoney } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import {
   Table,
@@ -403,12 +405,12 @@ export default function CreditPackagesPage() {
                         <p className="text-xs text-muted-foreground">Order: {pkg.sortOrder}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono">{pkg.hours}h</TableCell>
+                    <TableCell className="font-mono">{formatHM(pkg.hours)}</TableCell>
                     <TableCell className="font-mono">
-                      {pkg.currency} {Number(pkg.pricePerHour).toFixed(2)}
+                      {formatMoney(pkg.pricePerHour, pkg.currency)}
                     </TableCell>
                     <TableCell className="font-mono font-semibold">
-                      {pkg.currency} {Number(pkg.totalPrice).toFixed(2)}
+                      {formatMoney(pkg.totalPrice, pkg.currency)}
                     </TableCell>
                     <TableCell>
                       {pkg.stripePriceId ? (

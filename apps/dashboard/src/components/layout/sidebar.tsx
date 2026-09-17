@@ -64,7 +64,7 @@ export const useSidebarStore = create<SidebarState>()(
 );
 
 // Nav items annotated with minTier. Rule of thumb:
-//   Tier 1 (support-only): Dashboard, Support Tickets, Billing, Settings
+//   Tier 1 (support-only): Dashboard, Support Tickets, Credit Hours, Settings
 //   Tier 2 (+ property mgmt): the Main + Marketing + Integrations + Management + Analytics blocks
 //   Tier 3 (+ premium AI): Email Campaigns, AI Chat, AI Translation (translation is inside pages)
 // Items without minTier are always visible.
@@ -96,7 +96,7 @@ const other: NavItem[] = [
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, minTier: 2 },
   { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat', minTier: 3 },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
-  { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
+  { name: 'Credit Hours', href: '/dashboard/billing', icon: CreditCard },
   // Settings tabs (widget config, API keys, AI, cache) are all property /
   // integration surfaces — meaningless to a Tier 1 support-only tenant.
   // Gated at Tier 2 so a Tier 1 client sees the upsell dialog instead.

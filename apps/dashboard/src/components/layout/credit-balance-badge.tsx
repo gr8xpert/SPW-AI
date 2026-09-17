@@ -34,7 +34,8 @@ export function CreditBalanceBadge() {
         const body = res?.data || res;
         if (!cancelled) setBalance(Number(body?.balance ?? 0));
       } catch {
-        if (!cancelled) setBalance(0);
+        // Unknown, not zero: a failed read must not show an empty (red) balance.
+        if (!cancelled) setBalance(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -62,7 +63,18 @@ export function CreditBalanceBadge() {
     );
   }
 
-  const numericBalance = balance ?? 0;
+  if (balance === null) {
+    return (
+      <Link href="/dashboard/billing">
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+          <ShoppingCart className="h-3.5 w-3.5" />
+          Buy Credit Hours
+        </Button>
+      </Link>
+    );
+  }
+
+  const numericBalance = balance;
   const isEmpty = numericBalance <= 0;
   const chipClass = isEmpty
     ? 'flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/15 transition-colors'

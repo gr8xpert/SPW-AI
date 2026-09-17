@@ -25,10 +25,17 @@ export function hmToDecimal(h: number, m: number): number {
   return hours + minutes / 60;
 }
 
-// "0m" | "45m" | "2h" | "1h 15m" — omits zero segments so the numbers read fast.
+// Balances and ledger entries can be negative (deductions, overdrawn accounts).
+export function formatSignedHM(decimal: number | string | null | undefined): string {
+  const value = typeof decimal === 'string' ? parseFloat(decimal) : decimal ?? 0;
+  if (!Number.isFinite(value)) return '0h';
+  return value < 0 ? `-${formatHM(-value)}` : formatHM(value);
+}
+
+// "0h" | "45m" | "2h" | "1h 15m" — omits zero segments so the numbers read fast.
 export function formatHM(decimal: number | string | null | undefined): string {
   const { h, m } = decimalToHM(decimal);
-  if (h === 0 && m === 0) return '0m';
+  if (h === 0 && m === 0) return '0h';
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;

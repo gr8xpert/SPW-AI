@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost } from '@/lib/api';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
+import { formatHM, formatSignedHM } from '@/lib/time';
+import { formatMoney } from '@/lib/utils';
 import { RefreshCw, Clock, CreditCard, ShoppingCart, Layers } from 'lucide-react';
 
 interface CreditPackage {
@@ -35,7 +37,9 @@ const TIER_NAMES: Record<1 | 2 | 3, string> = {
   3: 'Tier 3 — Everything (all premium add-ons)',
 };
 
-export default function BillingPage() {
+// "Credit Hours" page. The route stays /dashboard/billing because the Stripe
+// checkout success/cancel URLs (api payment module) return here.
+export default function CreditHoursPage() {
   const { toast } = useToast();
   const { tier } = useDashboardAddons();
   const [loading, setLoading] = useState(true);
@@ -77,7 +81,7 @@ export default function BillingPage() {
         const failures = [packagesResult, balanceResult].filter((r) => r.status === 'rejected');
         if (failures.length > 0) {
           toast({
-            title: 'Some billing data failed to load',
+            title: 'Some credit hour data failed to load',
             description: 'Parts of the page may be incomplete. Try refreshing.',
             variant: 'destructive',
           });
@@ -96,6 +100,9 @@ export default function BillingPage() {
       const raw = await apiPost<{ url: string; sessionId: string } | { data: { url: string; sessionId: string } }>(
         '/api/billing/credits/checkout',
         { packageId: pkg.id, quantity },
+        // A dropped connection must not fail the purchase; a repeated request
+        // only creates a second, unused checkout session.
+        { retryOnNetworkError: true },
       );
       const url = (raw as any)?.data?.url ?? (raw as any)?.url;
       if (!url) throw new Error('Checkout session returned no redirect URL');
@@ -114,7 +121,7 @@ export default function BillingPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Billing</h1>
+          <h1 className="page-title">Credit Hours</h1>
           <p className="page-description mt-1">
             Buy credit hours for webmaster support
           </p>
@@ -150,7 +157,7 @@ export default function BillingPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <CardTitle>Credit Hours</CardTitle>
+              <CardTitle>Buy Credit Hours</CardTitle>
               <CardDescription>
                 Purchase credit hours for webmaster support. Credits are consumed when work is done on your tickets.
               </CardDescription>
@@ -159,7 +166,7 @@ export default function BillingPage() {
               <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Balance:</span>
-                <span className="text-lg font-bold">{Number(creditBalance.balance).toLocaleString()}h</span>
+                <span className="text-lg font-bold">{formatSignedHM(creditBalance.balance)}</span>
               </div>
             )}
           </div>
@@ -186,12 +193,12 @@ export default function BillingPage() {
                     className="flex flex-col rounded-lg border p-6"
                   >
                     <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                    <div className="mt-2 text-3xl font-bold">{pkg.hours}h</div>
+                    <div className="mt-2 text-3xl font-bold">{formatHM(pkg.hours)}</div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {pkg.currency} {Number(pkg.pricePerHour).toFixed(2)}/hour
+                      {formatMoney(pkg.pricePerHour, pkg.currency)}/hour
                     </div>
                     <div className="mt-4 text-xl font-semibold">
-                      {pkg.currency} {Number(pkg.totalPrice).toFixed(2)} / pack
+                      {formatMoney(pkg.totalPrice, pkg.currency)} / pack
                     </div>
 
                     <div className="mt-4 flex items-center gap-2">
@@ -219,8 +226,7 @@ export default function BillingPage() {
                         className="w-20 rounded-md border border-input bg-background px-3 py-1 text-sm"
                       />
                       <span className="text-sm text-muted-foreground">
-                        = {totalHours}h, {pkg.currency}{' '}
-                        {totalCost.toFixed(2)}
+                        = {formatHM(totalHours)}, {formatMoney(totalCost, pkg.currency)}
                       </span>
                     </div>
 
@@ -235,7 +241,9 @@ export default function BillingPage() {
                         ) : (
                           <ShoppingCart className="mr-2 h-4 w-4" />
                         )}
-                        Buy {totalHours} Hours
+                        {Number.isInteger(totalHours)
+                          ? `Buy ${totalHours} ${totalHours === 1 ? 'Hour' : 'Hours'}`
+                          : `Buy ${formatHM(totalHours)}`}
                       </Button>
                     </div>
                   </div>
