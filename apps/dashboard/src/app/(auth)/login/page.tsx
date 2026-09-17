@@ -67,6 +67,12 @@ function LoginForm() {
         email: data.email,
         password: data.password,
         redirect: false,
+        // Without an explicit callbackUrl next-auth uses the current address,
+        // and it reads `?error=` from the URL it hands back. Landing on
+        // /login?error=... (next-auth sends users there after a session error)
+        // therefore reported a SUCCESSFUL sign-in as "Invalid email or
+        // password" while the session was actually created.
+        callbackUrl,
       });
 
       if (result?.error) {
