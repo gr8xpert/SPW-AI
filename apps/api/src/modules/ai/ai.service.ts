@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
 import { Tenant } from '../../database/entities';
+import { FALLBACK_DEFAULT_MODEL, FALLBACK_ENRICHMENT_MODEL, RECOMMENDED_MODELS } from './ai-models';
+import { OpenRouterCatalogService } from './openrouter-catalog.service';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -12,14 +14,14 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 // fallback as a "known-good last resort" rather than a recommended default.
 //
 // Update process: change OPENROUTER_DEFAULT_MODEL in production .env, restart
-// API. No DB migration required.
-const FALLBACK_DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514';
+// API. No DB migration required. A model OpenRouter has retired is swapped
+// for a working one at request time (see usableModel), so a stale setting
+// degrades to the default instead of failing.
 const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL || FALLBACK_DEFAULT_MODEL;
 
 // Cheap, accurate model for structured classification work (location
 // hierarchy filling, feature categorisation). Used by the enrichment
 // service via { model: ENRICHMENT_MODEL }.
-const FALLBACK_ENRICHMENT_MODEL = 'anthropic/claude-haiku-4-5';
 export const ENRICHMENT_MODEL =
   process.env.OPENROUTER_ENRICHMENT_MODEL || FALLBACK_ENRICHMENT_MODEL;
 
@@ -60,7 +62,45 @@ export class AiService {
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
+    private readonly catalog: OpenRouterCatalogService,
   ) {}
+
+  // The requested model if OpenRouter still offers it, else the first of the
+  // defaults that it does. Logged once per retired model.
+  private readonly warnedRetired = new Set<string>();
+  async usableModel(requested: string): Promise<string> {
+    if (await this.catalog.isAvailable(requested)) return requested;
+    for (const candidate of [DEFAULT_MODEL, FALLBACK_DEFAULT_MODEL, ...RECOMMENDED_MODELS.map((m) => m.id)]) {
+      if (candidate !== requested && (await this.catalog.isAvailable(candidate))) {
+        if (!this.warnedRetired.has(requested)) {
+          this.warnedRetired.add(requested);
+          this.logger.warn(`OpenRouter no longer offers "${requested}"; using "${candidate}" instead`);
+        }
+        return candidate;
+      }
+    }
+    return requested;
+  }
+
+  // Settings → AI: the recommended models OpenRouter currently offers, with
+  // prices, plus what the tenant has saved and whether it still works.
+  async listModels(tenantId: number) {
+    const models = await this.catalog.get();
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'settings'] });
+    const saved: string | null = tenant?.settings?.openRouterModel || null;
+    const offered = RECOMMENDED_MODELS.filter((m) => !models || models.has(m.id)).map((m) => ({
+      ...m,
+      inputPrice: models?.get(m.id)?.inputPrice ?? null,
+      outputPrice: models?.get(m.id)?.outputPrice ?? null,
+    }));
+    return {
+      models: offered,
+      saved,
+      savedAvailable: saved ? await this.catalog.isAvailable(saved) : true,
+      savedName: saved ? models?.get(saved)?.name ?? null : null,
+      effective: await this.usableModel(saved || DEFAULT_MODEL),
+    };
+  }
 
   async chatCompletion(
     tenantId: number,
@@ -204,7 +244,7 @@ export class AiService {
     }
     return {
       apiKey,
-      model: modelOverride || tenant?.settings?.openRouterModel || DEFAULT_MODEL,
+      model: await this.usableModel(modelOverride || tenant?.settings?.openRouterModel || DEFAULT_MODEL),
     };
   }
 
@@ -219,25 +259,23 @@ export class AiService {
     }
   }
 
-  async testConnection(tenantId: number): Promise<{ ok: boolean; model: string; error?: string }> {
+  // Tests with the saved model (or the one it would fall back to), and says
+  // so when OpenRouter has retired the saved one.
+  async testConnection(
+    tenantId: number,
+    requestedModel?: string,
+  ): Promise<{ ok: boolean; model: string; requested?: string; retired?: boolean; error?: string }> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'settings'] });
+    const requested = requestedModel || tenant?.settings?.openRouterModel || DEFAULT_MODEL;
+    const model = await this.usableModel(requested);
     try {
-      const response = await this.chatCompletion(tenantId, [
-        { role: 'user', content: 'Reply with exactly: OK' },
-      ], { maxTokens: 10 });
-      const tenant = await this.tenantRepository.findOne({
-        where: { id: tenantId },
-        select: ['id', 'settings'],
+      const response = await this.chatCompletion(tenantId, [{ role: 'user', content: 'Reply with exactly: OK' }], {
+        maxTokens: 10,
+        model,
       });
-      return {
-        ok: response.toLowerCase().includes('ok'),
-        model: tenant?.settings?.openRouterModel || DEFAULT_MODEL,
-      };
+      return { ok: response.toLowerCase().includes('ok'), model, requested, retired: model !== requested };
     } catch (err) {
-      return {
-        ok: false,
-        model: '',
-        error: (err as Error).message,
-      };
+      return { ok: false, model, requested, retired: model !== requested, error: (err as Error).message };
     }
   }
 }

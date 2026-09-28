@@ -7,10 +7,11 @@ import { TenantService } from './tenant.service';
 import { TierPolicyService } from './tier-policy.service';
 import { Tenant, WebhookDelivery } from '../../database/entities';
 import { WebhookModule } from '../webhook/webhook.module';
+import { WebsiteHealthModule } from '../website-health/website-health.module';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tenant, WebhookDelivery]), WebhookModule],
+  imports: [TypeOrmModule.forFeature([Tenant, WebhookDelivery]), WebhookModule, WebsiteHealthModule],
   controllers: [TenantController, PublicSyncMetaController, PublicWidgetConfigController],
   providers: [TenantService, TierPolicyService, ApiKeyThrottlerGuard],
   exports: [TenantService, TierPolicyService],

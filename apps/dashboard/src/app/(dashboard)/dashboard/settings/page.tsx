@@ -42,15 +42,17 @@ import { Building2, Mail, Globe, Webhook, Key, RefreshCw, Bot, Languages, X, Plu
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
+import { WeeklyReportCard } from '@/components/settings/weekly-report-card';
 
 type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
 
 const SLUG_FORMAT_OPTIONS: { value: SlugFormat; label: string; example: string }[] = [
+  // The reference is always set apart with "_" (references contain dashes).
   { value: 'ref', label: 'Reference Only', example: '/property/REF-1234' },
-  { value: 'ref-title', label: 'Reference + Title', example: '/property/REF-1234-luxury-villa-marbella' },
-  { value: 'title-ref', label: 'Title + Reference', example: '/property/luxury-villa-marbella-REF-1234' },
-  { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa-REF-1234' },
-  { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234-villa-marbella' },
+  { value: 'ref-title', label: 'Reference + Title', example: '/property/REF-1234_luxury-villa-marbella' },
+  { value: 'title-ref', label: 'Title + Reference', example: '/property/luxury-villa-marbella_REF-1234' },
+  { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa_REF-1234' },
+  { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234_villa-marbella' },
 ];
 
 const ALL_LANGUAGES: Record<string, string> = {
@@ -110,6 +112,7 @@ interface TenantSettings {
   primaryColor?: string;
   wishlistIcon?: 'heart' | 'star' | 'bookmark' | 'save';
   mapVariation?: 'auto' | '0' | '1' | '2';
+  mapTiles?: { provider?: 'osm' | 'maptiler' | 'custom'; key?: string; url?: string; attribution?: string };
   recaptchaSiteKey?: string;
   recaptchaSecretKey?: string;
   similarPropertiesLimit?: number;
@@ -193,6 +196,14 @@ interface SenderDomainVerifyResponse {
   };
 }
 
+interface AiModelOption {
+  id: string;
+  label: string;
+  note: string;
+  inputPrice: number | null;
+  outputPrice: number | null;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -232,15 +243,19 @@ export default function SettingsPage() {
   const [senderDomainInput, setSenderDomainInput] = useState('');
   const [savingSenderDomain, setSavingSenderDomain] = useState(false);
   const [verifyingSenderDomain, setVerifyingSenderDomain] = useState(false);
-  const [slugFormat, setSlugFormat] = useState<SlugFormat>('ref-title');
+  const [slugFormat, setSlugFormat] = useState<SlugFormat>('title-ref');
 
   // AI / OpenRouter state
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiApiKeyMasked, setAiApiKeyMasked] = useState('');
-  const [aiModel, setAiModel] = useState('google/gemini-2.0-flash-001');
+  const [aiModel, setAiModel] = useState('');
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; error?: string } | null>(null);
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; model?: string; requested?: string; retired?: boolean; error?: string } | null>(null);
+  // Current models from the API (checked against OpenRouter's live list), and
+  // whether the saved one still exists.
+  const [aiModels, setAiModels] = useState<AiModelOption[]>([]);
+  const [aiModelStatus, setAiModelStatus] = useState<{ saved: string | null; savedAvailable: boolean; effective: string } | null>(null);
 
   // AI Chat settings state
   const [aiChatEnabled, setAiChatEnabled] = useState(false);
@@ -268,6 +283,7 @@ export default function SettingsPage() {
   const [primaryColor, setPrimaryColor] = useState('#2563eb');
   const [wishlistIcon, setWishlistIcon] = useState<'heart' | 'star' | 'bookmark' | 'save'>('heart');
   const [mapVariation, setMapVariation] = useState<'auto' | '0' | '1' | '2'>('auto');
+  const [mapTiles, setMapTiles] = useState<{ provider: 'osm' | 'maptiler' | 'custom'; key: string; url: string; attribution: string }>({ provider: 'osm', key: '', url: '', attribution: '' });
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
   const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
   const [similarPropertiesLimit, setSimilarPropertiesLimit] = useState(6);
@@ -299,13 +315,11 @@ export default function SettingsPage() {
   const [enabledLanguages, setEnabledLanguages] = useState<string[]>(['en']);
   const [savingLangs, setSavingLangs] = useState(false);
 
-  const AI_MODELS = [
-    { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash (Recommended)' },
-    { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
-    { value: 'openai/gpt-4o', label: 'GPT-4o' },
-    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
-    { value: 'anthropic/claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-  ];
+  const priceText = (m: AiModelOption) =>
+    m.inputPrice != null && m.outputPrice != null
+      ? ` — $${m.inputPrice.toFixed(2)} in / $${m.outputPrice.toFixed(2)} out per 1M tokens`
+      : '';
+  const aiModelLabel = (id: string) => aiModels.find((m) => m.id === id)?.label || id;
 
   useEffect(() => {
     if (!session?.accessToken) return;
@@ -341,6 +355,17 @@ export default function SettingsPage() {
         if (settings?.openRouterModel) {
           setAiModel(settings.openRouterModel);
         }
+        apiGet<{ data: { models: AiModelOption[]; saved: string | null; savedAvailable: boolean; effective: string } }>('/api/dashboard/ai/models')
+          .then((r) => {
+            const body = r.data;
+            setAiModels(body.models || []);
+            setAiModelStatus({ saved: body.saved, savedAvailable: body.savedAvailable, effective: body.effective });
+            // Nothing saved yet: preselect the recommended model.
+            if (!body.saved && body.models?.length) setAiModel(body.models[0].id);
+          })
+          .catch(() => {
+            /* the dropdown still shows the saved model */
+          });
         if (typeof settings?.aiChatEnabled === 'boolean') setAiChatEnabled(settings.aiChatEnabled);
         if (typeof settings?.aiChatNLSearch === 'boolean') setAiChatNLSearch(settings.aiChatNLSearch);
         if (typeof settings?.aiChatConversational === 'boolean') setAiChatConversational(settings.aiChatConversational);
@@ -367,6 +392,14 @@ export default function SettingsPage() {
           setDefaultBrochureVariant(settings.defaultBrochureVariant);
         }
         if (settings?.mapVariation) setMapVariation(settings.mapVariation);
+        if (settings?.mapTiles?.provider) {
+          setMapTiles({
+            provider: settings.mapTiles.provider,
+            key: settings.mapTiles.key || '',
+            url: settings.mapTiles.url || '',
+            attribution: settings.mapTiles.attribution || '',
+          });
+        }
         if (settings?.recaptchaSiteKey) setRecaptchaSiteKey(settings.recaptchaSiteKey);
         if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
         if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
@@ -700,6 +733,12 @@ export default function SettingsPage() {
         setAiApiKey('');
       }
       setAiTestResult(null);
+      // The model just saved is one from the live list, so the retired warning goes.
+      setAiModelStatus((prev) => ({
+        saved: aiModel,
+        savedAvailable: aiModels.some((m) => m.id === aiModel) || (prev?.saved === aiModel ? prev.savedAvailable : true),
+        effective: aiModel,
+      }));
       toast({ title: 'AI settings saved', description: 'Your OpenRouter configuration has been updated.' });
     } catch (err) {
       toast({ title: 'Failed to save AI settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
@@ -712,8 +751,10 @@ export default function SettingsPage() {
     setTestingAi(true);
     setAiTestResult(null);
     try {
-      const res = await apiPost<{ data: { ok: boolean; model: string; error?: string } }>(
+      // Tests the model picked in the dropdown, even before it is saved.
+      const res = await apiPost<{ data: { ok: boolean; model: string; requested?: string; retired?: boolean; error?: string } }>(
         '/api/dashboard/translate/test',
+        aiModel ? { model: aiModel } : {},
       );
       setAiTestResult(res.data);
     } catch (err) {
@@ -775,6 +816,12 @@ export default function SettingsPage() {
         primaryColor,
         wishlistIcon,
         mapVariation,
+        mapTiles:
+          mapTiles.provider === 'maptiler'
+            ? { provider: 'maptiler', key: mapTiles.key.trim() }
+            : mapTiles.provider === 'custom'
+              ? { provider: 'custom', url: mapTiles.url.trim(), attribution: mapTiles.attribution.trim() }
+              : { provider: 'osm' },
         recaptchaSiteKey: recaptchaSiteKey.trim() || undefined,
         recaptchaSecretKey: recaptchaSecretKey.trim() || undefined,
         similarPropertiesLimit,
@@ -1324,6 +1371,67 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>Map Style</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Background used by the maps on your website (map search and property pages).
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { value: 'osm' as const, label: 'OpenStreetMap', desc: 'Free, no setup needed' },
+                      { value: 'maptiler' as const, label: 'MapTiler', desc: 'Cleaner look, free key from maptiler.com' },
+                      { value: 'custom' as const, label: 'Custom', desc: 'Any tile server URL' },
+                    ]).map(({ value, label, desc }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        data-testid={`map-tiles-${value}`}
+                        className={`flex flex-col items-start rounded-md border px-4 py-2 text-sm transition-colors ${mapTiles.provider === value ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
+                        onClick={() => setMapTiles((t) => ({ ...t, provider: value }))}
+                      >
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {mapTiles.provider === 'maptiler' && (
+                    <div className="space-y-1 max-w-md">
+                      <Input
+                        placeholder="MapTiler API key"
+                        value={mapTiles.key}
+                        onChange={(e) => setMapTiles((t) => ({ ...t, key: e.target.value }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Create a free account at maptiler.com, copy the key from &quot;API keys&quot; and restrict it to
+                        your website&apos;s domain there.
+                        {mapTiles.key.trim() && !/^[A-Za-z0-9_-]{8,64}$/.test(mapTiles.key.trim()) && (
+                          <span className="block text-destructive">This does not look like a MapTiler key.</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {mapTiles.provider === 'custom' && (
+                    <div className="space-y-2 max-w-xl">
+                      <Input
+                        placeholder="https://tiles.example.com/{z}/{x}/{y}.png"
+                        value={mapTiles.url}
+                        onChange={(e) => setMapTiles((t) => ({ ...t, url: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="Attribution, e.g. © OpenStreetMap contributors"
+                        value={mapTiles.attribution}
+                        onChange={(e) => setMapTiles((t) => ({ ...t, attribution: e.target.value }))}
+                      />
+                      {mapTiles.url.trim() &&
+                        !(/^https:\/\//.test(mapTiles.url.trim()) && ['{z}', '{x}', '{y}'].every((p) => mapTiles.url.includes(p))) && (
+                          <p className="text-xs text-destructive">
+                            The URL must start with https:// and contain {'{z}'}, {'{x}'} and {'{y}'}. Until then OpenStreetMap is used.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label>Display Currency</Label>
                   <p className="text-xs text-muted-foreground">
                     Currency prices are shown in on your website. Prices in another currency are converted at
@@ -1814,6 +1922,8 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
+
+          <WeeklyReportCard />
 
           {/* 5R — sender-domain verification. Lives in the same tab as
               SMTP config because they're conceptually paired (provider
@@ -2365,19 +2475,43 @@ export default function SettingsPage() {
                   value={aiModel}
                   onChange={(e) => setAiModel(e.target.value)}
                 >
-                  {AI_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>
+                  {aiModel && !aiModels.some((m) => m.id === aiModel) && (
+                    <option value={aiModel}>
+                      {aiModel}
+                      {aiModelStatus?.saved === aiModel && !aiModelStatus.savedAvailable ? ' (no longer available)' : ''}
+                    </option>
+                  )}
+                  {aiModels.map((m) => (
+                    <option key={m.id} value={m.id}>
                       {m.label}
+                      {priceText(m)}
                     </option>
                   ))}
                 </select>
+                {aiModels.find((m) => m.id === aiModel)?.note && (
+                  <p className="text-xs text-muted-foreground">{aiModels.find((m) => m.id === aiModel)?.note}</p>
+                )}
               </div>
+
+              {aiModelStatus?.saved && !aiModelStatus.savedAvailable && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200" data-testid="ai-model-retired">
+                  Your saved model <code>{aiModelStatus.saved}</code> is no longer offered by OpenRouter. AI features
+                  are using <strong>{aiModelLabel(aiModelStatus.effective)}</strong> meanwhile. Choose a model and
+                  click Save.
+                </div>
+              )}
 
               {aiTestResult && (
                 <div className={`rounded-md p-3 text-sm ${aiTestResult.ok ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>
                   {aiTestResult.ok
-                    ? `Connected successfully — model: ${aiTestResult.model}`
+                    ? `Connected successfully — model: ${aiModelLabel(aiTestResult.model || '')}`
                     : `Connection failed: ${aiTestResult.error}`}
+                  {aiTestResult.retired && aiTestResult.requested && (
+                    <p className="mt-1 text-xs">
+                      {aiTestResult.requested} is no longer available on OpenRouter, so this test used{' '}
+                      {aiModelLabel(aiTestResult.model || '')}.
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>

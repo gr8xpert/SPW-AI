@@ -6,6 +6,7 @@ type SliceListener<K extends StateSlice> = (value: SPMState[K], prev: SPMState[K
 const DEFAULT_STATE: SPMState = {
   config: { apiUrl: '', apiKey: '' },
   filters: {},
+  baseFilters: {},
   lockedFilters: {},
   results: null,
   selectedProperty: null,
@@ -40,8 +41,10 @@ function reduce(state: SPMState, action: Action): SPMState {
       return { ...state, filters: payload as SPMState['filters'] };
     case 'MERGE_FILTERS':
       return { ...state, filters: { ...state.filters, ...(payload as Partial<SPMState['filters']>) } };
+    case 'SET_BASE_FILTERS':
+      return { ...state, baseFilters: payload as SPMState['baseFilters'] };
     case 'RESET_FILTERS':
-      return { ...state, filters: {} };
+      return { ...state, filters: { ...state.baseFilters } };
     case 'SET_LOCKED_FILTERS':
       return { ...state, lockedFilters: payload as SPMState['lockedFilters'] };
     case 'SET_RESULTS':

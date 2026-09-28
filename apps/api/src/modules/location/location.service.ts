@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { Location, LocationLevel } from '../../database/entities';
+import { Location, LocationBoundary, LocationLevel } from '../../database/entities';
+import { fenceFor, resolveLocationPoints } from './location-points';
 import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
 
@@ -27,6 +28,55 @@ export class LocationService {
     });
     // Alphabetical within each sortOrder group — see bySortOrderThenName.
     return locations.sort(bySortOrderThenName);
+  }
+
+  /**
+   * Where a single place sits, and its outline if we have one.
+   *
+   * The property detail map used to ask Nominatim for the place by bare name
+   * from the browser — which is how "Los Alamos" drew a village in Almeria,
+   * and it asked again on every page view. The outline we store was geocoded
+   * with the parent for context and checked against it, and the point comes
+   * back through the same guard the listing map uses: a place we cannot place
+   * believably gets its parent's point and no outline, so the map says "this
+   * town, roughly" instead of drawing the wrong shape.
+   */
+  async outline(tenantId: number, id: number): Promise<{
+    id: number;
+    name: unknown;
+    level: string;
+    lat: number;
+    lng: number;
+    approximate: boolean;
+    boundary: LocationBoundary | null;
+    fence: LocationBoundary | null;
+  } | null> {
+    // `boundary` is hidden on the entity (a few hundred coordinate pairs), so
+    // it has to be asked for by name.
+    const places = await this.locationRepository
+      .createQueryBuilder('l')
+      .select(['l.id', 'l.parentId', 'l.level', 'l.name', 'l.lat', 'l.lng'])
+      .addSelect('l.boundary')
+      .where('l.tenantId = :tenantId', { tenantId })
+      .getMany();
+
+    const place = places.find((l) => l.id === id);
+    if (!place) return null;
+    const point = resolveLocationPoints(places).get(id);
+    if (!point) return null;
+
+    return {
+      id: place.id,
+      name: place.name as unknown,
+      level: place.level as string,
+      lat: point.lat,
+      lng: point.lng,
+      approximate: point.borrowed,
+      boundary: point.borrowed ? null : (place.boundary ?? null),
+      // With no shape of its own, the municipality it belongs to says where it
+      // is far better than a circle drawn around a point.
+      fence: fenceFor(place, new Map(places.map((l) => [l.id, l]))),
+    };
   }
 
   async findTree(tenantId: number, includeInactive = false): Promise<LocationTree[]> {
@@ -261,6 +311,19 @@ export class LocationService {
     }
 
     await this.locationRepository.delete({ id: source.id, tenantId });
+  }
+
+  // Marks rows the client arranged by hand (moved, renamed, created) so the
+  // location template never re-parents or renames them.
+  async markUserLocked(tenantId: number, ids: number[]): Promise<void> {
+    if (!ids.length) return;
+    await this.locationRepository
+      .createQueryBuilder()
+      .update()
+      .set({ userLocked: true })
+      .where('tenantId = :tenantId', { tenantId })
+      .andWhere('id IN (:...ids)', { ids })
+      .execute();
   }
 
   async incrementPropertyCount(tenantId: number, locationId: number): Promise<void> {

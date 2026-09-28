@@ -4,6 +4,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { selectors } from '@/core/selectors';
 import PropertyCard from './PropertyCard';
 import Skeleton from '@/components/common/Skeleton';
+import { useBlockSearch } from '@/hooks/useBlockSearch';
 
 interface RsPropertyCarouselProps {
   template?: number;
@@ -11,9 +12,14 @@ interface RsPropertyCarouselProps {
   [key: string]: unknown;
 }
 
-export default function RsPropertyCarousel({ template, limit }: RsPropertyCarouselProps) {
-  const results = useSelector(selectors.getResults);
-  const isLoading = useSelector(selectors.isSearchLoading);
+export default function RsPropertyCarousel(props: RsPropertyCarouselProps) {
+  const { template, limit } = props;
+  // data-spm-standalone: this slider searches on its own (see useBlockSearch).
+  const own = useBlockSearch(props as Record<string, unknown>);
+  const pageResults = useSelector(selectors.getResults);
+  const pageLoading = useSelector(selectors.isSearchLoading);
+  const results = own.enabled ? own.results : pageResults;
+  const isLoading = own.enabled ? own.loading : pageLoading;
   const { t } = useLabels();
   const trackRef = useRef<HTMLDivElement>(null);
 

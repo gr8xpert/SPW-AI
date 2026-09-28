@@ -6,6 +6,7 @@ export const actions = {
   setFilters: (filters: SearchFilters) => store.dispatch('SET_FILTERS', filters),
   mergeFilters: (filters: Partial<SearchFilters>) => store.dispatch('MERGE_FILTERS', filters),
   resetFilters: () => store.dispatch('RESET_FILTERS'),
+  setBaseFilters: (filters: SearchFilters) => store.dispatch('SET_BASE_FILTERS', filters),
   setLockedFilters: (filters: LockedFilters) => store.dispatch('SET_LOCKED_FILTERS', filters),
   setResults: (results: SPMState['results']) => store.dispatch('SET_RESULTS', results),
   setSelectedProperty: (property: SPMState['selectedProperty']) => store.dispatch('SET_SELECTED_PROPERTY', property),

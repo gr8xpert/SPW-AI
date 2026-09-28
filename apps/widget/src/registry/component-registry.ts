@@ -65,6 +65,7 @@ export function registerAllComponents(): void {
   registerComponent('quick_features', () => import('@/components/search/RsQuickFeatures'));
   registerComponent('reference', () => import('@/components/search/RsReference'));
   registerComponent('search_button', () => import('@/components/search/RsSearchButton'));
+  registerComponent('ai_search', () => import('@/components/search/RsAiSearch'));
   registerComponent('reset_button', () => import('@/components/search/RsResetButton'));
 
   // Listing components
@@ -146,6 +147,7 @@ export function registerAllComponents(): void {
   registerComponent('chat_panel', () => import('@/components/chat/RsChatPanel'));
 
   // Search templates
+  registerTemplate('wishlist-template-01', () => import('@/templates/wishlist/WishlistTemplate01'));
   registerTemplate('search-template-01', () => import('@/templates/search/SearchTemplate01'));
   registerTemplate('search-template-02', () => import('@/templates/search/SearchTemplate02'));
   registerTemplate('search-template-03', () => import('@/templates/search/SearchTemplate03'));

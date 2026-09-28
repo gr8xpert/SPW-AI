@@ -48,10 +48,15 @@ async function mountEntry(entry: ScanEntry): Promise<void> {
     return;
   }
 
-  const props: Record<string, unknown> = {
-    ...dataAttributes,
-    _element: element,
-  };
+  // `ref` and `key` mean something to Preact itself: passing data-spm-ref
+  // straight through made it try to write `.current` on the string and the
+  // whole block failed to render. The filter engine reads these from the
+  // element's attributes, so nothing is lost by keeping them out of props.
+  const RESERVED_PROPS = new Set(['ref', 'key', 'children', 'dangerouslySetInnerHTML']);
+  const props: Record<string, unknown> = { _element: element };
+  for (const [name, value] of Object.entries(dataAttributes)) {
+    if (!RESERVED_PROPS.has(name)) props[name] = value;
+  }
   if (variation >= 0) {
     props.variation = variation;
   }

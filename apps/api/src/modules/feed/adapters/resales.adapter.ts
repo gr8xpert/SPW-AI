@@ -16,7 +16,9 @@ export class ResalesAdapter extends BaseFeedAdapter {
   readonly displayName = 'Resales Online';
 
   private readonly logger = new Logger(ResalesAdapter.name);
-  private readonly baseUrl = 'https://webapi.resales-online.com/V6';
+  // Overridable for local end-to-end tests against a stand-in server; unset in
+  // production.
+  private readonly baseUrl = process.env.RESALES_API_BASE_URL || 'https://webapi.resales-online.com/V6';
   // SearchProperties never returns more than 40 per page, whatever P_PageSize
   // asks for (QueryInfo.PropertiesPerPage says 40).
   private static readonly MAX_PAGE_SIZE = 40;
@@ -173,9 +175,15 @@ export class ResalesAdapter extends BaseFeedAdapter {
   }
 
   private mapProperty(raw: any, searchType: string = 'Sale'): FeedProperty {
-    // Use NameType (the specific subtype like "Detached Villa") rather than Type.
-    // Users group these manually under custom parent types in the dashboard.
-    const propertyTypeName = raw.PropertyType?.NameType || raw.PropertyType?.Type || 'Unknown';
+    // PropertyType: { NameType, Type, TypeId, Subtype1, SubtypeId1, Subtype2… }.
+    // NameType is the subtype ("Detached Villa") except on development
+    // listings, where Resales puts "New Development" there and the unit types
+    // in Subtype1..n. The real type is Subtype1 (code SubtypeId1) in both cases.
+    const pt = raw.PropertyType || {};
+    const isNewDevelopment = this.isNewDevelopment(raw);
+    const propertyTypeName =
+      (isNewDevelopment ? pt.Subtype1 || pt.Type : pt.NameType || pt.Subtype1 || pt.Type) || 'Unknown';
+    const propertyTypeCode = pt.SubtypeId1 ? String(pt.SubtypeId1) : undefined;
 
     // SearchProperties returns Location/SubLocation as siblings at root; PropertyDetails nests them
     // inside a Location object. After the list+detail merge we may have either form, so read both.
@@ -196,8 +204,11 @@ export class ResalesAdapter extends BaseFeedAdapter {
       agentReference: raw.AgencyRef || raw.AgentRef || null,
       title: { en: titleText },
       description: this.extractMultilingual(raw.Description),
-      listingType: this.mapResalesListingType(searchType),
+      listingType: isNewDevelopment ? 'development' : this.mapResalesListingType(searchType),
       propertyType: propertyTypeName,
+      propertyTypeCode,
+      propertyTypeGroup: pt.Type ? String(pt.Type) : undefined,
+      propertyTypeGroupCode: pt.TypeId ? String(pt.TypeId) : undefined,
       price: this.parsePrice(raw.Price),
       priceOnRequest: raw.Price === 'POA' || raw.Price === '0' || raw.PriceOnApplication === 'Yes',
       currency: raw.Currency || 'EUR',
@@ -211,25 +222,29 @@ export class ResalesAdapter extends BaseFeedAdapter {
       features: featureNames,
       featureCategories,
       location: {
-        // Resales sends 5 fields. Mapped to our 6-level hierarchy:
-        //   Country     → context only (not a level)
-        //   Province    → province       (e.g. Málaga)
-        //   Area        → area           (e.g. Costa del Sol — coastal/comarca region)
-        //   Location    → municipality   (e.g. Marbella — formal administrative municipio)
-        //   SubLocation → town           (e.g. Nueva Andalucía — pueblo/neighborhood)
-        // Region (e.g. Andalucía) and Urbanization are NOT in the feed.
-        // AI enrichment fills Region after import from the province. Urbanization
-        // is rare and added manually by clients when needed.
+        // Resales sends Country / Province / Area / Location / SubLocation.
+        // Its "Location" is a town or district (Arroyo de la Miel, Benalmádena
+        // Costa, Higuerón), not a municipality, and SubLocation sits below it.
+        // The municipality level (and the region) comes from the platform
+        // location template, which places each town under its municipality.
         name: locationName,
         province,
         area,
-        municipality: locationName,
-        town: subLocation,
+        town: locationName,
+        urbanization: subLocation,
         country,
         externalId: locationExternalId,
       },
       lat: this.parseFloat(raw.Latitude),
       lng: this.parseFloat(raw.Longitude),
+      // Resales spells this differently depending on the response; take any
+      // of them rather than guess which one this account gets.
+      // "OwnProperty": "1" on the agency's own stock, "0" on shared listings.
+      isOwnProperty: this.truthy(raw.OwnProperty ?? raw.Own ?? raw.IsOwnProperty),
+      postcode: this.text(
+        raw.Zipcode ?? raw.ZipCode ?? raw.zipcode ?? raw.PostCode ??
+        raw.Postcode ?? raw.PostalCode ?? raw.postal_code ?? raw.zip,
+      ),
       videoUrl: raw.VideoURL || null,
       virtualTourUrl: raw.VirtualTourURL || null,
       communityFees: this.toMonthly(raw.Community_Fees_Year ?? raw.CommunityFees),
@@ -238,6 +253,22 @@ export class ResalesAdapter extends BaseFeedAdapter {
       builtYear: this.parseInt(raw.BuiltYear),
       energyRating: this.parseEnergyRating(raw.EnergyRating ?? raw.EnergyRatingConsumption),
     };
+  }
+
+  // A new-development listing, however the feed marks it. For a Resales filter
+  // these three agree (checked on a live feed: 17 / 17 / 17, matching
+  // P_New_Devs=only); any one is enough. "New Construction" is only a
+  // condition (a newly built resale home) and does not count.
+  private isNewDevelopment(raw: any): boolean {
+    if (/development/i.test(String(raw.PropertyType?.NameType || ''))) return true;
+    if (raw.KeyReady !== undefined && raw.KeyReady !== null && raw.KeyReady !== '') return true;
+    const categories = raw.PropertyFeatures?.Category;
+    const list = Array.isArray(categories) ? categories : categories ? [categories] : [];
+    return list.some((c: any) => {
+      const heading = String(c?.['@_Type'] ?? c?.Type ?? '').toLowerCase();
+      const values = Array.isArray(c?.Value) ? c.Value : [c?.Value];
+      return heading === 'category' && values.some((v: any) => /new development/i.test(String(v ?? '')));
+    });
   }
 
   // Resales returns either a plain letter ("A".."G") or "InProgress"/empty.
@@ -348,6 +379,20 @@ export class ResalesAdapter extends BaseFeedAdapter {
 
     const parsed = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
     return isNaN(parsed) ? null : parsed;
+  }
+
+  /** Feeds send booleans as "1"/"0", "true"/"false" or numbers. */
+  private truthy(value: any): boolean | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    const v = String(value).trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'y';
+  }
+
+  /** A feed value as a trimmed string, or undefined when it is empty. */
+  private text(value: any): string | undefined {
+    if (value === null || value === undefined) return undefined;
+    const trimmed = String(value).trim();
+    return trimmed === '' ? undefined : trimmed.slice(0, 20);
   }
 
   private parseInt(value: any): number | undefined {

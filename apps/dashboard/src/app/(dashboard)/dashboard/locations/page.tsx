@@ -73,6 +73,10 @@ interface Location {
   slug: string;
   level: 'region' | 'province' | 'area' | 'municipality' | 'town' | 'urbanization';
   parentId: number | null;
+  // Where the place sits on the map. Listings with no coordinates of their own
+  // are drawn here.
+  lat?: number | string | null;
+  lng?: number | string | null;
   propertyCount?: number;
   sortOrder?: number;
   isActive?: boolean;
@@ -113,7 +117,7 @@ const levelColors: Record<string, string> = {
 
 const levels = ['region', 'province', 'area', 'municipality', 'town', 'urbanization'] as const;
 
-const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'region' as string, parentId: null as number | null };
+const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'region' as string, parentId: null as number | null, lat: '', lng: '' };
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('');
@@ -145,9 +149,33 @@ export default function LocationsPage() {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
+  const [isPlacingOnMap, setIsPlacingOnMap] = useState(false);
 
   const api = useApi();
   const { toast } = useToast();
+
+  // Properties with no coordinates of their own are drawn at their location's
+  // point, so a location in the wrong place takes all of them with it.
+  const placeOnMap = async () => {
+    setIsPlacingOnMap(true);
+    try {
+      const res: any = await api.post('/api/dashboard/locations/geocode', {});
+      const r = res?.data ?? res;
+      const fixed = r?.fixed?.length ?? 0;
+      const rejected = r?.rejected ?? [];
+      toast({
+        title: fixed ? `${fixed} location${fixed === 1 ? '' : 's'} corrected` : 'Every location was already in the right place',
+        description: rejected.length
+          ? `${rejected.length} left alone: ${rejected.slice(0, 2).map((x: any) => `${x.name} (${x.reason})`).join('; ')}`
+          : `${r?.checked ?? 0} checked`,
+      });
+      fetchLocations();
+    } catch (e: any) {
+      toast({ title: 'Could not check the map positions', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsPlacingOnMap(false);
+    }
+  };
 
   const runAiOrganize = async () => {
     setIsAiOrganizing(true);
@@ -243,6 +271,8 @@ export default function LocationsPage() {
         slug: form.slug,
         level: form.level,
         parentId: form.parentId ?? null,
+        lat: form.lat.trim() === '' ? null : Number(form.lat),
+        lng: form.lng.trim() === '' ? null : Number(form.lng),
       });
       toast({ title: 'Location created' });
       setIsAddOpen(false);
@@ -261,6 +291,8 @@ export default function LocationsPage() {
         slug: form.slug,
         level: form.level,
         parentId: form.parentId ?? null,
+        lat: form.lat.trim() === '' ? null : Number(form.lat),
+        lng: form.lng.trim() === '' ? null : Number(form.lng),
       });
       toast({ title: 'Location updated' });
       setIsEditOpen(false);
@@ -331,7 +363,14 @@ export default function LocationsPage() {
     setEditingLocation(location);
     const names: Record<string, string> = {};
     languages.forEach((lang) => { names[lang] = location.name[lang] || ''; });
-    setForm({ names, slug: location.slug, level: location.level, parentId: location.parentId });
+    setForm({
+      names,
+      slug: location.slug,
+      level: location.level,
+      parentId: location.parentId,
+      lat: location.lat == null ? '' : String(location.lat),
+      lng: location.lng == null ? '' : String(location.lng),
+    });
     setIsEditOpen(true);
   };
 
@@ -634,6 +673,20 @@ export default function LocationsPage() {
           </SelectContent>
         </Select>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Latitude <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+          <Input inputMode="decimal" placeholder="36.60998" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Longitude <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+          <Input inputMode="decimal" placeholder="-4.50824" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
+        </div>
+        <p className="col-span-2 text-xs text-muted-foreground">
+          Where this place sits on the map. Listings with no coordinates of their own are shown here, so getting it
+          wrong (latitude and longitude the wrong way round, say) moves them to the other side of the world.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label>Parent Location <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
         <Select
@@ -662,6 +715,10 @@ export default function LocationsPage() {
           <p className="page-description mt-1">Manage your location hierarchy for property filtering</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={placeOnMap} disabled={isPlacingOnMap} title="Look each location up on the map and correct any that are in the wrong place">
+            {isPlacingOnMap ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MapPin className="h-4 w-4 mr-2" />}
+            Check map positions
+          </Button>
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             AI Organize

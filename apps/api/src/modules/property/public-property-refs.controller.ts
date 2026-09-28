@@ -6,20 +6,11 @@ import { Property } from '../../database/entities';
 import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
+import { propertyUrlSegment, slugifyTitle } from './property-url';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 const MAX_REFS = 50_000;
-
-// Must stay byte-identical to slugifyTitle in apps/widget/src/core/url-utils.ts:
-// the sitemap URL and the link the widget renders for the same property have
-// to be the same URL, or search engines index a duplicate.
-export function slugifyTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 function resolveTitle(title: unknown, lang: string): string {
   if (typeof title === 'string') return title;
@@ -63,17 +54,38 @@ export class PublicPropertyRefsController {
     const lang = (langParam || 'en').trim().toLowerCase().slice(0, 5) || 'en';
     const limit = Math.min(Math.max(parseInt(limitParam || '', 10) || MAX_REFS, 1), MAX_REFS);
 
-    const rows = await this.propertyRepository.find({
-      where: { tenantId: tenant.id, status: 'active', isPublished: true },
-      select: ['reference', 'title', 'updatedAt'],
-      order: { updatedAt: 'DESC' },
-      take: limit,
-    });
+    const rows = await this.propertyRepository
+      .createQueryBuilder('p')
+      .leftJoin('p.location', 'location')
+      .leftJoin('p.propertyType', 'propertyType')
+      .select(['p.id', 'p.reference', 'p.title', 'p.slug', 'p.updatedAt', 'location.id', 'location.name', 'propertyType.id', 'propertyType.name'])
+      .where('p.tenantId = :tenantId', { tenantId: tenant.id })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true })
+      .orderBy('p.updatedAt', 'DESC')
+      .take(limit)
+      .getMany();
+    const slugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
 
-    return rows.map((p) => ({
-      reference: p.reference,
-      titleSlug: slugifyTitle(resolveTitle(p.title, lang)),
-      updatedAt: p.updatedAt,
-    }));
+    return rows.map((p) => {
+      const title = resolveTitle(p.title, lang);
+      return {
+        reference: p.reference,
+        // The full URL segment (the same one the widget links to). titleSlug
+        // stays for plugins older than 2.6.
+        segment: propertyUrlSegment(
+          {
+            reference: p.reference,
+            title,
+            slug: p.slug,
+            location: p.location ? { name: resolveTitle(p.location.name, lang) } : null,
+            propertyType: p.propertyType ? { name: resolveTitle(p.propertyType.name, lang) } : null,
+          },
+          slugFormat,
+        ),
+        titleSlug: slugifyTitle(title),
+        updatedAt: p.updatedAt,
+      };
+    });
   }
 }

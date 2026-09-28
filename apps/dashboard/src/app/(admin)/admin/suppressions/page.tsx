@@ -87,8 +87,12 @@ export default function SuppressionsPage() {
   }, [page, search]);
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     fetchSuppressions();
-  }, [fetchSuppressions]);
+  }, [api.isReady, fetchSuppressions]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

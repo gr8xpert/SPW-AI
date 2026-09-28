@@ -14,9 +14,11 @@ export class TranslationController {
     private readonly aiService: AiService,
   ) {}
 
+  // Optional { model } tests a model before saving it.
   @Post('test')
-  async testConnection(@CurrentTenant() tenantId: number) {
-    return this.aiService.testConnection(tenantId);
+  async testConnection(@CurrentTenant() tenantId: number, @Body() body: { model?: string } = {}) {
+    const model = typeof body?.model === 'string' && /^[\w.-]+\/[\w.:-]+$/.test(body.model) ? body.model : undefined;
+    return this.aiService.testConnection(tenantId, model);
   }
 
   // Property translations

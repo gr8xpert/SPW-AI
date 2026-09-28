@@ -20,6 +20,8 @@ import { TenantModule } from '../tenant/tenant.module';
 import { UploadModule } from '../upload/upload.module';
 import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
 import { PropertyModule } from '../property/property.module';
+import { LocationTemplateModule } from '../location-template/location-template.module';
+import { PropertyTypeTemplateModule } from '../property-type-template/property-type-template.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { PropertyModule } from '../property/property.module';
     UploadModule,
     AiEnrichmentModule,
     PropertyModule,
+    LocationTemplateModule,
+    PropertyTypeTemplateModule,
   ],
   controllers: [FeedController],
   providers: [

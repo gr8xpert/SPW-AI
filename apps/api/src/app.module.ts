@@ -61,6 +61,8 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { XeroSyncModule } from './modules/xero-sync/xero-sync.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
+import { LocationTemplateModule } from './modules/location-template/location-template.module';
+import { PropertyTypeTemplateModule } from './modules/property-type-template/property-type-template.module';
 import { TranslationModule } from './modules/translation/translation.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { AiSeoModule } from './modules/ai-seo/ai-seo.module';
@@ -196,6 +198,8 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     // ============ Phase 6: AI & Translation ============
     AiModule,
     AiEnrichmentModule,
+    LocationTemplateModule,
+    PropertyTypeTemplateModule,
     TranslationModule,
     AiChatModule,
     AiSeoModule,

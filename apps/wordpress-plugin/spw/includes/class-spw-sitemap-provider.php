@@ -23,15 +23,8 @@ class SPW_Sitemap_Provider extends WP_Sitemaps_Provider {
         $slice  = array_slice($refs, $offset, $per_page);
 
         $urls = [];
-        $default = class_exists('SPW_I18n') ? SPW_I18n::instance()->default_lang_code() : 'en';
-        $slug = SPW_Plugin::slug('detail', $default);
-
         foreach ($slice as $row) {
-            $ref = $row['ref'];
-            $ts  = $row['title_slug'] ?? '';
-            $path = $ts ? $ts . '_' . $ref : $ref;
-
-            $entry = ['loc' => home_url('/' . $slug . '/' . $path)];
+            $entry = ['loc' => SPW_Sitemap::url_for($row)];
             if (!empty($row['lastmod'])) $entry['lastmod'] = $row['lastmod'];
             $urls[] = $entry;
         }

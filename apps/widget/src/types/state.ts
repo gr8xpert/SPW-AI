@@ -6,6 +6,10 @@ import type { Labels } from './labels';
 export interface SPMState {
   config: WidgetConfig;
   filters: SearchFilters;
+  // The filters the page itself asked for (data-spm-location, limit, …).
+  // Reset returns to these instead of to nothing, so a block that shows one
+  // town's listings still shows that town after the visitor clears the form.
+  baseFilters: SearchFilters;
   lockedFilters: LockedFilters;
   results: SearchResults | null;
   selectedProperty: Property | null;
@@ -46,6 +50,7 @@ export type ActionType =
   | 'SET_FILTERS'
   | 'MERGE_FILTERS'
   | 'RESET_FILTERS'
+  | 'SET_BASE_FILTERS'
   | 'SET_LOCKED_FILTERS'
   | 'SET_RESULTS'
   | 'SET_SELECTED_PROPERTY'

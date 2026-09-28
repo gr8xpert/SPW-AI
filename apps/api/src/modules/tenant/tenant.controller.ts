@@ -35,6 +35,12 @@ export class TenantController {
     return this.tenantService.updateSettings(tenantId, settings);
   }
 
+  // Live template previews in the dashboard gallery (see preview-token.ts).
+  @Post('preview-token')
+  createPreviewToken(@CurrentTenant() tenantId: number) {
+    return this.tenantService.createPreviewToken(tenantId);
+  }
+
   @Get('api-credentials')
   async getApiCredentials(@CurrentTenant() tenantId: number) {
     return this.tenantService.getApiCredentials(tenantId);

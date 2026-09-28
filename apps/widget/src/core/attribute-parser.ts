@@ -1,103 +1,65 @@
 import type { SearchFilters, LockedFilters } from '@/types';
+import { filtersFromAttributes } from './filter-attributes';
 
-const ATTR_MAP: Record<string, keyof SearchFilters> = {
-  'location': 'locationId',
-  'listing-type': 'listingType',
-  'property-type': 'propertyTypeId',
-  'min-price': 'minPrice',
-  'max-price': 'maxPrice',
-  'min-bedrooms': 'minBedrooms',
-  'max-bedrooms': 'maxBedrooms',
-  'min-bathrooms': 'minBathrooms',
-  'max-bathrooms': 'maxBathrooms',
-  'min-build-size': 'minBuildSize',
-  'max-build-size': 'maxBuildSize',
-  'min-plot-size': 'minPlotSize',
-  'max-plot-size': 'maxPlotSize',
-  'min-terrace-size': 'minTerraceSize',
-  'max-terrace-size': 'maxTerraceSize',
-  'reference': 'reference',
-  'sort': 'sortBy',
-  'page': 'page',
-  'limit': 'limit',
-};
+export { filtersFromAttributes, normaliseSort } from './filter-attributes';
 
-const NUMERIC_KEYS = new Set([
-  'locationId', 'propertyTypeId', 'minPrice', 'maxPrice',
-  'minBedrooms', 'maxBedrooms', 'minBathrooms', 'maxBathrooms',
-  'minBuildSize', 'maxBuildSize', 'minPlotSize', 'maxPlotSize', 'minTerraceSize', 'maxTerraceSize',
-  'page', 'limit',
-]);
+// Filters written on the page itself (on any SPM block): the same words on
+// every platform — WordPress, Wix, Squarespace, Next.js or plain HTML.
+//
+//   <div data-spm-widget="listing-template-01" data-spm-location="5216585"
+//        data-spm-under="500000" data-spm-beds="3"></div>
+//
+// Plain filters are a starting point the visitor can change; with
+// data-spm-fixed (or the older data-spm-lock-*) they are fixed.
+// A block with data-spm-standalone keeps its filters to itself
+// (see useBlockSearch), so one page can hold several different lists.
 
+// Every word filtersFromAttributes() answers to, including the alternatives —
+// a block whose ONLY filter is an alias missing from this list is never found,
+// and its filter silently disappears (that is what happened to `ref`).
+const SELECTOR = [
+  'location', 'area', 'town', 'type', 'property-type', 'features', 'feature',
+  'for', 'listing-type', 'beds', 'bedrooms', 'baths', 'bathrooms', 'price',
+  'under', 'over', 'from', 'built', 'built-area', 'plot', 'plot-size',
+  'terrace', 'terrace-size', 'reference', 'ref', 'featured', 'own', 'own-only',
+  'own-first', 'sort', 'order', 'limit', 'page',
+  'min-price', 'max-price', 'min-bedrooms', 'max-bedrooms', 'min-bathrooms', 'max-bathrooms',
+  'min-build-size', 'max-build-size', 'min-plot-size', 'max-plot-size', 'min-terrace-size', 'max-terrace-size',
+]
+  .flatMap((name) => [`[data-spm-${name}]`, `[data-spm-lock-${name}]`])
+  .join(', ');
+
+function isStandalone(el: HTMLElement): boolean {
+  return el.hasAttribute('data-spm-standalone') || !!el.closest('[data-spm-standalone]');
+}
+
+/** data-spm-* attributes of one element, keyed without the prefix. */
+export function elementAttributes(el: HTMLElement): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const attr of el.attributes) {
+    if (!attr.name.startsWith('data-spm-')) continue;
+    out[attr.name.slice('data-spm-'.length)] = attr.value;
+  }
+  return out;
+}
+
+function collect(root: HTMLElement, wantFixed: boolean): SearchFilters {
+  const out: SearchFilters = {};
+  for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) {
+    if (isStandalone(el)) continue;
+    const { filters, fixed } = filtersFromAttributes(elementAttributes(el));
+    if (fixed !== wantFixed) continue;
+    Object.assign(out, filters);
+  }
+  return out;
+}
+
+/** Starting values for the page's search (the visitor can change them). */
 export function parsePrefilledFilters(root: HTMLElement = document.documentElement): SearchFilters {
-  const filters: SearchFilters = {};
-  const elements = root.querySelectorAll<HTMLElement>('[data-spm-location], [data-spm-listing-type], [data-spm-property-type], [data-spm-min-price], [data-spm-max-price], [data-spm-min-bedrooms], [data-spm-max-bedrooms], [data-spm-sort], [data-spm-limit]');
-
-  for (const el of elements) {
-    for (const attr of el.attributes) {
-      if (!attr.name.startsWith('data-spm-') || attr.name.startsWith('data-spm-lock-')) continue;
-      const key = attr.name.slice(9);
-      const filterKey = ATTR_MAP[key];
-      if (!filterKey) continue;
-      (filters as Record<string, unknown>)[filterKey] = coerce(filterKey, attr.value);
-    }
-  }
-
-  const featuresEl = root.querySelector<HTMLElement>('[data-spm-features]');
-  if (featuresEl) {
-    const raw = featuresEl.getAttribute('data-spm-features');
-    if (raw) {
-      filters.features = raw.split(',').map(Number).filter(Boolean);
-    }
-  }
-
-  return filters;
+  return collect(root, false);
 }
 
+/** Filters the visitor cannot change. */
 export function parseLockedFilters(root: HTMLElement = document.documentElement): LockedFilters {
-  const locked: LockedFilters = {};
-  const elements = root.querySelectorAll<HTMLElement>('[data-spm-lock-location], [data-spm-lock-listing-type], [data-spm-lock-property-type], [data-spm-lock-min-price], [data-spm-lock-max-price], [data-spm-lock-min-bedrooms], [data-spm-lock-max-bedrooms]');
-
-  for (const el of elements) {
-    for (const attr of el.attributes) {
-      if (!attr.name.startsWith('data-spm-lock-')) continue;
-      const key = attr.name.slice(14);
-      const filterKey = ATTR_MAP[key];
-      if (!filterKey) continue;
-      (locked as Record<string, unknown>)[filterKey] = coerce(filterKey, attr.value);
-    }
-  }
-
-  const featuresEl = root.querySelector<HTMLElement>('[data-spm-lock-features]');
-  if (featuresEl) {
-    const raw = featuresEl.getAttribute('data-spm-lock-features');
-    if (raw) {
-      locked.features = raw.split(',').map(Number).filter(Boolean);
-    }
-  }
-
-  return locked;
-}
-
-export function parseStandaloneConfig(el: HTMLElement): {
-  isStandalone: boolean;
-  filters: SearchFilters;
-  locked: LockedFilters;
-} {
-  const isStandalone = el.hasAttribute('data-spm-standalone');
-  if (!isStandalone) return { isStandalone: false, filters: {}, locked: {} };
-
-  return {
-    isStandalone: true,
-    filters: parsePrefilledFilters(el),
-    locked: parseLockedFilters(el),
-  };
-}
-
-function coerce(key: string, value: string): string | number {
-  if (NUMERIC_KEYS.has(key)) {
-    const n = Number(value);
-    return isNaN(n) ? value as unknown as number : n;
-  }
-  return value;
+  return collect(root, true) as LockedFilters;
 }

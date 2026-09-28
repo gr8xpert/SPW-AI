@@ -12,6 +12,10 @@ export * from './property-type.entity';
 export * from './feature.entity';
 export * from './location.entity';
 export * from './location-group.entity';
+export * from './location-template-node.entity';
+export * from './location-template-unmatched.entity';
+export * from './property-type-template-node.entity';
+export * from './property-type-template-unmatched.entity';
 export * from './label.entity';
 export * from './property.entity';
 
@@ -81,3 +85,9 @@ export * from './impersonation-audit.entity';
 
 // Xero invoice sync log (Stripe → n8n → Xero)
 export * from './xero-invoice-log.entity';
+
+// Client websites (plugin / widget) that connect, for Website Health
+export * from './site-checkin.entity';
+
+// AI search: daily usage per client, for the spend ceiling
+export * from './ai-search-usage.entity';

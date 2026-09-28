@@ -172,12 +172,17 @@ export default function AdminTicketsPage() {
   }, [statusFilter, page]);
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     fetchStats();
-  }, [fetchStats]);
+  }, [api.isReady, fetchStats]);
 
   useEffect(() => {
+    if (!api.isReady) return;
     fetchTickets();
-  }, [fetchTickets]);
+  }, [api.isReady, fetchTickets]);
 
   /* Client-side search filter */
   const filteredTickets = useMemo(() => {

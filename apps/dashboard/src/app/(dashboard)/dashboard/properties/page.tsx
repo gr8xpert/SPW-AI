@@ -391,7 +391,17 @@ export default function PropertiesPage() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Properties</CardTitle>
+          {/* Total beside the heading: the "Showing x to y of n" line below only
+              appears when there is more than one page. */}
+          <CardTitle data-testid="properties-heading">
+            {hasActiveFilters || search.trim() ? 'Matching Properties' : 'All Properties'}
+            {meta && (
+              <>
+                {' '}
+                <span className="font-normal text-muted-foreground">({meta.total.toLocaleString()})</span>
+              </>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (

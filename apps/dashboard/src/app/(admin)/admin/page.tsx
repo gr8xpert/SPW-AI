@@ -41,6 +41,10 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     const fetchStats = async () => {
       try {
         const response = await api.get('/api/super-admin/dashboard') as { data: DashboardStats };
@@ -54,7 +58,7 @@ export default function AdminDashboardPage() {
 
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api.isReady]);
 
   if (loading) {
     return (

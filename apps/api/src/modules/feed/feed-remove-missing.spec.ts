@@ -210,6 +210,8 @@ describe('which feed owns a listing (and so may remove it)', () => {
         lockedFields: null,
         isFeatured: true,
         featuredByFeedId: null,
+        // Stored by an earlier sync, so only the featured/ownership logic can change it.
+        feedLocation: { provider: 'resales', province: 'Málaga', town: 'Marbella' }, feedType: { provider: 'resales', name: 'Villa' },
         ...existing,
       }),
       update: jest.fn(),

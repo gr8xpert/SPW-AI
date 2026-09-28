@@ -1,3 +1,5 @@
+import { store } from './store';
+
 export interface ScanEntry {
   element: HTMLElement;
   componentType: string;
@@ -8,6 +10,17 @@ export interface ScanEntry {
 }
 
 const TEMPLATE_RE = /^([a-z]+-template-\d{2})$/;
+const SITE_ALIAS_RE = /^site-(search|listing|detail|map|wishlist)$/;
+
+// "site-listing" -> the listing template picked in the dashboard gallery, or
+// template 01 until one is picked.
+function resolveSiteAlias(name: string): string {
+  const m = SITE_ALIAS_RE.exec(name);
+  if (!m) return name;
+  const kind = m[1] as 'search' | 'listing' | 'detail' | 'map' | 'wishlist';
+  const chosen = store.getState().config.siteTemplates?.[kind];
+  return chosen && TEMPLATE_RE.test(chosen) && chosen.startsWith(`${kind}-template-`) ? chosen : `${kind}-template-01`;
+}
 
 const CONTAINER_CLASS_MAP: Record<string, string> = {
   'property-detail-container': 'detail-template-01',
@@ -22,7 +35,7 @@ export function scanDOM(root: Document | HTMLElement = document): ScanEntry[] {
     if (seen.has(el)) continue;
     seen.add(el);
 
-    const widgetName = el.getAttribute('data-spm-widget')!;
+    const widgetName = resolveSiteAlias(el.getAttribute('data-spm-widget')!);
     const isTemplate = TEMPLATE_RE.test(widgetName);
 
     entries.push({

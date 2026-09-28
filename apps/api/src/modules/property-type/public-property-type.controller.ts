@@ -28,7 +28,7 @@ export class PublicPropertyTypeController {
 
   private async resolveTenantId(apiKey: string): Promise<number> {
     if (!apiKey) throw new UnauthorizedException('API key required');
-    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
+    const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
     return tenant.id;
   }

@@ -36,7 +36,9 @@ export class PropertyTypeController {
 
   @Put('bulk-move')
   async bulkMove(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[]; parentId: number | null }) {
-    return this.propertyTypeService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
+    const result = await this.propertyTypeService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
+    await this.propertyTypeService.markUserLocked(tenantId, dto.ids || []);
+    return result;
   }
 
   @Put('bulk-delete')
@@ -57,7 +59,9 @@ export class PropertyTypeController {
     @CurrentTenant() tenantId: number,
     @Body() dto: CreatePropertyTypeDto,
   ) {
-    return this.propertyTypeService.create(tenantId, dto);
+    const type = await this.propertyTypeService.create(tenantId, dto);
+    await this.propertyTypeService.markUserLocked(tenantId, [type.id]);
+    return { ...type, userLocked: true };
   }
 
   @Put(':id')
@@ -66,7 +70,17 @@ export class PropertyTypeController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePropertyTypeDto,
   ) {
-    return this.propertyTypeService.update(tenantId, id, dto);
+    const before = await this.propertyTypeService.findOne(tenantId, id);
+    const type = await this.propertyTypeService.update(tenantId, id, dto);
+    // A real move or a new English name locks the row; translations and the
+    // visibility toggle don't.
+    const moved = dto.parentId !== undefined && (dto.parentId ?? null) !== before.parentId;
+    const renamed = dto.name?.en !== undefined && dto.name.en !== before.name?.en;
+    if (moved || renamed) {
+      await this.propertyTypeService.markUserLocked(tenantId, [id]);
+      type.userLocked = true;
+    }
+    return type;
   }
 
   @Delete(':id')

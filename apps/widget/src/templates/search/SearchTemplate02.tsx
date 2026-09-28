@@ -11,6 +11,7 @@ import RsBuiltArea from '@/components/search/RsBuiltArea';
 import RsPlotSize from '@/components/search/RsPlotSize';
 import RsListingType from '@/components/search/RsListingType';
 import RsFeatures from '@/components/search/RsFeatures';
+import RsAiSearch from '@/components/search/RsAiSearch';
 import { useLabels } from '@/hooks/useLabels';
 
 export default function SearchTemplate02() {
@@ -34,6 +35,7 @@ export default function SearchTemplate02() {
 
   return (
     <div class="rs-search-template-02">
+      <RsAiSearch />
       <div class="rs-search-row rs-search-row--inline">
         <RsLocation variation={1} />
         <RsPropertyType variation={2} />

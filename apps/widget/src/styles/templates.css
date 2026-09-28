@@ -529,7 +529,7 @@ button.rs-more-filters-btn--active:hover {
   line-height: 0;
   color: transparent;
   background: var(--rs-primary);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--rs-primary) 30%, transparent);
   transition: all 0.2s ease;
   position: relative;
   overflow: visible;
@@ -573,7 +573,7 @@ button.rs-more-filters-btn--active:hover {
 
 .rs-search-template-04 .rs-t04-action button.rs-search-btn:hover {
   background: var(--rs-primary-hover);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--rs-primary) 40%, transparent);
   transform: scale(1.05);
 }
 

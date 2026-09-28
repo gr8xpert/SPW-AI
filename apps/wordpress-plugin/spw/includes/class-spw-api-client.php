@@ -24,6 +24,9 @@ class SPW_API_Client {
             'headers' => [
                 'x-api-key' => $key,
                 'Accept'    => 'application/json',
+                // Lets the SPM dashboard show this site on its Website Health page.
+                'x-spw-site'   => home_url('/'),
+                'x-spw-plugin' => SPW_VERSION,
             ],
         ]);
 
@@ -73,7 +76,7 @@ class SPW_API_Client {
     public static function friendly_message_for_status($code) {
         switch ((int) $code) {
             case 401:
-                return __('Invalid API key. Double-check the token in section 1 above and Save Settings.', 'spw');
+                return __('Invalid API key. Copy it again from your SPM dashboard → Settings → API Keys.', 'spw');
             case 403:
                 return __('Your API key is valid but lacks permission for this endpoint. Check your dashboard plan limits.', 'spw');
             case 404:

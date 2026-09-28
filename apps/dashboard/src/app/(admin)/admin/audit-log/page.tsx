@@ -106,8 +106,12 @@ export default function AuditLogPage() {
   }, [page, actionFilter, entityTypeFilter]);
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     fetchLogs();
-  }, [fetchLogs]);
+  }, [api.isReady, fetchLogs]);
 
   const handleActionChange = (value: string) => {
     setActionFilter(value);

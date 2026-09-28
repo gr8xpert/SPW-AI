@@ -60,8 +60,10 @@ export class CreateClientDto {
   @IsOptional()
   apiUrl?: string;
 
+  // Clients are all on the Free plan now; kept optional for old callers.
+  @IsOptional()
   @IsNumber()
-  planId: number;
+  planId?: number;
 
   @IsEnum(['active', 'grace', 'expired', 'manual', 'internal'])
   @IsOptional()

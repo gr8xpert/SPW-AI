@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'preact/hooks';
+import RsFloating, { isOutsideField } from '@/components/common/RsFloating';
 import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
@@ -9,6 +10,63 @@ import type { PropertyType } from '@/types';
 interface Props {
   variation?: number;
   [key: string]: unknown;
+}
+
+// Types are a tree — Apartment holds Penthouse and Ground Floor Apartment,
+// Commercial holds Bar and Café. Listing them alphabetically made children
+// look like their parents' equals, so each child follows its parent and is
+// indented by how deep it sits.
+interface TypeRow {
+  type: PropertyType;
+  depth: number;
+}
+
+function buildTypeTree(types: PropertyType[]): TypeRow[] {
+  const byParent = new Map<number, PropertyType[]>();
+  const known = new Set(types.map((t) => t.id));
+  for (const type of types) {
+    // A child whose parent isn't in this list is shown at the top level
+    // rather than hidden.
+    const parent = type.parentId && known.has(type.parentId) ? type.parentId : 0;
+    if (!byParent.has(parent)) byParent.set(parent, []);
+    byParent.get(parent)!.push(type);
+  }
+
+  const rows: TypeRow[] = [];
+  const seen = new Set<number>();
+  const walk = (parentId: number, depth: number) => {
+    const children = (byParent.get(parentId) ?? []).sort((a, b) => a.name.localeCompare(b.name));
+    for (const type of children) {
+      if (seen.has(type.id)) continue; // a cycle in the data must not hang the page
+      seen.add(type.id);
+      rows.push({ type, depth });
+      walk(type.id, depth + 1);
+    }
+  };
+  walk(0, 0);
+
+  // Anything left behind by a cycle still gets listed.
+  for (const type of types) if (!seen.has(type.id)) rows.push({ type, depth: 0 });
+  return rows;
+}
+
+// While searching, matches keep their place in the tree, and a parent is kept
+// when one of its children matches so the match still reads in context.
+function filterTree(rows: TypeRow[], query: string): TypeRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  const keep = new Set<number>();
+  for (const { type } of rows) {
+    if (!type.name.toLowerCase().includes(q)) continue;
+    keep.add(type.id);
+    let parentId = type.parentId;
+    while (parentId) {
+      if (keep.has(parentId)) break;
+      keep.add(parentId);
+      parentId = rows.find((r) => r.type.id === parentId)?.type.parentId;
+    }
+  }
+  return rows.filter((r) => keep.has(r.type.id));
 }
 
 function CheckIcon() {
@@ -146,7 +204,7 @@ function Typeahead({ types, value, onChange, placeholder, locked }: {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQuery(''); }
+      if (isOutsideField(ref.current, e.target)) { setOpen(false); setQuery(''); }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -176,28 +234,30 @@ function Typeahead({ types, value, onChange, placeholder, locked }: {
         )}
       </div>
       {showDropdown && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            {filtered.length === 0 ? (
-              <li class="rs-dropdown__empty">&mdash;</li>
-            ) : (
-              filtered.map(pt => (
-                <li
-                  key={pt.id}
-                  class={`rs-dropdown__item${pt.id === value ? ' rs-dropdown__item--selected' : ''}`}
-                  onClick={() => { onChange(pt.id); setOpen(false); setQuery(''); }}
-                >
-                  <span>{pt.name}</span>
-                  {!!pt.propertyCount && (
-                    <span class="rs-dropdown__count">{pt.propertyCount}</span>
-                  )}
-                </li>
-              ))
-            )}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+        <RsFloating anchorRef={ref}>
+          <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+            <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+            <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
+              {filtered.length === 0 ? (
+                <li class="rs-dropdown__empty">&mdash;</li>
+              ) : (
+                filtered.map(pt => (
+                  <li
+                    key={pt.id}
+                    class={`rs-dropdown__item${pt.id === value ? ' rs-dropdown__item--selected' : ''}`}
+                    onClick={() => { onChange(pt.id); setOpen(false); setQuery(''); }}
+                  >
+                    <span>{pt.name}</span>
+                    {!!pt.propertyCount && (
+                      <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                    )}
+                  </li>
+                ))
+              )}
+            </ul>
+            <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
+          </div>
+        </RsFloating>
       )}
     </div>
   );
@@ -218,11 +278,7 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return types;
-    const q = search.toLowerCase();
-    return types.filter(pt => pt.name.toLowerCase().includes(q));
-  }, [search, types]);
+  const filtered = useMemo(() => filterTree(buildTypeTree(types), search), [search, types]);
 
   const toggleItem = (id: number) => {
     const next = new Set(selected);
@@ -242,7 +298,7 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (isOutsideField(ref.current, e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -259,53 +315,55 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
         {buttonLabel}
       </button>
       {open && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <div class="rs-cascading-v2__search">
-            <div class="rs-input-wrap">
-              <SearchIcon />
-              <input
-                type="text"
-                class="rs-input rs-input--sm rs-input--has-icon"
-                placeholder={t('property_type_search', 'Search type...')}
-                value={search}
-                onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
-              />
+        <RsFloating anchorRef={ref}>
+          <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+            <div class="rs-cascading-v2__search">
+              <div class="rs-input-wrap">
+                <SearchIcon />
+                <input
+                  type="text"
+                  class="rs-input rs-input--sm rs-input--has-icon"
+                  placeholder={t('property_type_search', 'Search type...')}
+                  value={search}
+                  onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
+                />
+              </div>
             </div>
+            <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+            <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
+              {selected.size > 0 && (
+                <li
+                  class="rs-dropdown__item"
+                  onClick={() => onChange([])}
+                >
+                  <span class="rs-cascading-v2__checkbox">
+                    <span />
+                  </span>
+                  <span class="rs-dropdown__clear-all">{t('clear_all', 'Clear all')}</span>
+                </li>
+              )}
+              {filtered.map(({ type: pt, depth }) => (
+                <li
+                  key={pt.id}
+                  class={`rs-dropdown__item rs-dropdown__item--indent-${Math.min(depth, 4)}${selected.has(pt.id) ? ' rs-dropdown__item--selected' : ''}`}
+                  onClick={() => toggleItem(pt.id)}
+                >
+                  <span class={`rs-cascading-v2__checkbox${selected.has(pt.id) ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                    {selected.has(pt.id) && <CheckIcon />}
+                  </span>
+                  <span>{pt.name}</span>
+                  {!!pt.propertyCount && (
+                    <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                  )}
+                </li>
+              ))}
+              {filtered.length === 0 && (
+                <li class="rs-dropdown__empty">&mdash;</li>
+              )}
+            </ul>
+            <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
           </div>
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            {selected.size > 0 && (
-              <li
-                class="rs-dropdown__item"
-                onClick={() => onChange([])}
-              >
-                <span class="rs-cascading-v2__checkbox">
-                  <span />
-                </span>
-                <span class="rs-dropdown__clear-all">{t('clear_all', 'Clear all')}</span>
-              </li>
-            )}
-            {filtered.map(pt => (
-              <li
-                key={pt.id}
-                class={`rs-dropdown__item${selected.has(pt.id) ? ' rs-dropdown__item--selected' : ''}`}
-                onClick={() => toggleItem(pt.id)}
-              >
-                <span class={`rs-cascading-v2__checkbox${selected.has(pt.id) ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                  {selected.has(pt.id) && <CheckIcon />}
-                </span>
-                <span>{pt.name}</span>
-                {!!pt.propertyCount && (
-                  <span class="rs-dropdown__count">{pt.propertyCount}</span>
-                )}
-              </li>
-            ))}
-            {filtered.length === 0 && (
-              <li class="rs-dropdown__empty">&mdash;</li>
-            )}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+        </RsFloating>
       )}
     </div>
   );
@@ -333,7 +391,7 @@ function CheckboxDropdown({ types, value, onChange, allLabel, locked }: {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (isOutsideField(ref.current, e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -350,36 +408,38 @@ function CheckboxDropdown({ types, value, onChange, allLabel, locked }: {
         {selected ? selected.name : allLabel}
       </button>
       {open && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            <li
-              class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
-              onClick={() => { onChange(undefined); setOpen(false); }}
-            >
-              <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                {!value && <CheckIcon />}
-              </span>
-              <span>{allLabel}</span>
-            </li>
-            {types.map(pt => (
+        <RsFloating anchorRef={ref}>
+          <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+            <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+            <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
               <li
-                key={pt.id}
-                class={`rs-dropdown__item${pt.id === value ? ' rs-dropdown__item--selected' : ''}`}
-                onClick={() => { onChange(pt.id); setOpen(false); }}
+                class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
+                onClick={() => { onChange(undefined); setOpen(false); }}
               >
-                <span class={`rs-cascading-v2__checkbox${pt.id === value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                  {pt.id === value && <CheckIcon />}
+                <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                  {!value && <CheckIcon />}
                 </span>
-                <span>{pt.name}</span>
-                {!!pt.propertyCount && (
-                  <span class="rs-dropdown__count">{pt.propertyCount}</span>
-                )}
+                <span>{allLabel}</span>
               </li>
-            ))}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+              {buildTypeTree(types).map(({ type: pt, depth }) => (
+                <li
+                  key={pt.id}
+                  class={`rs-dropdown__item rs-dropdown__item--indent-${Math.min(depth, 4)}${pt.id === value ? ' rs-dropdown__item--selected' : ''}`}
+                  onClick={() => { onChange(pt.id); setOpen(false); }}
+                >
+                  <span class={`rs-cascading-v2__checkbox${pt.id === value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                    {pt.id === value && <CheckIcon />}
+                  </span>
+                  <span>{pt.name}</span>
+                  {!!pt.propertyCount && (
+                    <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
+          </div>
+        </RsFloating>
       )}
     </div>
   );

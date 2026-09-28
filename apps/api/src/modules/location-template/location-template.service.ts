@@ -1,0 +1,943 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
+import {
+  Location,
+  LocationLevel,
+  LocationTemplateNode,
+  LocationTemplateUnmatched,
+  Property,
+} from '../../database/entities';
+import { LocationService } from '../location/location.service';
+import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
+import { levelIndex, locationKey, locationSlug, LOCATION_LEVELS, TemplateLevel } from './location-name';
+import {
+  FeedLocationInput,
+  resolveLocation,
+  TemplateIndex,
+  TemplateNodeLite,
+  validCoords,
+} from './location-template.resolver';
+import {
+  CreateTemplateNodeDto,
+  MoveTemplateNodeDto,
+  UpdateTemplateNodeDto,
+} from './dto/location-template.dto';
+
+// What a feed says about a listing's location, as stored on the property.
+export type FeedLocationRecord = FeedLocationInput & { provider?: string };
+
+interface UnmatchedTally {
+  provider: string;
+  province: string | null;
+  area: string | null;
+  name: string;
+  subName: string | null;
+  placedUnderNodeId: number;
+  count: number;
+  latSum: number;
+  lngSum: number;
+  geoCount: number;
+}
+
+// Working state for one import run (or one re-apply) of one tenant. The
+// template and the tenant's location rows are read once and kept in memory, so
+// placing 1,000+ listings costs database writes only where something changes.
+export interface TemplateRunContext {
+  tenantId: number;
+  provider: string;
+  index: TemplateIndex;
+  rows: Map<number, Location>;
+  byTemplateId: Map<number, Location>;
+  placed: Map<string, number>;
+  unmatched: Map<string, UnmatchedTally>;
+  recordUnmatched: boolean;
+  stats: { created: number; adopted: number; moved: number; renamed: number };
+}
+
+// Most unknown towns AI is asked to place per run; the rest wait for the next.
+const AI_BATCH_LIMIT = 40;
+
+@Injectable()
+export class LocationTemplateService {
+  private readonly logger = new Logger(LocationTemplateService.name);
+
+  constructor(
+    @InjectRepository(LocationTemplateNode)
+    private readonly nodeRepository: Repository<LocationTemplateNode>,
+    @InjectRepository(LocationTemplateUnmatched)
+    private readonly unmatchedRepository: Repository<LocationTemplateUnmatched>,
+    @InjectRepository(Location)
+    private readonly locationRepository: Repository<Location>,
+    @InjectRepository(Property)
+    private readonly propertyRepository: Repository<Property>,
+    // bulkMove merges a moved row into a same-slug sibling (properties and
+    // children included) instead of hitting the unique index.
+    private readonly locationService: LocationService,
+    private readonly aiEnrichmentService: AiEnrichmentService,
+  ) {}
+
+  // ===================================================================
+  // Placing listings (feed imports and re-apply)
+  // ===================================================================
+
+  async loadIndex(): Promise<TemplateIndex> {
+    const nodes = await this.nodeRepository.find({
+      select: ['id', 'parentId', 'level', 'name', 'nameKey', 'aliases', 'status', 'lat', 'lng'],
+    });
+    return new TemplateIndex(nodes as TemplateNodeLite[]);
+  }
+
+  // Null when the template is empty, so callers keep the old behaviour.
+  async createRunContext(
+    tenantId: number,
+    provider: string,
+    options: { recordUnmatched?: boolean } = {},
+  ): Promise<TemplateRunContext | null> {
+    const index = await this.loadIndex();
+    if (index.size === 0) return null;
+    const ctx: TemplateRunContext = {
+      tenantId,
+      provider,
+      index,
+      rows: new Map(),
+      byTemplateId: new Map(),
+      placed: new Map(),
+      unmatched: new Map(),
+      recordUnmatched: options.recordUnmatched !== false,
+      stats: { created: 0, adopted: 0, moved: 0, renamed: 0 },
+    };
+    await this.reloadRows(ctx);
+    return ctx;
+  }
+
+  private async reloadRows(ctx: TemplateRunContext): Promise<void> {
+    const rows = await this.locationRepository.find({ where: { tenantId: ctx.tenantId } });
+    ctx.rows = new Map(rows.map((r) => [r.id, r]));
+    ctx.byTemplateId = new Map();
+    for (const r of rows) {
+      if (r.templateNodeId != null && !ctx.byTemplateId.has(r.templateNodeId)) ctx.byTemplateId.set(r.templateNodeId, r);
+    }
+  }
+
+  // The tenant location id a listing belongs to, creating or re-arranging the
+  // tenant's rows to follow the template. Null when the template can't place it
+  // (not even its province is known) — the caller then falls back.
+  async placeListing(
+    ctx: TemplateRunContext,
+    loc: FeedLocationInput,
+    geo?: { lat?: number | null; lng?: number | null },
+  ): Promise<number | null> {
+    const memoKey = [loc.province, loc.area, loc.municipality, loc.town, loc.urbanization].map(locationKey).join('|');
+    const resolution = resolveLocation(ctx.index, loc);
+    if (!resolution) return null;
+
+    if (resolution.unmatched && ctx.recordUnmatched) this.tally(ctx, loc, resolution.anchor.id, resolution.unmatched, geo);
+
+    const cached = ctx.placed.get(memoKey);
+    if (cached && ctx.rows.has(cached)) return cached;
+
+    let parentId: number | null = null;
+    for (const node of ctx.index.path(resolution.anchor)) {
+      parentId = (await this.ensureTemplateRow(ctx, node, parentId)).id;
+    }
+    for (const extra of resolution.extras) {
+      parentId = (await this.ensureExtraRow(ctx, extra, parentId!)).id;
+    }
+    ctx.placed.set(memoKey, parentId!);
+    return parentId;
+  }
+
+  private tally(
+    ctx: TemplateRunContext,
+    loc: FeedLocationInput,
+    anchorId: number,
+    unmatched: { name: string; subName: string | null },
+    geo?: { lat?: number | null; lng?: number | null },
+  ): void {
+    const key = [ctx.provider, locationKey(loc.province), locationKey(loc.area), locationKey(unmatched.name), locationKey(unmatched.subName)].join('|');
+    let t = ctx.unmatched.get(key);
+    if (!t) {
+      t = {
+        provider: ctx.provider,
+        province: loc.province?.trim() || null,
+        area: loc.area?.trim() || null,
+        name: unmatched.name,
+        subName: unmatched.subName,
+        placedUnderNodeId: anchorId,
+        count: 0,
+        latSum: 0,
+        lngSum: 0,
+        geoCount: 0,
+      };
+      ctx.unmatched.set(key, t);
+    }
+    t.count++;
+    const lat = Number(geo?.lat);
+    const lng = Number(geo?.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
+      t.latSum += lat;
+      t.lngSum += lng;
+      t.geoCount++;
+    }
+  }
+
+  // The tenant row standing for a template node, found through its link
+  // wherever the client put it. Unlinked rows from older imports with the same
+  // name are adopted (and re-parented) rather than duplicated, so their
+  // properties, translations and ids carry over.
+  private async ensureTemplateRow(
+    ctx: TemplateRunContext,
+    node: TemplateNodeLite,
+    expectedParentId: number | null,
+  ): Promise<Location> {
+    let row = ctx.byTemplateId.get(node.id);
+    if (row && !ctx.rows.has(row.id)) row = undefined;
+    if (!row) {
+      row = this.findAdoptable(ctx, node, expectedParentId);
+      if (row) ctx.stats.adopted++;
+    }
+
+    if (!row) {
+      return this.createRow(ctx, {
+        name: node.name,
+        level: node.level,
+        parentId: expectedParentId,
+        templateNodeId: node.id,
+        coords: ctx.index.coords(node),
+      });
+    }
+
+    const updates: Partial<Location> = {};
+    if (row.templateNodeId !== node.id) updates.templateNodeId = node.id;
+    // Map position for listings without their own GPS: fill it when the row
+    // has none (a client-set position is kept).
+    if (!validCoords(row.lat, row.lng)) {
+      const c = ctx.index.coords(node);
+      if (c) {
+        updates.lat = c.lat;
+        updates.lng = c.lng;
+      }
+    }
+
+    if (!row.userLocked) {
+      if (row.parentId !== expectedParentId) {
+        row = await this.moveRow(ctx, row, expectedParentId, node.id);
+        ctx.stats.moved++;
+      }
+      if (row.level !== node.level) updates.level = node.level as LocationLevel;
+      const current = row.name || {};
+      if ((current.en || '') !== node.name) {
+        updates.name = {
+          ...current,
+          en: node.name,
+          // Keep a real Spanish translation; replace one that only copied the English.
+          es: !current.es || current.es === current.en ? node.name : current.es,
+        };
+        ctx.stats.renamed++;
+      }
+    }
+
+    if (Object.keys(updates).length) {
+      await this.locationRepository.update({ id: row.id, tenantId: ctx.tenantId }, updates);
+      Object.assign(row, updates);
+    }
+    ctx.byTemplateId.set(node.id, row);
+    return row;
+  }
+
+  private findAdoptable(
+    ctx: TemplateRunContext,
+    node: TemplateNodeLite,
+    expectedParentId: number | null,
+  ): Location | undefined {
+    const keys = new Set([node.nameKey, ...(node.aliases || []).map(locationKey)]);
+    const candidates = [...ctx.rows.values()].filter(
+      (r) => r.templateNodeId == null && keys.has(locationKey(r.name?.en)),
+    );
+    if (!candidates.length) return undefined;
+
+    const underParent = candidates.filter((r) => r.parentId === expectedParentId);
+    let pool = underParent;
+    if (!pool.length) {
+      if (levelIndex(node.level) <= levelIndex('area')) {
+        // Region/province/area rows may sit anywhere (e.g. a province imported
+        // before regions existed sits at the root).
+        pool = candidates.filter((r) => levelIndex(r.level) <= levelIndex('area'));
+      } else {
+        // Municipality and below: only rows already inside the same area (or
+        // province) of this tenant — "El Chaparral" of Mijas must not adopt
+        // the Torrevieja one.
+        const scope = this.scopeRow(ctx, node);
+        pool = scope ? candidates.filter((r) => this.isDescendant(ctx, r, scope.id)) : [];
+      }
+    }
+    return pool.sort(
+      (a, b) =>
+        Number(b.level === node.level) - Number(a.level === node.level) || a.id - b.id,
+    )[0];
+  }
+
+  private scopeRow(ctx: TemplateRunContext, node: TemplateNodeLite): Location | undefined {
+    for (const level of ['area', 'province'] as TemplateLevel[]) {
+      const anc = ctx.index.ancestor(node, level);
+      const row = anc ? ctx.byTemplateId.get(anc.id) : undefined;
+      if (row) return row;
+    }
+    return undefined;
+  }
+
+  private isDescendant(ctx: TemplateRunContext, row: Location, ancestorId: number): boolean {
+    let cur: Location | undefined = row;
+    const seen = new Set<number>();
+    while (cur && cur.parentId != null && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      if (cur.parentId === ancestorId) return true;
+      cur = ctx.rows.get(cur.parentId);
+    }
+    return false;
+  }
+
+  private async moveRow(
+    ctx: TemplateRunContext,
+    row: Location,
+    parentId: number | null,
+    templateNodeId: number,
+  ): Promise<Location> {
+    const twin = [...ctx.rows.values()].find(
+      (r) => r.id !== row.id && r.parentId === parentId && r.slug === row.slug,
+    );
+    if (!twin) {
+      await this.locationRepository.update({ id: row.id, tenantId: ctx.tenantId }, { parentId });
+      row.parentId = parentId;
+      return row;
+    }
+    // A same-slug row already sits there: fold this one into it (properties and
+    // children move across) and keep the survivor linked.
+    await this.locationService.bulkMove(ctx.tenantId, [row.id], parentId);
+    await this.reloadRows(ctx);
+    const survivor = ctx.rows.get(twin.id)!;
+    if (survivor.templateNodeId !== templateNodeId) {
+      await this.locationRepository.update({ id: survivor.id, tenantId: ctx.tenantId }, { templateNodeId });
+      survivor.templateNodeId = templateNodeId;
+    }
+    ctx.placed.clear();
+    return survivor;
+  }
+
+  private async ensureExtraRow(
+    ctx: TemplateRunContext,
+    extra: { name: string; level: TemplateLevel },
+    parentId: number,
+  ): Promise<Location> {
+    const key = locationKey(extra.name);
+    const existing = [...ctx.rows.values()].find(
+      (r) => r.parentId === parentId && locationKey(r.name?.en) === key,
+    );
+    if (existing) return existing;
+    // A place the template doesn't know sits where its parent is until it's added.
+    const parent = ctx.rows.get(parentId);
+    return this.createRow(ctx, {
+      name: extra.name,
+      level: extra.level,
+      parentId,
+      templateNodeId: null,
+      coords: parent ? validCoords(parent.lat, parent.lng) : null,
+    });
+  }
+
+  private async createRow(
+    ctx: TemplateRunContext,
+    data: {
+      name: string;
+      level: TemplateLevel;
+      parentId: number | null;
+      templateNodeId: number | null;
+      coords?: { lat: number; lng: number } | null;
+    },
+  ): Promise<Location> {
+    const slug = locationSlug(data.name) || 'location';
+    // Same slug under the same parent (unique index): reuse that row.
+    const clash = [...ctx.rows.values()].find((r) => r.parentId === data.parentId && r.slug === slug);
+    if (clash) {
+      if (data.templateNodeId != null && clash.templateNodeId == null) {
+        await this.locationRepository.update({ id: clash.id, tenantId: ctx.tenantId }, { templateNodeId: data.templateNodeId });
+        clash.templateNodeId = data.templateNodeId;
+        ctx.byTemplateId.set(data.templateNodeId, clash);
+      }
+      return clash;
+    }
+    let row: Location;
+    try {
+      row = await this.locationRepository.save(
+        this.locationRepository.create({
+          tenantId: ctx.tenantId,
+          name: { en: data.name, es: data.name },
+          slug,
+          level: data.level as LocationLevel,
+          parentId: data.parentId,
+          templateNodeId: data.templateNodeId,
+          lat: data.coords?.lat ?? null,
+          lng: data.coords?.lng ?? null,
+        }),
+      );
+    } catch (err) {
+      // Another import of the same tenant created it a moment ago.
+      const existing = await this.locationRepository.findOne({
+        where: { tenantId: ctx.tenantId, slug, parentId: data.parentId === null ? IsNull() : data.parentId },
+      });
+      if (!existing) throw err;
+      row = existing;
+    }
+    ctx.rows.set(row.id, row);
+    if (data.templateNodeId != null) ctx.byTemplateId.set(data.templateNodeId, row);
+    ctx.stats.created++;
+    return row;
+  }
+
+  // After an import: record unknown locations, ask AI to place new unknown
+  // towns under a template municipality, re-place this tenant's listings if AI
+  // added any, and remove location rows the template made redundant.
+  async finishRun(ctx: TemplateRunContext): Promise<{ unmatched: number; aiPlaced: number; relocated: number; cleaned: number }> {
+    const entries = await this.saveUnmatched(ctx);
+    const aiPlaced = await this.askAiForUnmatched(ctx.tenantId, entries).catch((err) => {
+      this.logger.warn(`AI placement of unknown locations failed for tenant=${ctx.tenantId}: ${(err as Error).message}`);
+      return 0;
+    });
+    let relocated = 0;
+    if (aiPlaced > 0) relocated = (await this.reapplyTenant(ctx.tenantId)).relocated;
+    const cleaned = await this.cleanupRedundantRows(ctx.tenantId);
+    if (ctx.stats.created || ctx.stats.adopted || ctx.stats.moved || entries.length || aiPlaced || cleaned) {
+      this.logger.log(
+        `Location template tenant=${ctx.tenantId}: created=${ctx.stats.created} adopted=${ctx.stats.adopted} ` +
+          `moved=${ctx.stats.moved} renamed=${ctx.stats.renamed} unmatched=${entries.length} aiPlaced=${aiPlaced} ` +
+          `relocated=${relocated} cleaned=${cleaned}`,
+      );
+    }
+    return { unmatched: entries.length, aiPlaced, relocated, cleaned };
+  }
+
+  private async saveUnmatched(ctx: TemplateRunContext): Promise<LocationTemplateUnmatched[]> {
+    const saved: LocationTemplateUnmatched[] = [];
+    for (const [matchKey, t] of ctx.unmatched) {
+      let row = await this.unmatchedRepository.findOne({ where: { matchKey } });
+      if (!row) {
+        row = this.unmatchedRepository.create({ matchKey, provider: t.provider, dismissed: false, aiAttempted: false });
+      }
+      row.province = t.province;
+      row.area = t.area;
+      row.name = t.name.slice(0, 150);
+      row.subName = t.subName?.slice(0, 150) ?? null;
+      row.placedUnderNodeId = t.placedUnderNodeId;
+      row.occurrences = t.count;
+      row.tenantIds = [...new Set([...(row.tenantIds || []), ctx.tenantId])];
+      if (t.geoCount) {
+        row.lat = Number((t.latSum / t.geoCount).toFixed(7));
+        row.lng = Number((t.lngSum / t.geoCount).toFixed(7));
+      }
+      // Still unmatched, so any node it was marked as resolved by no longer
+      // covers it.
+      row.resolvedNodeId = null;
+      saved.push(await this.unmatchedRepository.save(row));
+    }
+    return saved;
+  }
+
+  // Unknown towns whose area/province the template does know get placed under
+  // one of that area's municipalities by AI. The model can only pick from the
+  // template's own list, and every answer is saved as an "AI suggested" node
+  // for Super Admin to confirm, so the same name is never asked twice.
+  private async askAiForUnmatched(tenantId: number, entries: LocationTemplateUnmatched[]): Promise<number> {
+    const index = await this.loadIndex();
+    const todo = entries
+      .filter((e) => !e.dismissed && !e.aiAttempted && e.placedUnderNodeId != null)
+      .filter((e) => {
+        const anchor = index.byId.get(e.placedUnderNodeId!);
+        return anchor && levelIndex(anchor.level) <= levelIndex('area');
+      })
+      .slice(0, AI_BATCH_LIMIT);
+    if (!todo.length) return 0;
+
+    const municipalitiesByAnchor = new Map<number, TemplateNodeLite[]>();
+    const municipalitiesUnder = (anchorId: number) => {
+      if (!municipalitiesByAnchor.has(anchorId)) {
+        const anchor = index.byId.get(anchorId)!;
+        municipalitiesByAnchor.set(
+          anchorId,
+          [...index.byId.values()].filter((n) => n.level === 'municipality' && index.isUnder(n, anchor)),
+        );
+      }
+      return municipalitiesByAnchor.get(anchorId)!;
+    };
+
+    const questions = todo
+      .map((e) => ({ entry: e, options: municipalitiesUnder(e.placedUnderNodeId!) }))
+      .filter((q) => q.options.length > 0);
+    if (!questions.length) {
+      await this.unmatchedRepository.update({ id: In(todo.map((e) => e.id)) }, { aiAttempted: true });
+      return 0;
+    }
+
+    const lines = questions.map((q, i) => {
+      const anchor = index.byId.get(q.entry.placedUnderNodeId!)!;
+      const where = index.path(anchor).map((n) => n.name).join(' > ');
+      const geo = q.entry.lat != null && q.entry.lng != null ? ` (listings around ${q.entry.lat}, ${q.entry.lng})` : '';
+      const sub = q.entry.subName ? ` / sub-location "${q.entry.subName}"` : '';
+      return `${i + 1}. "${q.entry.name}"${sub} in ${where}${geo}\n   Municipalities: ${q.options.map((o) => o.name).join('; ')}`;
+    });
+    const prompt = `You place Spanish real-estate locations in their official municipality (municipio).
+
+For each place below, choose the municipality it belongs to FROM ITS LIST ONLY. Places are towns, villages, districts, beaches or urbanizations inside a municipality. If the place IS one of the listed municipalities, choose that one. If you are not confident, answer null.
+
+${lines.join('\n')}
+
+Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ... }`;
+
+    const answer = await this.aiEnrichmentService.completeJson(tenantId, prompt);
+    await this.unmatchedRepository.update({ id: In(todo.map((e) => e.id)) }, { aiAttempted: true });
+    if (!answer) return 0;
+
+    let placed = 0;
+    for (let i = 0; i < questions.length; i++) {
+      const choice = answer[String(i + 1)];
+      if (typeof choice !== 'string' || !choice.trim()) continue;
+      const q = questions[i];
+      const municipality = q.options.find((o) => o.nameKey === locationKey(choice));
+      if (!municipality) continue; // not from the list — ignore rather than invent
+
+      const nameKey = locationKey(q.entry.name);
+      let node = await this.nodeRepository.findOne({ where: { parentId: municipality.id, nameKey } });
+      if (!node) {
+        // The place is the municipality itself spelled differently: record the
+        // spelling as an alias instead of adding a town.
+        if (municipality.nameKey === nameKey) continue;
+        node = await this.nodeRepository.save(
+          this.nodeRepository.create({
+            parentId: municipality.id,
+            level: 'town',
+            name: q.entry.name.trim().slice(0, 150),
+            nameKey,
+            lat: q.entry.lat,
+            lng: q.entry.lng,
+            status: 'ai_suggested',
+            note: `Suggested by AI for "${q.entry.name}" from a ${q.entry.provider} feed${q.entry.area ? ` (${q.entry.area})` : ''}.`,
+          }),
+        );
+        placed++;
+      }
+      await this.unmatchedRepository.update({ id: q.entry.id }, { resolvedNodeId: node.id });
+    }
+    return placed;
+  }
+
+  // Re-places every feed listing of a tenant from the names stored on it, so
+  // template changes apply without waiting for the next sync.
+  async reapplyTenant(tenantId: number): Promise<{ relocated: number; cleaned: number; listings: number }> {
+    const ctx = await this.createRunContext(tenantId, 'reapply', { recordUnmatched: false });
+    if (!ctx) return { relocated: 0, cleaned: 0, listings: 0 };
+    const listings = await this.propertyRepository.find({
+      where: { tenantId, feedLocation: Not(IsNull()) },
+      select: ['id', 'locationId', 'lockedFields', 'feedLocation', 'lat', 'lng'],
+    });
+    let relocated = 0;
+    for (const p of listings) {
+      if ((p.lockedFields || []).includes('locationId')) continue;
+      const target = await this.placeListing(ctx, p.feedLocation as FeedLocationInput, { lat: p.lat, lng: p.lng });
+      if (target && target !== p.locationId) {
+        await this.propertyRepository.update({ id: p.id, tenantId }, { locationId: target });
+        relocated++;
+      }
+    }
+    const cleaned = await this.cleanupRedundantRows(tenantId);
+    return { relocated, cleaned, listings: listings.length };
+  }
+
+  async reapplyAll(): Promise<{ tenants: number; relocated: number; cleaned: number }> {
+    const rows: Array<{ tenantId: number }> = await this.propertyRepository.manager.query(
+      'SELECT DISTINCT tenantId FROM properties WHERE feedLocation IS NOT NULL',
+    );
+    let relocated = 0;
+    let cleaned = 0;
+    for (const { tenantId } of rows) {
+      try {
+        const r = await this.reapplyTenant(Number(tenantId));
+        relocated += r.relocated;
+        cleaned += r.cleaned;
+      } catch (err) {
+        this.logger.warn(`Re-apply failed for tenant=${tenantId}: ${(err as Error).message}`);
+      }
+    }
+    return { tenants: rows.length, relocated, cleaned };
+  }
+
+  // Deletes municipality/town/urbanization rows left empty after listings moved
+  // to template-linked rows — e.g. an older import's "Arroyo de la Miel"
+  // municipality. Only rows no template node stands behind, that the client
+  // never arranged by hand, with no listing anywhere below them, and inside a
+  // province or area the template already manages.
+  async cleanupRedundantRows(tenantId: number): Promise<number> {
+    const rows = await this.locationRepository.find({ where: { tenantId } });
+    const counts: Array<{ locationId: number; cnt: string }> = await this.locationRepository.manager.query(
+      'SELECT locationId, COUNT(*) AS cnt FROM properties WHERE tenantId = ? AND locationId IS NOT NULL GROUP BY locationId',
+      [tenantId],
+    );
+    const direct = new Map(counts.map((c) => [Number(c.locationId), Number(c.cnt)]));
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const children = new Map<number, Location[]>();
+    for (const r of rows) {
+      if (r.parentId == null) continue;
+      const list = children.get(r.parentId) || [];
+      list.push(r);
+      children.set(r.parentId, list);
+    }
+    const subtreeCount = new Map<number, number>();
+    const countOf = (r: Location): number => {
+      if (subtreeCount.has(r.id)) return subtreeCount.get(r.id)!;
+      const total = (direct.get(r.id) || 0) + (children.get(r.id) || []).reduce((s, c) => s + countOf(c), 0);
+      subtreeCount.set(r.id, total);
+      return total;
+    };
+    const insideManagedArea = (r: Location): boolean => {
+      let cur = r.parentId != null ? byId.get(r.parentId) : undefined;
+      const seen = new Set<number>();
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        if (cur.templateNodeId != null && (cur.level === 'area' || cur.level === 'province')) return true;
+        cur = cur.parentId != null ? byId.get(cur.parentId) : undefined;
+      }
+      return false;
+    };
+    const doomed = rows.filter(
+      (r) =>
+        r.templateNodeId == null &&
+        !r.userLocked &&
+        ['municipality', 'town', 'urbanization'].includes(r.level) &&
+        countOf(r) === 0 &&
+        insideManagedArea(r) &&
+        (children.get(r.id) || []).every((c) => c.templateNodeId == null && !c.userLocked),
+    );
+    if (!doomed.length) return 0;
+    // Children first so no row is orphaned; a doomed parent's whole subtree is doomed too.
+    const doomedIds = new Set(doomed.map((r) => r.id));
+    const ordered = doomed.sort((a, b) => levelIndex(b.level) - levelIndex(a.level));
+    for (let i = 0; i < ordered.length; i += 200) {
+      await this.locationRepository.delete({ tenantId, id: In(ordered.slice(i, i + 200).map((r) => r.id)) });
+    }
+    return doomedIds.size;
+  }
+
+  // ===================================================================
+  // Super Admin
+  // ===================================================================
+
+  async list(): Promise<{
+    nodes: LocationTemplateNode[];
+    unmatchedOpen: number;
+    usage: Record<number, number>;
+  }> {
+    const nodes = await this.nodeRepository.find({ order: { sortOrder: 'ASC', name: 'ASC' } });
+    const unmatchedOpen = await this.unmatchedRepository.count({ where: { dismissed: false, resolvedNodeId: IsNull() } });
+    // How many client location rows link to each node — shown so an edit's
+    // reach is visible before making it.
+    const usageRows: Array<{ templateNodeId: number; cnt: string }> = await this.locationRepository.manager.query(
+      'SELECT templateNodeId, COUNT(*) AS cnt FROM locations WHERE templateNodeId IS NOT NULL GROUP BY templateNodeId',
+    );
+    const usage: Record<number, number> = {};
+    for (const u of usageRows) usage[Number(u.templateNodeId)] = Number(u.cnt);
+    return { nodes, unmatchedOpen, usage };
+  }
+
+  async create(dto: CreateTemplateNodeDto): Promise<LocationTemplateNode> {
+    const name = dto.name.trim();
+    if (!name) throw new BadRequestException('Name is required');
+    let parent: LocationTemplateNode | null = null;
+    if (dto.parentId != null) {
+      parent = await this.nodeRepository.findOne({ where: { id: dto.parentId } });
+      if (!parent) throw new NotFoundException('Parent not found');
+      if (levelIndex(dto.level) <= levelIndex(parent.level)) {
+        throw new BadRequestException(`A ${dto.level} cannot sit under a ${parent.level}`);
+      }
+    } else if (dto.level !== 'region') {
+      throw new BadRequestException('Only regions can be at the top level');
+    }
+    const nameKey = locationKey(name);
+    const twin = await this.nodeRepository.findOne({
+      where: { parentId: dto.parentId == null ? IsNull() : dto.parentId, nameKey },
+    });
+    if (twin) throw new ConflictException(`"${twin.name}" already exists here`);
+    return this.nodeRepository.save(
+      this.nodeRepository.create({
+        parentId: dto.parentId ?? null,
+        level: dto.level,
+        name,
+        nameKey,
+        aliases: this.cleanAliases(dto.aliases, name),
+        postcode: dto.postcode?.trim() || null,
+        lat: dto.lat ?? null,
+        lng: dto.lng ?? null,
+        status: 'ok',
+        note: null,
+      }),
+    );
+  }
+
+  async update(id: number, dto: UpdateTemplateNodeDto): Promise<LocationTemplateNode> {
+    const node = await this.nodeRepository.findOne({ where: { id } });
+    if (!node) throw new NotFoundException('Location not found');
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (!name) throw new BadRequestException('Name is required');
+      const nameKey = locationKey(name);
+      if (nameKey !== node.nameKey) {
+        const twin = await this.nodeRepository.findOne({
+          where: { parentId: node.parentId == null ? IsNull() : node.parentId, nameKey },
+        });
+        if (twin && twin.id !== id) throw new ConflictException(`"${twin.name}" already exists here`);
+        // Keep the old spelling matching: feeds may still send it.
+        dto.aliases = [...(dto.aliases ?? node.aliases ?? []), node.name];
+      }
+      node.name = name;
+      node.nameKey = nameKey;
+    }
+    if (dto.aliases !== undefined) node.aliases = this.cleanAliases(dto.aliases, node.name);
+    if (dto.postcode !== undefined) node.postcode = dto.postcode?.trim() || null;
+    if (dto.lat !== undefined) node.lat = dto.lat;
+    if (dto.lng !== undefined) node.lng = dto.lng;
+    if (dto.level !== undefined && dto.level !== node.level) {
+      await this.assertLevelFits(node, dto.level, node.parentId);
+      node.level = dto.level;
+    }
+    if (dto.status !== undefined) {
+      node.status = dto.status;
+      if (dto.status === 'ok') node.note = null;
+    }
+    if (dto.note !== undefined) node.note = dto.note?.trim() || null;
+    return this.nodeRepository.save(node);
+  }
+
+  async move(id: number, dto: MoveTemplateNodeDto): Promise<LocationTemplateNode> {
+    const node = await this.nodeRepository.findOne({ where: { id } });
+    if (!node) throw new NotFoundException('Location not found');
+    const parentId = dto.parentId ?? null;
+    if (parentId === node.parentId) return node;
+    if (parentId != null) {
+      const index = await this.loadIndex();
+      const target = index.byId.get(parentId);
+      if (!target) throw new NotFoundException('Target not found');
+      if (index.path(target).some((n) => n.id === id)) {
+        throw new BadRequestException('A location cannot move inside itself');
+      }
+    }
+    await this.assertLevelFits(node, node.level, parentId);
+    const twin = await this.nodeRepository.findOne({
+      where: { parentId: parentId == null ? IsNull() : parentId, nameKey: node.nameKey },
+    });
+    if (twin && twin.id !== id) throw new ConflictException(`"${twin.name}" already exists there — edit or delete one of them first`);
+    node.parentId = parentId;
+    return this.nodeRepository.save(node);
+  }
+
+  private async assertLevelFits(node: LocationTemplateNode, level: TemplateLevel, parentId: number | null): Promise<void> {
+    if (parentId == null) {
+      if (level !== 'region') throw new BadRequestException('Only regions can be at the top level');
+    } else {
+      const parent = await this.nodeRepository.findOne({ where: { id: parentId } });
+      if (!parent) throw new NotFoundException('Target not found');
+      if (levelIndex(level) <= levelIndex(parent.level)) {
+        throw new BadRequestException(`A ${level} cannot sit under a ${parent.level}`);
+      }
+    }
+    const children = await this.nodeRepository.find({ where: { parentId: node.id }, select: ['level'] });
+    if (children.some((c) => levelIndex(c.level) <= levelIndex(level))) {
+      throw new BadRequestException(`Its children would sit at or above ${level} level`);
+    }
+  }
+
+  // Deletes the node and everything under it. Client rows linked to any of them
+  // lose the link (they're kept); the next sync re-places their listings.
+  async remove(id: number): Promise<{ deleted: number }> {
+    const index = await this.loadIndex();
+    const node = index.byId.get(id);
+    if (!node) throw new NotFoundException('Location not found');
+    const ids = [...index.byId.values()].filter((n) => index.isUnder(n, node)).map((n) => n.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      await this.locationRepository.update({ templateNodeId: In(ids.slice(i, i + 500)) }, { templateNodeId: null });
+    }
+    await this.nodeRepository.delete({ id });
+    return { deleted: ids.length };
+  }
+
+  private cleanAliases(aliases: string[] | null | undefined, name: string): string[] | null {
+    const nameKey = locationKey(name);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const a of aliases || []) {
+      const t = String(a).trim();
+      const k = locationKey(t);
+      if (!k || k === nameKey || seen.has(k)) continue;
+      seen.add(k);
+      out.push(t.slice(0, 150));
+    }
+    return out.length ? out : null;
+  }
+
+  async listUnmatched(): Promise<Array<LocationTemplateUnmatched & { placedUnder: string }>> {
+    const rows = await this.unmatchedRepository.find({
+      where: { dismissed: false, resolvedNodeId: IsNull() },
+      order: { occurrences: 'DESC', lastSeenAt: 'DESC' },
+      take: 500,
+    });
+    const index = await this.loadIndex();
+    return rows.map((r) => {
+      const anchor = r.placedUnderNodeId != null ? index.byId.get(r.placedUnderNodeId) : undefined;
+      return { ...r, placedUnder: anchor ? index.path(anchor).map((n) => n.name).join(' > ') : '' };
+    });
+  }
+
+  async dismissUnmatched(id: number): Promise<void> {
+    await this.unmatchedRepository.update({ id }, { dismissed: true });
+  }
+
+  // ===================================================================
+  // CSV
+  // ===================================================================
+
+  async exportCsv(): Promise<string> {
+    const index = await this.loadIndex();
+    const full = await this.nodeRepository.find();
+    const byId = new Map(full.map((n) => [n.id, n]));
+    const hasChildren = new Set(full.filter((n) => n.parentId != null).map((n) => n.parentId!));
+    const header = ['Region', 'Province', 'Area', 'Municipality', 'Town', 'Urbanization', 'Postcode', 'Long', 'Lat', 'Aliases', 'Status', 'Note'];
+    const lines = [header.map(csvCell).join(',')];
+    const leaves = full.filter((n) => !hasChildren.has(n.id));
+    const rows = leaves.map((leaf) => {
+      const path = index.path(index.byId.get(leaf.id)!);
+      const cols: Record<string, string> = {};
+      for (const p of path) cols[p.level] = p.name;
+      return [
+        ...LOCATION_LEVELS.map((l) => cols[l] || ''),
+        leaf.postcode || '',
+        leaf.lng != null ? String(leaf.lng) : '',
+        leaf.lat != null ? String(leaf.lat) : '',
+        (byId.get(leaf.id)?.aliases || []).join('; '),
+        leaf.status,
+        leaf.note || '',
+      ];
+    });
+    rows.sort((a, b) => a.slice(0, 6).join('|').localeCompare(b.slice(0, 6).join('|')));
+    for (const r of rows) lines.push(r.map(csvCell).join(','));
+    return lines.join('\r\n');
+  }
+
+  // Adds every place in the CSV that the template doesn't have yet. Same
+  // columns as the export (Odoo exports work too). Never deletes or moves.
+  async importCsv(text: string): Promise<{ rows: number; created: number; skipped: number }> {
+    const records = parseCsv(text);
+    if (records.length < 2) throw new BadRequestException('The file has no rows');
+    const header = records[0].map((h) => locationKey(h));
+    const col = (name: string) => header.indexOf(name);
+    const levelCols = LOCATION_LEVELS.map((l) => col(l));
+    if (levelCols[0] < 0 || levelCols[1] < 0) throw new BadRequestException('Expected at least Region and Province columns');
+    const iPost = col('postcode');
+    const iLat = col('lat');
+    const iLng = col('long') >= 0 ? col('long') : col('lng');
+    const iAliases = col('aliases');
+
+    const all = await this.nodeRepository.find();
+    const children = new Map<string, LocationTemplateNode>();
+    const childKey = (parentId: number | null, nameKey: string) => `${parentId ?? 'root'}|${nameKey}`;
+    for (const n of all) children.set(childKey(n.parentId, n.nameKey), n);
+
+    let created = 0;
+    let skipped = 0;
+    for (const rec of records.slice(1)) {
+      const names = levelCols.map((i) => (i >= 0 ? odooCell(rec[i]) : ''));
+      if (!names[0] || !names[1]) {
+        skipped++;
+        continue;
+      }
+      let parentId: number | null = null;
+      let deepest = -1;
+      names.forEach((n, i) => { if (n) deepest = i; });
+      for (let i = 0; i <= deepest; i++) {
+        const name = names[i];
+        if (!name) continue;
+        const nameKey = locationKey(name);
+        let node = children.get(childKey(parentId, nameKey));
+        if (!node) {
+          const isLeaf = i === deepest;
+          const lat = isLeaf && iLat >= 0 ? Number(rec[iLat]) : NaN;
+          const lng = isLeaf && iLng >= 0 ? Number(rec[iLng]) : NaN;
+          node = await this.nodeRepository.save(
+            this.nodeRepository.create({
+              parentId,
+              level: LOCATION_LEVELS[i],
+              name: name.slice(0, 150),
+              nameKey,
+              postcode: isLeaf && iPost >= 0 ? (rec[iPost] || '').trim() || null : null,
+              lat: Number.isFinite(lat) && lat !== 0 ? lat : null,
+              lng: Number.isFinite(lng) && lng !== 0 ? lng : null,
+              aliases: isLeaf && iAliases >= 0 ? this.cleanAliases((rec[iAliases] || '').split(';'), name) : null,
+              status: 'ok',
+            }),
+          );
+          children.set(childKey(parentId, nameKey), node);
+          created++;
+        }
+        parentId = node.id;
+      }
+    }
+    return { rows: records.length - 1, created, skipped };
+  }
+}
+
+function csvCell(v: string): string {
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Odoo exports translatable fields as "{'en_US': 'Málaga'}".
+function odooCell(v: string | undefined): string {
+  const s = String(v ?? '').trim();
+  const m = s.match(/^\{\s*'[a-zA-Z_]+'\s*:\s*'(.*)'\s*\}$/) || s.match(/^\{\s*"[a-zA-Z_]+"\s*:\s*"(.*)"\s*\}$/);
+  return (m ? m[1] : s).replace(/\s+/g, ' ').trim();
+}
+
+// RFC 4180 CSV: quoted fields, doubled quotes, commas/newlines inside quotes.
+export function parseCsv(text: string): string[][] {
+  const out: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  const src = text.replace(/^﻿/, '');
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quoted) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else quoted = false;
+      } else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i++;
+      row.push(field);
+      if (row.some((f) => f !== '')) out.push(row);
+      row = [];
+      field = '';
+    } else field += c;
+  }
+  row.push(field);
+  if (row.some((f) => f !== '')) out.push(row);
+  return out;
+}

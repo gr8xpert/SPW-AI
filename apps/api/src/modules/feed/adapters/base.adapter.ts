@@ -31,6 +31,12 @@ export interface FeedProperty {
   description: Record<string, string>;
   listingType: 'sale' | 'rent' | 'holiday_rent' | 'development';
   propertyType: string;
+  // Provider's own type code and group, where it sends them (Resales:
+  // SubtypeId1 "1-4", Type "Apartment", TypeId "1-1"). Matched against the
+  // property-type template before the name.
+  propertyTypeCode?: string;
+  propertyTypeGroup?: string;
+  propertyTypeGroupCode?: string;
   price: number | null;
   priceOnRequest?: boolean;
   currency: string;
@@ -49,6 +55,15 @@ export interface FeedProperty {
   location: FeedPropertyLocation;
   lat?: number;
   lng?: number;
+  // Spelled a dozen ways by feeds (zipcode, zip, postal_code, PostCode…).
+  // Worth carrying even when a feed gives no coordinates: a postcode can be
+  // put on the map, a town name alone puts every listing on one dot.
+  postcode?: string;
+
+  // The agency's own listing rather than one shared from the network. Drives
+  // the own="yes" / own-first="yes" filters, and marks the listings worth
+  // giving real coordinates to by hand.
+  isOwnProperty?: boolean;
   videoUrl?: string;
   virtualTourUrl?: string;
   deliveryDate?: string;

@@ -11,6 +11,9 @@ export interface PropertyType {
   name: string;
   slug: string;
   icon?: string;
+  // Types form a tree (Apartment → Penthouse, Commercial → Bar). The API has
+  // always sent this; the widget listed them flat until it was declared.
+  parentId?: number;
   propertyCount?: number;
 }
 
@@ -18,7 +21,7 @@ export interface Location {
   id: number;
   name: string;
   slug: string;
-  level: 'country' | 'province' | 'municipality' | 'town' | 'area';
+  level: 'country' | 'region' | 'province' | 'area' | 'municipality' | 'town' | 'urbanization';
   parentId?: number;
   propertyCount?: number;
   lat?: number;
@@ -87,6 +90,16 @@ export interface Property {
   agent?: Agent;
   createdAt?: string;
   updatedAt?: string;
+  // Page address on the client site (`/{detail-slug}/{urlSegment}`), computed
+  // by the API from the dashboard's slug format and the property's own slug.
+  urlSegment?: string;
+  slug?: string | null;
+  // SEO section of the property in the dashboard (in the page's language).
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+  pageTitle?: string;
+  seoSchemaJson?: string | null;
   // Widget-internal marker. Set to true by DataLoader.getProperty() to signal
   // this is a full detail payload (all images, full description, etc). Search
   // results leave this undefined so DetailTemplate can detect thin data and

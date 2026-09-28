@@ -8,10 +8,12 @@ import RsListingType from '@/components/search/RsListingType';
 import RsFeatures from '@/components/search/RsFeatures';
 import RsSearchButton from '@/components/search/RsSearchButton';
 import RsResetButton from '@/components/search/RsResetButton';
+import RsAiSearch from '@/components/search/RsAiSearch';
 
 export default function SearchTemplate01() {
   return (
     <div class="rs-search-template-01">
+      <RsAiSearch />
       <div class="rs-search-row">
         <RsReference />
         <RsLocation variation={2} />

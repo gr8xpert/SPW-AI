@@ -253,7 +253,7 @@ export default function DetailTemplate01() {
         <div class="rs-detail__main">
           <div class="rs-detail__title-row">
             <div class="rs-detail__title-block">
-              <RsDetailTitle title={property.title} />
+              <RsDetailTitle title={property.pageTitle || property.title} />
               <div class="rs-detail__location-block">
                 <RsDetailLocation />
                 <RsDetailAddress />

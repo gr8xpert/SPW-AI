@@ -54,7 +54,14 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
   const totalImages = property.images.length;
   const favorite = isFavorite(property.id);
 
-  const handleClick = useCallback(() => {
+  const propertyUrl = useMemo(() => buildPropertyUrl(property, config) || '#', [property, config]);
+
+  const handleClick = useCallback((e?: MouseEvent) => {
+    // Ctrl / Cmd / Shift / middle click on the card: new tab, like a link.
+    if (e && (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) && !config.onPropertyClick) {
+      window.open(propertyUrl, '_blank', 'noopener');
+      return;
+    }
     try {
       sessionStorage.setItem('spm_back_context', JSON.stringify({
         page: currentPage,
@@ -66,10 +73,18 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
     if (config.onPropertyClick) {
       config.onPropertyClick(property);
     } else {
-      const url = buildPropertyUrl(property, config);
-      if (url) window.location.href = url;
+      if (propertyUrl !== '#') window.location.href = propertyUrl;
     }
-  }, [config, property, currentPage]);
+  }, [config, property, currentPage, propertyUrl]);
+
+  // The title link: a plain click goes through handleClick (keeps the "back to
+  // results" context); modified clicks are left to the browser.
+  const handleLinkClick = useCallback((e: MouseEvent) => {
+    e.stopPropagation();
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    handleClick();
+  }, [handleClick]);
 
   const goToSlide = useCallback((next: number) => {
     setSlideIndex(next);
@@ -196,7 +211,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
 
         <div class="rs-property-card__body" onClick={handleClick}>
           <div class="rs-property-card__blend-header">
-            <h3 class="rs-property-card__title">{property.title}</h3>
+            <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
             <span class="rs-property-card__blend-price">
               {property.priceOnRequest
                 ? t('card_price_on_request', 'P.O.R.')
@@ -333,7 +348,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
         )}
 
         <div class="rs-property-card__body" onClick={handleClick}>
-          <h3 class="rs-property-card__title">{property.title}</h3>
+          <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
           <p class="rs-property-card__location">
             <svg class="rs-property-card__location-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -468,7 +483,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             </div>
             <div class="rs-property-card__showcase-bottom">
               <div class="rs-property-card__showcase-address">
-                <span class="rs-property-card__showcase-address-name">{property.title}</span>
+                <a class="rs-property-card__showcase-address-name rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a>
                 <span>{property.location.name}</span>
               </div>
               <div class="rs-property-card__showcase-stats">
@@ -588,7 +603,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
               : <AnimatedPrice value={property.price} format={priceFormatter} />}
           </div>
 
-          <h3 class="rs-property-card__title">{property.title}</h3>
+          <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
           <p class="rs-property-card__location">
             <svg class="rs-property-card__location-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -725,7 +740,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
         </div>
 
         <div class="rs-property-card__body" onClick={handleClick}>
-          <h3 class="rs-property-card__title">{property.title}</h3>
+          <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
           <p class="rs-property-card__location">
             <svg class="rs-property-card__location-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -848,7 +863,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
         </div>
 
         <div class="rs-property-card__body">
-          <h3 class="rs-property-card__title">{property.title}</h3>
+          <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
           {(property.shortDescription || property.description) && (
             <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
@@ -992,7 +1007,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
             <span class="rs-property-card__ref">{getDisplayReference(property, config)}</span>
           </div>
 
-          <h3 class="rs-property-card__title">{property.title}</h3>
+          <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
           {(property.shortDescription || property.description) && (
             <p class="rs-property-card__description">{property.shortDescription || property.description}</p>
@@ -1114,7 +1129,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
           </div>
 
           <div class="rs-property-card__immersive-panel">
-            <h3 class="rs-property-card__title">{property.title}</h3>
+            <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
             <p class="rs-property-card__location">
               <svg class="rs-property-card__location-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1232,7 +1247,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
 
         <div class="rs-property-card__overlay">
           <div class="rs-property-card__overlay-top">
-            <h3 class="rs-property-card__title">{property.title}</h3>
+            <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
             <p class="rs-property-card__location">
               <svg class="rs-property-card__location-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -1357,7 +1372,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
         </div>
 
         <div class="rs-property-card__body">
-          <h3 class="rs-property-card__location-title">{property.location.name}</h3>
+          <h3 class="rs-property-card__location-title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick} aria-label={property.title} title={property.title}>{property.location.name}</a></h3>
           {property.propertyType?.name && (
             <p class="rs-property-card__type-subtitle">{property.propertyType.name}</p>
           )}
@@ -1491,7 +1506,7 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
       </div>
 
       <div class="rs-property-card__body" onClick={handleClick}>
-        <h3 class="rs-property-card__title">{property.title}</h3>
+        <h3 class="rs-property-card__title"><a class="rs-property-card__link" href={propertyUrl} onClick={handleLinkClick}>{property.title}</a></h3>
 
         <p class="rs-property-card__location">
           <svg class="rs-property-card__location-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

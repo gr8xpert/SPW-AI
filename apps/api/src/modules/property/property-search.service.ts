@@ -1,8 +1,38 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { Property, Location, PropertyType } from '../../database/entities';
+import { Property, Location, PropertyType, LocationBoundary } from '../../database/entities';
 import { SearchPropertyDto } from './dto';
+import { fenceFor, resolveLocationPoints } from '../location/location-points';
+
+// Where a listing is for map and area searches: its own GPS, else its
+// location's point (filled from the location template). Feeds such as Resales
+// send no GPS, so without the fallback those listings could never be found by
+// area. Every query using these must join `p.location` as `location`.
+const GEO_LAT = 'COALESCE(p.lat, location.lat)';
+const GEO_LNG = 'COALESCE(p.lng, location.lng)';
+const MAP_POINT_LIMIT = 3000;
+
+export interface MapPoint {
+  id: number;
+  reference: string;
+  title: Record<string, string> | string;
+  price: number | null;
+  currency: string;
+  priceOnRequest: boolean;
+  listingType: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  buildSize: number | null;
+  lat: number;
+  lng: number;
+  // True when the point is the location's, not the listing's own GPS.
+  approximate: boolean;
+  location: { id: number; name: Record<string, string> | string } | null;
+  propertyType: { name: Record<string, string> | string } | null;
+  slug: string | null;
+  image: string | null;
+}
 
 export interface SearchResult {
   data: Property[];
@@ -39,6 +69,69 @@ export class PropertySearchService {
     const data = await query.skip((page - 1) * limit).take(limit).getMany();
 
     return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+  }
+
+  // Every matching listing as a light map point (no pagination, capped), so the
+  // map shows all results instead of the current page. Same filters as search.
+  async mapPoints(tenantId: number, dto: SearchPropertyDto): Promise<{ data: MapPoint[]; meta: { total: number; truncated: boolean } }> {
+    const query = this.propertyRepository
+      .createQueryBuilder('p')
+      .leftJoin('p.location', 'location')
+      .leftJoin('p.propertyType', 'propertyType')
+      .select([
+        'p.id', 'p.reference', 'p.title', 'p.slug', 'p.price', 'p.currency', 'p.priceOnRequest', 'p.listingType',
+        'p.bedrooms', 'p.bathrooms', 'p.buildSize', 'p.lat', 'p.lng', 'p.images',
+        'location.id', 'location.name', 'location.lat', 'location.lng', 'propertyType.id', 'propertyType.name',
+      ])
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true })
+      .andWhere(`${GEO_LAT} IS NOT NULL`)
+      .andWhere(`${GEO_LNG} IS NOT NULL`);
+    await this.applyFilters(query, dto, tenantId);
+    query.orderBy('p.id', 'ASC');
+    const rows = await query.take(MAP_POINT_LIMIT + 1).getMany();
+    const truncated = rows.length > MAP_POINT_LIMIT;
+
+    // Where each place may actually be drawn. A listing with no GPS of its own
+    // borrows its place's point, so one bad row would otherwise put every
+    // listing in that place on the wrong continent — whatever is in the table,
+    // and whether or not anyone has run the location fixer.
+    const places = await this.locationRepository.find({
+      where: { tenantId },
+      select: ['id', 'parentId', 'level', 'lat', 'lng'],
+    });
+    const points = resolveLocationPoints(places);
+
+    const data = rows.slice(0, MAP_POINT_LIMIT).map((p): MapPoint | null => {
+      const own = p.lat != null && p.lng != null;
+      // No believable point for this listing's place: leave it off the map
+      // rather than draw it somewhere it is not.
+      const borrowed = own ? null : (p.location ? points.get(p.location.id) : undefined);
+      if (!own && !borrowed) return null;
+      const images = Array.isArray(p.images) ? [...p.images].sort((a: any, b: any) => (a?.order ?? 0) - (b?.order ?? 0)) : [];
+      const first: any = images[0];
+      return {
+        id: p.id,
+        reference: p.reference,
+        title: p.title as any,
+        price: p.price != null ? Number(p.price) : null,
+        currency: p.currency,
+        priceOnRequest: !!p.priceOnRequest,
+        listingType: p.listingType,
+        bedrooms: p.bedrooms ?? null,
+        bathrooms: p.bathrooms ?? null,
+        buildSize: p.buildSize != null ? Number(p.buildSize) : null,
+        lat: own ? Number(p.lat) : borrowed!.lat,
+        lng: own ? Number(p.lng) : borrowed!.lng,
+        approximate: !own,
+        location: p.location ? { id: p.location.id, name: p.location.name as any } : null,
+        propertyType: p.propertyType ? { name: p.propertyType.name as any } : null,
+        slug: p.slug ?? null,
+        image: first ? first.thumbnailUrl || first.url || null : null,
+      };
+    }).filter((point): point is MapPoint => point !== null);
+    return { data, meta: { total: data.length, truncated } };
   }
 
   // Returns up to `limit` properties that share location and/or property type
@@ -158,11 +251,11 @@ export class PropertySearchService {
       const parts = dto.bounds.split(',').map((s) => Number(s.trim()));
       if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
         const [swLat, swLng, neLat, neLng] = parts;
-        query.andWhere('p.lat BETWEEN :swLat AND :neLat', { swLat, neLat });
+        query.andWhere(`${GEO_LAT} BETWEEN :swLat AND :neLat`, { swLat, neLat });
         // Crosses-antimeridian bounding boxes are pathological — we treat
         // them as an empty result rather than wrapping; the widget doesn't
         // emit those.
-        query.andWhere('p.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
+        query.andWhere(`${GEO_LNG} BETWEEN :swLng AND :neLng`, { swLng, neLng });
       }
     } else if (dto.lat !== undefined && dto.lng !== undefined && dto.radius) {
       // Haversine in km. ratio = degrees per km at the search latitude
@@ -171,9 +264,9 @@ export class PropertySearchService {
       query.andWhere(
         '(' +
           '6371 * 2 * ASIN(SQRT(' +
-          'POWER(SIN(RADIANS(p.lat - :lat) / 2), 2) + ' +
-          'COS(RADIANS(:lat)) * COS(RADIANS(p.lat)) * ' +
-          'POWER(SIN(RADIANS(p.lng - :lng) / 2), 2)' +
+          `POWER(SIN(RADIANS(${GEO_LAT} - :lat) / 2), 2) + ` +
+          `COS(RADIANS(:lat)) * COS(RADIANS(${GEO_LAT})) * ` +
+          `POWER(SIN(RADIANS(${GEO_LNG} - :lng) / 2), 2)` +
           ')) <= :radius)',
         { lat: dto.lat, lng: dto.lng, radius: dto.radius },
       );
@@ -199,6 +292,81 @@ export class PropertySearchService {
       });
     }
     if (dto.isFeatured !== undefined) query.andWhere('p.isFeatured = :isFeatured', { isFeatured: dto.isFeatured });
+    if (dto.isOwnProperty !== undefined) query.andWhere('p.isOwnProperty = :isOwnProperty', { isOwnProperty: dto.isOwnProperty });
+  }
+
+  /**
+   * The places a search covers, with how many listings are in each and the
+   * outline of the place itself.
+   *
+   * Feed listings arrive with no coordinates, so a pin map can only ever put
+   * every listing in a town on one dot. This answers the question the data can
+   * actually support — "where are they, roughly, and how many" — and the map
+   * draws the town rather than inventing an address.
+   */
+  async areas(tenantId: number, dto: SearchPropertyDto): Promise<{
+    data: Array<{
+      id: number;
+      name: unknown;
+      level: string;
+      count: number;
+      lat: number;
+      lng: number;
+      boundary: LocationBoundary | null;
+      fence: LocationBoundary | null;
+    }>;
+  }> {
+    const query = this.propertyRepository
+      .createQueryBuilder('p')
+      .leftJoin('p.location', 'location')
+      .select('location.id', 'locationId')
+      .addSelect('COUNT(*)', 'count')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true })
+      .andWhere('location.id IS NOT NULL')
+      .groupBy('location.id');
+    await this.applyFilters(query, dto, tenantId);
+
+    const grouped = await query.getRawMany<{ locationId: number; count: string }>();
+    if (!grouped.length) return { data: [] };
+
+    // `boundary` is hidden on the entity (it is a few hundred coordinate pairs
+    // per place), so it has to be asked for by name.
+    const places = await this.locationRepository
+      .createQueryBuilder('l')
+      .select(['l.id', 'l.parentId', 'l.level', 'l.name', 'l.lat', 'l.lng'])
+      .addSelect('l.boundary')
+      .where('l.tenantId = :tenantId', { tenantId })
+      .getMany();
+    const points = resolveLocationPoints(places);
+    const byId = new Map(places.map((l) => [l.id, l]));
+
+    const data = grouped
+      .map((row) => {
+        const place = byId.get(Number(row.locationId));
+        const point = points.get(Number(row.locationId));
+        if (!place || !point) return null;
+        return {
+          id: place.id,
+          name: place.name as unknown,
+          level: place.level as string,
+          count: Number(row.count),
+          lat: point.lat,
+          lng: point.lng,
+          // Only the place's own outline: a borrowed point means we are not
+          // sure enough of the place to draw its shape.
+          boundary: point.borrowed ? null : (place.boundary ?? null),
+          // Where its listings may be drawn. A town with no shape of its own
+          // borrows its municipality's, whose boundary follows the coastline —
+          // which is what keeps a listing out of the sea.
+          fence: fenceFor(place, byId),
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+      .sort((a, b) => b.count - a.count);
+
+    return { data };
   }
 
   private applySorting(query: SelectQueryBuilder<Property>, sortBy?: string): void {
@@ -213,6 +381,12 @@ export class PropertySearchService {
       case 'list_price': query.addOrderBy('p.price', 'ASC'); break;
       case 'list_price_desc': query.addOrderBy('p.price', 'DESC'); break;
       case 'is_featured_desc': query.addOrderBy('p.isFeatured', 'DESC'); break;
+      // The agency's own listings first, then everything else newest-first, so
+      // the tail of the list is still in a sensible order.
+      case 'own_first':
+        query.addOrderBy('p.isOwnProperty', 'DESC');
+        query.addOrderBy('p.createdAt', 'DESC');
+        break;
       case 'location_id': query.addOrderBy('p.locationId', 'ASC'); break;
       default: query.addOrderBy('p.createdAt', 'DESC');
     }

@@ -198,7 +198,7 @@ export default function CreditHoursPage() {
                       {formatMoney(pkg.pricePerHour, pkg.currency)}/hour
                     </div>
                     <div className="mt-4 text-xl font-semibold">
-                      {formatMoney(pkg.totalPrice, pkg.currency)} / pack
+                      {formatMoney(pkg.totalPrice, pkg.currency)}
                     </div>
 
                     <div className="mt-4 flex items-center gap-2">

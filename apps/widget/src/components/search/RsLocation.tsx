@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'preact/hooks';
+import type { RefObject } from 'preact';
+import RsFloating, { isOutsideField } from '@/components/common/RsFloating';
 import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
@@ -11,7 +13,18 @@ interface Props {
   [key: string]: unknown;
 }
 
-const LEVEL_INDENT: Record<string, number> = { country: 0, province: 1, municipality: 2, town: 3, area: 4 };
+// How deep each level sits, so a list of mixed levels reads as a hierarchy.
+// Keep in step with the dashboard's Locations page: a level missing here was
+// drawn flush left, which made a town look like a region's equal.
+const LEVEL_INDENT: Record<string, number> = {
+  country: 0,
+  region: 0,
+  province: 1,
+  area: 2,
+  municipality: 2,
+  town: 3,
+  urbanization: 4,
+};
 const HIDDEN_LEVEL_LABELS = new Set<string>();
 
 // Accent-insensitive normalization: NFD decomposes "São" into "S" + "a" +
@@ -202,9 +215,14 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
     return () => scroll.detach();
   }, [showDropdown]);
 
+  // A Reset elsewhere on the page clears the store; drop the typed text too.
+  useEffect(() => {
+    if (value === undefined) setQuery('');
+  }, [value]);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQuery(''); }
+      if (isOutsideField(ref.current, e.target)) { setOpen(false); setQuery(''); }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -234,31 +252,35 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
         )}
       </div>
       {showDropdown && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            {filtered.length === 0 ? (
-              <li class="rs-dropdown__empty">&mdash;</li>
-            ) : (
-              filtered.map(loc => (
-                <li
-                  key={loc.id}
-                  class={`rs-dropdown__item${loc.id === value ? ' rs-dropdown__item--selected' : ''}`}
-                  onClick={() => { onChange(loc.id); setOpen(false); setQuery(''); }}
-                >
-                  <span>{loc.name}</span>
-                  <span class="rs-dropdown__meta">
-                    <LevelBadge level={loc.level} />
-                    {!!loc.propertyCount && (
-                      <span class="rs-dropdown__count">{loc.propertyCount}</span>
-                    )}
-                  </span>
-                </li>
-              ))
-            )}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+        <RsFloating anchorRef={ref}>
+          <RsFloating anchorRef={ref}>
+            <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+              <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+              <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
+                {filtered.length === 0 ? (
+                  <li class="rs-dropdown__empty">&mdash;</li>
+                ) : (
+                  filtered.map(loc => (
+                    <li
+                      key={loc.id}
+                      class={`rs-dropdown__item${loc.id === value ? ' rs-dropdown__item--selected' : ''}`}
+                      onClick={() => { onChange(loc.id); setOpen(false); setQuery(''); }}
+                    >
+                      <span>{loc.name}</span>
+                      <span class="rs-dropdown__meta">
+                        <LevelBadge level={loc.level} />
+                        {!!loc.propertyCount && (
+                          <span class="rs-dropdown__count">{loc.propertyCount}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))
+                )}
+              </ul>
+              <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
+            </div>
+          </RsFloating>
+        </RsFloating>
       )}
     </div>
   );
@@ -272,8 +294,9 @@ interface DropdownDef {
   visible: boolean;
 }
 
-function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
+function CascadingMultiSelect({ locations, value, onChange, locked, t, config }: {
   locations: Location[];
+  value: number[] | undefined;
   onChange: (ids: number[]) => void;
   locked: boolean;
   t: (key: string, fallback: string) => string;
@@ -293,7 +316,6 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
   const tab1Ref = useRef<HTMLButtonElement>(null);
   const tab2Ref = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [panelPos, setPanelPos] = useState<{ left: number; width: number } | null>(null);
   const scroll = useScrollArrows();
 
   const dropdowns: DropdownDef[] = useMemo(() => {
@@ -326,7 +348,13 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
       const levelSet = new Set(dd.levels);
       const byLevel = locations.filter(l => levelSet.has(l.level));
 
-      if (ddIndex === 0) return byLevel.sort((a, b) => a.name.localeCompare(b.name));
+      // A site whose places don't reach the configured level (no
+      // municipalities, say) would otherwise open on an empty list, with no
+      // way in. The top of its own tree is the honest starting point.
+      if (ddIndex === 0) {
+        const first = byLevel.length ? byLevel : locations.filter(l => !l.parentId);
+        return first.sort((a, b) => a.name.localeCompare(b.name));
+      }
 
       const prevSelected = ddIndex === 1 ? selected1 : selected2;
       if (prevSelected.size === 0) return [];
@@ -359,9 +387,23 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
     onChange(ids);
   }, [selected1, selected2, selected3]);
 
+  // The tabs keep their own selection (each level is a separate Set), so a
+  // Reset elsewhere on the page has to reach them: when the store no longer
+  // holds any location, drop what the tabs are showing.
+  const hasStoreValue = !!value && value.length > 0;
+  useEffect(() => {
+    if (hasStoreValue) return;
+    if (!selected1.size && !selected2.size && !selected3.size) return;
+    setSelected1(new Set());
+    setSelected2(new Set());
+    setSelected3(new Set());
+    setSearch('');
+    setActiveTab(null);
+  }, [hasStoreValue]);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setActiveTab(null);
+      if (isOutsideField(ref.current, e.target)) setActiveTab(null);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -377,28 +419,11 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
     return () => scroll.detach();
   }, [activeTab]);
 
-  // Position the panel under the active tab. Templates that flatten the
-  // cascading container via `display: contents` (e.g. search-template-01)
-  // cause the panel's absolute positioning to anchor to the outer row rather
-  // than the tab group, so we measure and set left/width explicitly.
-  useEffect(() => {
-    if (activeTab === null) { setPanelPos(null); return; }
-    const btn = [tab0Ref, tab1Ref, tab2Ref][activeTab]?.current;
-    const panel = panelRef.current;
-    if (!btn || !panel) return;
-    const parent = panel.offsetParent as HTMLElement | null;
-    if (!parent) return;
-    const parentRect = parent.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    const minWidth = 320;
-    const width = Math.max(btnRect.width, minWidth);
-    let left = btnRect.left - parentRect.left;
-    // Clamp within parent so the panel never overflows past the right edge.
-    const maxLeft = parent.clientWidth - width;
-    if (maxLeft >= 0 && left > maxLeft) left = maxLeft;
-    if (left < 0) left = 0;
-    setPanelPos({ left, width });
-  }, [activeTab]);
+  // The panel hangs off the active tab. RsFloating renders it at the end of
+  // <body> and keeps it there, so neither a builder row nor a sticky header
+  // can clip or cover it, and the old manual offsetParent maths (which
+  // templates using `display: contents` broke) is no longer needed.
+  const activeTabRef = activeTab === null ? tab0Ref : [tab0Ref, tab1Ref, tab2Ref][activeTab];
 
   const toggleTab = (idx: number) => {
     setActiveTab(prev => prev === idx ? null : idx);
@@ -484,10 +509,10 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
         )}
       </div>
       {activeTab !== null && (
+        <RsFloating anchorRef={activeTabRef as RefObject<HTMLElement>}>
         <div
           class="rs-cascading-v2__panel rs-dropdown-enter"
           ref={panelRef}
-          style={panelPos ? `left:${panelPos.left}px;right:auto;width:${panelPos.width}px` : undefined}
         >
           <div class="rs-cascading-v2__search">
             <div class="rs-input-wrap">
@@ -546,6 +571,7 @@ function CascadingMultiSelect({ locations, onChange, locked, t, config }: {
             </>
           )}
         </div>
+        </RsFloating>
       )}
     </div>
   );
@@ -575,7 +601,7 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (isOutsideField(ref.current, e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -592,39 +618,41 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
         {selected ? selected.name : (placeholder || allLabel)}
       </button>
       {open && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            <li
-              class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
-              onClick={() => { onChange(undefined); setOpen(false); }}
-            >
-              <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                {!value && <CheckIcon />}
-              </span>
-              <span>{allLabel}</span>
-            </li>
-            {tree.map(loc => (
+        <RsFloating anchorRef={ref}>
+          <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+            <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+            <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
               <li
-                key={loc.id}
-                class={`rs-dropdown__item rs-dropdown__item--indent-${LEVEL_INDENT[loc.level] ?? 0}${loc.id === value ? ' rs-dropdown__item--selected' : ''}`}
-                onClick={() => { onChange(loc.id); setOpen(false); }}
+                class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
+                onClick={() => { onChange(undefined); setOpen(false); }}
               >
-                <span class={`rs-cascading-v2__checkbox${loc.id === value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                  {loc.id === value && <CheckIcon />}
+                <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                  {!value && <CheckIcon />}
                 </span>
-                <span>{loc.name}</span>
-                <span class="rs-dropdown__meta">
-                  <LevelBadge level={loc.level} />
-                  {!!loc.propertyCount && (
-                    <span class="rs-dropdown__count">{loc.propertyCount}</span>
-                  )}
-                </span>
+                <span>{allLabel}</span>
               </li>
-            ))}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+              {tree.map(loc => (
+                <li
+                  key={loc.id}
+                  class={`rs-dropdown__item rs-dropdown__item--indent-${LEVEL_INDENT[loc.level] ?? 0}${loc.id === value ? ' rs-dropdown__item--selected' : ''}`}
+                  onClick={() => { onChange(loc.id); setOpen(false); }}
+                >
+                  <span class={`rs-cascading-v2__checkbox${loc.id === value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                    {loc.id === value && <CheckIcon />}
+                  </span>
+                  <span>{loc.name}</span>
+                  <span class="rs-dropdown__meta">
+                    <LevelBadge level={loc.level} />
+                    {!!loc.propertyCount && (
+                      <span class="rs-dropdown__count">{loc.propertyCount}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
+          </div>
+        </RsFloating>
       )}
     </div>
   );
@@ -684,7 +712,7 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (isOutsideField(ref.current, e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -745,23 +773,25 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
         {selected ? selected.name : (placeholder || allLabel)}
       </button>
       {open && (
-        <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
-          <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
-          <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
-            <li
-              class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
-              onClick={() => { onChange(undefined); setOpen(false); }}
-            >
-              <span class="rs-tree__spacer" />
-              <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                {!value && <CheckIcon />}
-              </span>
-              <span>{allLabel}</span>
-            </li>
-            {roots.map(loc => renderNode(loc, 0))}
-          </ul>
-          <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
-        </div>
+        <RsFloating anchorRef={ref}>
+          <div class="rs-dropdown rs-dropdown--scrollable rs-dropdown-enter">
+            <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
+            <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
+              <li
+                class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
+                onClick={() => { onChange(undefined); setOpen(false); }}
+              >
+                <span class="rs-tree__spacer" />
+                <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                  {!value && <CheckIcon />}
+                </span>
+                <span>{allLabel}</span>
+              </li>
+              {roots.map(loc => renderNode(loc, 0))}
+            </ul>
+            <ScrollArrow direction="down" visible={scroll.canDown} scroll={scroll} />
+          </div>
+        </RsFloating>
       )}
     </div>
   );
@@ -806,6 +836,7 @@ export default function RsLocation({ variation = 1 }: Props) {
       {variation === 2 && (
         <CascadingMultiSelect
           locations={locations}
+          value={filters.locationIds}
           onChange={handleMultiChange}
           locked={locked}
           t={t}

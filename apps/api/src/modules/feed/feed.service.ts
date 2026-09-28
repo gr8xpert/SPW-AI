@@ -18,7 +18,14 @@ import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { isValidCronExpression } from './cron-validator';
+import { LocationTemplateService, TemplateRunContext } from '../location-template/location-template.service';
+import { PropertyTypeTemplateService, TypeRunContext } from '../property-type-template/property-type-template.service';
 import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
+
+function sortedJson(value: Record<string, unknown> | null): string {
+  if (!value) return 'null';
+  return JSON.stringify(Object.keys(value).sort().map((k) => [k, value[k]]));
+}
 
 // Listings that left a feed are only removed after a run that received at
 // least this share of the total the feed reported...
@@ -83,6 +90,8 @@ export class FeedService {
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
     private readonly aiEnrichmentService: AiEnrichmentService,
+    private readonly locationTemplateService: LocationTemplateService,
+    private readonly typeTemplateService: PropertyTypeTemplateService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -524,6 +533,21 @@ export class FeedService {
       liveFeedIds: new Set(tenantFeeds.map((f) => f.id)),
       featuredFeedIds: new Set(tenantFeeds.filter((f) => f.markAsFeatured).map((f) => f.id)),
     };
+    // Places listings by the platform location template. Null (template empty
+    // or unreadable) keeps the old behaviour of building the tree from the
+    // feed's own names.
+    const templateCtx = await this.locationTemplateService
+      ?.createRunContext(config.tenantId, config.provider)
+      .catch((err) => {
+        this.logger.warn(`Location template unavailable for feed ${config.id}: ${(err as Error).message}`);
+        return null;
+      }) ?? null;
+    const typeCtx = await this.typeTemplateService
+      ?.createRunContext(config.tenantId, config.provider)
+      .catch((err) => {
+        this.logger.warn(`Type template unavailable for feed ${config.id}: ${(err as Error).message}`);
+        return null;
+      }) ?? null;
     // Every listing the feed returned this run — a markAsFeatured feed
     // unfeatures whatever it flagged earlier that isn't in here.
     const seenExternalIds = new Set<string>();
@@ -548,6 +572,8 @@ export class FeedService {
               areaProvinceOverrides,
               config.markAsFeatured === true,
               ownership,
+              templateCtx,
+              typeCtx,
             );
 
             if (outcome === 'created') {
@@ -615,6 +641,28 @@ export class FeedService {
         }
       }
 
+      // Unknown locations, AI placement of new towns, and clean-up of location
+      // rows the template made redundant. Never fails the import.
+      let locationsChanged = false;
+      if (templateCtx) {
+        try {
+          const t = await this.locationTemplateService.finishRun(templateCtx);
+          locationsChanged =
+            t.relocated > 0 || t.cleaned > 0 || templateCtx.stats.created > 0 || templateCtx.stats.moved > 0;
+        } catch (err) {
+          this.logger.warn(`Location template finish failed for feed ${config.id}: ${(err as Error).message}`);
+        }
+      }
+      if (typeCtx) {
+        try {
+          const t = await this.typeTemplateService.finishRun(typeCtx);
+          locationsChanged =
+            locationsChanged || t.relocated > 0 || t.cleaned > 0 || typeCtx.stats.created > 0 || typeCtx.stats.moved > 0 || typeCtx.stats.renamed > 0;
+        } catch (err) {
+          this.logger.warn(`Type template finish failed for feed ${config.id}: ${(err as Error).message}`);
+        }
+      }
+
       importLog.status = errors.length > 0 ? 'partial' : 'success';
       importLog.completedAt = new Date();
       importLog.removedCount = removedCount;
@@ -634,7 +682,7 @@ export class FeedService {
 
       await this.feedConfigRepository.save(config);
 
-      if (createdCount > 0 || updatedCount > 0 || removedCount > 0) {
+      if (createdCount > 0 || updatedCount > 0 || removedCount > 0 || locationsChanged) {
         try {
           await this.tenantService.clearCache(config.tenantId, {
             reason: `feed_import:${config.provider}`,
@@ -769,6 +817,8 @@ export class FeedService {
     areaProvinceOverrides: Record<string, string> = {},
     markAsFeatured = false,
     ownership?: FeedOwnershipContext,
+    templateCtx?: TemplateRunContext | null,
+    typeCtx?: TypeRunContext | null,
   ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -779,9 +829,30 @@ export class FeedService {
     });
 
     const contentHash = this.computeFeedHash(feedProperty);
+    const feedLocation = this.feedLocationRecord(provider, feedProperty.location);
+    const feedType = this.feedTypeRecord(provider, feedProperty);
 
     if (existing) {
       if (!existing.syncEnabled) return 'skipped';
+
+      // With the location template every sync re-checks the placement, so
+      // template edits and fixes reach listings whose feed data didn't change.
+      const locationLocked =
+        (existing.lockedFields || []).includes('locationId') || feedProtectedFields.includes('locationId');
+      const templateLocationId =
+        templateCtx && !locationLocked
+          ? await this.placeWithTemplate(templateCtx, feedProperty)
+          : null;
+      const locationMoved = templateLocationId != null && templateLocationId !== existing.locationId;
+
+      // Same for the property type.
+      const typeLocked =
+        (existing.lockedFields || []).includes('propertyTypeId') || feedProtectedFields.includes('propertyTypeId');
+      const templateTypeId = typeCtx && !typeLocked ? await this.placeTypeWithTemplate(typeCtx, feedProperty) : null;
+      const typeMoved = templateTypeId != null && templateTypeId !== existing.propertyTypeId;
+      const feedTypeChanged = sortedJson(existing.feedType ?? null) !== sortedJson(feedType);
+      // Compared key-sorted: MySQL hands JSON objects back with their keys reordered.
+      const feedLocationChanged = sortedJson(existing.feedLocation ?? null) !== sortedJson(feedLocation);
 
       const dataChanged = existing.contentHash !== contentHash;
       const imagesChanged = this.haveImagesChanged(
@@ -824,7 +895,7 @@ export class FeedService {
           !ownership.liveFeedIds.has(currentOwner) ||
           (ownership.featuredFeedIds.has(currentOwner) && !markAsFeatured));
 
-      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured && !claimOwnership) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured && !claimOwnership && !locationMoved && !feedLocationChanged && !typeMoved && !feedTypeChanged) return 'skipped';
 
       // Per-property locks (user-edited fields) merged with per-feed protected
       // fields (tenant-wide setting on FeedConfig). Union wins: any field named
@@ -848,7 +919,7 @@ export class FeedService {
         updateData.publishedAt = new Date();
       }
 
-      if (missingPropertyType && !lockedFields.includes('propertyTypeId')) {
+      if (missingPropertyType && !typeCtx && !lockedFields.includes('propertyTypeId')) {
         const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
         if (propertyTypeId !== null) updateData.propertyTypeId = propertyTypeId;
       }
@@ -857,7 +928,12 @@ export class FeedService {
         updateData.features = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
       }
 
-      if (missingLocation && !lockedFields.includes('locationId') && !dataChanged) {
+      if (feedLocationChanged) updateData.feedLocation = feedLocation;
+      if (locationMoved) updateData.locationId = templateLocationId;
+      if (feedTypeChanged) updateData.feedType = feedType;
+      if (typeMoved) updateData.propertyTypeId = templateTypeId;
+
+      if (missingLocation && !templateCtx && !lockedFields.includes('locationId') && !dataChanged) {
         // dataChanged covers location via the full propertyData block below.
         // This branch only fires when feed content is unchanged but the row lost
         // its locationId (e.g. after a wipe-and-sync).
@@ -866,8 +942,12 @@ export class FeedService {
       }
 
       if (dataChanged) {
-        const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
-        const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
+        const locationId = templateCtx
+          ? templateLocationId ?? existing.locationId
+          : await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
+        const propertyTypeId = typeCtx
+          ? templateTypeId ?? existing.propertyTypeId
+          : await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
         const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
         const propertyData: Record<string, any> = {
@@ -892,6 +972,8 @@ export class FeedService {
           features: featureIds,
           lat: feedProperty.lat,
           lng: feedProperty.lng,
+          postcode: feedProperty.postcode ?? null,
+          isOwnProperty: feedProperty.isOwnProperty ?? false,
           videoUrl: feedProperty.videoUrl,
           virtualTourUrl: feedProperty.virtualTourUrl,
           communityFees: feedProperty.communityFees ?? null,
@@ -932,8 +1014,12 @@ export class FeedService {
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {
-      const locationId = await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides);
-      const propertyTypeId = await this.findPropertyTypeId(tenantId, feedProperty.propertyType);
+      const locationId =
+        (templateCtx ? await this.placeWithTemplate(templateCtx, feedProperty) : null) ??
+        (await this.findOrCreateLocation(tenantId, feedProperty.location, areaProvinceOverrides));
+      const propertyTypeId =
+        (typeCtx ? await this.placeTypeWithTemplate(typeCtx, feedProperty) : null) ??
+        (await this.findPropertyTypeId(tenantId, feedProperty.propertyType));
       const featureIds = await this.findFeatureIds(tenantId, feedProperty.features, feedProperty.featureCategories);
 
       const images = await this.processImages(
@@ -968,6 +1054,8 @@ export class FeedService {
         features: featureIds,
         lat: feedProperty.lat,
         lng: feedProperty.lng,
+        postcode: feedProperty.postcode ?? null,
+        isOwnProperty: feedProperty.isOwnProperty ?? false,
         videoUrl: feedProperty.videoUrl,
         virtualTourUrl: feedProperty.virtualTourUrl,
         communityFees: feedProperty.communityFees ?? null,
@@ -976,6 +1064,8 @@ export class FeedService {
         builtYear: feedProperty.builtYear ?? null,
         energyRating: feedProperty.energyRating ?? null,
         contentHash,
+        feedLocation,
+        feedType,
         importedAt: new Date(),
         status: 'active',
         isPublished: true,
@@ -1154,6 +1244,58 @@ export class FeedService {
   // Region from the province; Urbanization is manual-only.
   // Same-name children under different parents are kept distinct via the
   // (tenantId, parentId, slug) unique index.
+  // The names the feed sent, stored on the listing so it can be re-placed when
+  // the template changes without re-fetching the feed.
+  private feedLocationRecord(provider: string, loc: FeedProperty['location']): Record<string, string> {
+    const out: Record<string, string> = { provider };
+    for (const key of ['province', 'area', 'municipality', 'town', 'urbanization'] as const) {
+      const v = (loc[key] || '').trim();
+      if (v) out[key] = v;
+    }
+    return out;
+  }
+
+  private feedTypeRecord(provider: string, p: FeedProperty): Record<string, string> {
+    const out: Record<string, string> = { provider };
+    const put = (k: string, v?: string) => {
+      const t = (v || '').trim();
+      if (t) out[k] = t;
+    };
+    put('name', p.propertyType);
+    put('code', p.propertyTypeCode);
+    put('parentName', p.propertyTypeGroup);
+    put('parentCode', p.propertyTypeGroupCode);
+    return out;
+  }
+
+  private async placeTypeWithTemplate(ctx: TypeRunContext, p: FeedProperty): Promise<number | null> {
+    try {
+      return await this.typeTemplateService.placeListing(ctx, {
+        name: p.propertyType,
+        code: p.propertyTypeCode,
+        parentName: p.propertyTypeGroup,
+        parentCode: p.propertyTypeGroupCode,
+      });
+    } catch (err) {
+      this.logger.warn(`Type template placement failed for ${p.reference}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  // Null when the template can't place it; callers then build the location
+  // from the feed's names as before.
+  private async placeWithTemplate(ctx: TemplateRunContext, feedProperty: FeedProperty): Promise<number | null> {
+    try {
+      return await this.locationTemplateService.placeListing(ctx, feedProperty.location, {
+        lat: feedProperty.lat,
+        lng: feedProperty.lng,
+      });
+    } catch (err) {
+      this.logger.warn(`Location template placement failed for ${feedProperty.reference}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   private async findOrCreateLocation(
     tenantId: number,
     location: FeedProperty['location'],

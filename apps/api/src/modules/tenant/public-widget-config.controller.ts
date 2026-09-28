@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { TenantService } from './tenant.service';
+import { SiteCheckinService } from '../website-health/site-checkin.service';
+import { isPreviewToken } from '../../common/crypto/preview-token';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
@@ -21,18 +23,23 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
 @Throttle({ 'api-key': { limit: 600, ttl: 60_000 } })
 export class PublicWidgetConfigController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly checkins: SiteCheckinService,
+  ) {}
 
   @Public()
   @Get()
-  async getConfig(@Headers('x-api-key') apiKey: string) {
+  async getConfig(@Headers('x-api-key') apiKey: string, @Headers('origin') origin?: string) {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
-    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
+    const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
+    // A browser loading the widget: remember which site (Website Health page).
+    if (origin && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, origin, 'widget');
     return this.tenantService.getPublicWidgetConfig(tenant.id);
   }
 }

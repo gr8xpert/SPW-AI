@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { TenantService } from './tenant.service';
+import { SiteCheckinService } from '../website-health/site-checkin.service';
+import { isPreviewToken } from '../../common/crypto/preview-token';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { UseGuards } from '@nestjs/common';
@@ -27,18 +29,27 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
 @Throttle({ 'api-key': { limit: 600, ttl: 60_000 } })
 export class PublicSyncMetaController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly checkins: SiteCheckinService,
+  ) {}
 
   @Public()
   @Get()
-  async getSyncMeta(@Headers('x-api-key') apiKey: string) {
+  async getSyncMeta(
+    @Headers('x-api-key') apiKey: string,
+    @Headers('x-spw-site') site?: string,
+    @Headers('x-spw-plugin') pluginVersion?: string,
+  ) {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
-    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
+    const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
+    // The WordPress plugin says which site it is (Website Health page).
+    if (site && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, site, 'plugin', pluginVersion);
     return this.tenantService.getSyncMeta(tenant.id);
   }
 }

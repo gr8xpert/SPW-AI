@@ -81,7 +81,19 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
 ?>
 <div class="wrap spw-wrap">
     <h1 class="spw-h1">Smart Property Manager <span class="spw-ver">v<?php echo esc_html(SPW_VERSION); ?></span></h1>
-    <p class="spw-tagline">Connect to your SPM tenant. Slugs, sync, and that's it &mdash; everything else lives in your SPM dashboard.</p>
+    <p class="spw-tagline">Connect to your SPM tenant. Slugs, sync, and that's it &mdash; everything else lives in your SPM dashboard.
+        <a class="button" href="<?php echo esc_url(SPW_Setup_Wizard::url()); ?>">Run the setup wizard</a></p>
+<?php
+    $health = SPW_Health::instance()->checks(false);
+    $health_sum = SPW_Health::summary($health);
+    if ($health_sum['critical'] || $health_sum['recommended']):
+?>
+    <div class="notice notice-<?php echo $health_sum['critical'] ? 'error' : 'warning'; ?> inline" style="margin:0 0 16px">
+        <p><strong>Site Health:</strong>
+            <?php echo (int) $health_sum['critical']; ?> problem(s), <?php echo (int) $health_sum['recommended']; ?> suggestion(s).
+            <a href="<?php echo esc_url(admin_url('admin.php?page=spw-health')); ?>">Open Site Health</a> to fix them in one click.</p>
+    </div>
+<?php endif; ?>
 
     <div class="spw-stats">
         <div class="spw-stat spw-stat--<?php echo $api_key_set ? 'ok' : 'warn'; ?>">
@@ -316,9 +328,10 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
             <div class="spw-card spw-card--hint">
                 <div class="spw-card-body">
                     <h3>Everything else lives in your dashboard</h3>
-                    <p>Display currency, listing types, search options, primary colour and feature toggles are managed in your <strong>SPM dashboard &rarr; Settings &rarr; Widget</strong>. Save once there and every embed picks it up &mdash; this plugin included.</p>
-                    <p class="description">Want to embed a custom widget anywhere else on your site? Paste this anywhere:</p>
-<pre class="spw-snippet"><code>&lt;div data-spm-widget="listing-template-03"
+                    <p>Design and brand colour are chosen in your <strong>SPM dashboard &rarr; Website Design</strong>; currency, listing types and search options in <strong>Settings &rarr; Widget</strong>. Save once there and your pages follow &mdash; no page editing needed.</p>
+                    <p class="description">Want a search box or listings anywhere else on your site (e.g. the homepage)? Add a <em>Custom HTML</em> block with:</p>
+<pre class="spw-snippet"><code>&lt;div data-spm-widget="site-search"&gt;&lt;/div&gt;
+&lt;div data-spm-widget="site-listing"
      data-spm-sort="is_featured_desc"
      data-spm-limit="6"&gt;&lt;/div&gt;</code></pre>
                 </div>

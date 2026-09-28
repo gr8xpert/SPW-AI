@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -51,7 +51,6 @@ const createClientSchema = z.object({
   domain: z.string().optional(),
   ownerEmail: z.string().email().optional().or(z.literal('')),
   siteName: z.string().optional(),
-  planId: z.number(),
   subscriptionStatus: z.enum(['active', 'grace', 'expired', 'manual', 'internal']),
   billingCycle: z.enum(['monthly', 'yearly']).optional(),
   billingSource: z.enum(['manual', 'stripe', 'internal']).optional(),
@@ -115,7 +114,6 @@ export default function CreateClientPage() {
   const { toast } = useToast();
 
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [createdClientId, setCreatedClientId] = useState<number | null>(null);
   const [rawApiKey, setRawApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -131,7 +129,6 @@ export default function CreateClientPage() {
       domain: '',
       ownerEmail: '',
       siteName: '',
-      planId: 1,
       subscriptionStatus: 'active',
       // Yearly is the only cycle actually sold; the picker is no longer rendered.
       billingCycle: 'yearly',
@@ -160,27 +157,6 @@ export default function CreateClientPage() {
       xeroContactId: '',
     },
   });
-
-  useEffect(() => {
-    // Still fetched even though the Plan picker is gone: the API requires a
-    // planId and tenants.planId is NOT NULL, so a client has to be created
-    // against *some* plan. The first one is used silently.
-    const fetchPlans = async () => {
-      try {
-        const response = await api.get('/api/super-admin/plans');
-        if (response.data.length > 0) {
-          form.setValue('planId', response.data[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to fetch plans:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPlans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Auto-generate slug from name
   const handleNameChange = (name: string) => {
@@ -231,13 +207,6 @@ export default function CreateClientPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -445,13 +414,8 @@ export default function CreateClientPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    {/* Plan and Billing Cycle are intentionally not rendered.
-                        Plans aren't sold per-client any more (the Subscriptions
-                        page is hidden from the admin sidebar too), so asking the
-                        operator to pick one on every create was noise.
-                        `planId` is still submitted — the API requires it and
-                        tenants.planId is NOT NULL — it's just set silently to
-                        the first plan returned by /plans (see fetchPlans). */}
+                    {/* No plan or billing-cycle picker: plans aren't sold, and
+                        the API puts every new client on the Free plan. */}
 
                     <FormField
                       control={form.control}

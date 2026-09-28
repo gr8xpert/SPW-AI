@@ -2,6 +2,9 @@ import {
   Controller,
   Get,
   Headers,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
   UnauthorizedException,
   UseGuards,
   UseInterceptors,
@@ -32,7 +35,7 @@ export class PublicLocationController {
 
   private async resolveTenantId(apiKey: string): Promise<number> {
     if (!apiKey) throw new UnauthorizedException('API key required');
-    const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
+    const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
     return tenant.id;
   }
@@ -42,5 +45,17 @@ export class PublicLocationController {
   async getLocations(@Headers('x-api-key') apiKey: string) {
     const tenantId = await this.resolveTenantId(apiKey);
     return this.locationService.findAll(tenantId);
+  }
+
+  // One place's point and outline, for the detail page map. Kept off the
+  // property payload because an outline is far larger than the rest of a
+  // listing and only the map ever wants it.
+  @Public()
+  @Get(':id/outline')
+  async getOutline(@Headers('x-api-key') apiKey: string, @Param('id', ParseIntPipe) id: number) {
+    const tenantId = await this.resolveTenantId(apiKey);
+    const outline = await this.locationService.outline(tenantId, id);
+    if (!outline) throw new NotFoundException('Location not found');
+    return outline;
   }
 }

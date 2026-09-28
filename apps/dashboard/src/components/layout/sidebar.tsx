@@ -27,6 +27,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Lock,
+  Palette,
+  HeartPulse,
+  Code2,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -84,6 +87,9 @@ const marketing: NavItem[] = [
 ];
 
 const integrations: NavItem[] = [
+  { name: 'Add to Website', href: '/dashboard/add-to-website', icon: Code2, minTier: 2 },
+  { name: 'Website Design', href: '/dashboard/website-design', icon: Palette, minTier: 2 },
+  { name: 'Website Health', href: '/dashboard/website-health', icon: HeartPulse, minTier: 2 },
   { name: 'Feed Sources', href: '/dashboard/feeds', icon: Upload, minTier: 2 },
   { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport', minTier: 2 },
 ];

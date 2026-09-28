@@ -3,8 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tenant, WebhookDelivery } from '../../database/entities';
-import { TenantPublic, TenantSettings, DEFAULT_TENANT_TIER } from '@spm/shared';
+import { TenantPublic, TenantSettings, DEFAULT_TENANT_TIER, DEFAULT_LOCATION_SEARCH_CONFIG } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
+import { createPreviewToken, isPreviewToken, verifyPreviewToken } from '../../common/crypto/preview-token';
+import { isSlugFormat } from '../property/property-url';
+import { widgetVersion } from './widget-version';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
 
@@ -67,6 +70,23 @@ export class TenantService {
     if (!tenant.widgetEnabled) return null;
     if (!isTenantSubscriptionValid(tenant)) return null;
     return tenant;
+  }
+
+  // Read-only public endpoints (listings, lookups, widget config) also accept
+  // a dashboard preview token in place of the key; see preview-token.ts.
+  async findWidgetTenantForRead(rawApiKeyOrToken: string): Promise<Tenant | null> {
+    if (isPreviewToken(rawApiKeyOrToken)) {
+      const tenantId = verifyPreviewToken(rawApiKeyOrToken);
+      if (!tenantId) return null;
+      const tenant = await this.tenantRepository.findOne({ where: { id: tenantId, isActive: true } });
+      if (!tenant || !tenant.widgetEnabled || !isTenantSubscriptionValid(tenant)) return null;
+      return tenant;
+    }
+    return this.findActiveWidgetTenantByApiKey(rawApiKeyOrToken);
+  }
+
+  createPreviewToken(tenantId: number): { token: string; expiresAt: string } {
+    return createPreviewToken(tenantId);
   }
 
   // Rotates the tenant's API key. Returns the raw key exactly once; callers
@@ -233,7 +253,7 @@ export class TenantService {
   // Public sync-meta payload — the widget/WP plugin polls this to detect
   // stale local caches. Intentionally minimal: only the signals a client
   // needs to decide whether to drop its cache.
-  async getSyncMeta(tenantId: number): Promise<{ syncVersion: number; tenantSlug: string }> {
+  async getSyncMeta(tenantId: number): Promise<{ syncVersion: number; tenantSlug: string; widgetVersion?: string }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       select: ['id', 'syncVersion', 'slug'],
@@ -241,7 +261,8 @@ export class TenantService {
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
-    return { syncVersion: tenant.syncVersion, tenantSlug: tenant.slug };
+    const version = widgetVersion();
+    return { syncVersion: tenant.syncVersion, tenantSlug: tenant.slug, ...(version ? { widgetVersion: version } : {}) };
   }
 
   /**
@@ -252,7 +273,7 @@ export class TenantService {
   async getPublicWidgetConfig(tenantId: number): Promise<Record<string, unknown>> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
-      select: ['id', 'settings', 'featureFlags'],
+      select: ['id', 'settings', 'featureFlags', 'aiSearchEnabled'],
     });
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
@@ -267,6 +288,14 @@ export class TenantService {
     if (s.priceOptions) config.priceOptions = s.priceOptions;
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
+    const tiles = publicMapTiles(s.mapTiles);
+    if (tiles) config.mapTiles = tiles;
+    if (isSlugFormat(s.slugFormat)) config.slugFormat = s.slugFormat;
+    const version = widgetVersion();
+    if (version) config.widgetVersion = version;
+    const templates = publicSiteTemplates(s.siteTemplates);
+    if (templates) config.siteTemplates = templates;
+    config.locationSearchConfig = publicLocationSearchConfig(s.locationSearchConfig);
     if (s.recaptchaSiteKey) config.recaptchaSiteKey = s.recaptchaSiteKey;
     // Site display currency. A currency set on the embedding page itself
     // (RealtySoftConfig.currency / data-spm-currency) still wins in the widget.
@@ -280,6 +309,11 @@ export class TenantService {
     if (f.currencyConverter !== false) config.enableCurrencyConverter = true;
     if (f.mapSearch !== false) config.mapSearchEnabled = true;
     if (f.aiChatbot === true) config.enableAiChat = true;
+    // The widget only shows the AI button when the feature is on AND the
+    // client has their own OpenRouter key — it spends their credit, so
+    // without a key there is nothing to spend. /api/v1/ai-search/status
+    // confirms both before the panel opens.
+    if (f.aiSearch !== false && tenant.aiSearchEnabled) config.aiSearchEnabled = true;
     return config;
   }
 
@@ -484,4 +518,72 @@ export function isTenantSubscriptionValid(tenant: Tenant): boolean {
     if (now > tenant.expiresAt) return false;
   }
   return true;
+}
+
+// Only a well-formed map tile setting reaches the website: a MapTiler key is
+// a public browser key by design, and a custom URL must be an https tile
+// template.
+export function publicMapTiles(value: TenantSettings['mapTiles']): TenantSettings['mapTiles'] | null {
+  if (!value || typeof value !== 'object') return null;
+  if (value.provider === 'maptiler' && typeof value.key === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value.key.trim())) {
+    return { provider: 'maptiler', key: value.key.trim() };
+  }
+  if (
+    value.provider === 'custom' &&
+    typeof value.url === 'string' &&
+    /^https:\/\/[^\s"'<>]+$/.test(value.url.trim()) &&
+    ['{z}', '{x}', '{y}'].every((part) => value.url!.includes(part))
+  ) {
+    const attribution = typeof value.attribution === 'string' ? value.attribution.replace(/[<>]/g, '').trim().slice(0, 200) : '';
+    return { provider: 'custom', url: value.url.trim(), ...(attribution ? { attribution } : {}) };
+  }
+  return null;
+}
+
+// Templates the widget has, per page type. Keep in step with the widget's
+// component registry.
+export const SITE_TEMPLATE_IDS: Record<'search' | 'listing' | 'detail' | 'map', string[]> = {
+  search: ['01', '02', '03', '04', '05', '06'].map((n) => `search-template-${n}`),
+  listing: Array.from({ length: 12 }, (_, i) => `listing-template-${String(i + 1).padStart(2, '0')}`),
+  detail: ['detail-template-01'],
+  map: ['map-template-01', 'map-template-02', 'map-template-03'],
+};
+
+// The levels the hierarchy actually uses. Keep in step with the dashboard's
+// Locations page (`levels` there) — a level missing from this list is dropped
+// from the dropdown config and the site silently loses that step.
+const LOCATION_LEVELS = ['region', 'province', 'area', 'municipality', 'town', 'urbanization'];
+
+/**
+ * Which location levels each search dropdown offers (Locations → Website Search
+ * Dropdowns). Without this the widget falls back to the roots of the tree,
+ * which on most sites is a single region — so the dropdown offers one useless
+ * choice. A tenant that has never saved the section gets the same default the
+ * dashboard shows, rather than that fallback.
+ */
+export function publicLocationSearchConfig(
+  value: TenantSettings['locationSearchConfig'],
+): TenantSettings['locationSearchConfig'] {
+  const out = {} as NonNullable<TenantSettings['locationSearchConfig']>;
+  for (const key of ['dropdown1', 'dropdown2', 'dropdown3'] as const) {
+    const dd = value && typeof value === 'object' ? value[key] : undefined;
+    const levels = Array.isArray(dd?.levels)
+      ? dd.levels.filter((l): l is string => typeof l === 'string' && LOCATION_LEVELS.includes(l))
+      : [];
+    const fallback = DEFAULT_LOCATION_SEARCH_CONFIG[key];
+    out[key] = levels.length
+      ? { levels, ...(typeof dd?.visible === 'boolean' ? { visible: dd.visible } : {}) }
+      : { ...fallback };
+  }
+  return out;
+}
+
+export function publicSiteTemplates(value: TenantSettings['siteTemplates']): TenantSettings['siteTemplates'] | null {
+  if (!value || typeof value !== 'object') return null;
+  const out: NonNullable<TenantSettings['siteTemplates']> = {};
+  for (const kind of Object.keys(SITE_TEMPLATE_IDS) as Array<keyof typeof SITE_TEMPLATE_IDS>) {
+    const id = value[kind];
+    if (typeof id === 'string' && SITE_TEMPLATE_IDS[kind].includes(id)) out[kind] = id;
+  }
+  return Object.keys(out).length ? out : null;
 }

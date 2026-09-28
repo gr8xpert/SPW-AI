@@ -1,10 +1,12 @@
 import RsLocation from '@/components/search/RsLocation';
 import RsPropertyType from '@/components/search/RsPropertyType';
 import RsSearchButton from '@/components/search/RsSearchButton';
+import RsAiSearch from '@/components/search/RsAiSearch';
 
 export default function SearchTemplate06() {
   return (
     <div class="rs-search-template-06">
+      <RsAiSearch />
       <div class="rs-search-minimal">
         <RsLocation variation={1} />
         <RsPropertyType variation={2} />

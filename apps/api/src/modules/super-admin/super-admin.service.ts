@@ -271,10 +271,11 @@ export class SuperAdminService {
     dto.adminEmail = dto.adminEmail.trim().toLowerCase();
     await this.assertEmailAvailable(dto.adminEmail);
 
-    // Verify plan exists
-    const plan = await this.planRepository.findOne({
-      where: { id: dto.planId },
-    });
+    // Every client is on the Free plan (plans aren't sold any more); an
+    // explicit planId from an older caller is still honoured if it exists.
+    const plan = dto.planId
+      ? await this.planRepository.findOne({ where: { id: dto.planId } })
+      : await this.planRepository.findOne({ where: { slug: 'free' } });
 
     if (!plan) {
       throw new NotFoundException('Plan not found');
@@ -316,7 +317,7 @@ export class SuperAdminService {
         ownerEmail: dto.ownerEmail || dto.adminEmail,
         siteName: dto.siteName || dto.name,
         apiUrl: dto.apiUrl || null,
-        planId: dto.planId,
+        planId: plan.id,
         apiKeyHash: apiKey.hash,
         apiKeyLast4: apiKey.last4,
         webhookSecret,

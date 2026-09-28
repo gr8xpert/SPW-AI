@@ -52,8 +52,19 @@ class SPW_Settings {
             'spw-pages',
             [$this, 'render_pages_page']
         );
-        $this->hooks['filter_ids'] = add_submenu_page(
+        $this->hooks['blocks'] = add_submenu_page(
             'spw-settings',
+            'Blocks',
+            'Blocks',
+            'manage_options',
+            'spw-blocks',
+            [$this, 'render_blocks_page']
+        );
+        // The id reference belongs with the blocks it is used in, so it is
+        // shown at the foot of that page rather than as a menu item of its
+        // own. Registered without a parent so old bookmarks still open.
+        $this->hooks['filter_ids'] = add_submenu_page(
+            null,
             'Filter IDs Reference',
             'Filter IDs',
             'manage_options',
@@ -87,9 +98,10 @@ class SPW_Settings {
         if (array_key_exists('page_titles', (array)$input)) {
             $titles_in = (array)$input['page_titles'];
             $clean['page_titles'] = [];
-            foreach (['listings', 'detail', 'wishlist'] as $t) {
+            foreach (['listings', 'detail', 'wishlist', 'map'] as $t) {
                 $val = sanitize_text_field($titles_in[$t] ?? '');
-                $clean['page_titles'][$t] = $val !== '' ? $val : $defaults['page_titles'][$t];
+                if ($val === '') $val = $defaults['page_titles'][$t] ?? '';
+                if ($val !== '') $clean['page_titles'][$t] = $val;
             }
         }
 
@@ -116,10 +128,41 @@ class SPW_Settings {
             }
         }
 
-        // Auto-generated page IDs are owned by the generator, not the UI.
-        $clean['detail_page_id']   = (int)($existing['detail_page_id']   ?? 0);
-        $clean['listings_page_id'] = (int)($existing['listings_page_id'] ?? 0);
-        $clean['wishlist_page_id'] = (int)($existing['wishlist_page_id'] ?? 0);
+        // Ready-made per-type maps (lang => slug), as saved by the setup wizard.
+        foreach (['listings', 'detail', 'wishlist'] as $type) {
+            $k = 'slugs_' . $type;
+            if (!array_key_exists($k, (array)$input) || array_key_exists('slug_rows', (array)$input)) continue;
+            $map = [];
+            foreach ((array)$input[$k] as $lang => $slug) {
+                $lang = strtolower(sanitize_key($lang));
+                $slug = sanitize_title($slug);
+                if ($lang && $slug) $map[$lang] = $slug;
+            }
+            if (empty($map['en'])) $map = ['en' => $defaults[$k]['en']] + $map;
+            if ($type === 'detail' && ($existing['slugs_detail'] ?? []) != $map) {
+                update_option('spw_flush_rewrites', 1);
+            }
+            $clean[$k] = $map;
+        }
+
+        if (array_key_exists('page_titles_i18n', (array)$input)) {
+            $clean['page_titles_i18n'] = [];
+            foreach ((array)$input['page_titles_i18n'] as $lang => $titles) {
+                $lang = strtolower(sanitize_key($lang));
+                if (!$lang || !is_array($titles)) continue;
+                foreach (['listings', 'detail', 'wishlist', 'map'] as $t) {
+                    $val = sanitize_text_field($titles[$t] ?? '');
+                    if ($val !== '') $clean['page_titles_i18n'][$lang][$t] = $val;
+                }
+            }
+        }
+
+        // Auto-generated page IDs are owned by the generator, not the UI:
+        // settings forms never post them, so they're kept — unless the
+        // generator itself is saving new ones.
+        foreach (['detail_page_id', 'listings_page_id', 'wishlist_page_id', 'map_page_id'] as $k) {
+            $clean[$k] = array_key_exists($k, (array)$input) ? (int)$input[$k] : (int)($existing[$k] ?? 0);
+        }
 
         return $clean;
     }
@@ -158,8 +201,9 @@ class SPW_Settings {
         $is_settings   = ($hook === ($this->hooks['settings']   ?? '') || $hook === 'toplevel_page_spw-settings');
         $is_pages      = ($hook === ($this->hooks['pages']      ?? '') || strpos($hook, 'spw-pages') !== false);
         $is_filter_ids = ($hook === ($this->hooks['filter_ids'] ?? '') || strpos($hook, 'spw-filter-ids') !== false);
+        $is_blocks     = ($hook === ($this->hooks['blocks'] ?? '') || strpos($hook, 'spw-blocks') !== false);
 
-        if (!$is_settings && !$is_pages && !$is_filter_ids) return;
+        if (!$is_settings && !$is_pages && !$is_filter_ids && !$is_blocks) return;
 
         wp_enqueue_style('spw-admin', SPW_URL . 'admin/assets/admin.css', [], SPW_VERSION);
         wp_enqueue_script('spw-admin', SPW_URL . 'admin/assets/admin.js', ['jquery'], SPW_VERSION, true);
@@ -181,6 +225,11 @@ class SPW_Settings {
     public function render_pages_page() {
         if (!current_user_can('manage_options')) return;
         include SPW_DIR . 'admin/views/pages-page.php';
+    }
+
+    public function render_blocks_page() {
+        if (!current_user_can('manage_options')) return;
+        include SPW_DIR . 'admin/views/blocks-page.php';
     }
 
     public function render_filter_ids_page() {
@@ -218,7 +267,9 @@ class SPW_Settings {
     public function ajax_create_pages() {
         check_ajax_referer('spw_admin', 'nonce');
         if (!current_user_can('manage_options')) wp_send_json_error('forbidden');
-        $results = SPW_Page_Generator::create_pages();
+        $types = ['listings', 'detail', 'wishlist'];
+        if ((int) SPW_Plugin::get('map_page_id')) $types[] = 'map';
+        $results = SPW_Page_Generator::create_pages(['types' => $types]);
         wp_send_json_success(['results' => $results]);
     }
 }

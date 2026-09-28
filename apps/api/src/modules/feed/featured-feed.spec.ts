@@ -62,6 +62,8 @@ function existingRow(svc: any, fp: any, overrides: Record<string, unknown> = {})
     lockedFields: null,
     isFeatured: false,
     featuredByFeedId: null,
+    // Stored by an earlier sync, so only the featured/ownership logic can change it.
+    feedLocation: { provider: 'resales', province: 'Málaga', town: 'Marbella' }, feedType: { provider: 'resales', name: 'Villa' },
     ...overrides,
   };
 }

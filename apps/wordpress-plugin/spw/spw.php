@@ -3,7 +3,7 @@
  * Plugin Name: Smart Property Manager
  * Plugin URI:  https://spw-ai.com
  * Description: One-click integration for the Smart Property Manager. Enter your API key, pick your pages, and SPM handles listings, search, property detail pages, social sharing, and SEO.
- * Version:     2.4.0
+ * Version:     2.7.3
  * Author:      RealtySoft
  * License:     GPL v2 or later
  * Text Domain: spw
@@ -13,7 +13,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('SPW_VERSION', '2.4.0');
+define('SPW_VERSION', '2.7.3');
 define('SPW_FILE', __FILE__);
 define('SPW_DIR', plugin_dir_path(__FILE__));
 define('SPW_URL', plugin_dir_url(__FILE__));
@@ -28,7 +28,13 @@ require_once SPW_DIR . 'includes/class-spw-i18n.php';
 require_once SPW_DIR . 'includes/class-spw-rewrite.php';
 require_once SPW_DIR . 'includes/class-spw-og-tags.php';
 require_once SPW_DIR . 'includes/class-spw-data-sync.php';
+require_once SPW_DIR . 'includes/class-spw-page-defaults.php';
 require_once SPW_DIR . 'includes/class-spw-page-generator.php';
+require_once SPW_DIR . 'includes/class-spw-filter-resolver.php';
+require_once SPW_DIR . 'includes/class-spw-shortcode.php';
+require_once SPW_DIR . 'includes/class-spw-shortcode-reference.php';
+require_once SPW_DIR . 'includes/class-spw-health.php';
+require_once SPW_DIR . 'includes/class-spw-setup-wizard.php';
 require_once SPW_DIR . 'includes/class-spw-cache-exclusions.php';
 require_once SPW_DIR . 'includes/class-spw-sitemap.php';
 

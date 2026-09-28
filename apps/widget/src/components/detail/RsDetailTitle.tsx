@@ -7,7 +7,8 @@ interface Props {
 
 export default function RsDetailTitle({ title: titleProp }: Props) {
   const property = useSelector(selectors.getSelectedProperty);
-  const title = titleProp ?? property?.title;
+  // "Page Title" from the property's SEO section, when the agent set one.
+  const title = titleProp ?? (property?.pageTitle || property?.title);
 
   if (!title) return null;
 

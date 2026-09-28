@@ -19,6 +19,12 @@ export type LocationLevel =
   | 'town'
   | 'urbanization';
 
+/** A town or area outline, as GeoJSON. */
+export interface LocationBoundary {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][] | number[][][][];
+}
+
 @Entity('locations')
 @Index('uq_locations_tenant_parent_slug', ['tenantId', 'parentId', 'slug'], { unique: true })
 @Index(['tenantId', 'level'])
@@ -65,6 +71,17 @@ export class Location {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   lng: number | null;
 
+  // The town's outline, as a GeoJSON geometry, simplified to a few hundred
+  // points. Feed listings carry no coordinates of their own, so the map shows
+  // the shape of the place with a count on it rather than pretending to know
+  // which street each property is on.
+  //
+  // Hidden by default: an outline is a few hundred coordinate pairs, and the
+  // widget's location tree and every property detail response load this table
+  // whole. Only the map asks for it, and asks explicitly (addSelect).
+  @Column({ type: 'json', nullable: true, select: false })
+  boundary: LocationBoundary | null;
+
   @Column({ default: 0 })
   propertyCount: number;
 
@@ -78,6 +95,17 @@ export class Location {
   // enrichment job skip rows the user manually edited on re-runs.
   @Column({ default: false })
   aiAssigned: boolean;
+
+  // The platform location-template node this row stands for. Feed imports find
+  // a tenant's row through this link wherever it sits in their tree, so the
+  // client's own arrangement survives syncs.
+  @Column({ type: 'int', nullable: true })
+  templateNodeId: number | null;
+
+  // Set when the client moves or renames this row in their dashboard; the
+  // template then never re-parents or renames it.
+  @Column({ default: false })
+  userLocked: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

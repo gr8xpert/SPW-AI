@@ -343,6 +343,16 @@ export class Property {
   })
   brochureVariant: 'inherit' | 'branded' | 'unbranded';
 
+  // Location names exactly as the feed sent them, so the location can be
+  // re-resolved against an updated template without re-fetching the feed.
+  @Column({ type: 'json', nullable: true })
+  feedLocation: Record<string, string> | null;
+
+  // The property type exactly as the feed sent it (name, provider code, group),
+  // for re-resolving against an updated type template.
+  @Column({ type: 'json', nullable: true })
+  feedType: Record<string, string> | null;
+
   // Field locking (array of locked field names)
   @Column({ type: 'json', nullable: true })
   lockedFields: string[] | null;

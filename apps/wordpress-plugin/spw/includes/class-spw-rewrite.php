@@ -20,11 +20,41 @@ class SPW_Rewrite {
     private function __construct() {
         add_action('init', [self::class, 'add_rules']);
         add_filter('query_vars', [$this, 'query_vars']);
+        // Turn the request into an ordinary page query while WP is still
+        // working out what was asked for. Themes that build the header and
+        // footer from a template (Divi's Theme Builder, and every other
+        // builder that keys its generated CSS on the post being shown) decide
+        // that on `wp`, long before `template_redirect` — so a page swapped in
+        // later renders with the wrong stylesheet and loses its menu and logo.
+        add_action('parse_query', [$this, 'route_query'], 1);
         // Priority 0 — run before WP's redirect_canonical (default 10) so it
-        // can't bounce /property/<ref>/ → /property/ before we route.
+        // can't bounce /property/<ref>/ → /property/ before we route. Still
+        // here for the case where the query above could not be redirected.
         add_action('template_redirect', [$this, 'route_to_detail'], 0);
         // Belt-and-braces: kill canonical redirects on our detail URLs.
         add_filter('redirect_canonical', [$this, 'block_canonical_for_detail'], 10, 2);
+    }
+
+    /**
+     * The main query for `/property/<ref>` becomes a normal query for the
+     * detail page, so WP (and the theme) never sees anything unusual.
+     */
+    public function route_query($q) {
+        if (!method_exists($q, 'is_main_query') || !$q->is_main_query()) return;
+        if (empty($q->query_vars['spw_ref'])) return;
+        if (!empty($q->query_vars['page_id'])) return;
+
+        $detail_id = $this->resolve_detail_page_id((string) ($q->query_vars['spw_lang'] ?? ''));
+        if (!$detail_id) return;
+
+        $q->set('page_id', $detail_id);
+        $q->set('post_type', 'page');
+        $q->is_page     = true;
+        $q->is_singular = true;
+        $q->is_single   = false;
+        $q->is_home     = false;
+        $q->is_archive  = false;
+        $q->is_404      = false;
     }
 
     public function block_canonical_for_detail($redirect_url, $requested_url) {
@@ -77,40 +107,63 @@ class SPW_Rewrite {
     }
 
     /**
-     * When a ref matches, render the auto-created detail page so the widget
-     * can mount inside it.
+     * Which page shows a property. The configured one, else a page with the
+     * detail slug, else any published page carrying the detail widget — so an
+     * admin who built their own page never has to click "Create Pages".
+     * On a multilingual site the URL's language picks the translation.
+     *
+     * @param string $url_lang language from the URL, '' when unprefixed
      */
-    public function route_to_detail() {
-        if (!self::is_property_detail()) return;
+    private function resolve_detail_page_id($url_lang = '') {
         $detail_id = (int) SPW_Plugin::get('detail_page_id');
 
-        // Fall back to a designer-built page so admins don't have to click
-        // "Create Pages". Strategy (first match wins):
-        //   a) page whose slug matches the configured detail slug for the lang
-        //   b) any published page whose content contains the detail widget marker
         if (!$detail_id) {
-            $lang = (string) get_query_var('spw_lang');
+            $lang = $url_lang;
             if (!$lang && class_exists('SPW_I18n')) {
                 $lang = SPW_I18n::instance()->current_lang() ?: 'en';
             }
             $slug = SPW_Plugin::slug('detail', $lang);
-            $found = get_page_by_path($slug);
+            $found = $slug ? get_page_by_path($slug) : null;
             if ($found) $detail_id = (int) $found->ID;
         }
 
         if (!$detail_id) {
-            $hits = get_posts([
-                'post_type'      => 'page',
-                'post_status'    => 'publish',
-                's'              => 'detail-template-01',
-                'numberposts'    => 1,
-                'fields'         => 'ids',
-                'suppress_filters' => true,
-            ]);
-            if (!empty($hits)) $detail_id = (int) $hits[0];
+            foreach (['data-spm-widget="site-detail"', 'detail-template-01'] as $marker) {
+                $hits = get_posts([
+                    'post_type'      => 'page',
+                    'post_status'    => 'publish',
+                    's'              => $marker,
+                    'numberposts'    => 1,
+                    'fields'         => 'ids',
+                    'suppress_filters' => true,
+                ]);
+                if (!empty($hits)) { $detail_id = (int) $hits[0]; break; }
+            }
         }
 
+        if (!$detail_id) return 0;
+
+        if ($url_lang && class_exists('SPW_Page_Generator') && class_exists('SPW_I18n')) {
+            $tid = SPW_Page_Generator::translation_of(SPW_I18n::instance()->detect()['plugin'], $detail_id, $url_lang);
+            if ($tid && get_post_status($tid) === 'publish') $detail_id = (int) $tid;
+        }
+
+        return $detail_id;
+    }
+
+    /**
+     * When a ref matches, render the auto-created detail page so the widget
+     * can mount inside it. `route_query()` has normally done this already;
+     * this stays as a fallback for a query that could not be redirected.
+     */
+    public function route_to_detail() {
+        if (!self::is_property_detail()) return;
+
+        $detail_id = $this->resolve_detail_page_id((string) get_query_var('spw_lang'));
         if (!$detail_id) return;
+
+        // Already showing the right page — leave the query alone.
+        if (get_queried_object_id() === $detail_id) return;
 
         $page = get_post($detail_id);
         if (!$page) return;

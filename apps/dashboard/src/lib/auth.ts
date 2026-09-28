@@ -12,6 +12,11 @@ const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http:
 // never races the clock.
 const REFRESH_LEEWAY_MS = 60_000;
 
+// Every server-rendered page waits for the session, and the session may have to
+// rotate the access token first. Without a timeout a stalled connection holds
+// that render until the OS gives up on the socket — minutes of blank dashboard.
+const AUTH_TIMEOUT_MS = 8_000;
+
 // Read the exp claim from a signed JWT without verifying — we trust it because
 // we just received it from our own API. Used only for scheduling the refresh.
 function readJwtExpiryMs(token: string): number {
@@ -29,9 +34,11 @@ function readJwtExpiryMs(token: string): number {
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/refresh`, {
-      refreshToken: token.refreshToken,
-    });
+    const response = await axios.post(
+      `${API_URL}/api/auth/refresh`,
+      { refreshToken: token.refreshToken },
+      { timeout: AUTH_TIMEOUT_MS },
+    );
 
     // API response is wrapped: { data: { accessToken, refreshToken } }
     const { accessToken, refreshToken } = response.data.data;
@@ -46,10 +53,16 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       accessTokenExpires: readJwtExpiryMs(accessToken),
       error: undefined,
     };
-  } catch {
-    // Rotation failed — token might be revoked (reuse detection) or network
-    // error. Surface the error so the session callback can force a sign-out.
-    return { ...token, error: 'RefreshAccessTokenError' };
+  } catch (err) {
+    // A refusal from the API is final: the refresh token is revoked or was
+    // reused, so the session callback must force a sign-out.
+    const answered = !!(err as { response?: unknown })?.response;
+    if (answered) return { ...token, error: 'RefreshAccessTokenError' };
+
+    // Nothing came back — a timeout or a dropped connection. The token itself
+    // is fine, so keep the session and let the next render try again rather
+    // than signing the user out over one bad moment on the network.
+    return token;
   }
 }
 
@@ -67,10 +80,13 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const response = await axios.post(`${API_URL}/api/auth/login`, {
-            email: credentials.email,
-            password: credentials.password,
-          });
+          const response = await axios.post(
+            `${API_URL}/api/auth/login`,
+            { email: credentials.email, password: credentials.password },
+            // Login checks a password hash, so allow more than a refresh, but
+            // never leave the sign-in button spinning on a dead connection.
+            { timeout: AUTH_TIMEOUT_MS * 2 },
+          );
 
           // API returns { data: { accessToken, refreshToken, user } }
           const { accessToken, refreshToken, user } = response.data.data;

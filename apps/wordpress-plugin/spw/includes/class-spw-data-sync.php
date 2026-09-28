@@ -151,10 +151,33 @@ class SPW_Data_Sync {
             if ($remote_v !== null) $versions_local[$file] = $remote_v;
         }
 
+        $this->sync_site_config();
+
         update_option('spw_data_versions', $versions_local, false);
         update_option('spw_last_sync', time(), false);
         update_option('spw_last_sync_results', $results, false);
         return $results;
+    }
+
+    /**
+     * Keep a copy of the dashboard's brand colour and chosen templates, so the
+     * page can paint in the brand colour before the widget loads and the
+     * admin screens can show what the dashboard is set to. Kept on failure.
+     */
+    public function sync_site_config() {
+        $r = SPW_API_Client::get('api/v1/widget-config');
+        if (is_wp_error($r)) return false;
+        $data = $r['data'] ?? $r;
+        if (!is_array($data)) return false;
+        $color = (isset($data['primaryColor']) && is_string($data['primaryColor']) && preg_match('/^#[0-9a-f]{6}$/i', $data['primaryColor'])) ? $data['primaryColor'] : '';
+        $templates = [];
+        foreach ((array) ($data['siteTemplates'] ?? []) as $kind => $id) {
+            if (in_array($kind, ['search', 'listing', 'detail', 'map'], true) && is_string($id) && preg_match('/^[a-z]+-template-\d{2}$/', $id)) {
+                $templates[$kind] = $id;
+            }
+        }
+        update_option('spw_site_config', ['primaryColor' => $color, 'siteTemplates' => $templates, 'fetchedAt' => time()], false);
+        return true;
     }
 
     /**
@@ -171,6 +194,11 @@ class SPW_Data_Sync {
         wp_schedule_single_event(time(), 'spw_daily_sync', [false]);
     }
 
+    /** The tenant's data version, bumped by any property or dashboard edit. */
+    public static function current_version() {
+        return (int) get_option('spw_sync_version', 0);
+    }
+
     public function get_last_results() {
         return get_option('spw_last_sync_results', []);
     }
@@ -179,6 +207,16 @@ class SPW_Data_Sync {
         $r = SPW_API_Client::get('api/v1/sync-meta');
         if (is_wp_error($r)) return null;
         $data = $r['data'] ?? $r;
+        // The deployed widget's version rides along: the bundle is loaded
+        // with ?ver=<it>, so a new widget reaches the site within minutes.
+        if (is_array($data) && isset($data['widgetVersion']) && is_string($data['widgetVersion'])
+            && preg_match('/^[a-f0-9]{6,64}$/', $data['widgetVersion'])
+            && get_option('spw_widget_version') !== $data['widgetVersion']) {
+            update_option('spw_widget_version', $data['widgetVersion'], true);
+        }
+        if (is_array($data) && isset($data['syncVersion'])) {
+            update_option('spw_sync_version', (int) $data['syncVersion'], true);
+        }
         return (is_array($data) && isset($data['syncVersion'])) ? (int) $data['syncVersion'] : null;
     }
 

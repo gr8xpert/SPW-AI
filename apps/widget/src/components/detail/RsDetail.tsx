@@ -47,7 +47,7 @@ export default function RsDetail() {
       <div class="rs-detail__content">
         <div class="rs-detail__main">
           <div class="rs-detail__title-block">
-            <RsDetailTitle title={property.title} />
+            <RsDetailTitle title={property.pageTitle || property.title} />
             <div class="rs-detail__meta">
               <RsDetailStatus />
               <RsDetailType />

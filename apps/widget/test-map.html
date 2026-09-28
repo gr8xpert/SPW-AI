@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Map search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1280px; margin: 0 auto; padding: 1rem; background: #f7f7f9; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1rem; margin: 2rem 0 0.5rem; color: #334; }
+    .panel { background: #fff; border: 1px solid #ddd; padding: 1rem; border-radius: 6px; }
+    #diag { background: #111; color: #0f0; padding: 0.5rem 1rem; font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>SPW Widget — Map search variations (API on :3001)</h1>
+  <div id="diag">[diag] starting…</div>
+
+  <!-- Pick one variation per load with ?t=1|2|3|explore (several maps on one page share one search state). -->
+  <div id="host" class="panel"></div>
+
+  <script>
+    const diag = document.getElementById('diag');
+    const log = (...a) => { diag.textContent += '\n' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); };
+    window.addEventListener('error', e => log('[err]', e.message));
+    const t = new URLSearchParams(location.search).get('t') || '1';
+    const common = 'data-spm-api-url="http://localhost:3001" data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" data-spm-property-page-slug="detail"';
+    const html = t === 'explore'
+      ? `<h2>map_view mode=explore</h2><div data-spm-widget="map_view" data-spm-mode="explore" ${common}></div>`
+      : `<h2>map-template-0${t}</h2><div data-spm-widget="map-template-0${t}" ${common}></div>`;
+    document.getElementById('host').innerHTML = html;
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

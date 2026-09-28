@@ -417,9 +417,10 @@
   .rs-detail-gallery__thumb:hover { transform: none; }
   .rs-map-results-card { animation: none; opacity: 1; }
   .rs-map-results-card:hover .rs-map-results-card__image img { transform: none; }
-  .rs-map-marker:hover { transform: none; }
+  .rs-map-marker, .rs-map-cluster { transition: none; }
   .rs-map-cluster:hover { transform: none; }
-  .rs-map-container__loading::before { animation: none; }
+  .rs-map-container__loading span::before, .rs-map-results-panel__spinner { animation-duration: 2s; }
+  .rs-map-area-search__btn { animation: none; }
   .rs-wishlist-grid__card { animation: none; opacity: 1; }
   .rs-wishlist-grid__card:hover { transform: none; }
   .rs-wishlist-grid__card:hover .rs-wishlist-grid__image img { transform: none; }

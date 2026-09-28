@@ -148,6 +148,10 @@ export default function EditClientPage() {
   });
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     const fetchData = async () => {
       try {
         // The plans list is no longer fetched — the Plan picker is gone and
@@ -201,7 +205,7 @@ export default function EditClientPage() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [api.isReady, clientId]);
 
   const onSubmit = async (data: ClientFormData) => {
     setSaving(true);

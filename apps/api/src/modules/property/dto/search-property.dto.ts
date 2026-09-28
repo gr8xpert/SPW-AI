@@ -182,6 +182,14 @@ export class SearchPropertyDto {
   @Type(() => Boolean)
   isFeatured?: boolean;
 
+  // The agency's own listings, as opposed to ones shared from a feed. A site
+  // can show only these (this filter) or put them at the top of everything
+  // else (sortBy: 'own_first').
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isOwnProperty?: boolean;
+
   // Sort values the widget emits via RsSort.tsx. PropertySearchService.applySorting
   // is the source of truth — keep this list in sync with the switch cases there.
   // Unknown values would otherwise be silently rejected (forbidNonWhitelisted)
@@ -195,6 +203,7 @@ export class SearchPropertyDto {
     'list_price',
     'list_price_desc',
     'is_featured_desc',
+    'own_first',
     'location_id',
   ])
   sortBy?: string;

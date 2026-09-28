@@ -21,6 +21,15 @@ class SPW_I18n {
 
     private function __construct() {
         add_action('wp_head', [$this, 'render_hreflang'], 2);
+        // On a property URL the translation plugin would announce the plain
+        // detail page's translations (/property-detail/); ours point at the
+        // property itself, so theirs are dropped there.
+        add_filter('pll_rel_hreflang_attributes', [$this, 'drop_plugin_hreflang']);
+        add_filter('wpml_hreflangs', [$this, 'drop_plugin_hreflang']);
+    }
+
+    public function drop_plugin_hreflang($hreflangs) {
+        return SPW_Rewrite::is_property_detail() ? [] : $hreflangs;
     }
 
     /**
@@ -59,10 +68,12 @@ class SPW_I18n {
             if (function_exists('pll_languages_list')) {
                 $slugs   = pll_languages_list(['fields' => 'slug']) ?: [];
                 $locales = pll_languages_list(['fields' => 'locale']) ?: [];
+                $names   = pll_languages_list(['fields' => 'name']) ?: [];
                 foreach ($slugs as $i => $slug) {
                     $info['all_languages'][] = [
                         'code'   => $slug,
                         'locale' => $locales[$i] ?? '',
+                        'name'   => $names[$i] ?? '',
                     ];
                 }
             }
@@ -179,23 +190,23 @@ class SPW_I18n {
         $info = $this->detect();
         if ($info['plugin'] === 'none' || empty($info['all_languages'])) return;
 
-        $title_slug = SPW_Rewrite::current_title_slug();
-        $path = $title_slug ? $title_slug . '_' . $ref : $ref;
-
-        echo "\n<!-- SPW hreflang -->\n";
+        // Each language's own address for this property (its title, and so its
+        // URL, is translated), i.e. the canonical of that language's page.
+        $og = SPW_OG_Tags::instance();
+        $current = $og->current_property();
+        $urls = [];
         foreach ($info['all_languages'] as $l) {
             $code = $l['code'] ?? '';
             if (!$code) continue;
-            $prefix = ($code === $info['default_lang']) ? '' : '/' . $code;
-            $slug   = SPW_Plugin::slug('detail', $code);
-            $url    = home_url($prefix . '/' . $slug . '/' . $path);
-            printf('<link rel="alternate" hreflang="%s" href="%s" />' . "\n",
-                esc_attr($code), esc_url($url));
+            $p = ($current && $code === $this->current_lang()) ? $current : $og->fetch($current['reference'] ?? $ref, $code);
+            $urls[$code] = SPW_OG_Tags::property_url($p ?: ['reference' => $ref], $code);
         }
-        if ($info['default_lang']) {
-            $slug = SPW_Plugin::slug('detail', $info['default_lang']);
-            $url  = home_url('/' . $slug . '/' . $path);
-            printf('<link rel="alternate" hreflang="x-default" href="%s" />' . "\n", esc_url($url));
+        echo "\n<!-- SPW hreflang -->\n";
+        foreach ($urls as $code => $url) {
+            printf('<link rel="alternate" hreflang="%s" href="%s" />' . "\n", esc_attr($code), esc_url($url));
+        }
+        if ($info['default_lang'] && isset($urls[$info['default_lang']])) {
+            printf('<link rel="alternate" hreflang="x-default" href="%s" />' . "\n", esc_url($urls[$info['default_lang']]));
         }
     }
 

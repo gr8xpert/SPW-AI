@@ -148,6 +148,11 @@ export interface TenantSettings {
   openRouterApiKey?: string;
   openRouterModel?: string;
 
+  // How many AI searches a client's website may run per day. The feature
+  // spends the client's own OpenRouter credit, so this is their spending
+  // ceiling, not ours. Defaults to 200 when unset.
+  aiSearchDailyLimit?: number;
+
   // Search options (configurable ranges for bed/bath/price dropdowns)
   bedroomOptions?: number[];
   bathroomOptions?: number[];
@@ -155,9 +160,21 @@ export interface TenantSettings {
   enabledListingTypes?: string[];
   mapVariation?: 'auto' | '0' | '1' | '2';
   similarPropertiesLimit?: number;
+  // Background of the website maps. OpenStreetMap needs no key; MapTiler
+  // takes the site's own (browser) key; custom is any https tile URL.
+  mapTiles?: { provider?: 'osm' | 'maptiler' | 'custom'; key?: string; url?: string; attribution?: string };
+  // Template picked in the dashboard gallery for each page type. Pages built
+  // with data-spm-widget="site-search" (etc.) follow it, so a change here
+  // restyles the client's website without editing pages.
+  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string };
 
   // Inquiry notifications
   inquiryNotificationEmails?: string[];  // Recipients for new inquiry alerts
+  // Monday summary email (views, enquiries, feed, website health). On unless
+  // switched off; recipients default to the account's admins.
+  weeklyReportEnabled?: boolean;
+  weeklyReportEmails?: string[];
+  weeklyReportLastSentAt?: string;
   /**
    * @deprecated Moved to validated `tenants.inquiryWebhookUrl` column with SSRF
    * pre-flight on save. Not returned by API responses.

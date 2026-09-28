@@ -106,6 +106,10 @@ export default function ClientDetailPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // Wait for the session to hydrate: firing on mount sent the request with
+    // no Authorization header, it 401'd, and nothing re-ran once the token
+    // arrived — so the page sat there empty until a manual refresh.
+    if (!api.isReady) return;
     const fetchData = async () => {
       try {
         const clientRes = await api.get(`/api/super-admin/clients/${clientId}`);
@@ -119,7 +123,7 @@ export default function ClientDetailPage() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [api.isReady, clientId]);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -494,10 +498,6 @@ export default function ClientDetailPage() {
                   <p className="font-medium">
                     {client.graceEndsAt ? format(new Date(client.graceEndsAt), 'PPP') : '—'}
                   </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Plan ID</p>
-                  <p className="font-medium">{client.planId}</p>
                 </div>
               </div>
 

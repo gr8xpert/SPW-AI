@@ -69,6 +69,8 @@ class SPW_Sitemap {
             $out[] = [
                 'ref'        => $ref,
                 'title_slug' => $row['titleSlug'] ?? $row['slug'] ?? '',
+                // Full segment from the API (slug format + custom slug); newer APIs only.
+                'segment'    => $row['segment'] ?? '',
                 'lastmod'    => $row['updatedAt'] ?? $row['lastModified'] ?? '',
             ];
         }
@@ -77,14 +79,19 @@ class SPW_Sitemap {
         return $out;
     }
 
-    private function build_url($ref, $title_slug = '') {
+    /** A property's sitemap URL from a fetch_refs() row (same address the widget links to). */
+    public static function url_for($row) {
+        return self::build_url($row['ref'], $row['title_slug'] ?? '', $row['segment'] ?? '');
+    }
+
+    private static function build_url($ref, $title_slug = '', $segment = '') {
         // Sitemap URLs are emitted in the default language (one canonical URL
         // per property). Translation plugins discover language alternates via
         // the hreflang tags rendered on the detail page itself.
         $default = class_exists('SPW_I18n') ? SPW_I18n::instance()->default_lang_code() : 'en';
         $slug = SPW_Plugin::slug('detail', $default);
-        $path = $title_slug ? $title_slug . '_' . $ref : $ref;
-        return home_url('/' . $slug . '/' . $path);
+        $path = $segment !== '' ? $segment : ($title_slug ? $title_slug . '_' . $ref : $ref);
+        return home_url('/' . $slug . '/' . rawurlencode($path));
     }
 
     // ─── Yoast ────────────────────────────────────────────────────────
@@ -136,7 +143,7 @@ class SPW_Sitemap {
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
         foreach ($this->fetch_refs() as $row) {
-            $url = $this->build_url($row['ref'], $row['title_slug']);
+            $url = self::url_for($row);
             echo "  <url>\n";
             echo '    <loc>' . esc_url($url) . "</loc>\n";
             if (!empty($row['lastmod'])) {

@@ -124,6 +124,19 @@ export class PropertyTypeService {
     return this.findOne(tenantId, id);
   }
 
+  // Marks types the client arranged by hand so the type template never
+  // re-parents or renames them.
+  async markUserLocked(tenantId: number, ids: number[]): Promise<void> {
+    if (!ids.length) return;
+    await this.propertyTypeRepository
+      .createQueryBuilder()
+      .update()
+      .set({ userLocked: true })
+      .where('tenantId = :tenantId', { tenantId })
+      .andWhere('id IN (:...ids)', { ids })
+      .execute();
+  }
+
   async remove(tenantId: number, id: number): Promise<void> {
     const propertyType = await this.findOne(tenantId, id);
     await this.propertyTypeRepository.remove(propertyType);

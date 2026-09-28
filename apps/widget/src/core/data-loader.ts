@@ -243,38 +243,75 @@ export class DataLoader {
     const cached = this.getMemoryCache<SearchResults>(cacheKey);
     if (cached) return cached;
 
-    const params: Record<string, string | number | boolean | undefined> = {};
-    if (filters.query) params.query = filters.query;
-    if (filters.listingType) params.listingType = filters.listingType;
-    if (filters.locationId) params.locationId = filters.locationId;
-    if (filters.locationIds?.length) params.locationIds = filters.locationIds.join(',');
-    if (filters.propertyTypeId) params.propertyTypeId = filters.propertyTypeId;
-    if (filters.minPrice) params.minPrice = filters.minPrice;
-    if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-    if (filters.minBedrooms) params.minBedrooms = filters.minBedrooms;
-    if (filters.maxBedrooms) params.maxBedrooms = filters.maxBedrooms;
-    if (filters.minBathrooms) params.minBathrooms = filters.minBathrooms;
-    if (filters.maxBathrooms) params.maxBathrooms = filters.maxBathrooms;
-    if (filters.minBuildSize) params.minBuildSize = filters.minBuildSize;
-    if (filters.maxBuildSize) params.maxBuildSize = filters.maxBuildSize;
-    if (filters.minPlotSize) params.minPlotSize = filters.minPlotSize;
-    if (filters.maxPlotSize) params.maxPlotSize = filters.maxPlotSize;
-    if (filters.minTerraceSize) params.minTerraceSize = filters.minTerraceSize;
-    if (filters.maxTerraceSize) params.maxTerraceSize = filters.maxTerraceSize;
-    if (filters.reference) params.reference = filters.reference;
-    if (filters.isFeatured) params.isFeatured = true;
-    if (filters.sortBy) params.sortBy = filters.sortBy;
-    if (filters.page) params.page = filters.page;
-    if (filters.limit) params.limit = filters.limit;
-    if (filters.bounds) params.bounds = filters.bounds;
-    if (filters.lat != null) params.lat = filters.lat;
-    if (filters.lng != null) params.lng = filters.lng;
-    if (filters.radius) params.radius = filters.radius;
-    if (filters.features?.length) params.features = filters.features.join(',');
-
-    const results = await this.api.get<SearchResults>('/v1/properties', params);
+    const results = await this.api.get<SearchResults>('/v1/properties', searchParams(filters));
     this.setMemoryCache(cacheKey, results);
     return results;
+  }
+
+  // "Describe your dream property": the sentence goes to the API, which asks
+  // the client's own OpenRouter account to turn it into filters. Never cached
+  // — each sentence is different, and the answer costs the client money.
+  async aiSearch(query: string, language: string): Promise<{ filters: Record<string, unknown>; interpretation?: string }> {
+    return this.api.post('/v1/ai-search', { query, language });
+  }
+
+  async aiSearchEnabled(): Promise<boolean> {
+    try {
+      const res = await this.api.get<{ enabled?: boolean; data?: { enabled?: boolean } }>('/v1/ai-search/status');
+      return !!(res?.enabled ?? res?.data?.enabled);
+    } catch {
+      return false;
+    }
+  }
+
+  // Every listing matching the filters as a light map point (not one page),
+  // with a position from its own GPS or, marked approximate, its location.
+  // The area box and paging are the list's business, not the map's.
+  async getMapPoints(filters: SearchFilters): Promise<MapPointsResponse> {
+    const { page, limit, sortBy, bounds, ...rest } = filters;
+    void page; void limit; void sortBy; void bounds;
+    const cacheKey = `map:${JSON.stringify(rest)}`;
+    const cached = this.getMemoryCache<MapPointsResponse>(cacheKey);
+    if (cached) return cached;
+    const res = await this.api.get<MapPointsResponse>('/v1/properties/map', searchParams(rest));
+    this.setMemoryCache(cacheKey, res);
+    return res;
+  }
+
+  // The places the current search covers, each with how many listings are in
+  // it and the outline of the place itself. Feed listings arrive with no
+  // coordinates, so this is what a map can honestly show: the town, drawn,
+  // with a count on it — rather than a pin per listing in the middle of it.
+  async getAreas(filters: SearchFilters): Promise<MapAreasResponse> {
+    const { page, limit, sortBy, bounds, ...rest } = filters;
+    void page; void limit; void sortBy; void bounds;
+    const cacheKey = `areas:${JSON.stringify(rest)}`;
+    const cached = this.getMemoryCache<MapAreasResponse>(cacheKey);
+    if (cached) return cached;
+    // The API client unwraps a plain `{ data }` envelope (only `{ data, meta }`
+    // survives whole), so this arrives as the array itself.
+    const res = await this.api.get<MapArea[] | MapAreasResponse>('/v1/properties/areas', searchParams(rest));
+    const areas: MapAreasResponse = { data: Array.isArray(res) ? res : (res?.data ?? []) };
+    this.setMemoryCache(cacheKey, areas);
+    return areas;
+  }
+
+  // One place's point and outline, for the detail page map. The outline was
+  // geocoded with its parents for context and checked against them, which is
+  // why the page no longer asks OpenStreetMap for a bare town name from the
+  // browser and no longer draws the wrong "Los Alamos".
+  async getLocationOutline(locationId: number): Promise<LocationOutline | null> {
+    const cacheKey = `outline:${locationId}`;
+    const cached = this.getMemoryCache<LocationOutline | null>(cacheKey);
+    if (cached !== null && cached !== undefined) return cached;
+    try {
+      const res = await this.api.get<LocationOutline | { data?: LocationOutline }>(`/v1/locations/${locationId}/outline`);
+      const outline = (res && 'lat' in res ? res : (res as { data?: LocationOutline })?.data) || null;
+      this.setMemoryCache(cacheKey, outline);
+      return outline;
+    } catch {
+      return null;
+    }
   }
 
   async loadExchangeRates(baseCurrency = 'EUR'): Promise<void> {
@@ -400,4 +437,104 @@ export class DataLoader {
   private setMemoryCache<T>(key: string, data: T): void {
     this.memoryCache.set(key, { data, ts: Date.now() });
   }
+}
+
+export interface MapPoint {
+  id: number;
+  reference: string;
+  title: string;
+  price: number | null;
+  currency: string;
+  priceOnRequest: boolean;
+  listingType: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  buildSize: number | null;
+  lat: number;
+  lng: number;
+  approximate: boolean;
+  location: { id: number; name: string } | null;
+  propertyType?: { name: string } | null;
+  slug?: string | null;
+  urlSegment?: string;
+  image: string | null;
+}
+
+// A GeoJSON outline as the API stores it: longitude first, as GeoJSON has it.
+export interface AreaBoundary {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][] | number[][][][];
+}
+
+export interface MapArea {
+  id: number;
+  name: string;
+  level: string;
+  count: number;
+  lat: number;
+  lng: number;
+  // Missing when we are not sure enough of where the place is to draw its
+  // shape — its point is an ancestor's.
+  boundary: AreaBoundary | null;
+  // Where this place's listings may be drawn: its own outline, or the nearest
+  // ancestor's. Most places are a point in OpenStreetMap, not an area, and
+  // their municipality's boundary follows the coastline — which is what keeps
+  // a listing from being spread into the sea.
+  fence: AreaBoundary | null;
+}
+
+export interface MapAreasResponse {
+  data: MapArea[];
+}
+
+export interface LocationOutline {
+  id: number;
+  name: string;
+  level: string;
+  lat: number;
+  lng: number;
+  // True when this is an ancestor's point, not the place's own.
+  approximate: boolean;
+  boundary: AreaBoundary | null;
+  // The nearest outline worth drawing: this place's, or its municipality's.
+  fence: AreaBoundary | null;
+}
+
+export interface MapPointsResponse {
+  data: MapPoint[];
+  meta: { total: number; truncated: boolean };
+}
+
+// Query string for /v1/properties (and /map, which takes the same filters).
+function searchParams(filters: SearchFilters): Record<string, string | number | boolean | undefined> {
+  const params: Record<string, string | number | boolean | undefined> = {};
+  if (filters.query) params.query = filters.query;
+  if (filters.listingType) params.listingType = filters.listingType;
+  if (filters.locationId) params.locationId = filters.locationId;
+  if (filters.locationIds?.length) params.locationIds = filters.locationIds.join(',');
+  if (filters.propertyTypeId) params.propertyTypeId = filters.propertyTypeId;
+  if (filters.minPrice) params.minPrice = filters.minPrice;
+  if (filters.maxPrice) params.maxPrice = filters.maxPrice;
+  if (filters.minBedrooms) params.minBedrooms = filters.minBedrooms;
+  if (filters.maxBedrooms) params.maxBedrooms = filters.maxBedrooms;
+  if (filters.minBathrooms) params.minBathrooms = filters.minBathrooms;
+  if (filters.maxBathrooms) params.maxBathrooms = filters.maxBathrooms;
+  if (filters.minBuildSize) params.minBuildSize = filters.minBuildSize;
+  if (filters.maxBuildSize) params.maxBuildSize = filters.maxBuildSize;
+  if (filters.minPlotSize) params.minPlotSize = filters.minPlotSize;
+  if (filters.maxPlotSize) params.maxPlotSize = filters.maxPlotSize;
+  if (filters.minTerraceSize) params.minTerraceSize = filters.minTerraceSize;
+  if (filters.maxTerraceSize) params.maxTerraceSize = filters.maxTerraceSize;
+  if (filters.reference) params.reference = filters.reference;
+  if (filters.isFeatured) params.isFeatured = true;
+  if (filters.isOwnProperty) params.isOwnProperty = true;
+  if (filters.sortBy) params.sortBy = filters.sortBy;
+  if (filters.page) params.page = filters.page;
+  if (filters.limit) params.limit = filters.limit;
+  if (filters.bounds) params.bounds = filters.bounds;
+  if (filters.lat != null) params.lat = filters.lat;
+  if (filters.lng != null) params.lng = filters.lng;
+  if (filters.radius) params.radius = filters.radius;
+  if (filters.features?.length) params.features = filters.features.join(',');
+  return params;
 }

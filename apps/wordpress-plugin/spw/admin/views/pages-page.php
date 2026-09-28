@@ -13,14 +13,14 @@ $pages_created = 0;
 foreach ($page_ids as $id) { if ($id && get_post_status($id)) $pages_created++; }
 
 $page_types = [
-    'listings' => ['default' => 'Properties',      'icon' => '&#9783;', 'desc' => 'Search + grid'],
-    'detail'   => ['default' => 'Property Detail', 'icon' => '&#9783;', 'desc' => 'Single property'],
-    'wishlist' => ['default' => 'Wishlist',        'icon' => '&#9825;', 'desc' => 'Saved by visitor'],
+    'listings' => ['default' => SPW_Plugin::page_title('listings'), 'icon' => '&#9783;', 'desc' => 'Search + results'],
+    'detail'   => ['default' => SPW_Plugin::page_title('detail'),   'icon' => '&#9783;', 'desc' => 'Single property'],
+    'wishlist' => ['default' => SPW_Plugin::page_title('wishlist'), 'icon' => '&#9825;', 'desc' => 'Saved by visitor'],
 ];
 ?>
 <div class="wrap spw-wrap">
     <h1 class="spw-h1">Pages <span class="spw-ver">v<?php echo esc_html(SPW_VERSION); ?></span></h1>
-    <p class="spw-tagline">One page per widget surface. Edit the title, save, then create the page &mdash; SPM drops a raw <code>&lt;div data-spm-widget="&hellip;"&gt;</code> embed inside.</p>
+    <p class="spw-tagline">One page per widget surface. The easiest way to create them &mdash; in every language of your site &mdash; is the <a href="<?php echo esc_url(SPW_Setup_Wizard::url('pages')); ?>">setup wizard</a>.</p>
 
     <div class="spw-card">
         <div class="spw-card-head">
@@ -83,11 +83,9 @@ $page_types = [
     <div class="spw-card spw-card--hint">
         <div class="spw-card-body">
             <h3>How it works</h3>
-            <p>Each generated page contains a single raw <code>&lt;div data-spm-widget="&hellip;"&gt;</code> block &mdash; the same markup a non-WordPress site would paste. That means SPM behaves identically inside or outside WordPress, and your theme styles still apply.</p>
-            <p class="description">Listings template is set per-tenant in your SPM dashboard. To preview the embed code:</p>
-<pre class="spw-snippet"><code>&lt;div data-spm-widget="listing-template-03"
-     data-spm-sort="is_featured_desc"
-     data-spm-limit="6"&gt;&lt;/div&gt;</code></pre>
+            <p>Each generated page contains <code>&lt;div data-spm-widget="site-&hellip;"&gt;</code> blocks. They show the design chosen in your SPM dashboard &rarr; <strong>Website Design</strong>, so changing the design there needs no page edits. Your theme's header, footer and menus still apply.</p>
+<pre class="spw-snippet"><code>&lt;div data-spm-widget="site-search"&gt;&lt;/div&gt;
+&lt;div data-spm-widget="site-listing"&gt;&lt;/div&gt;</code></pre>
         </div>
     </div>
 </div>

@@ -19,6 +19,8 @@ export interface SearchFilters {
   maxTerraceSize?: number;
   features?: number[];
   isFeatured?: boolean;
+  // The agency's own listings rather than ones shared from a feed.
+  isOwnProperty?: boolean;
   reference?: string;
   sortBy?: SortOption;
   page?: number;
@@ -37,6 +39,7 @@ export type SortOption =
   | 'list_price'
   | 'list_price_desc'
   | 'is_featured_desc'
+  | 'own_first'
   | 'location_id';
 
 export interface LockedFilters {

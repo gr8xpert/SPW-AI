@@ -13,6 +13,11 @@ foreach ([
     'spw_last_sync_results',
     'spw_flush_rewrites',
     'spw_last_check',
+    'spw_site_config',
+    'spw_setup_redirect',
+    'spw_setup_done',
+    'spw_widget_version',
+    'spw_sync_version',
 ] as $option) {
     delete_option($option);
 }

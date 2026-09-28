@@ -2,11 +2,13 @@ import { useCallback } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { useMatchCount } from '@/hooks/useMatchCount';
 
 export default function RsSearchButton() {
   const { t } = useLabels();
   const isSearching = useSelector(selectors.isSearchLoading);
-  const totalCount = useSelector(selectors.getResultCount);
+  // What the filters on screen would find, not what the last search found.
+  const totalCount = useMatchCount();
 
   const handleClick = useCallback(() => {
     if (window.RealtySoft) {
@@ -28,7 +30,9 @@ export default function RsSearchButton() {
           </svg>
         )}
         {t('search_button', 'Search')}
-        {totalCount > 0 && !isSearching && (
+        {/* Shown as soon as the number is known, zero included: "Search 0"
+            tells the visitor these filters find nothing before they press it. */}
+        {totalCount !== null && !isSearching && (
           <span class="rs-search-btn__count">{totalCount}</span>
         )}
       </button>

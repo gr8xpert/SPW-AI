@@ -11,10 +11,12 @@ import { mountAll, unmountAll } from './core/component-mounter';
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
+import { isCurated, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
 import { installLegacyAPI, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
-import { extractRefCandidates } from './core/url-utils';
-import { filtersFromQuery, filtersToQuery } from './core/search-url';
+import { extractRefCandidates, refFirst } from './core/url-utils';
+import { applyPropertySeo } from './core/seo';
+import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
 import type { SearchFilters } from './types';
 
 let dataLoader: DataLoader | null = null;
@@ -40,27 +42,23 @@ async function init(): Promise<void> {
     }
   }
 
-  applyTheme(config);
+  // First paint in the brand colour the page already knows; the dashboard's
+  // colour replaces it once the config arrives.
+  const brandColor = window.RealtySoftConfig?.brandColor;
+  applyTheme(config.primaryColor || !brandColor || !/^#[0-9a-f]{6}$/i.test(brandColor) ? config : { ...config, primaryColor: brandColor });
   // Page-set currency now; refined once the dashboard config arrives.
   actions.setCurrencyBase(config.currency || 'EUR');
 
   const favorites = loadPersistedFavorites();
   if (favorites.length) actions.setFavorites(favorites);
 
-  const prefilled = parsePrefilledFilters();
-  const locked = parseLockedFilters();
   // A search sent from another page (see the search handler below) arrives as
-  // query parameters and overrides the page's own prefilled values; locked
-  // filters still win when the search runs.
+  // query parameters and overrides the page's own values; locked filters still
+  // win when the search runs. The page's own filters are read after the lists
+  // load (below), because a name like "Marbella" needs them to become an id.
   const fromUrl = filtersFromQuery();
-  const initialFilters = { ...prefilled, ...fromUrl };
-  if (Object.keys(initialFilters).length) actions.setFilters(initialFilters);
-  if (Object.keys(locked).length) actions.setLockedFilters(locked);
+  if (Object.keys(fromUrl).length) actions.setFilters(fromUrl);
 
-  // Apply defaultListingType if no URL/attribute override set it
-  if (config.defaultListingType && !initialFilters.listingType && !locked.listingType) {
-    actions.setFilters({ ...store.getState().filters, listingType: config.defaultListingType });
-  }
 
   dataLoader = new DataLoader(config);
   try {
@@ -82,6 +80,28 @@ async function init(): Promise<void> {
       actions.setCurrencyBase(merged.currency || 'EUR');
     }
     dataLoader.hydrateStore(bundle);
+
+    // A curated list on a page that has nowhere to show search results — the
+    // "our featured six" block on a homepage — keeps its filters to itself.
+    // Otherwise they became the page's filters, so pressing Search carried
+    // "featured" along to the results page and the visitor got someone else's
+    // idea of what to look at.
+    markCuratedBlocksStandalone();
+
+    // Now that locations, types and features are in the store, the page's own
+    // filters can be read (names resolve to ids against the client's lists).
+    const prefilled = parsePrefilledFilters();
+    const locked = parseLockedFilters();
+    // Reset returns here, not to an empty form (see RESET_FILTERS).
+    actions.setBaseFilters(prefilled);
+    if (Object.keys(prefilled).length) actions.setFilters({ ...prefilled, ...store.getState().filters });
+    if (Object.keys(locked).length) actions.setLockedFilters(locked);
+
+    // The dashboard's default listing type, unless the page or the URL set one.
+    const current = store.getState().filters;
+    if (config.defaultListingType && !current.listingType && !locked.listingType) {
+      actions.setFilters({ ...current, listingType: config.defaultListingType });
+    }
     console.log('[SPM] Store hydrated. Results:', !!store.getState().results);
   } catch (err) {
     console.error('[SPM] Bundle load failed:', err);
@@ -95,6 +115,12 @@ async function init(): Promise<void> {
   const hasDetailTemplate = mountEntries.some(
     (e) => e.isTemplate && e.templateId?.startsWith('detail-template')
   );
+  // Page title / meta tags follow the property shown (however it was loaded).
+  if (hasDetailTemplate) {
+    store.subscribeSlice('selectedProperty', (property) => {
+      if (property) applyPropertySeo(property);
+    });
+  }
   if (hasDetailTemplate && !store.getState().selectedProperty) {
     // `propertyPageUrl` links carry the ref as ?ref=; pretty links carry it in
     // the path after the detail slug (which may be language-prefixed, e.g.
@@ -108,7 +134,7 @@ async function init(): Promise<void> {
       const pathSegments = window.location.pathname.split('/').filter(Boolean);
       const slugIdx = pathSegments.indexOf(slug);
       const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
-      candidates = segment ? extractRefCandidates(decodeURIComponent(segment), config.propertyRefPosition) : [];
+      candidates = segment ? extractRefCandidates(decodeURIComponent(segment), refFirst(config) ? 'start' : config.propertyRefPosition) : [];
     }
     for (const ref of candidates) {
       try {
@@ -126,17 +152,19 @@ async function init(): Promise<void> {
 
   installLegacyAPI();
 
-  // Pages with only a search box (typically the homepage) have nowhere to show
-  // results, so a search there goes to the configured results page instead.
-  const RESULT_COMPONENTS = new Set([
-    'property_grid', 'property_carousel', 'pagination', 'results_count',
-    'map_view', 'map_container', 'map_results_panel',
-  ]);
-  const hasResultsView = mountEntries.some((e) =>
-    e.isTemplate
+  const hasResultsView = mountEntries.some((e) => {
+    const shows = e.isTemplate
       ? /^(listing|map)-template/.test(e.templateId || '')
-      : RESULT_COMPONENTS.has(e.componentType),
-  );
+      : RESULT_COMPONENTS.has(e.componentType);
+    return shows && !isCurated(e.element);
+  });
+
+  // Names for the shareable URL ("marbella-12"), read fresh so they follow the
+  // page's language.
+  const nameLists = (): NameLists => {
+    const s = store.getState();
+    return { locations: s.locations, propertyTypes: s.propertyTypes, features: s.features };
+  };
 
   setSearchHandler(async (filters: SearchFilters, options?: SearchOptions) => {
     if (!dataLoader) return;
@@ -144,7 +172,7 @@ async function init(): Promise<void> {
     if (options?.navigate && !hasResultsView && resultsPage) {
       const target = new URL(resultsPage, window.location.href);
       if (target.pathname !== window.location.pathname) {
-        target.search = filtersToQuery(filters);
+        target.search = filtersToQuery(filters, nameLists());
         window.location.href = target.toString();
         return;
       }
@@ -153,6 +181,8 @@ async function init(): Promise<void> {
     try {
       const results = await dataLoader.searchProperties(filters);
       actions.setResults(results);
+      // The results on screen are now shareable: the URL says what they are.
+      if (hasResultsView) writeSearchToUrl(filters, nameLists());
     } catch (err) {
       actions.setError(err instanceof Error ? err.message : 'Search failed');
     } finally {
@@ -163,10 +193,12 @@ async function init(): Promise<void> {
   // Initial search if bundle didn't include default results.
   // Skip when a detail template is present — the page only needs single-property data.
   if (!store.getState().results && !hasDetailTemplate) {
+    const stateFilters = store.getState().filters;
     const effectiveFilters: SearchFilters = {
-      ...store.getState().filters,
+      ...stateFilters,
       page: 1,
-      limit: config.resultsPerPage || 12,
+      // A limit set on the page (data-spm-limit / limit="6") wins.
+      limit: stateFilters.limit || config.resultsPerPage || 12,
     };
     const locked = store.getState().lockedFilters;
     for (const [key, value] of Object.entries(locked)) {

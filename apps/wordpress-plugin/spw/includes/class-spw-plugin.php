@@ -31,6 +31,9 @@ class SPW_Plugin {
         SPW_Data_Sync::instance();
         SPW_Cache_Exclusions::instance();
         SPW_Sitemap::instance();
+        SPW_Shortcode::instance();
+        SPW_Health::instance();
+        if (is_admin()) SPW_Setup_Wizard::instance();
 
         // Rewrite flush requested by a settings save (see SPW_Settings::sanitize).
         // Runs after SPW_Rewrite::add_rules (init, 10) so the flush writes the
@@ -48,6 +51,8 @@ class SPW_Plugin {
         if (!get_option(SPW_OPTION)) {
             update_option(SPW_OPTION, self::default_settings());
         }
+        // Open the setup wizard on the next admin page view (not yet connected).
+        if (!self::get('api_key')) update_option('spw_setup_redirect', 1, false);
         SPW_Rewrite::add_rules();
         flush_rewrite_rules();
 
@@ -123,19 +128,38 @@ class SPW_Plugin {
                 'detail'   => 'Property Detail',
                 'wishlist' => 'Wishlist',
             ],
-            // Auto-generated page IDs — managed by SPW_Page_Generator, not the UI.
+            // Titles for the other languages of a multilingual site: lang => type => title.
+            'page_titles_i18n' => [],
+            // Auto-generated page IDs (default language) — managed by SPW_Page_Generator, not the UI.
             'detail_page_id'   => 0,
             'listings_page_id' => 0,
             'wishlist_page_id' => 0,
+            'map_page_id'      => 0,
         ];
     }
 
-    /** Page title for a given type — falls back to defaults if blank. */
-    public static function page_title($type) {
-        $defaults = ['listings' => 'Properties', 'detail' => 'Property Detail', 'wishlist' => 'Wishlist'];
-        $titles = (array) self::get('page_titles', []);
-        $title = isset($titles[$type]) ? trim((string)$titles[$type]) : '';
-        return $title !== '' ? $title : ($defaults[$type] ?? ucfirst($type));
+    /**
+     * Page title for a type in a language: the admin's title for that
+     * language, else the built-in translation, else English.
+     */
+    public static function page_title($type, $lang = null) {
+        $default_lang = class_exists('SPW_I18n') ? SPW_I18n::instance()->default_lang_code() : 'en';
+        $lang = $lang ?: $default_lang;
+        $i18n = (array) self::get('page_titles_i18n', []);
+        $title = trim((string) ($i18n[$lang][$type] ?? ''));
+        if ($title === '' && $lang === $default_lang) {
+            $titles = (array) self::get('page_titles', []);
+            $title = trim((string) ($titles[$type] ?? ''));
+        }
+        if ($title !== '') return $title;
+        $defaults = SPW_Page_Defaults::titles($lang);
+        return $defaults[$type] ?? ucfirst($type);
+    }
+
+    /** Dashboard settings cached by the data sync (brand colour, chosen templates). */
+    public static function site_config() {
+        $c = get_option('spw_site_config', []);
+        return is_array($c) ? $c : [];
     }
 
     public static function get($key, $default = null) {
@@ -158,7 +182,10 @@ class SPW_Plugin {
 
     public function enqueue_loader() {
         $loader = defined('SPW_LOADER_URL') ? SPW_LOADER_URL : SPW_LOADER_DEFAULT;
-        wp_enqueue_script('spw-widget', $loader, [], SPW_VERSION, true);
+        // ?ver = the deployed widget's version (from the API), so every widget
+        // release is a new URL for browsers and the CDN — no purge needed.
+        $ver = (string) get_option('spw_widget_version', '');
+        wp_enqueue_script('spw-widget', $loader, [], $ver !== '' ? $ver : SPW_VERSION, true);
     }
 
     /**
@@ -198,6 +225,11 @@ class SPW_Plugin {
 
         // Locations / types / features / labels for this language in one
         // cached file, so the widget skips four API calls per page view.
+        // First paint in the dashboard's brand colour instead of the default
+        // blue; the widget still applies the live dashboard value.
+        $brand = self::site_config()['primaryColor'] ?? '';
+        if (is_string($brand) && preg_match('/^#[0-9a-f]{6}$/i', $brand)) $config['brandColor'] = $brand;
+
         $sync = SPW_Data_Sync::instance();
         $bundle_url = $sync->bundle_url($lang);
         if ($bundle_url) $config['dataBundleUrl'] = $bundle_url;
@@ -214,9 +246,11 @@ class SPW_Plugin {
      */
     public function inject_loading_overlay() {
         if (!SPW_Rewrite::is_property_detail()) return;
+        $brand = self::site_config()['primaryColor'] ?? '';
+        $spinner = (is_string($brand) && preg_match('/^#[0-9a-f]{6}$/i', $brand)) ? $brand : '#0066cc';
         ?>
 <div id="spw-loading-overlay" style="position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity .3s">
-  <div style="width:48px;height:48px;border:4px solid #e5e5e5;border-top-color:#0066cc;border-radius:50%;animation:spw-spin 1s linear infinite"></div>
+  <div style="width:48px;height:48px;border:4px solid #e5e5e5;border-top-color:<?php echo esc_attr($spinner); ?>;border-radius:50%;animation:spw-spin 1s linear infinite"></div>
 </div>
 <style>@keyframes spw-spin{to{transform:rotate(360deg)}}</style>
 <script>document.addEventListener('spw:ready',()=>{var e=document.getElementById('spw-loading-overlay');if(e){e.style.opacity=0;setTimeout(()=>e.remove(),300)}});</script>

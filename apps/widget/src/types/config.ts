@@ -41,6 +41,11 @@ export interface WidgetConfig {
   // and labels in one cacheable file instead of four API calls.
   dataBundleUrl?: string;
 
+  // AI search is offered only when the client switched it on and holds their
+  // own OpenRouter key; /v1/ai-search/status confirms the key before the
+  // button appears.
+  aiSearchEnabled?: boolean;
+
   locationSearchConfig?: {
     dropdown1: { levels: string[]; visible?: boolean };
     dropdown2: { levels: string[]; visible?: boolean };
@@ -54,6 +59,13 @@ export interface WidgetConfig {
   enabledListingTypes?: string[];
   enabledSortOptions?: string[];
   radiusOptions?: number[];
+  // Map background tiles (Settings → Widget → Map tiles). OpenStreetMap when unset.
+  mapTiles?: { provider?: 'osm' | 'maptiler' | 'custom'; key?: string; url?: string; attribution?: string };
+  // Dashboard Settings → Property URL format (see apps/api property-url.ts).
+  slugFormat?: 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
+  // Templates chosen in the dashboard gallery; data-spm-widget="site-search"
+  // (site-listing, site-detail, site-map) renders the chosen one.
+  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string; wishlist?: string };
   geocodingProvider?: 'nominatim' | 'google';
   googleMapsKey?: string;
   quickFeatureIds?: number[];
@@ -74,6 +86,9 @@ export interface WidgetConfig {
 }
 
 export interface RealtySoftConfig {
+  // Brand colour the page already knows (the WordPress plugin caches the
+  // dashboard's). Used for the first paint only; the dashboard value wins.
+  brandColor?: string;
   apiUrl?: string;
   apiKey?: string;
   language?: string;

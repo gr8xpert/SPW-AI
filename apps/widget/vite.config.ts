@@ -2,10 +2,26 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 import { resolve } from 'path';
+import { createHash } from 'crypto';
+import { readFileSync, writeFileSync } from 'fs';
+
+// dist/version.json = hash of the bundle. The API reports it (sync-meta,
+// widget-config) and the WordPress plugin loads spm-widget.umd.js?ver=<hash>,
+// so a new widget reaches client sites without purging the CDN cache.
+function widgetVersionFile() {
+  return {
+    name: 'spm-widget-version',
+    closeBundle() {
+      const dist = resolve(__dirname, 'dist');
+      const hash = createHash('sha256').update(readFileSync(resolve(dist, 'spm-widget.umd.js'))).digest('hex').slice(0, 12);
+      writeFileSync(resolve(dist, 'version.json'), JSON.stringify({ version: hash, builtAt: new Date().toISOString() }));
+    },
+  };
+}
 
 export default defineConfig(({ command }) => ({
   plugins: [
-    ...(command === 'build' ? [preact(), cssInjectedByJsPlugin()] : []),
+    ...(command === 'build' ? [preact(), cssInjectedByJsPlugin(), widgetVersionFile()] : []),
   ],
   esbuild: command === 'serve' ? {
     jsx: 'automatic',
@@ -40,7 +56,10 @@ export default defineConfig(({ command }) => ({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        // Keep console.warn / console.error: they tell a site builder why a
+        // filter was ignored (an unknown id, an ambiguous name). Only the
+        // chatty development logs are removed.
+        pure_funcs: ['console.log', 'console.debug', 'console.info'],
       },
     },
     sourcemap: false,

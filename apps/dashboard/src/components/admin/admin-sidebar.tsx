@@ -19,6 +19,9 @@ import {
   Receipt,
   PanelLeftClose,
   PanelLeftOpen,
+  MapPin,
+  Building2,
+  HeartPulse,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -41,7 +44,9 @@ export const useAdminSidebarStore = create<AdminSidebarState>()(
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: Home },
   { name: 'Clients', href: '/admin/clients', icon: Users },
-  { name: 'Plans', href: '/admin/plans', icon: CreditCard },
+  { name: 'Client Health', href: '/admin/client-health', icon: HeartPulse },
+  { name: 'Location Template', href: '/admin/location-template', icon: MapPin },
+  { name: 'Property Type Template', href: '/admin/property-type-template', icon: Building2 },
 ];
 
 const support = [

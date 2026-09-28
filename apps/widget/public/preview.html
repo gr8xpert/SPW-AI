@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Template preview</title>
+  <style>
+    html, body { margin: 0; background: #fff; }
+    body { font-family: system-ui, -apple-system, sans-serif; padding: 24px; }
+    #spm-preview-error { display: none; padding: 40px 16px; text-align: center; color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <!--
+    Live preview of one widget template for the dashboard's template gallery.
+    Parameters travel in the URL hash so the preview token never reaches a
+    server log: #t=<template>&k=<preview token>&api=<API base>&lang=<code>&color=<hex>
+  -->
+  <div id="spm-preview-host"></div>
+  <div id="spm-preview-error">Preview unavailable</div>
+  <script>
+    (function () {
+      // Parameters live in the hash, and a hash change alone doesn't reload a page.
+      window.addEventListener('hashchange', function () { location.reload(); });
+      var p = new URLSearchParams(location.hash.slice(1));
+      var template = p.get('t') || '';
+      var token = p.get('k') || '';
+      var api = p.get('api') || 'https://api.spw-ai.com';
+      var lang = (p.get('lang') || 'en').replace(/[^a-z-]/gi, '').slice(0, 8) || 'en';
+      var color = p.get('color') || '';
+      // a = the block's own data-spm-* attributes, as JSON (the dashboard's
+      // "Add to your website" builder previews the exact snippet this way).
+      var extra = {};
+      try { extra = JSON.parse(p.get('a') || '{}') || {}; } catch (e) { extra = {}; }
+      var ok = /^(search|listing|detail|map)-template-\d{2}$/.test(template)
+        && /^spmpv_\d+_\d+_[0-9a-f]+$/.test(token)
+        && (/^https:\/\//.test(api) || /^http:\/\/localhost(:\d+)?$/.test(api));
+      if (!ok) {
+        document.getElementById('spm-preview-error').style.display = 'block';
+        return;
+      }
+
+      // Tell the gallery how tall the preview is, so it can size the frame.
+      // Content height, not the viewport's, so a short search box gets a short card.
+      var host = document.getElementById('spm-preview-host');
+      function reportHeight() {
+        var h = Math.max(host.scrollHeight + 48, 160);
+        try { parent.postMessage({ spmPreview: template, height: h }, '*'); } catch (e) {}
+      }
+      new ResizeObserver(reportHeight).observe(host);
+
+      // Nothing in a preview leaves the page.
+      document.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a[href]');
+        if (a) e.preventDefault();
+      }, true);
+      document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
+
+      window.RealtySoftConfig = {
+        apiUrl: api,
+        apiKey: token,
+        language: lang,
+        onPropertyClick: function () {},
+      };
+      if (/^#[0-9a-f]{6}$/i.test(color)) window.RealtySoftConfig.primaryColor = color;
+
+      function mount() {
+        var el = document.createElement('div');
+        el.setAttribute('data-spm-widget', template);
+        el.setAttribute('data-spm-enable-tracking', 'false');
+        if (/^listing-template/.test(template) && !extra.limit) el.setAttribute('data-spm-limit', '6');
+        Object.keys(extra).forEach(function (k) {
+          if (/^[a-z][a-z0-9-]{0,40}$/.test(k)) el.setAttribute('data-spm-' + k, String(extra[k]));
+        });
+        document.getElementById('spm-preview-host').appendChild(el);
+        var s = document.createElement('script');
+        // The bundle is cached for weeks; a daily query keeps previews on the current release.
+        s.src = 'spm-widget.umd.js?d=' + Math.floor(Date.now() / 864e5);
+        document.body.appendChild(s);
+      }
+
+      // The property page template shows the site's newest listing.
+      if (/^detail-template/.test(template)) {
+        fetch(api.replace(/\/$/, '') + '/api/v1/properties?limit=1', { headers: { 'x-api-key': token } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (res) {
+            var list = res && (res.data || (res.data && res.data.data)) || [];
+            var first = Array.isArray(list) ? list[0] : null;
+            if (first && first.reference) history.replaceState(null, '', '?ref=' + encodeURIComponent(first.reference) + location.hash);
+            mount();
+          })
+          .catch(mount);
+      } else {
+        mount();
+      }
+    })();
+  </script>
+</body>
+</html>

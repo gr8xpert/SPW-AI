@@ -63,9 +63,9 @@ jQuery(function ($) {
             var created = [], existed = [], failed = [];
             Object.keys(results).forEach(function (k) {
                 var r = results[k] || {};
-                var label = r.title || k;
-                if (r.status === 'created') created.push(label);
-                else if (r.status === 'exists') existed.push(label);
+                var label = (r.title || k) + (r.lang ? ' [' + r.lang + ']' : '');
+                if (r.status === 'created' || r.status === 'updated') created.push(label);
+                else if (r.status === 'exists' || r.status === 'customised') existed.push(label);
                 else failed.push(label + ' (' + (r.error || 'unknown') + ')');
             });
             var lines = [];
@@ -75,6 +75,29 @@ jQuery(function ($) {
             alert(lines.join('\n\n') || 'No changes.');
             location.reload();
         });
+    });
+
+    // Site Health one-click fixes.
+    $(document).on('click', '.spw-health-fix', function () {
+        var $btn = $(this);
+        var orig = $btn.text();
+        $btn.prop('disabled', true).text('Fixing…');
+        $.post(SPW_ADMIN.ajaxUrl, { action: 'spw_health_fix', fix: $btn.data('fix'), nonce: SPW_ADMIN.nonce }, function (resp) {
+            if (resp && resp.success) {
+                location.reload();
+            } else {
+                $btn.prop('disabled', false).text(orig);
+                alert('That did not work: ' + ((resp && resp.data) || 'unknown error'));
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false).text(orig);
+            alert('Request failed.');
+        });
+    });
+
+    // Setup wizard: page creation and the first sync take a few seconds.
+    $('.spw-wizard form').on('submit', function () {
+        $(this).find('button[type=submit]').prop('disabled', true).text('Working… this takes a few seconds');
     });
 
     // Per-language slug table — one row per language with all three slug
@@ -102,5 +125,25 @@ jQuery(function ($) {
             return;
         }
         $tr.remove();
+    });
+});
+
+// SPM → Blocks: click a shortcode to copy it.
+jQuery(function ($) {
+    $(document).on('click', '.spw-copy', function () {
+        var $btn = $(this);
+        var text = $btn.data('copy');
+        var done = function () {
+            $btn.addClass('is-copied').find('.spw-copy-hint').text('copied!');
+            setTimeout(function () { $btn.removeClass('is-copied').find('.spw-copy-hint').text('copy'); }, 1500);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(done);
+            return;
+        }
+        var $tmp = $('<textarea>').val(text).css({ position: 'fixed', opacity: 0 }).appendTo('body');
+        $tmp[0].select();
+        try { document.execCommand('copy'); done(); } catch (e) { window.prompt('Copy this shortcode:', text); }
+        $tmp.remove();
     });
 });

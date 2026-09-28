@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.4.0
+Stable tag: 2.7.0
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -13,7 +13,10 @@ One-click integration for the Smart Property Manager. Listings, search, property
 
 Connects your WordPress site to the Smart Property Manager (SPM) platform. Install, paste your API key, done.
 
-* One-click "Create Pages" button — drops Listings, Property Detail, and Wishlist pages pre-filled with raw `<div data-spm-widget="...">` markup (same syntax as a non-WP embed). Activation never touches existing content.
+* Shortcodes for page builders: `[spm_listing location="Marbella" under="500000"]` and one per page type; SPM → Blocks lists every block.
+* Setup wizard: paste the API key, confirm the suggested page names and addresses (pre-translated for common languages), done. Creates Properties, Property Detail, Wishlist and an optional Map Search page — as linked translations on Polylang / WPML sites. Activation never touches existing content.
+* Pages follow the design and brand colour chosen in the SPM dashboard (Website Design) — no page editing to change the look.
+* Site Health screen (SPM → Site Health, also in Tools → Site Health): plain-language checks with one-click fixes.
 * SEO-friendly property URLs with per-language slugs: /property/villa-marbella_R5P-371150, /es/propiedad/..., /de/immobilie/...
 * Server-side Open Graph + Twitter Card meta tags so links shared on WhatsApp/Facebook/Twitter show the actual property
 * Schema.org RealEstateListing JSON-LD for Google rich results
@@ -22,17 +25,56 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 * Translation plugin support: Polylang, WPML, TranslatePress, Weglot, GTranslate — per-page locale, language-prefixed URLs, hreflang alternates
 * XML sitemap: auto-injects property URLs into Yoast, Rank Math, and native WP sitemaps + standalone /spw-sitemap.xml
 * Search box on any page (e.g. the homepage) sends visitors to the Properties page with their search applied
-* Display currency, listing types, search options, primary colour and feature toggles are configured per client in the SPM dashboard (Settings → Widget), not here
+* Design, brand colour, display currency, listing types, search options and feature toggles are configured per client in the SPM dashboard, not here
 
 == Installation ==
 
 1. Plugins → Add New → Upload Plugin → choose `spw-<version>.zip` (build it with `pnpm build:wp-plugin` from the repo root) → Activate.
-2. Settings → Permalinks: choose any structure except "Plain" and Save.
-3. SPM → Settings: paste the client's API key, click **Test Connection**, then **Save Settings** and **Sync Now**.
-4. SPM → Pages → **Create Missing Pages** (Properties, Property Detail, Wishlist).
-5. Add Properties and Wishlist to the site menu.
+2. The setup wizard opens by itself: paste the API key, check the page names and addresses, click **Create my pages**.
+3. Add the Properties page to the site menu.
+4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.7.3 =
+* Changed: SPM → Blocks now shows the block form — `<div data-spm-widget="site-listing"></div>` — instead of shortcodes. It is the same line on WordPress, Wix, Squarespace, Webflow or plain HTML, so there is one set of instructions to follow. Pages you built with `[spm_listing …]` keep working exactly as before.
+* New: `site-wishlist` puts the whole saved-properties page in place from one block, the way `site-listing` and `site-detail` already did.
+* Changed: the plugin no longer keeps its own copy of the filter words. It passes what you write to the widget, which is the only place a filter is defined — so a new filter works everywhere at once, with no plugin update.
+
+= 2.7.2 =
+* New filters in the shortcodes: `featured="yes"` (only listings marked Featured), `own="yes"` (only your own listings, not feed-shared ones) and `own-first="yes"` (everything, yours at the top). SPM → Blocks lists them.
+
+= 2.7.1 =
+* Fixed: on a property page, themes that build the header and footer from a template (Divi's Theme Builder) lost their styling — the menu disappeared and the logo filled the page. The property URL is now resolved while WordPress works out the request, so the theme sees an ordinary page.
+* Fixed: `[spm_wishlist]` showed "No saved properties yet" underneath a list that did have properties in it.
+* Changed: a shorter menu — Settings, Pages, Blocks, Site Health. Setup is run from the button on Settings, and the filter ID reference sits at the foot of the Blocks page, where it is used.
+
+= 2.7.0 =
+* New: shortcodes, for Divi / Elementor and any page builder. One per page: `[spm_search]`, `[spm_listing]`, `[spm_detail]`, `[spm_map]`, `[spm_wishlist]`. They follow the design chosen in the SPM dashboard, or `template="3"` pins one.
+* New: filters inside the shortcode, in plain words: `[spm_listing location="Marbella" under="500000" beds="3" baths="2" sort="newest" limit="6"]`. Locations, property types and features are matched by name against your own lists. `fixed="yes"` stops visitors changing them.
+* New: `own-search="yes"` lets a block search on its own, so one page can hold several different lists (e.g. "Latest in Marbella" and "New developments").
+* New: every single part has its own shortcode too — `[spm block="detail_gallery"]`, `[spm block="property_grid"]` and so on. SPM → Blocks lists them all with one-click copy.
+* Fixed: an unknown sort value (e.g. sort="price") emptied the whole page; unknown values are now ignored.
+* Fixed: a `limit` set on the page was overridden by the dashboard's results-per-page.
+
+= 2.6.0 =
+* New: property pages use the property's SEO section from the SPM dashboard (filled by hand or by AI): Meta Title as the page title, Meta Description, Meta Keywords, Page Title as the heading, and the custom JSON-LD schema when set. Open Graph / Twitter previews use them too.
+* New: one canonical address per property: the URL format chosen in the dashboard (Settings → Property URL format) and the property's own Slug are used for links, the sitemap, the canonical tag and hreflang alike. On property pages the canonical, title, description and schema of WordPress, Yoast SEO, Rank Math and All in One SEO are replaced by the property's own, so there is exactly one of each.
+* Fixed: the page title override was registered after WordPress had already printed the title.
+* Fixed: hreflang links now point at each language's own property address.
+* New: the widget script is loaded with the deployed widget's version (?ver=), so a widget update reaches the site within minutes without clearing any cache.
+* New: the plugin tells the SPM dashboard which site it runs on (Website Health page).
+* New: a property's cached page data follows your dashboard: editing a title or SEO field shows on the website within minutes instead of up to 12 hours.
+
+= 2.5.0 =
+* New: setup wizard (SPM → Setup), opened automatically after activation. Three steps: connect (API key checked on the spot), pages & languages, done (pages created, search lists downloaded, health shown).
+* New: multilingual setup. Every language of the site gets suggested page names and web addresses (English, Spanish, German, French, Dutch, Italian, Portuguese, Swedish, Norwegian, Danish, Finnish, Polish, Russian). With Polylang or WPML each language gets its own page, linked as translations; property URLs open the page of the URL's language.
+* New: pages use `site-search`, `site-listing`, `site-detail` and `site-map` blocks, which show the templates chosen in the SPM dashboard → Website Design. Untouched pages from older versions can be switched in one click; pages you edited are never changed.
+* New: SPM → Site Health — connection, widget script, permalinks, pages, translations, property addresses, search lists, background updates, caching plugins, brand colour — each with a one-click fix where possible. Also listed under Tools → Site Health.
+* New: pages paint in the dashboard's brand colour straight away (no blue flash while loading); the property-page loading spinner uses it too.
+* Fixed: page IDs saved by the page generator during an admin request could be reverted by the settings sanitizer.
+* Fixed: a page in the bin no longer counts as existing; it is created again.
+* Fixed: on property URLs, Polylang / WPML no longer add hreflang links to the plain detail page next to the plugin's own.
 
 = 2.4.0 =
 * New: lookup data (locations, property types, features, labels) is cached for EVERY site language, one bundle file per language, and the widget loads it in a single request. Previously only the default language was cached and the widget never used the cache, so every page made four API calls.

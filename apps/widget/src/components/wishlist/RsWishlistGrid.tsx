@@ -28,7 +28,7 @@ export default function RsWishlistGrid() {
   }
 
   if (properties.length === 0) {
-    return loading ? <div class="rs-skeleton" style="height:240px" /> : <RsWishlistEmpty />;
+    return loading ? <div class="rs-skeleton" style="height:240px" /> : <RsWishlistEmpty force />;
   }
 
   const getUrl = (p: Property) => buildPropertyUrl(p, config) || '#';

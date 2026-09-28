@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
+import { isPreviewToken, verifyPreviewToken } from '../crypto/preview-token';
 
 // Throttler tier for public widget endpoints (/api/v1/*). Two tracker shapes:
 //
@@ -37,6 +38,8 @@ const API_KEY_THROTTLER = {
 export const ANON_ABUSE_LIMIT = 30;
 
 const DEFAULT_TENANT_LIMIT = 60;
+// The template gallery loads several previews at once.
+const PREVIEW_LIMIT = 600;
 const LIMIT_CACHE_TTL_MS = 30_000;
 
 // Bounded LRU for the api-key → bucket lookup. Without an upper limit, an
@@ -173,6 +176,14 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
   ): Promise<KeyResolution> {
     if (!rawKey || rawKey.length === 0) {
       return ANON_RESOLUTION;
+    }
+
+    // Dashboard preview token: its own bucket per tenant, verified without a
+    // DB lookup. A bad or expired token is treated like an unknown key.
+    if (isPreviewToken(rawKey)) {
+      const tenantId = verifyPreviewToken(rawKey);
+      if (!tenantId) return ANON_RESOLUTION;
+      return { tracker: `apikey:preview:${tenantId}`, limit: PREVIEW_LIMIT, valid: true };
     }
 
     const hash = createHash('sha256').update(rawKey).digest('hex');

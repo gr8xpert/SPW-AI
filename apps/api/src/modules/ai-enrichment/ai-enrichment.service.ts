@@ -279,7 +279,10 @@ export class AiEnrichmentService {
   async enrichPropertyTypes(tenantId: number): Promise<EnrichmentResult['propertyTypes']> {
     const empty = { parentsCreated: 0, childrenAttached: 0, typesMerged: 0, detached: 0, skipped: 0 };
 
+    // Once the property-type template manages a tenant's types it decides the
+    // grouping; AI organising on top would move them away from it every sync.
     const all = await this.propertyTypeRepository.find({ where: { tenantId } });
+    if (all.some((t) => t.templateNodeId != null)) return empty;
     if (all.length < 2) return empty;
 
     const counts = await this.countPropertiesByType(tenantId);
@@ -667,6 +670,12 @@ Reply ONLY with valid JSON (no markdown, no commentary):
 
 Use the exact category strings above (lowercase).`;
 
+    return this.callOpenRouterJson(tenantId, prompt);
+  }
+
+  // For other modules' classification prompts (e.g. placing a town the location
+  // template doesn't know under one of its municipalities).
+  async completeJson(tenantId: number, prompt: string): Promise<Record<string, any> | null> {
     return this.callOpenRouterJson(tenantId, prompt);
   }
 

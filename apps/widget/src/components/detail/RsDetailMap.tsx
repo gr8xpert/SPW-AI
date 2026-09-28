@@ -1,8 +1,10 @@
-import { useRef, useEffect, useMemo } from 'preact/hooks';
+import { useRef, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { getDataLoader, type LocationOutline } from '@/core/data-loader';
+import { loadLeaflet, tileLayerOptions, toCoord } from '@/core/map-support';
 
 interface Props {
   lat?: number;
@@ -13,36 +15,6 @@ interface Props {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type L = any;
 
-let leafletLoading: Promise<L> | null = null;
-
-function loadLeaflet(): Promise<L> {
-  if ((window as unknown as Record<string, unknown>).L) {
-    return Promise.resolve((window as unknown as Record<string, unknown>).L);
-  }
-  if (leafletLoading) return leafletLoading;
-
-  leafletLoading = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[href*="leaflet"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => {
-      const lib = (window as unknown as Record<string, unknown>).L;
-      if (lib) resolve(lib);
-      else reject(new Error('Leaflet failed to load'));
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-
-  return leafletLoading;
-}
-
 function getMapColor(): string {
   try {
     const val = getComputedStyle(document.documentElement).getPropertyValue('--rs-primary').trim();
@@ -51,23 +23,22 @@ function getMapColor(): string {
   return '#2563eb';
 }
 
+let tileConfig: Parameters<typeof tileLayerOptions>[0] = {};
+
 function addTileLayer(Leaflet: L, map: L) {
-  Leaflet.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 20,
-    subdomains: 'abcd',
-  }).addTo(map);
+  const tiles = tileLayerOptions(tileConfig);
+  Leaflet.tileLayer(tiles.url, tiles.options).addTo(map);
 }
 
-async function fetchBoundary(query: string): Promise<L | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&limit=1&q=${encodeURIComponent(query)}`;
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    const data = await res.json();
-    if (data?.[0]?.geojson) return data[0].geojson;
-  } catch { /* boundary unavailable */ }
-  return null;
-}
+// How wide "somewhere in here" is, when we know the place but not its shape.
+const RADIUS_BY_LEVEL_M: Record<string, number> = {
+  urbanization: 900,
+  town: 2500,
+  municipality: 5000,
+  area: 9000,
+  province: 25000,
+  region: 60000,
+};
 
 function createThemedIcon(Leaflet: L, color: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="${color}"/><circle cx="14" cy="14" r="6" fill="#fff"/></svg>`;
@@ -83,7 +54,7 @@ function createThemedIcon(Leaflet: L, color: string) {
 // Variation 0: Pin + approximate circle (hides exact location)
 async function renderPinCircle(Leaflet: L, el: HTMLElement, lat: number, lng: number) {
   const color = getMapColor();
-  const map = Leaflet.map(el).setView([lat, lng], 15);
+  const map = Leaflet.map(el, { scrollWheelZoom: false }).setView([lat, lng], 15);
   addTileLayer(Leaflet, map);
   Leaflet.circle([lat, lng], {
     radius: 200,
@@ -109,7 +80,7 @@ async function renderZipBoundary(Leaflet: L, el: HTMLElement, zipCode: string, _
     const lng = parseFloat(result.lon);
 
     const color = getMapColor();
-    const map = Leaflet.map(el).setView([lat, lng], 15);
+    const map = Leaflet.map(el, { scrollWheelZoom: false }).setView([lat, lng], 15);
     addTileLayer(Leaflet, map);
     Leaflet.circle([lat, lng], {
       radius: 200,
@@ -124,25 +95,59 @@ async function renderZipBoundary(Leaflet: L, el: HTMLElement, zipCode: string, _
   return null;
 }
 
-// Variation 2: Location/municipality boundary polygon
-async function renderLocationBoundary(Leaflet: L, el: HTMLElement, locationName: string) {
-  const geojson = await fetchBoundary(locationName);
-
-  if (!geojson) return null;
-
+/**
+ * Variation 2: the town the property is in, highlighted.
+ *
+ * The outline comes from the API, where it was geocoded with the town's
+ * parents for context and checked against them. Asking OpenStreetMap from the
+ * browser for a bare name — which this used to do, on every page view — drew
+ * "Los Alamos" as a village 275 km away in Almería, and asked every visitor's
+ * browser to do it again.
+ *
+ * With no outline stored we still know roughly where the place is, so the map
+ * shows a dashed circle the size of that kind of place: vague on purpose,
+ * because vague is the truth.
+ */
+async function renderTown(
+  Leaflet: L,
+  el: HTMLElement,
+  outline: LocationOutline,
+  pin: { lat: number; lng: number } | null,
+) {
   const color = getMapColor();
-  const map = Leaflet.map(el);
+  const lat = toCoord(outline.lat);
+  const lng = toCoord(outline.lng);
+  if (lat == null || lng == null) return null;
+
+  const map = Leaflet.map(el, { scrollWheelZoom: false }).setView([lat, lng], 12);
   addTileLayer(Leaflet, map);
-  const layer = Leaflet.geoJSON(geojson, {
-    style: {
+
+  let shape: L = null;
+  // The town's own shape if we have it; otherwise the municipality it belongs
+  // to, which says where the property is far better than a circle drawn around
+  // a point — and, being an administrative boundary, it follows the coastline.
+  const drawable = outline.boundary ?? outline.fence;
+  if (drawable) {
+    shape = Leaflet.geoJSON(drawable as never, {
+      style: { className: 'rs-detail-map-area', weight: 2.5, fillOpacity: 0.08, dashArray: '6 4' },
+      interactive: false,
+    }).addTo(map);
+  } else {
+    shape = Leaflet.circle([lat, lng], {
+      radius: RADIUS_BY_LEVEL_M[outline.level] ?? 2500,
       color,
       fillColor: color,
       fillOpacity: 0.08,
-      weight: 2.5,
+      weight: 2,
       dashArray: '6 4',
-    },
-  }).addTo(map);
-  map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+      interactive: false,
+    }).addTo(map);
+  }
+
+  if (pin) Leaflet.marker([pin.lat, pin.lng], { icon: createThemedIcon(Leaflet, color) }).addTo(map);
+
+  const bounds = shape?.getBounds?.();
+  if (bounds?.isValid?.()) map.fitBounds(bounds, { padding: [30, 30] });
   return map;
 }
 
@@ -153,10 +158,36 @@ export default function RsDetailMap({ lat: latProp, lng: lngProp, variation }: P
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L>(null);
 
-  const lat = latProp ?? property?.lat;
-  const lng = lngProp ?? property?.lng;
+  // The API sends coordinates as decimal strings.
+  const lat = toCoord(latProp ?? property?.lat) ?? undefined;
+  const lng = toCoord(lngProp ?? property?.lng) ?? undefined;
+  tileConfig = config;
   const zipCode = property?.zipCode;
+  const locationId = property?.location?.id;
   const locationName = property?.location?.name;
+
+  // The town's own outline, from the API. Cached per location, so several
+  // properties in the same town cost one request.
+  const [outline, setOutline] = useState<LocationOutline | null>(null);
+  const [outlineTried, setOutlineTried] = useState(false);
+  useEffect(() => {
+    const loader = getDataLoader();
+    if (!loader || !locationId) {
+      setOutline(null);
+      setOutlineTried(true);
+      return;
+    }
+    let cancelled = false;
+    setOutlineTried(false);
+    loader.getLocationOutline(locationId).then((found) => {
+      if (cancelled) return;
+      setOutline(found);
+      setOutlineTried(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locationId]);
 
   // Resolve variation: prop (from data-spm-variation) > config (from dashboard) > auto
   const configVariation = config.mapVariation && config.mapVariation !== 'auto'
@@ -170,12 +201,14 @@ export default function RsDetailMap({ lat: latProp, lng: lngProp, variation }: P
     // Auto priority: lat/lng → 0, zipCode → 1, location → 2
     if (lat != null && lng != null) return 0;
     if (zipCode) return 1;
-    if (locationName) return 2;
+    if (locationId || locationName) return 2;
     return -1; // no data at all
-  }, [resolvedVariation, lat, lng, zipCode, locationName]);
+  }, [resolvedVariation, lat, lng, zipCode, locationId, locationName]);
 
   useEffect(() => {
     if (effectiveVariation === -1 || !mapRef.current) return;
+    // Wait for the town's outline before drawing anything that might use it.
+    if (effectiveVariation === 2 && !outlineTried) return;
     const el = mapRef.current;
     let cancelled = false;
 
@@ -183,28 +216,23 @@ export default function RsDetailMap({ lat: latProp, lng: lngProp, variation }: P
       if (cancelled || !el.isConnected) return;
 
       let map: L = null;
+      const pin = lat != null && lng != null ? { lat, lng } : null;
 
-      if (effectiveVariation === 0 && lat != null && lng != null) {
-        map = await renderPinCircle(Leaflet, el, lat, lng);
+      if (effectiveVariation === 0 && pin) {
+        map = await renderPinCircle(Leaflet, el, pin.lat, pin.lng);
       } else if (effectiveVariation === 1 && zipCode) {
-        map = await renderZipBoundary(Leaflet, el, zipCode, property?.location?.name);
-        // Fallback to location if zip boundary not found
-        if (!map && locationName) {
-          map = await renderLocationBoundary(Leaflet, el, locationName);
-        }
-      } else if (effectiveVariation === 2 && locationName) {
-        map = await renderLocationBoundary(Leaflet, el, locationName);
+        map = await renderZipBoundary(Leaflet, el, zipCode, locationName);
+        // Fall back to the town if the postcode could not be placed.
+        if (!map && outline) map = await renderTown(Leaflet, el, outline, pin);
+      } else if (effectiveVariation === 2 && outline) {
+        map = await renderTown(Leaflet, el, outline, pin);
       }
 
-      // Final fallback: if forced variation has no data, try next available
+      // A forced variation with no data behind it: use whatever we do have.
       if (!map) {
-        if (lat != null && lng != null) {
-          map = await renderPinCircle(Leaflet, el, lat, lng);
-        } else if (zipCode) {
-          map = await renderZipBoundary(Leaflet, el, zipCode, locationName);
-        } else if (locationName) {
-          map = await renderLocationBoundary(Leaflet, el, locationName);
-        }
+        if (outline) map = await renderTown(Leaflet, el, outline, pin);
+        else if (pin) map = await renderPinCircle(Leaflet, el, pin.lat, pin.lng);
+        else if (zipCode) map = await renderZipBoundary(Leaflet, el, zipCode, locationName);
       }
 
       if (map && !cancelled) {
@@ -219,12 +247,12 @@ export default function RsDetailMap({ lat: latProp, lng: lngProp, variation }: P
         mapInstance.current = null;
       }
     };
-  }, [effectiveVariation, lat, lng, zipCode, locationName]);
+  }, [effectiveVariation, lat, lng, zipCode, locationName, outline, outlineTried]);
 
   // Show nothing only if absolutely no geo data
-  if (effectiveVariation === -1) {
-    return null;
-  }
+  if (effectiveVariation === -1) return null;
+  // Nor if the town turned out to be unplaceable and there is nothing else.
+  if (outlineTried && !outline && lat == null && !zipCode) return null;
 
   return (
     <div class="rs-detail-section">
@@ -236,6 +264,13 @@ export default function RsDetailMap({ lat: latProp, lng: lngProp, variation }: P
         class="rs-detail-map"
         style="height: 350px; border-radius: 8px; overflow: hidden;"
       />
+      {outline && !lat && (
+        <p class="rs-detail-map__note">
+          {locationName
+            ? `${locationName} — ${t('map_approximate_location', 'Approximate location')}`
+            : t('map_approximate_location', 'Approximate location')}
+        </p>
+      )}
     </div>
   );
 }

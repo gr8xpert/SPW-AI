@@ -32,6 +32,38 @@
   box-sizing: border-box;
 }
 
+/* Dropdown panels are rendered at the end of <body> (see RsFloating) because
+   nothing inside the page can be made to sit above a theme's sticky header:
+   the widget lives in the theme's stacking context, so even a huge z-index
+   loses. Out here the panel answers to nobody. */
+.rs-floating {
+  position: fixed;
+  z-index: 2147483000;
+}
+
+/* The panel positions itself through this wrapper, so inside it the old
+   absolute placement must give way. */
+.rs-floating > .rs-dropdown,
+.rs-floating > .rs-cascading-v2__panel {
+  position: static;
+  margin-top: 0;
+  left: auto;
+  right: auto;
+  top: auto;
+}
+
+/* Page builders still wrap blocks in rows and columns that clip what is
+   inside them, which crops anything the widget draws in place. */
+:is(
+  .et_pb_module, .et_pb_column, .et_pb_row,
+  .elementor-widget, .elementor-widget-wrap, .elementor-column,
+  .wpb_column, .vc_column-inner,
+  .wp-block-group, .wp-block-column,
+  .spm-block
+):has(.rs-dropdown-wrap, .rs-cascading-v2) {
+  overflow: visible;
+}
+
 /* Reset for widget elements inside client pages */
 [data-spm-widget] button,
 [class*="rs_"] button {

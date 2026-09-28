@@ -53,6 +53,16 @@ export class PropertyType {
   @Column({ default: false })
   aiAssigned: boolean;
 
+  // The platform property-type template node this row stands for; feed imports
+  // find the row through it wherever the client put it.
+  @Column({ type: 'int', nullable: true })
+  templateNodeId: number | null;
+
+  // Set when the client moves, renames or creates this type in their
+  // dashboard; the template then never re-parents or renames it.
+  @Column({ default: false })
+  userLocked: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }
