@@ -107,6 +107,11 @@ export class Location {
   @Column({ default: false })
   userLocked: boolean;
 
+  // Set when the client types this place's coordinates in their dashboard; the
+  // template's point then never replaces them.
+  @Column({ default: false })
+  coordsLocked: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

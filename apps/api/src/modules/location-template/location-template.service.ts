@@ -29,6 +29,7 @@ import {
   MoveTemplateNodeDto,
   UpdateTemplateNodeDto,
 } from './dto/location-template.dto';
+import { checkCoords, CoordNode, findOutliers, normalizePostcode } from './template-coords';
 
 // What a feed says about a listing's location, as stored on the property.
 export type FeedLocationRecord = FeedLocationInput & { provider?: string };
@@ -216,11 +217,15 @@ export class LocationTemplateService {
 
     const updates: Partial<Location> = {};
     if (row.templateNodeId !== node.id) updates.templateNodeId = node.id;
-    // Map position for listings without their own GPS: fill it when the row
-    // has none (a client-set position is kept).
-    if (!validCoords(row.lat, row.lng)) {
-      const c = ctx.index.coords(node);
-      if (c) {
+    // Map position for listings without their own GPS. A point the template
+    // holds for this very place is the reference and replaces whatever the
+    // system put there before (geocoder, parent's point); a borrowed one (the
+    // parent's, children's average) only fills a row that has nothing. A
+    // position the client typed in is never touched.
+    if (!row.coordsLocked) {
+      const own = placeCoords(node.lat, node.lng);
+      const c = own ?? (validCoords(row.lat, row.lng) ? null : ctx.index.coords(node));
+      if (c && !sameSpot(row, c)) {
         updates.lat = c.lat;
         updates.lng = c.lng;
       }
@@ -678,9 +683,12 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
         name,
         nameKey,
         aliases: this.cleanAliases(dto.aliases, name),
-        postcode: dto.postcode?.trim() || null,
-        lat: dto.lat ?? null,
-        lng: dto.lng ?? null,
+        postcode: normalizePostcode(dto.postcode),
+        ...(() => {
+          const c = checkCoords(dto.lat, dto.lng);
+          if (!c.ok && c.problem) throw new BadRequestException(`Coordinates refused: ${c.problem}`);
+          return c.ok ? { lat: c.lat, lng: c.lng, coordsConfirmed: true } : { lat: null, lng: null };
+        })(),
         status: 'ok',
         note: null,
       }),
@@ -706,9 +714,26 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
       node.nameKey = nameKey;
     }
     if (dto.aliases !== undefined) node.aliases = this.cleanAliases(dto.aliases, node.name);
-    if (dto.postcode !== undefined) node.postcode = dto.postcode?.trim() || null;
-    if (dto.lat !== undefined) node.lat = dto.lat;
-    if (dto.lng !== undefined) node.lng = dto.lng;
+    if (dto.postcode !== undefined) node.postcode = normalizePostcode(dto.postcode);
+    if (dto.lat !== undefined || dto.lng !== undefined) {
+      const lat = dto.lat !== undefined ? dto.lat : node.lat;
+      const lng = dto.lng !== undefined ? dto.lng : node.lng;
+      const c = checkCoords(lat, lng);
+      if (c.ok) {
+        node.lat = c.lat;
+        node.lng = c.lng;
+        // A person entered it (or confirmed it): the old complaint is answered,
+        // and the distance check won't second-guess it.
+        node.coordsIssue = null;
+        node.coordsConfirmed = true;
+      } else if (c.problem) {
+        throw new BadRequestException(`Coordinates refused: ${c.problem}`);
+      } else {
+        node.lat = null;
+        node.lng = null;
+        node.coordsConfirmed = false;
+      }
+    }
     if (dto.level !== undefined && dto.level !== node.level) {
       await this.assertLevelFits(node, dto.level, node.parentId);
       node.level = dto.level;
@@ -835,9 +860,22 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     return lines.join('\r\n');
   }
 
-  // Adds every place in the CSV that the template doesn't have yet. Same
-  // columns as the export (Odoo exports work too). Never deletes or moves.
-  async importCsv(text: string): Promise<{ rows: number; created: number; skipped: number }> {
+  // Adds every place in the CSV that the template doesn't have yet, and fills
+  // in postcodes and coordinates the template is missing. Same columns as the
+  // export (Odoo exports work too). Never deletes, moves, or overwrites a value
+  // the template already has. Coordinates are checked before they are used;
+  // ones that fail are left out and the reason recorded on the place.
+  async importCsv(text: string): Promise<{
+    rows: number;
+    created: number;
+    skipped: number;
+    coordsFilled: number;
+    postcodesFilled: number;
+    refused: number;
+    missingCoords: number;
+    notPlaced: number;
+    notPlacedSample: string[];
+  }> {
     const records = parseCsv(text);
     if (records.length < 2) throw new BadRequestException('The file has no rows');
     const header = records[0].map((h) => locationKey(h));
@@ -850,51 +888,265 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     const iAliases = col('aliases');
 
     const all = await this.nodeRepository.find();
-    const children = new Map<string, LocationTemplateNode>();
-    const childKey = (parentId: number | null, nameKey: string) => `${parentId ?? 'root'}|${nameKey}`;
-    for (const n of all) children.set(childKey(n.parentId, n.nameKey), n);
+    const byId = new Map(all.map((n) => [n.id, n]));
+    // Every spelling of every place. A list like this one is usually arranged
+    // differently from the template ("Costa Blanca" for "Costa Blanca South"),
+    // so places are found by name inside their province, never by full path.
+    const byKey = new Map<string, LocationTemplateNode[]>();
+    const remember = (n: LocationTemplateNode) => {
+      for (const k of new Set([n.nameKey, ...(n.aliases || []).map(locationKey)])) {
+        if (!k) continue;
+        const list = byKey.get(k) || [];
+        list.push(n);
+        byKey.set(k, list);
+      }
+    };
+    all.forEach(remember);
+    const ancestors = (n: LocationTemplateNode): LocationTemplateNode[] => {
+      const out: LocationTemplateNode[] = [];
+      let cur = n.parentId != null ? byId.get(n.parentId) : undefined;
+      const seen = new Set<number>();
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        out.push(cur);
+        cur = cur.parentId != null ? byId.get(cur.parentId) : undefined;
+      }
+      return out;
+    };
+    // The one place called `name` at one of `levels` inside `scope`; when there
+    // are several, the one whose own ancestors carry the row's other names.
+    const findOne = (
+      name: string,
+      levels: TemplateLevel[],
+      scope: LocationTemplateNode | null,
+      hints: string[],
+    ): { node?: LocationTemplateNode; ambiguous?: boolean } => {
+      let found = (byKey.get(locationKey(name)) || []).filter(
+        (n) => levels.includes(n.level) && (!scope || ancestors(n).some((a) => a.id === scope.id)),
+      );
+      for (const hint of hints.map(locationKey).filter(Boolean)) {
+        if (found.length < 2) break;
+        const narrowed = found.filter((n) => ancestors(n).some((a) => a.nameKey === hint || (a.aliases || []).some((x) => locationKey(x) === hint)));
+        if (narrowed.length) found = narrowed;
+      }
+      if (found.length > 1) {
+        const sameLevel = found.filter((n) => n.level === levels[0]);
+        if (sameLevel.length) found = sameLevel;
+      }
+      return found.length === 1 ? { node: found[0] } : { ambiguous: found.length > 1 };
+    };
 
     let created = 0;
     let skipped = 0;
+    let coordsFilled = 0;
+    let postcodesFilled = 0;
+    const notPlaced: string[] = [];
+    const changed = new Set<LocationTemplateNode>();
     for (const rec of records.slice(1)) {
       const names = levelCols.map((i) => (i >= 0 ? odooCell(rec[i]) : ''));
-      if (!names[0] || !names[1]) {
+      let deepest = -1;
+      names.forEach((n, i) => { if (n) deepest = i; });
+      if (!names[1] || deepest < 2) {
         skipped++;
         continue;
       }
-      let parentId: number | null = null;
-      let deepest = -1;
-      names.forEach((n, i) => { if (n) deepest = i; });
-      for (let i = 0; i <= deepest; i++) {
-        const name = names[i];
-        if (!name) continue;
-        const nameKey = locationKey(name);
-        let node = children.get(childKey(parentId, nameKey));
-        if (!node) {
-          const isLeaf = i === deepest;
-          const lat = isLeaf && iLat >= 0 ? Number(rec[iLat]) : NaN;
-          const lng = isLeaf && iLng >= 0 ? Number(rec[iLng]) : NaN;
-          node = await this.nodeRepository.save(
-            this.nodeRepository.create({
-              parentId,
-              level: LOCATION_LEVELS[i],
-              name: name.slice(0, 150),
-              nameKey,
-              postcode: isLeaf && iPost >= 0 ? (rec[iPost] || '').trim() || null : null,
-              lat: Number.isFinite(lat) && lat !== 0 ? lat : null,
-              lng: Number.isFinite(lng) && lng !== 0 ? lng : null,
-              aliases: isLeaf && iAliases >= 0 ? this.cleanAliases((rec[iAliases] || '').split(';'), name) : null,
-              status: 'ok',
-            }),
-          );
-          children.set(childKey(parentId, nameKey), node);
-          created++;
+      const label = names.filter(Boolean).join(' > ');
+      const province = findOne(names[1], ['province'], null, [names[0]]).node;
+      if (!province) {
+        notPlaced.push(`${label} (province not in the template)`);
+        continue;
+      }
+      const leafName = names[deepest];
+      const leafLevel = LOCATION_LEVELS[deepest];
+      // The row's own names, nearest first, to tell same-named places apart.
+      const hints = names.slice(2, deepest).reverse();
+      const placeLevels: TemplateLevel[] = [leafLevel, ...(['town', 'urbanization', 'municipality'] as TemplateLevel[]).filter((l) => l !== leafLevel)];
+      const hit = findOne(leafName, levelIndex(leafLevel) >= levelIndex('municipality') ? placeLevels : [leafLevel], province, hints);
+      let node = hit.node;
+      if (!node && hit.ambiguous) {
+        notPlaced.push(`${label} (several places have this name)`);
+        continue;
+      }
+      if (!node) {
+        // New to the template: added only under a parent it already has, so a
+        // differently arranged list can't grow a second "Costa Blanca".
+        let parentIdx = deepest - 1;
+        while (parentIdx > 1 && !names[parentIdx]) parentIdx--;
+        const parent =
+          parentIdx <= 1
+            ? province
+            : findOne(names[parentIdx], [LOCATION_LEVELS[parentIdx]], province, names.slice(2, parentIdx).reverse()).node;
+        if (!parent || levelIndex(parent.level) >= levelIndex(leafLevel)) {
+          notPlaced.push(`${label} (no "${names[parentIdx]}" to put it in)`);
+          continue;
         }
-        parentId = node.id;
+        node = await this.nodeRepository.save(
+          this.nodeRepository.create({
+            parentId: parent.id,
+            level: leafLevel,
+            name: leafName.slice(0, 150),
+            nameKey: locationKey(leafName),
+            aliases: iAliases >= 0 ? this.cleanAliases((rec[iAliases] || '').split(';'), leafName) : null,
+            status: 'ok',
+          }),
+        );
+        byId.set(node.id, node);
+        remember(node);
+        created++;
+      }
+
+      // Postcode and point belong to the deepest place on the row.
+      const postcode = iPost >= 0 ? normalizePostcode(rec[iPost]) : null;
+      if (!node.postcode && postcode) {
+        node.postcode = postcode;
+        postcodesFilled++;
+        changed.add(node);
+      } else if (node.postcode && normalizePostcode(node.postcode) !== node.postcode) {
+        // "3812" stored by an earlier import: the leading zero back.
+        node.postcode = normalizePostcode(node.postcode);
+        changed.add(node);
+      }
+      if (iLat >= 0 && iLng >= 0 && !checkCoords(node.lat, node.lng).ok) {
+        const c = checkCoords(rec[iLat], rec[iLng]);
+        if (c.ok) {
+          node.lat = c.lat;
+          node.lng = c.lng;
+          node.coordsIssue = null;
+          coordsFilled++;
+          changed.add(node);
+        } else if (c.problem && !node.coordsIssue) {
+          node.coordsIssue = `CSV value refused: ${c.problem}`.slice(0, 300);
+          changed.add(node);
+        }
       }
     }
-    return { rows: records.length - 1, created, skipped };
+    for (const n of changed) {
+      await this.nodeRepository.update(
+        { id: n.id },
+        { postcode: n.postcode, lat: n.lat, lng: n.lng, coordsIssue: n.coordsIssue },
+      );
+    }
+
+    // What came in may be fine on its own and still wrong next to its
+    // neighbours (a town 200 km from the rest of its municipality).
+    const audit = await this.checkAllCoords();
+    return { rows: records.length - 1, created, skipped, coordsFilled, postcodesFilled, notPlaced: notPlaced.length, notPlacedSample: notPlaced.slice(0, 100), ...audit };
   }
+
+  // Goes over every place's point: clears the ones that are impossible (swapped,
+  // outside Spain) or far from the rest of their municipality, recording why,
+  // and counts the towns still without one. Nothing is guessed or filled in.
+  async checkAllCoords(): Promise<{ refused: number; missingCoords: number }> {
+    const nodes = await this.nodeRepository.find();
+    const refuse = new Map<number, string>();
+    for (const n of nodes) {
+      const c = checkCoords(n.lat, n.lng);
+      if (!c.ok && c.problem) refuse.set(n.id, c.problem);
+    }
+    const clean: CoordNode[] = nodes.map((n) => (refuse.has(n.id) ? { ...n, lat: null, lng: null } : n));
+    for (const o of findOutliers(clean)) refuse.set(o.id, o.problem);
+
+    for (const [id, problem] of refuse) {
+      await this.nodeRepository.update({ id }, { lat: null, lng: null, coordsIssue: `Refused ${problem}`.slice(0, 300) });
+    }
+    const leafIds = new Set(nodes.map((n) => n.id));
+    for (const n of nodes) if (n.parentId != null) leafIds.delete(n.parentId);
+    const missingCoords = nodes.filter(
+      (n) => leafIds.has(n.id) && levelIndex(n.level) >= levelIndex('municipality') && (refuse.has(n.id) || !checkCoords(n.lat, n.lng).ok),
+    ).length;
+    return { refused: refuse.size, missingCoords };
+  }
+
+  // Folds a duplicate place into the one that stays: its spelling becomes an
+  // alternative spelling of the survivor, the places inside it move across (or
+  // fold into a same-named one already there), and every client's location for
+  // it is merged into their location for the survivor, listings included.
+  // `keep` says whose postcode and point win; the other side only fills blanks.
+  async merge(
+    sourceId: number,
+    targetId: number,
+    keep: 'target' | 'source' = 'target',
+  ): Promise<{ merged: number; clientRowsMerged: number; clientRowsRelinked: number }> {
+    if (sourceId === targetId) throw new BadRequestException('Pick a different place to merge into');
+    const index = await this.loadIndex();
+    const srcLite = index.byId.get(sourceId);
+    const tgtLite = index.byId.get(targetId);
+    if (!srcLite || !tgtLite) throw new NotFoundException('Location not found');
+    if (index.isUnder(tgtLite, srcLite)) throw new BadRequestException('A place cannot be merged into a place inside it');
+
+    const tally = { merged: 0, clientRowsMerged: 0, clientRowsRelinked: 0 };
+    await this.mergeNode(sourceId, targetId, keep, tally);
+    return tally;
+  }
+
+  private async mergeNode(
+    sourceId: number,
+    targetId: number,
+    keep: 'target' | 'source',
+    tally: { merged: number; clientRowsMerged: number; clientRowsRelinked: number },
+  ): Promise<void> {
+    const source = await this.nodeRepository.findOne({ where: { id: sourceId } });
+    const target = await this.nodeRepository.findOne({ where: { id: targetId } });
+    if (!source || !target) return;
+
+    const kids = await this.nodeRepository.find({ where: { parentId: source.id } });
+    const tooHigh = kids.find((k) => levelIndex(k.level) <= levelIndex(target.level));
+    if (tooHigh) {
+      throw new BadRequestException(`"${tooHigh.name}" (${tooHigh.level}) cannot sit inside a ${target.level} — move it first`);
+    }
+
+    // 1. The survivor's own fields.
+    const first = keep === 'source' ? source : target;
+    const second = keep === 'source' ? target : source;
+    const point = placeCoords(first.lat, first.lng) ?? placeCoords(second.lat, second.lng);
+    target.aliases = this.cleanAliases([...(target.aliases || []), source.name, ...(source.aliases || [])], target.name);
+    target.postcode = first.postcode || second.postcode || null;
+    target.lat = point?.lat ?? null;
+    target.lng = point?.lng ?? null;
+    target.coordsIssue = point ? null : target.coordsIssue || source.coordsIssue || null;
+    // Chosen by a person in the merge dialog.
+    target.coordsConfirmed = !!point;
+    await this.nodeRepository.save(target);
+
+    // 2. Places inside the duplicate.
+    for (const kid of kids) {
+      const twin = await this.nodeRepository.findOne({ where: { parentId: target.id, nameKey: kid.nameKey } });
+      if (twin) await this.mergeNode(kid.id, twin.id, 'target', tally);
+      else await this.nodeRepository.update({ id: kid.id }, { parentId: target.id });
+    }
+
+    // 3. Clients' rows for the duplicate.
+    const rows = await this.locationRepository.find({ where: { templateNodeId: source.id } });
+    for (const row of rows) {
+      const survivor = await this.locationRepository.findOne({
+        where: { tenantId: row.tenantId, templateNodeId: target.id },
+      });
+      if (survivor && survivor.id !== row.id) {
+        await this.locationService.mergeInto(row.tenantId, row, survivor);
+        tally.clientRowsMerged++;
+      } else {
+        await this.locationRepository.update({ id: row.id, tenantId: row.tenantId }, { templateNodeId: target.id });
+        tally.clientRowsRelinked++;
+      }
+    }
+
+    // 4. Feed places that were waiting on the duplicate.
+    await this.unmatchedRepository.update({ placedUnderNodeId: source.id }, { placedUnderNodeId: target.id });
+    await this.unmatchedRepository.update({ resolvedNodeId: source.id }, { resolvedNodeId: target.id });
+
+    await this.nodeRepository.delete({ id: source.id });
+    tally.merged++;
+  }
+}
+
+function sameSpot(row: { lat: unknown; lng: unknown }, c: { lat: number; lng: number }): boolean {
+  return Number(row.lat).toFixed(5) === c.lat.toFixed(5) && Number(row.lng).toFixed(5) === c.lng.toFixed(5);
+}
+
+// A template point good enough to put on a map: present, in Spain, not swapped.
+function placeCoords(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const c = checkCoords(lat, lng);
+  return c.ok ? { lat: c.lat, lng: c.lng } : null;
 }
 
 function csvCell(v: string): string {
@@ -905,8 +1157,10 @@ function csvCell(v: string): string {
 // Odoo exports translatable fields as "{'en_US': 'Málaga'}".
 function odooCell(v: string | undefined): string {
   const s = String(v ?? '').trim();
-  const m = s.match(/^\{\s*'[a-zA-Z_]+'\s*:\s*'(.*)'\s*\}$/) || s.match(/^\{\s*"[a-zA-Z_]+"\s*:\s*"(.*)"\s*\}$/);
-  return (m ? m[1] : s).replace(/\s+/g, ' ').trim();
+  // Python quotes a value holding an apostrophe with double quotes:
+  // {'en_US': "Vall d'Albaida"}.
+  const m = s.match(/^\{\s*['"][a-zA-Z_]+['"]\s*:\s*(['"])(.*)\1\s*\}$/);
+  return (m ? m[2] : s).replace(/\s+/g, ' ').trim();
 }
 
 // RFC 4180 CSV: quoted fields, doubled quotes, commas/newlines inside quotes.

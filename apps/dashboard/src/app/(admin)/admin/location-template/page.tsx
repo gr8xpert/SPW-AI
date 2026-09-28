@@ -11,6 +11,7 @@ import {
   GripVertical,
   Loader2,
   MapPin,
+  Merge,
   MoreHorizontal,
   MoveRight,
   Plus,
@@ -76,7 +77,10 @@ interface TemplateNode {
   lng: string | number | null;
   status: Status;
   note: string | null;
+  coordsIssue: string | null;
 }
+
+type Filter = 'all' | 'needs_review' | 'ai_suggested' | 'missing_coords';
 
 interface Unmatched {
   id: number;
@@ -145,7 +149,7 @@ export default function LocationTemplatePage() {
   const [unmatched, setUnmatched] = useState<Unmatched[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'needs_review' | 'ai_suggested'>('all');
+  const [filter, setFilter] = useState<Filter>('all');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   // Places closed by hand while a search had opened them.
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -158,6 +162,11 @@ export default function LocationTemplatePage() {
   const [reapplyTenant, setReapplyTenant] = useState<string>('');
   const [reapplying, setReapplying] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [merging, setMerging] = useState<TemplateNode | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+  const [mergeKeep, setMergeKeep] = useState<'target' | 'source'>('target');
+  const [mergeBusy, setMergeBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -210,15 +219,24 @@ export default function LocationTemplatePage() {
   const subtreeSize = (id: number): number =>
     1 + (children.get(id) || []).reduce((s, c) => s + subtreeSize(c.id), 0);
 
+  // A town (or a municipality with nothing inside it) is where listings are
+  // drawn, so it needs its own point. Same rule as the API's checkAllCoords.
+  const missingCoords = (n: TemplateNode) =>
+    levelIndex(n.level) >= levelIndex('municipality') &&
+    !(children.get(n.id) || []).length &&
+    (n.lat == null || n.lng == null || (Number(n.lat) === 0 && Number(n.lng) === 0));
+
   const stats = useMemo(() => {
-    const s: Record<string, number> = { needs_review: 0, ai_suggested: 0 };
+    const s: Record<string, number> = { needs_review: 0, ai_suggested: 0, missing_coords: 0 };
     for (const l of LEVELS) s[l] = 0;
     for (const n of nodes) {
       s[n.level]++;
       if (n.status !== 'ok') s[n.status]++;
+      if (missingCoords(n)) s.missing_coords++;
     }
     return s;
-  }, [nodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, children]);
 
   // Search / filter: matches plus their ancestors are shown, ancestors open.
   const { visible, autoOpen, matches } = useMemo(() => {
@@ -229,7 +247,7 @@ export default function LocationTemplatePage() {
     let count = 0;
     for (const n of nodes) {
       const textHit = !q || keyOf(n.name).includes(q) || (n.aliases || []).some((a) => keyOf(a).includes(q));
-      const statusHit = filter === 'all' || n.status === filter;
+      const statusHit = filter === 'all' || (filter === 'missing_coords' ? missingCoords(n) : n.status === filter);
       if (!textHit || !statusHit) continue;
       count++;
       const path = pathOf(n);
@@ -404,8 +422,14 @@ export default function LocationTemplatePage() {
       fd.append('file', file);
       const res: any = await api.post('/api/super-admin/location-template/import', fd);
       const r = res?.data ?? res;
-      toast({ title: `Imported ${file.name}`, description: `${r.created} new place(s) added from ${r.rows} row(s). Existing places were left unchanged.` });
+      toast({
+        title: `Imported ${file.name}`,
+        description:
+          `${r.rows} row(s): ${r.created} new place(s), ${r.coordsFilled ?? 0} point(s) and ${r.postcodesFilled ?? 0} postcode(s) filled in. ` +
+          `${r.refused ?? 0} point(s) refused, ${r.missingCoords ?? 0} place(s) still without coordinates. Values already in the template were kept.`,
+      });
       await load();
+      if (r.missingCoords) setFilter('missing_coords');
     } catch (e) {
       toast({ title: 'Import failed', description: errorText(e, ''), variant: 'destructive' });
     } finally {
@@ -444,6 +468,56 @@ export default function LocationTemplatePage() {
       toast({ title: 'Re-apply failed', description: errorText(e, ''), variant: 'destructive' });
     } finally {
       setReapplying(false);
+    }
+  };
+
+  const checkCoords = async () => {
+    setChecking(true);
+    try {
+      const res: any = await api.post('/api/super-admin/location-template/check-coords', {});
+      const r = res?.data ?? res;
+      toast({
+        title: 'Coordinates checked',
+        description: `${r.refused ?? 0} point(s) refused and cleared, ${r.missingCoords ?? 0} place(s) without coordinates.`,
+      });
+      await load();
+    } catch (e) {
+      toast({ title: 'Check failed', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const openMerge = (n: TemplateNode) => {
+    setMerging(n);
+    setMergeTargetId(null);
+    setMergeKeep('target');
+  };
+
+  const runMerge = async () => {
+    if (!merging || mergeTargetId == null) return;
+    const target = byId.get(mergeTargetId);
+    setMergeBusy(true);
+    try {
+      const res: any = await api.post(`/api/super-admin/location-template/${merging.id}/merge`, {
+        targetId: mergeTargetId,
+        keep: mergeKeep,
+      });
+      const r = res?.data ?? res;
+      const clientRows = (r.clientRowsMerged ?? 0) + (r.clientRowsRelinked ?? 0);
+      toast({
+        title: `Merged "${merging.name}" into "${target?.name}"`,
+        description:
+          `"${merging.name}" is now an alternative spelling of it.` +
+          (clientRows ? ` ${clientRows} client location(s) followed; Re-apply to re-sort their listings now.` : ''),
+      });
+      setMerging(null);
+      if (target?.parentId != null) setExpanded((prev) => new Set(prev).add(target.parentId!));
+      await load();
+    } catch (e) {
+      toast({ title: 'Could not merge', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setMergeBusy(false);
     }
   };
 
@@ -515,9 +589,17 @@ export default function LocationTemplatePage() {
               {node.note && node.status !== 'ok' ? (
                 <p className="text-xs text-amber-700 dark:text-amber-400">{node.note}</p>
               ) : null}
+              {node.coordsIssue && missingCoords(node) ? (
+                <p className="text-xs text-red-700 dark:text-red-400">{node.coordsIssue}</p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
+            {missingCoords(node) && (
+              <Button size="sm" variant="outline" className="h-7 gap-1 border-red-200 text-xs text-red-700" onClick={() => openEdit(node)}>
+                <MapPin className="h-3 w-3" /> Add coordinates
+              </Button>
+            )}
             {node.status === 'needs_review' && (
               <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800">
                 <AlertTriangle className="h-3 w-3" /> Needs review
@@ -555,6 +637,11 @@ export default function LocationTemplatePage() {
                 {node.level !== 'region' && (
                   <DropdownMenuItem onClick={() => setMoving(node)}>
                     <MoveRight className="mr-2 h-4 w-4" /> Move to…
+                  </DropdownMenuItem>
+                )}
+                {node.level !== 'region' && (
+                  <DropdownMenuItem onClick={() => openMerge(node)}>
+                    <Merge className="mr-2 h-4 w-4" /> Merge into…
                   </DropdownMenuItem>
                 )}
                 {node.status === 'ok' && (
@@ -609,7 +696,7 @@ export default function LocationTemplatePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 lg:grid-cols-9">
         {LEVELS.map((l) => (
           <Card key={l}>
             <CardContent className="p-4">
@@ -628,6 +715,12 @@ export default function LocationTemplatePage() {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">AI suggested</p>
             <p className="text-xl font-semibold text-purple-700">{stats.ai_suggested}</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer" onClick={() => setFilter('missing_coords')}>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">No coordinates</p>
+            <p className="text-xl font-semibold text-red-700">{stats.missing_coords.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
@@ -666,13 +759,26 @@ export default function LocationTemplatePage() {
                     <SelectItem value="all">All places</SelectItem>
                     <SelectItem value="needs_review">Needs review ({stats.needs_review})</SelectItem>
                     <SelectItem value="ai_suggested">AI suggested ({stats.ai_suggested})</SelectItem>
+                    <SelectItem value="missing_coords">No coordinates ({stats.missing_coords})</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <CardDescription>
-                {visible
-                  ? `${matches.toLocaleString()} match(es).`
-                  : 'Drag a place onto another to move it inside, or use Move to… from its menu.'}
+                {filter === 'missing_coords' ? (
+                  <span className="flex flex-wrap items-center gap-3">
+                    <span>
+                      {matches.toLocaleString()} place(s) with no point on the map — their listings are drawn at the
+                      municipality instead. Add them by hand, or import a CSV that has them.
+                    </span>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={checkCoords} disabled={checking}>
+                      {checking && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Re-check all coordinates
+                    </Button>
+                  </span>
+                ) : visible ? (
+                  `${matches.toLocaleString()} match(es).`
+                ) : (
+                  'Drag a place onto another to move it inside, or use Move to… or Merge into… from its menu.'
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -833,6 +939,26 @@ export default function LocationTemplatePage() {
                   <Input id="tpl-lng" inputMode="decimal" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
                 </div>
               </div>
+              {form.mode === 'edit' && form.id != null && byId.get(form.id)?.coordsIssue && (() => {
+                const issue = byId.get(form.id!)!.coordsIssue!;
+                const hint = refusedValue(issue);
+                return (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                    <p>{issue}</p>
+                    {hint && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 h-7 text-xs"
+                        onClick={() => setForm({ ...form, lat: String(hint.lat), lng: String(hint.lng) })}
+                      >
+                        {hint.swapped ? `Use it swapped: ${hint.lat}, ${hint.lng}` : `Use ${hint.lat}, ${hint.lng} anyway`}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
               {form.mode === 'edit' && (
                 <div className="grid gap-2">
                   <Label htmlFor="tpl-note">Review note</Label>
@@ -870,6 +996,76 @@ export default function LocationTemplatePage() {
               onChange={(id) => id != null && moveTo(moving, id)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Merge */}
+      <Dialog open={!!merging} onOpenChange={(o) => !o && setMerging(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Merge &quot;{merging?.name}&quot; into…</DialogTitle>
+            <DialogDescription>
+              {merging && `${pathOf(merging).map((p) => p.name).join(' › ')}. `}
+              It becomes an alternative spelling of the place you pick; what is inside it moves across, and clients&apos;
+              listings follow.
+            </DialogDescription>
+          </DialogHeader>
+          {merging && (
+            <div className="grid gap-4">
+              <ParentPicker
+                label="Keep this place"
+                nodes={nodes.filter((n) => n.id !== merging.id && !pathOf(n).some((p) => p.id === merging.id))}
+                pathOf={pathOf}
+                accept={(n) => Math.abs(levelIndex(n.level) - levelIndex(merging.level)) <= 1 && levelIndex(n.level) >= levelIndex('area')}
+                initialQuery={merging.name}
+                value={mergeTargetId}
+                onChange={setMergeTargetId}
+              />
+              {mergeTargetId != null && byId.get(mergeTargetId) && (
+                <div className="grid gap-2">
+                  <Label>Postcode and map point to keep</Label>
+                  {(['target', 'source'] as const).map((side) => {
+                    const n = side === 'target' ? byId.get(mergeTargetId)! : merging;
+                    return (
+                      <button
+                        key={side}
+                        type="button"
+                        onClick={() => setMergeKeep(side)}
+                        className={cn(
+                          'flex items-start gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted',
+                          mergeKeep === side && 'border-primary bg-primary/5 ring-1 ring-primary',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border',
+                            mergeKeep === side && 'border-4 border-primary',
+                          )}
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-medium">
+                            {side === 'target' ? 'The place being kept' : 'The duplicate'}: {pathOf(n).slice(-2).map((p) => p.name).join(' › ')}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            Postcode {n.postcode || '—'} · {pointText(n)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <p className="text-xs text-muted-foreground">Blanks on the chosen side are filled from the other.</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMerging(null)}>
+              Cancel
+            </Button>
+            <Button onClick={runMerge} disabled={mergeBusy || mergeTargetId == null}>
+              {mergeBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Merge
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -934,28 +1130,49 @@ export default function LocationTemplatePage() {
   );
 }
 
-// Searchable list of places a node can go inside (levels above it).
+// The value the API refused, from its note: "… (36.73832, -4.47608)". A
+// swapped pair comes back in the right order. "Outside Spain" offers nothing.
+function refusedValue(issue: string): { lat: number; lng: number; swapped: boolean } | null {
+  if (/outside Spain|is 0/.test(issue)) return null;
+  const m = issue.match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)\s*$/);
+  if (!m) return null;
+  const a = Number(Number(m[1]).toFixed(6));
+  const b = Number(Number(m[2]).toFixed(6));
+  return /swapped/.test(issue) ? { lat: b, lng: a, swapped: true } : { lat: a, lng: b, swapped: false };
+}
+
+const pointText = (n: TemplateNode) =>
+  n.lat != null && n.lng != null && !(Number(n.lat) === 0 && Number(n.lng) === 0)
+    ? `${Number(n.lat).toFixed(5)}, ${Number(n.lng).toFixed(5)}`
+    : 'no coordinates';
+
+// Searchable list of places: by default the ones a node can go inside (levels
+// above it); `accept` picks others (e.g. places to merge into).
 function ParentPicker({
   label,
   nodes,
   pathOf,
-  maxLevel,
+  maxLevel = 0,
+  accept,
+  initialQuery = '',
   value,
   onChange,
 }: {
   label: string;
   nodes: TemplateNode[];
   pathOf: (n: TemplateNode | undefined) => TemplateNode[];
-  maxLevel: number;
+  maxLevel?: number;
+  accept?: (n: TemplateNode) => boolean;
+  initialQuery?: string;
   value: number | null;
   onChange: (id: number | null) => void;
 }) {
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQuery);
   const options = useMemo(() => {
     const k = keyOf(q);
     return nodes
-      .filter((n) => levelIndex(n.level) <= maxLevel && levelIndex(n.level) >= Math.max(0, maxLevel - 1))
-      .filter((n) => !k || keyOf(n.name).includes(k))
+      .filter((n) => (accept ? accept(n) : levelIndex(n.level) <= maxLevel && levelIndex(n.level) >= Math.max(0, maxLevel - 1)))
+      .filter((n) => !k || keyOf(n.name).includes(k) || (n.aliases || []).some((a) => keyOf(a).includes(k)))
       .slice(0, 60)
       .map((n) => ({ node: n, path: pathOf(n).map((p) => p.name).join(' › ') }))
       .sort((a, b) => a.path.localeCompare(b.path));

@@ -56,6 +56,16 @@ export class LocationTemplateNode {
   @Column({ type: 'decimal', precision: 11, scale: 7, nullable: true })
   lng: number | null;
 
+  // Why this place's coordinates were refused (swapped, outside Spain, far
+  // from the rest of its municipality). The bad value is cleared so no map
+  // uses it; this stays until someone enters a correct one.
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  coordsIssue: string | null;
+
+  // A person entered or accepted this point: the distance check trusts it.
+  @Column({ default: false })
+  coordsConfirmed: boolean;
+
   @Column({ default: 0 })
   sortOrder: number;
 

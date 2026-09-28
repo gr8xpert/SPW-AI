@@ -287,7 +287,7 @@ export class LocationService {
   //   3. Deletes source.
   // Recursion handles cases like merging "Costa del Sol Cádiz" → "Costa del
   // Sol Málaga" where both sides also have an overlapping sub-municipality.
-  private async mergeInto(tenantId: number, source: Location, target: Location): Promise<void> {
+  async mergeInto(tenantId: number, source: Location, target: Location): Promise<void> {
     if (source.id === target.id) return;
 
     await this.locationRepository.manager.query(
@@ -324,6 +324,10 @@ export class LocationService {
       .where('tenantId = :tenantId', { tenantId })
       .andWhere('id IN (:...ids)', { ids })
       .execute();
+  }
+
+  async markCoordsLocked(tenantId: number, id: number): Promise<void> {
+    await this.locationRepository.update({ id, tenantId }, { coordsLocked: true });
   }
 
   async incrementPropertyCount(tenantId: number, locationId: number): Promise<void> {

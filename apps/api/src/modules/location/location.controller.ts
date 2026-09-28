@@ -67,7 +67,9 @@ export class LocationController {
   async create(@CurrentTenant() tenantId: number, @Body() dto: CreateLocationDto) {
     const location = await this.locationService.create(tenantId, dto);
     await this.locationService.markUserLocked(tenantId, [location.id]);
-    return { ...location, userLocked: true };
+    const coordsLocked = location.lat != null && location.lng != null;
+    if (coordsLocked) await this.locationService.markCoordsLocked(tenantId, location.id);
+    return { ...location, userLocked: true, coordsLocked };
   }
 
   @Put(':id')
@@ -82,6 +84,15 @@ export class LocationController {
     if (moved || releveled || renamed || location.id !== id) {
       await this.locationService.markUserLocked(tenantId, [location.id]);
       location.userLocked = true;
+    }
+    // The form always sends lat/lng; only a changed value is the client's own.
+    const coord = (v: unknown) => (v == null || v === '' ? null : Number(Number(v).toFixed(5)));
+    const coordsChanged =
+      (dto.lat !== undefined && coord(dto.lat) !== coord(before.lat)) ||
+      (dto.lng !== undefined && coord(dto.lng) !== coord(before.lng));
+    if (coordsChanged && !location.coordsLocked) {
+      await this.locationService.markCoordsLocked(tenantId, location.id);
+      location.coordsLocked = true;
     }
     return location;
   }

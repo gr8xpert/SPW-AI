@@ -23,6 +23,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { LocationTemplateService } from './location-template.service';
 import {
   CreateTemplateNodeDto,
+  MergeTemplateNodeDto,
   MoveTemplateNodeDto,
   ReapplyTemplateDto,
   UpdateTemplateNodeDto,
@@ -77,6 +78,14 @@ export class LocationTemplateController {
     return dto.tenantId ? this.service.reapplyTenant(dto.tenantId) : this.service.reapplyAll();
   }
 
+  // Clears impossible points (swapped, outside Spain, far from the rest of
+  // their municipality) and counts the towns still without one.
+  @Post('check-coords')
+  @HttpCode(HttpStatus.OK)
+  checkCoords() {
+    return this.service.checkAllCoords();
+  }
+
   @Post()
   create(@Body() dto: CreateTemplateNodeDto) {
     return this.service.create(dto);
@@ -90,6 +99,12 @@ export class LocationTemplateController {
   @Put(':id/move')
   move(@Param('id', ParseIntPipe) id: number, @Body() dto: MoveTemplateNodeDto) {
     return this.service.move(id, dto);
+  }
+
+  @Post(':id/merge')
+  @HttpCode(HttpStatus.OK)
+  merge(@Param('id', ParseIntPipe) id: number, @Body() dto: MergeTemplateNodeDto) {
+    return this.service.merge(id, dto.targetId, dto.keep ?? 'target');
   }
 
   @Delete(':id')

@@ -34,10 +34,10 @@ const DEFAULT_CENTER: [number, number] = [40.0, -3.7];
 const INDIVIDUAL_ZOOM = 15;
 // Explore/zones: area groups below this zoom.
 const ZONE_ZOOM = 13;
-// From this zoom on, a pile of listings that share a town's point is spread
-// across that town without being asked: one bubble is no use once the town
-// fills the screen.
-const SPREAD_ZOOM = 14;
+// From this zoom on, a pile of listings that share a town's point is laid out
+// without being asked: one bubble is no use once the town fills the screen.
+// High enough that neighbouring towns' rings don't overlap.
+const SPREAD_ZOOM = 16;
 const CLUSTER_PX = 56;
 
 export default function RsMapContainer({
@@ -60,7 +60,6 @@ export default function RsMapContainer({
   // The towns those listings are in, with their outlines: what the map can
   // honestly draw when a feed sends no coordinates per listing.
   const { areas } = useMapAreas(isExplore ? 'all' : 'search');
-  const areaById = useMemo(() => new Map(areas.map((a) => [a.id, a])), [areas]);
 
   const mapElRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -121,7 +120,11 @@ export default function RsMapContainer({
         // Scroll-zoom only after the visitor clicks into the map, so scrolling
         // the page doesn't get stuck on it.
         map.once('focus', () => map.scrollWheelZoom.enable());
-        map.on('click', () => map.scrollWheelZoom.enable());
+        map.on('click', () => {
+          map.scrollWheelZoom.enable();
+          // A click on the map itself (not a marker) closes an opened town.
+          setOpenPiles((current) => (current.size ? new Set() : current));
+        });
         map.on('zoomend', () => setCurrentZoom(map.getZoom()));
         map.on('moveend', () => {
           if (programmaticMove.current) programmaticMove.current = false;
@@ -146,8 +149,8 @@ export default function RsMapContainer({
   // are spread across the place they belong to, each keeping the same spot on
   // every visit, and every one of them drawn as an approximate location.
   const placedPoints = useMemo(
-    () => spreadOpenPiles(points, openPiles, currentZoom, areaById),
-    [points, openPiles, currentZoom, areaById],
+    () => spreadOpenPiles(points, openPiles, currentZoom),
+    [points, openPiles, currentZoom],
   );
 
   // ── Groups for the current zoom ──
@@ -171,10 +174,15 @@ export default function RsMapContainer({
       }
       if (zoomLevel >= INDIVIDUAL_ZOOM) return spreadOverlaps(placedPoints);
       // Screen-space clustering at this zoom.
-      const groups: Array<MarkerGroup & { px: { x: number; y: number } }> = [];
+      const groups: Array<MarkerGroup & { px: { x: number; y: number }; laidOut?: boolean }> = [];
       for (const p of placedPoints) {
         const px = map.project([p.lat, p.lng], zoomLevel);
-        const hit = groups.find((g) => Math.abs(g.px.x - px.x) < CLUSTER_PX && Math.abs(g.px.y - px.y) < CLUSTER_PX);
+        // An opened town is already laid out to be read one by one.
+        if (p.spread) {
+          groups.push({ lat: p.lat, lng: p.lng, points: [p], px, laidOut: true });
+          continue;
+        }
+        const hit = groups.find((g) => !g.laidOut && Math.abs(g.px.x - px.x) < CLUSTER_PX && Math.abs(g.px.y - px.y) < CLUSTER_PX);
         if (hit) hit.points.push(p);
         else groups.push({ lat: p.lat, lng: p.lng, points: [p], px });
       }
@@ -285,22 +293,17 @@ export default function RsMapContainer({
         const bounds = L.latLngBounds(pts);
         // Every listing here shares one point because none of them has an
         // address — zooming shows the same pile at every level. Open it: the
-        // listings spread across the town they are in, each with its price, and
-        // the map goes there.
+        // listings are laid out in rings around the town's point, each with its
+        // price, and the map centres on it. One town open at a time.
         if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
-          const key = pileKey(group.points[0]);
-          const locationId = group.points[0].location?.id;
-          const area = locationId != null ? areaById.get(locationId) : undefined;
-          setOpenPiles((current) => new Set(current).add(key));
-          const radius = spreadRadiusM(area);
-          const zoom = radius <= 600 ? 16 : radius <= 1500 ? 15 : 14;
-          moveProgrammatically(() => map.setView(bounds.getCenter(), Math.max(currentZoom, zoom)));
+          setOpenPiles(new Set([pileKey(group.points[0])]));
+          moveProgrammatically(() => map.setView(bounds.getCenter(), Math.max(currentZoom, 14)));
         } else {
           map.fitBounds(bounds, { padding: [48, 48], maxZoom: INDIVIDUAL_ZOOM });
         }
       });
     }
-  }, [leafletReady, buildGroups, currentZoom, zonesMode, t, formatPrice, areaById, moveProgrammatically]);
+  }, [leafletReady, buildGroups, currentZoom, zonesMode, t, formatPrice, moveProgrammatically]);
 
   function popupHtml(p: MapPoint, price: string): string {
     const url = buildPropertyUrl({ id: p.id, reference: p.reference, title: p.title, urlSegment: p.urlSegment, slug: p.slug, location: p.location, propertyType: p.propertyType }, config) || '#';
@@ -489,124 +492,57 @@ const FAN_RADIUS = 0.00045;
 
 const METRES_PER_DEGREE = 111320;
 
-// How far across a pile may be spread, when all we know is the kind of place
-// the listings are in. Used when we have no outline for it — which is most
-// places: OpenStreetMap only has a shape for somewhere mapped as an area, and
-// neighbourhoods like Torremuelle or Montemar are mapped as a single point.
-const SPREAD_BY_LEVEL_M: Record<string, number> = {
-  urbanization: 300,
-  town: 600,
-  municipality: 1200,
-  area: 2500,
-  province: 8000,
-  region: 20000,
-};
-
 export function pileKey(p: { lat: number; lng: number }): string {
   return `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
 }
 
-function ringsOf(boundary: MapArea['boundary']): number[][][] {
-  if (!boundary) return [];
-  return boundary.type === 'Polygon'
-    ? (boundary.coordinates as number[][][])
-    : (boundary.coordinates as number[][][][]).flat();
-}
+// A point laid out around its town's point, not at a position of its own.
+export type PlacedPoint = MapPoint & { spread?: boolean };
 
-// How far a pile may be spread around a town's point. What kind of place it is
-// decides that — a listing we can only place by its town should look like it is
-// in that town, not scattered over the coast — and the outline, where we have
-// one, only ever makes it smaller, so a small place keeps a small spread.
-export function spreadRadiusM(area: MapArea | undefined): number {
-  let radius = SPREAD_BY_LEVEL_M[area?.level ?? ''] ?? 900;
-  const rings = ringsOf(area?.boundary ?? null);
-  if (rings.length) {
-    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-    for (const ring of rings) {
-      for (const [lng, lat] of ring) {
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-      }
+// Layout of an opened town, in screen pixels: a honeycomb of label-sized cells
+// (a price label is up to ~60 px wide and 24 px tall), filled from the middle
+// outward, so the whole reads as a round patch around the town's point and no
+// two prices overlap however many there are. Pixels rather than metres, so it
+// looks the same at every zoom and stays centred on the town.
+const CELL_W = 66;
+const CELL_H = 30;
+
+export function ringOffsetsPx(count: number): Array<[number, number]> {
+  if (count <= 0) return [];
+  // Enough rows and columns to hold `count` cells inside a circle.
+  const reach = Math.ceil(Math.sqrt(count)) + 2;
+  const cells: Array<[number, number, number]> = [];
+  for (let row = -reach; row <= reach; row++) {
+    // Every other row shifted half a cell: a honeycomb, not a grid.
+    const shift = row % 2 ? CELL_W / 2 : 0;
+    for (let col = -reach; col <= reach; col++) {
+      const x = col * CELL_W + shift;
+      const y = row * CELL_H;
+      // The town's point itself stays clear: it is what the others are around.
+      if (x === 0 && y === 0) continue;
+      cells.push([x, y, Math.hypot(x, y)]);
     }
-    const midLat = ((minLat + maxLat) / 2) * (Math.PI / 180);
-    const heightM = (maxLat - minLat) * METRES_PER_DEGREE;
-    const widthM = (maxLng - minLng) * METRES_PER_DEGREE * Math.cos(midLat);
-    const half = Math.min(heightM, widthM) / 2;
-    if (half > 0) radius = Math.min(radius, half);
   }
-  return Math.max(150, Math.min(radius, 2500));
+  cells.sort((a, b) => a[2] - b[2] || Math.atan2(a[1], a[0]) - Math.atan2(b[1], b[0]));
+  return cells.slice(0, count).map(([x, y]) => [x, y]);
 }
 
-function hash01(value: string): [number, number] {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const first = (h >>> 0) / 4294967296;
-  const second = (Math.imul(h ^ 0x9e3779b9, 2654435761) >>> 0) / 4294967296;
-  return [first, second];
-}
-
-// Is this spot inside the town? Ray casting against the outline's outer rings.
-function insideOutline(lat: number, lng: number, rings: number[][][]): boolean {
-  for (const ring of rings) {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const [xi, yi] = ring[i];
-      const [xj, yj] = ring[j];
-      if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
-    }
-    if (inside) return true;
-  }
-  return false;
-}
-
-// Each listing keeps the same spot on every visit — the offset comes from its
-// reference, not from chance — and every one of them is drawn and labelled as
-// an approximate location, because that is exactly what it is. Nothing here
-// claims to be an address.
-//
-// Where we have the town's outline, a spot is tried until it lands inside it,
-// so nothing is drawn in the sea or in the next village. Where we do not, the
-// circle is deliberately small: a listing we can only place by its town should
-// look like it is in the middle of that town, not scattered over the coast.
-function spreadAcross(list: MapPoint[], radiusM: number, rings: number[][][]): MapPoint[] {
-  const TRIES = 16;
-  return list.map((p) => {
-    const seed = p.reference || String(p.id);
-    for (let attempt = 0; attempt < TRIES; attempt++) {
-      const [u, v] = hash01(attempt ? `${seed}#${attempt}` : seed);
-      const angle = 2 * Math.PI * u;
-      // sqrt keeps them evenly spread over the circle instead of bunched middle.
-      const radius = radiusM * Math.sqrt(v);
-      const lat = p.lat + (radius * Math.sin(angle)) / METRES_PER_DEGREE;
-      const lng = p.lng + (radius * Math.cos(angle)) / (METRES_PER_DEGREE * Math.cos((p.lat * Math.PI) / 180));
-      if (!rings.length || insideOutline(lat, lng, rings)) return { ...p, lat, lng };
-    }
-    // Nowhere inside the place worked — a town point right on the shoreline,
-    // say. Leave it on the point rather than drop it in the sea: it joins the
-    // others there as a count, which is at least true.
-    return p;
-  });
-}
+const byPrice = (a: MapPoint, b: MapPoint) => {
+  const pa = a.priceOnRequest || a.price == null ? Infinity : a.price;
+  const pb = b.priceOnRequest || b.price == null ? Infinity : b.price;
+  return pa - pb || a.id - b.id;
+};
 
 /**
  * Listings placed where they can actually be drawn.
  *
- * A pile of listings sharing one point is left alone — one bubble with the
- * count — until either the visitor opens it or the map is zoomed into the town
- * anyway. Then it is spread across that town, so the prices can be read and
- * each marker opens its own property.
+ * Feed listings carry no address, so a town's listings all share the town's
+ * point. That pile stays one bubble with its count until the visitor opens it
+ * (or zooms right into the town); then its listings are laid out in rings
+ * around the town's point, cheapest in the middle, so every price can be read
+ * and clicked. Each one is still labelled an approximate location.
  */
-export function spreadOpenPiles(
-  points: MapPoint[],
-  open: Set<string>,
-  zoomLevel: number,
-  areaById: Map<number, MapArea>,
-): MapPoint[] {
+export function spreadOpenPiles(points: MapPoint[], open: Set<string>, zoomLevel: number): PlacedPoint[] {
   const buckets = new Map<string, MapPoint[]>();
   for (const p of points) {
     const key = pileKey(p);
@@ -615,7 +551,7 @@ export function spreadOpenPiles(
     else buckets.set(key, [p]);
   }
 
-  const out: MapPoint[] = [];
+  const out: PlacedPoint[] = [];
   for (const [key, list] of buckets) {
     const spread =
       list.length > 1 &&
@@ -625,14 +561,20 @@ export function spreadOpenPiles(
       out.push(...list);
       continue;
     }
-    const locationId = list[0].location?.id;
-    const area = locationId != null ? areaById.get(locationId) : undefined;
-    // A bigger pile needs more room, or the markers sit on top of each other.
-    const room = Math.min(3, Math.max(1, Math.sqrt(list.length) / 3));
-    // Kept inside the town where we have its shape, and inside the
-    // municipality — whose boundary follows the coastline — where we do not.
-    const fence = ringsOf(area?.boundary ?? area?.fence ?? null);
-    out.push(...spreadAcross(list, spreadRadiusM(area) * room, fence));
+    const { lat, lng } = list[0];
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+    // Web Mercator: metres per screen pixel at this latitude and zoom.
+    const metresPerPx = (156543.03392 * cosLat) / 2 ** zoomLevel;
+    const offsets = ringOffsetsPx(list.length);
+    [...list].sort(byPrice).forEach((p, i) => {
+      const [dx, dy] = offsets[i];
+      out.push({
+        ...p,
+        lat: lat - (dy * metresPerPx) / METRES_PER_DEGREE,
+        lng: lng + (dx * metresPerPx) / (METRES_PER_DEGREE * cosLat),
+        spread: true,
+      });
+    });
   }
   return out;
 }

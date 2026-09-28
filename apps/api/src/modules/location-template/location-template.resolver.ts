@@ -1,3 +1,4 @@
+import { checkCoords } from './template-coords';
 import { locationKey, levelIndex, TemplateLevel } from './location-name';
 
 // Pure matching logic, kept free of the database so it can be tested on its own.
@@ -96,7 +97,8 @@ export class TemplateIndex {
       this.coordsMemo.set(node.id, null);
       return null;
     }
-    const own = validCoords(node.lat, node.lng);
+    const checked = checkCoords(node.lat, node.lng);
+    const own = checked.ok ? { lat: checked.lat, lng: checked.lng } : null;
     let result = own;
     if (!result) {
       const inside = this.pointsInside(node);
@@ -129,8 +131,8 @@ export class TemplateIndex {
     const stack = [...(this.childrenOf.get(node.id) || [])];
     while (stack.length) {
       const n = stack.pop()!;
-      const c = validCoords(n.lat, n.lng);
-      if (c) out.push(c);
+      const c = checkCoords(n.lat, n.lng);
+      if (c.ok) out.push({ lat: c.lat, lng: c.lng });
       stack.push(...(this.childrenOf.get(n.id) || []));
     }
     return out;

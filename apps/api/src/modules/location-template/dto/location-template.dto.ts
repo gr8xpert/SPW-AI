@@ -110,3 +110,13 @@ export class ReapplyTemplateDto {
   @IsInt()
   tenantId?: number;
 }
+
+export class MergeTemplateNodeDto {
+  @IsInt()
+  targetId: number;
+
+  // Whose postcode and point win; the other side only fills blanks.
+  @IsOptional()
+  @IsIn(['target', 'source'])
+  keep?: 'target' | 'source';
+}
