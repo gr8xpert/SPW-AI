@@ -43,7 +43,7 @@ export default function RsWishlistGrid() {
         return (
           <div key={property.id} class="rs-wishlist-grid__card" style={`--i:${i}`}>
             <div class="rs-wishlist-grid__image">
-              {property.images[0] && (
+              {property.images?.[0] && (
                 <img
                   src={property.images[0].thumbnailUrl ?? property.images[0].url}
                   alt={property.title}

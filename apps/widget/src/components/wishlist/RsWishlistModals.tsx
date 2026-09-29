@@ -244,7 +244,7 @@ function CompareModal() {
                 <th class="rs-compare-table__feature">{t('feature', 'Feature')}</th>
                 {properties.map((p) => (
                   <th key={p.id} class="rs-compare-table__prop">
-                    {p.images[0] && (
+                    {p.images?.[0] && (
                       <img
                         src={p.images[0].thumbnailUrl ?? p.images[0].url}
                         alt={p.title}

@@ -49,9 +49,9 @@ export default function PropertyCard({ property, template = 1, index = 0 }: Prop
     [formatPrice, property.currency],
   );
 
-  const sortedImages = property.images.slice().sort((a, b) => a.order - b.order);
+  const sortedImages = (property.images ?? []).slice().sort((a, b) => a.order - b.order);
   const carouselImages = sortedImages.slice(0, 5);
-  const totalImages = property.images.length;
+  const totalImages = property.images?.length ?? 0;
   const favorite = isFavorite(property.id);
 
   const propertyUrl = useMemo(() => buildPropertyUrl(property, config) || '#', [property, config]);

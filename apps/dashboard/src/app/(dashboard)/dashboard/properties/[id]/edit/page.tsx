@@ -261,6 +261,11 @@ export default function EditPropertyPage() {
   const [allFeatures, setAllFeatures] = useState<Feature[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [images, setImages] = useState<MediaFileItem[]>([]);
+  // `images` holds only files uploaded here. A feed listing's photos are links
+  // from the feed, so they are kept aside and sent back untouched; and photos
+  // are only sent at all when the user changed them, so a save never wipes them.
+  const feedImagesRef = useRef<Array<{ url: string; order?: number; alt?: string }>>([]);
+  const imagesChangedRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -326,6 +331,9 @@ export default function EditPropertyPage() {
         }
 
         if (property) {
+          const uploadedUrls = new Set((Array.isArray(files) ? files : []).map((f: any) => f.url));
+          feedImagesRef.current = (Array.isArray(property.images) ? property.images : [])
+            .filter((img: any) => img?.url && !uploadedUrls.has(img.url));
           setPropertySource(property.source || 'manual');
           const str = (v: any) => (v != null ? String(v) : '');
           const dateStr = (v: any) => (v ? v.substring(0, 10) : '');
@@ -458,6 +466,7 @@ export default function EditPropertyPage() {
         const result = await api.post(`/api/dashboard/upload?propertyId=${propertyId}`, formPayload);
         const uploaded = result.data || result;
         URL.revokeObjectURL(localUrl);
+        imagesChangedRef.current = true;
         setImages((prev) =>
           prev.map((img) =>
             img.tempId === tempId
@@ -476,6 +485,7 @@ export default function EditPropertyPage() {
   const handleRemoveImage = useCallback(async (fileId: number) => {
     try {
       await api.delete(`/api/dashboard/upload/${fileId}`);
+      imagesChangedRef.current = true;
       setImages((prev) => prev.filter((img) => img.id !== fileId));
     } catch {
       toast({ title: 'Error', description: 'Failed to delete image.', variant: 'destructive' });
@@ -485,6 +495,7 @@ export default function EditPropertyPage() {
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    imagesChangedRef.current = true;
 
     setImages((prev) => {
       const oldIndex = prev.findIndex((img) => img.id === active.id);
@@ -683,13 +694,13 @@ export default function EditPropertyPage() {
         payload[f] = Object.values(obj).some(v => v) ? obj : undefined;
       }
 
-      // Sync images JSON on property
-      if (images.length > 0) {
-        payload.images = images
-          .filter((img) => img.id > 0)
-          .map((img, idx) => ({ url: img.url, order: idx, alt: '' }));
-      } else {
-        payload.images = null;
+      // Photos only when changed here; the feed's own photos stay first.
+      if (imagesChangedRef.current) {
+        const all = [
+          ...feedImagesRef.current.map((img) => ({ url: img.url, alt: img.alt || '' })),
+          ...images.filter((img) => img.id > 0).map((img) => ({ url: img.url, alt: '' })),
+        ];
+        payload.images = all.length > 0 ? all.map((img, idx) => ({ ...img, order: idx })) : null;
       }
 
       await api.put(`/api/dashboard/properties/${id}`, payload);

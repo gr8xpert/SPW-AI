@@ -294,6 +294,32 @@ interface DropdownDef {
   visible: boolean;
 }
 
+// Which tab each already-chosen place belongs to: the first tab whose levels
+// include the place's level (the first tab when none does). The places above
+// it are ticked in the earlier tabs, so the later tab has something to list.
+function initialSelection(
+  locations: Location[],
+  value: number[] | undefined,
+  config?: { dropdown1: { levels: string[] }; dropdown2: { levels: string[] }; dropdown3: { levels: string[] } },
+): [Set<number>, Set<number>, Set<number>] {
+  const sets: [Set<number>, Set<number>, Set<number>] = [new Set(), new Set(), new Set()];
+  if (!value?.length) return sets;
+  const levels = config ? [config.dropdown1, config.dropdown2, config.dropdown3].map((d) => d?.levels ?? []) : [[], [], []];
+  const byId = new Map(locations.map((l) => [l.id, l]));
+  const tabOf = (l: Location) => levels.findIndex((ls) => ls.includes(l.level));
+  for (const id of value) {
+    const loc = byId.get(id);
+    if (!loc) continue;
+    const tab = Math.max(0, tabOf(loc));
+    sets[tab].add(id);
+    for (let p = loc.parentId != null ? byId.get(loc.parentId) : undefined; p; p = p.parentId != null ? byId.get(p.parentId) : undefined) {
+      const pt = tabOf(p);
+      if (pt >= 0 && pt < tab) sets[pt].add(p.id);
+    }
+  }
+  return sets;
+}
+
 function CascadingMultiSelect({ locations, value, onChange, locked, t, config }: {
   locations: Location[];
   value: number[] | undefined;
@@ -307,9 +333,12 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
   };
 }) {
   const [activeTab, setActiveTab] = useState<number | null>(null);
-  const [selected1, setSelected1] = useState<Set<number>>(new Set());
-  const [selected2, setSelected2] = useState<Set<number>>(new Set());
-  const [selected3, setSelected3] = useState<Set<number>>(new Set());
+  // A search that arrives with the page (a results page opened from the
+  // homepage, a shared link) starts the tabs on its places.
+  const initial = useMemo(() => initialSelection(locations, value, config), []);
+  const [selected1, setSelected1] = useState<Set<number>>(initial[0]);
+  const [selected2, setSelected2] = useState<Set<number>>(initial[1]);
+  const [selected3, setSelected3] = useState<Set<number>>(initial[2]);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const tab0Ref = useRef<HTMLButtonElement>(null);
@@ -384,6 +413,11 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
     if (selected3.size > 0) ids = [...selected3];
     else if (selected2.size > 0) ids = [...selected2];
     else if (selected1.size > 0) ids = [...selected1];
+    // Only a change the visitor made: reporting the store's own value back
+    // (on mount, say) would replace a single locationId from the URL and
+    // leave the map and the count with no location at all.
+    const current = value ?? [];
+    if (ids.length === current.length && ids.every((id) => current.includes(id))) return;
     onChange(ids);
   }, [selected1, selected2, selected3]);
 
@@ -836,7 +870,7 @@ export default function RsLocation({ variation = 1 }: Props) {
       {variation === 2 && (
         <CascadingMultiSelect
           locations={locations}
-          value={filters.locationIds}
+          value={filters.locationIds ?? (filters.locationId != null ? [filters.locationId] : undefined)}
           onChange={handleMultiChange}
           locked={locked}
           t={t}

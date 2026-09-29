@@ -331,8 +331,21 @@ export class PropertyService {
     if (a === b) return true;
     if (a == null && b == null) return true;
     if (a == null || b == null) return false;
+    // DECIMAL columns come back as strings ("399950.00") while the form sends
+    // numbers; the same amount is not an edit.
+    if (typeof a === 'number' || typeof b === 'number') {
+      const x = Number(a);
+      const y = Number(b);
+      return Number.isFinite(x) && Number.isFinite(y) && x === y;
+    }
     if (typeof a === 'object' || typeof b === 'object') {
-      try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+      // {} and { en: '' } both mean "no text": an untouched empty language
+      // box is not an edit.
+      const clean = (v: unknown) =>
+        v && typeof v === 'object' && !Array.isArray(v)
+          ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== '' && x != null).sort(([k1], [k2]) => k1.localeCompare(k2)))
+          : v;
+      try { return JSON.stringify(clean(a)) === JSON.stringify(clean(b)); } catch { return false; }
     }
     return false;
   }

@@ -223,7 +223,7 @@ export default function RsChatPanel() {
                     onClick={() => handlePropertyClick(prop)}
                     role="article"
                   >
-                    {prop.images.length > 0 && (
+                    {(prop.images?.length ?? 0) > 0 && (
                       <img
                         class="rs-chat-property-card__image"
                         src={prop.images[0].thumbnailUrl || prop.images[0].url}
