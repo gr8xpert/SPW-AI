@@ -21,6 +21,10 @@ const SORT_ALIASES: Record<string, string> = {
   oldest: 'create_date',
   updated: 'write_date_desc',
   recently_updated: 'write_date_desc',
+  // V1 names, still in older sites' shortcodes
+  last_date_desc: 'write_date_desc',
+  last_date: 'write_date',
+  create_date_asc: 'create_date',
   price_asc: 'list_price',
   price_low: 'list_price',
   cheapest: 'list_price',
