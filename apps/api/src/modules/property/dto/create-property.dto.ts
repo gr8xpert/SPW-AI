@@ -319,6 +319,11 @@ export class CreatePropertyDto {
   @IsOptional()
   isPublished?: boolean;
 
+  // Off = the feed leaves this listing alone (no updates, never removed).
+  @IsBoolean()
+  @IsOptional()
+  syncEnabled?: boolean;
+
   @IsIn(['inherit', 'branded', 'unbranded'])
   @IsOptional()
   brochureVariant?: 'inherit' | 'branded' | 'unbranded';
