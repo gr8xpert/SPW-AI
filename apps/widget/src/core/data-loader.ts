@@ -93,7 +93,9 @@ export class DataLoader {
     if (!url) return null;
     try {
       const [res, dashboardConfig] = await Promise.all([
-        fetch(url),
+        // A file that never arrives falls back to the other layers instead of
+        // leaving the page empty.
+        fetch(url, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(10_000) } : undefined),
         this.api.get<Partial<WidgetConfig>>('/v1/widget-config').catch(() => null),
       ]);
       if (!res.ok) return null;

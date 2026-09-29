@@ -139,6 +139,10 @@ async function bootstrap() {
         ...base,
         origin: true, // reflect Origin header
         credentials: false,
+        // Every widget request carries X-API-Key, so the browser asks
+        // permission first (a whole extra round trip). Let it remember the
+        // answer (Chrome keeps it up to 2 h, Firefox 24 h).
+        maxAge: 86400,
       });
       return;
     }

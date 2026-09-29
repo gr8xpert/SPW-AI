@@ -166,8 +166,14 @@ async function init(): Promise<void> {
     return { locations: s.locations, propertyTypes: s.propertyTypes, features: s.features };
   };
 
-  setSearchHandler(async (filters: SearchFilters, options?: SearchOptions) => {
+  setSearchHandler(async (requested: SearchFilters, options?: SearchOptions) => {
     if (!dataLoader) return;
+    // Every page the same size as the first: without a limit the API pages by
+    // 20, so page 2 started at listing 21 and a 17-result search had no page 2.
+    const filters: SearchFilters = {
+      ...requested,
+      limit: requested.limit || store.getState().config.resultsPerPage || config.resultsPerPage || 12,
+    };
     const resultsPage = store.getState().config.resultsPage;
     if (options?.navigate && !hasResultsView && resultsPage) {
       const target = new URL(resultsPage, window.location.href);

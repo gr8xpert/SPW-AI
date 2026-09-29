@@ -30,6 +30,7 @@ import {
   UpdateTemplateNodeDto,
 } from './dto/location-template.dto';
 import { checkCoords, CoordNode, findOutliers, normalizePostcode } from './template-coords';
+import { distanceKm } from '../location/location-points';
 
 // What a feed says about a listing's location, as stored on the property.
 export type FeedLocationRecord = FeedLocationInput & { provider?: string };
@@ -64,6 +65,8 @@ export interface TemplateRunContext {
 
 // Most unknown towns AI is asked to place per run; the rest wait for the next.
 const AI_BATCH_LIMIT = 40;
+// A system-set point further than this from where its place should be is wrong.
+const ROW_POINT_MAX_KM = 15;
 
 @Injectable()
 export class LocationTemplateService {
@@ -220,11 +223,16 @@ export class LocationTemplateService {
     // Map position for listings without their own GPS. A point the template
     // holds for this very place is the reference and replaces whatever the
     // system put there before (geocoder, parent's point); a borrowed one (the
-    // parent's, children's average) only fills a row that has nothing. A
-    // position the client typed in is never touched.
+    // parent's, children's average) fills a row that has nothing, and replaces
+    // a system-set point that is nowhere near the place (an old geocoder hit on
+    // a namesake town, say). A position the client typed in is never touched.
     if (!row.coordsLocked) {
       const own = placeCoords(node.lat, node.lng);
-      const c = own ?? (validCoords(row.lat, row.lng) ? null : ctx.index.coords(node));
+      const borrowed = own ? null : ctx.index.coords(node);
+      const rowOk =
+        validCoords(row.lat, row.lng) &&
+        (!borrowed || distanceKm(Number(row.lat), Number(row.lng), borrowed.lat, borrowed.lng) <= ROW_POINT_MAX_KM);
+      const c = own ?? (rowOk ? null : borrowed);
       if (c && !sameSpot(row, c)) {
         updates.lat = c.lat;
         updates.lng = c.lng;

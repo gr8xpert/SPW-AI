@@ -3,6 +3,9 @@ export interface ApiClientConfig {
   apiKey: string;
 }
 
+const REQUEST_TIMEOUT_MS = 8_000;
+const GET_ATTEMPTS = 3;
+
 export class ApiClient {
   private apiUrl: string;
   private apiKey: string;
@@ -40,7 +43,7 @@ export class ApiClient {
     const headers = new Headers(init.headers);
     headers.set('X-API-Key', this.apiKey);
 
-    const res = await fetch(url, { ...init, headers });
+    const res = await this.fetchWithRetry(url, { ...init, headers });
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -54,6 +57,30 @@ export class ApiClient {
       return json as T;
     }
     return (json.data !== undefined ? json.data : json) as T;
+  }
+
+  // A request that never gets an answer (a dead pooled connection, a dropped
+  // mobile network) used to leave the dropdowns or cards empty until the
+  // visitor refreshed. Each try now gives up after REQUEST_TIMEOUT_MS, and a
+  // read that got no response is tried again. Writes are sent once: repeating
+  // an inquiry could send it twice.
+  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+    const method = (init.method || 'GET').toUpperCase();
+    const attempts = method === 'GET' ? GET_ATTEMPTS : 1;
+    let lastError: unknown;
+    for (let i = 0; i < attempts; i++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        return await fetch(url, { ...init, signal: controller.signal });
+      } catch (err) {
+        lastError = err;
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Network error');
   }
 
   getApiUrl(): string {

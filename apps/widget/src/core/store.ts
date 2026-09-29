@@ -39,8 +39,17 @@ function reduce(state: SPMState, action: Action): SPMState {
       return { ...state, config: payload as SPMState['config'] };
     case 'SET_FILTERS':
       return { ...state, filters: payload as SPMState['filters'] };
-    case 'MERGE_FILTERS':
-      return { ...state, filters: { ...state.filters, ...(payload as Partial<SPMState['filters']>) } };
+    case 'MERGE_FILTERS': {
+      const patch = payload as Partial<SPMState['filters']>;
+      const next = { ...state.filters, ...patch };
+      // A different search starts on its first page: page 3 of "all" is past
+      // the end of a 17-result "New Dev" search.
+      const changed = Object.keys(patch).some(
+        (k) => k !== 'page' && JSON.stringify((state.filters as Record<string, unknown>)[k]) !== JSON.stringify((patch as Record<string, unknown>)[k]),
+      );
+      if (changed && !('page' in patch)) delete (next as Record<string, unknown>).page;
+      return { ...state, filters: next };
+    }
     case 'SET_BASE_FILTERS':
       return { ...state, baseFilters: payload as SPMState['baseFilters'] };
     case 'RESET_FILTERS':
