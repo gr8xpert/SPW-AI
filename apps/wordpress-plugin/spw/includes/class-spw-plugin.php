@@ -235,8 +235,22 @@ class SPW_Plugin {
         if ($bundle_url) $config['dataBundleUrl'] = $bundle_url;
         $sync->maybe_schedule_refresh();
 
+        // The widget script sits at the end of the page, so the browser would
+        // only start on it (and on the data file and the API) once the whole
+        // page had arrived. These start all three now, in parallel with the
+        // rest of the page. Each URL must match the one used later exactly.
+        $api_origin = preg_replace('#^(https?://[^/]+).*$#i', '$1', $api_url);
+        $ver = (string) get_option('spw_widget_version', '');
+        $loader = defined('SPW_LOADER_URL') ? SPW_LOADER_URL : SPW_LOADER_DEFAULT;
+        $loader_src = add_query_arg('ver', $ver !== '' ? $ver : SPW_VERSION, $loader);
+
         ?>
 <!-- Smart Property Widget v<?php echo esc_attr(SPW_VERSION); ?> -->
+<link rel="preconnect" href="<?php echo esc_url($api_origin); ?>" crossorigin>
+<link rel="preload" href="<?php echo esc_url($loader_src); ?>" as="script">
+<?php if ($bundle_url) : ?>
+<link rel="preload" href="<?php echo esc_url($bundle_url); ?>" as="fetch" crossorigin="anonymous">
+<?php endif; ?>
 <script>window.RealtySoftConfig = <?php echo wp_json_encode($config); ?>;</script>
 <?php
     }

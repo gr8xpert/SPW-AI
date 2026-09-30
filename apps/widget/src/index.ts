@@ -17,9 +17,23 @@ import { loadPersistedFavorites } from './hooks/useFavorites';
 import { extractRefCandidates, refFirst } from './core/url-utils';
 import { applyPropertySeo } from './core/seo';
 import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
-import type { SearchFilters } from './types';
+import type { SearchFilters, SearchResults, WidgetConfig } from './types';
 
 let dataLoader: DataLoader | null = null;
+
+// The property reference(s) a detail page's address may carry: `?ref=` on
+// propertyPageUrl links; on pretty links, the path segment after the detail
+// slug (which may be language-prefixed, e.g. "de/property", so match on its
+// last part).
+function detailRefCandidates(config: WidgetConfig): string[] {
+  const queryRef = new URLSearchParams(window.location.search).get('ref');
+  if (queryRef) return [queryRef];
+  const slug = (config.propertyPageSlug || 'property').split('/').filter(Boolean).pop() || 'property';
+  const pathSegments = window.location.pathname.split('/').filter(Boolean);
+  const slugIdx = pathSegments.indexOf(slug);
+  const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
+  return segment ? extractRefCandidates(decodeURIComponent(segment), refFirst(config) ? 'start' : config.propertyRefPosition) : [];
+}
 
 async function init(): Promise<void> {
   console.log('[SPM] init() starting...');
@@ -61,6 +75,45 @@ async function init(): Promise<void> {
 
 
   dataLoader = new DataLoader(config);
+  // Drawn from a saved copy of the dashboard settings; these are the live ones.
+  dataLoader.onLiveConfig = (live) => {
+    const merged = mergeWithDashboardConfig(config, live);
+    actions.setConfig(merged);
+    applyTheme(merged);
+    actions.setCurrencyBase(merged.currency || 'EUR');
+  };
+
+  // Start what the page will need at the same time as the lists and settings,
+  // instead of after them: the property on a detail page, the first search
+  // everywhere else. Used below when the filters come out the same.
+  const earlyDetail = entries.some((e) => e.isTemplate && e.templateId?.startsWith('detail-template'));
+  const earlyRefs = earlyDetail ? detailRefCandidates(config) : [];
+  const earlyProperty = earlyRefs[0] ? dataLoader.getProperty(earlyRefs[0]).catch(() => null) : null;
+  const earlyFilters: SearchFilters = {
+    ...store.getState().filters,
+    page: 1,
+    limit: store.getState().filters.limit || config.resultsPerPage || 12,
+  };
+  const earlyKey = earlyDetail ? '' : dataLoader.searchKeyFor(earlyFilters);
+  const earlySearch = earlyDetail ? null : dataLoader.searchProperties(earlyFilters).catch(() => null);
+
+  // The page's first search, once its own and locked filters are known.
+  const initialFilters = (): SearchFilters => {
+    const stateFilters = store.getState().filters;
+    const effective: SearchFilters = {
+      ...stateFilters,
+      page: 1,
+      // A limit set on the page (data-spm-limit / limit="6") wins.
+      limit: stateFilters.limit || config.resultsPerPage || 12,
+    };
+    for (const [key, value] of Object.entries(store.getState().lockedFilters)) {
+      if (value != null) (effective as Record<string, unknown>)[key] = value;
+    }
+    return effective;
+  };
+  // Results drawn from a saved copy before the live answer (see below).
+  let savedShown: SearchResults | null = null;
+
   try {
     console.log('[SPM] Loading bundle...');
     const bundle = await dataLoader.loadBundle();
@@ -103,6 +156,13 @@ async function init(): Promise<void> {
     if (config.defaultListingType && !current.listingType && !locked.listingType) {
       actions.setFilters({ ...current, listingType: config.defaultListingType });
     }
+    // A saved answer to the first search (the plugin's file, or this
+    // browser's last visit) is on screen the moment the blocks mount; the
+    // live answer replaces it below.
+    if (!earlyDetail && !store.getState().results) {
+      savedShown = dataLoader.peekSearch(initialFilters());
+      if (savedShown) actions.setResults(savedShown);
+    }
     console.log('[SPM] Store hydrated. Results:', !!store.getState().results);
   } catch (err) {
     console.error('[SPM] Bundle load failed:', err);
@@ -123,23 +183,12 @@ async function init(): Promise<void> {
     });
   }
   if (hasDetailTemplate && !store.getState().selectedProperty) {
-    // `propertyPageUrl` links carry the ref as ?ref=; pretty links carry it in
-    // the path after the detail slug (which may be language-prefixed, e.g.
-    // "de/property", so match on its last part).
-    const queryRef = new URLSearchParams(window.location.search).get('ref');
-    let candidates: string[] = [];
-    if (queryRef) {
-      candidates = [queryRef];
-    } else {
-      const slug = (config.propertyPageSlug || 'property').split('/').filter(Boolean).pop() || 'property';
-      const pathSegments = window.location.pathname.split('/').filter(Boolean);
-      const slugIdx = pathSegments.indexOf(slug);
-      const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
-      candidates = segment ? extractRefCandidates(decodeURIComponent(segment), refFirst(config) ? 'start' : config.propertyRefPosition) : [];
-    }
+    const candidates = detailRefCandidates(config);
     for (const ref of candidates) {
       try {
-        const property = await dataLoader.getProperty(ref);
+        // The first candidate was asked for while the lists loaded.
+        const early = ref === earlyRefs[0] && earlyProperty ? await earlyProperty : null;
+        const property = early ?? await dataLoader.getProperty(ref);
         actions.setSelectedProperty(property);
         break;
       } catch (err) {
@@ -197,27 +246,22 @@ async function init(): Promise<void> {
     }
   });
 
-  // Initial search if bundle didn't include default results.
-  // Skip when a detail template is present — the page only needs single-property data.
-  if (!store.getState().results && !hasDetailTemplate) {
-    const stateFilters = store.getState().filters;
-    const effectiveFilters: SearchFilters = {
-      ...stateFilters,
-      page: 1,
-      // A limit set on the page (data-spm-limit / limit="6") wins.
-      limit: stateFilters.limit || config.resultsPerPage || 12,
-    };
-    const locked = store.getState().lockedFilters;
-    for (const [key, value] of Object.entries(locked)) {
-      if (value != null) (effectiveFilters as Record<string, unknown>)[key] = value;
-    }
-
-    actions.setSearchLoading(true);
+  // The first search — or, when a saved copy is already on screen, its live
+  // refresh. Skipped on a detail page, which only needs its property.
+  if ((savedShown || !store.getState().results) && !hasDetailTemplate) {
+    const effectiveFilters = initialFilters();
+    const shown = store.getState().results;
+    if (!savedShown) actions.setSearchLoading(true);
     try {
-      const results = await dataLoader.searchProperties(effectiveFilters);
-      actions.setResults(results);
+      // Usually already on its way (started with the lists).
+      let results = dataLoader.searchKeyFor(effectiveFilters) === earlyKey && earlySearch ? await earlySearch : null;
+      if (!results) results = await dataLoader.searchProperties(effectiveFilters, { fresh: !!savedShown });
+      // A search the visitor ran meanwhile wins; an unchanged answer is left alone.
+      if (store.getState().results === shown && JSON.stringify(results) !== JSON.stringify(shown)) {
+        actions.setResults(results);
+      }
     } catch (err) {
-      actions.setError(err instanceof Error ? err.message : 'Initial search failed');
+      if (!savedShown) actions.setError(err instanceof Error ? err.message : 'Initial search failed');
     } finally {
       actions.setSearchLoading(false);
     }

@@ -6,7 +6,12 @@ if (!defined('ABSPATH')) exit;
  * types, features and UI labels — in /wp-content/uploads/spw-data/, one file
  * per site language:
  *
- *   bundle-en.json = { lang, syncVersion, syncedAt, locations, types, features, labels }
+ *   bundle-en.json = { lang, syncVersion, syncedAt, locations, types, features, labels,
+ *                      config, results }
+ *
+ * config (dashboard settings) and results (the results page's first page)
+ * let the widget draw the page before any API call; it refreshes both from
+ * the API straight after.
  *
  * The widget gets the URL for the page's language (SPW_Plugin::inject_config →
  * RealtySoftConfig.dataBundleUrl) and loads all four lists in ONE cacheable
@@ -21,6 +26,8 @@ if (!defined('ABSPATH')) exit;
  */
 class SPW_Data_Sync {
     const CHECK_INTERVAL = 10 * MINUTE_IN_SECONDS;
+    // 2: files also carry the dashboard settings and the first results page.
+    const BUNDLE_FORMAT = 2;
 
     private static $instance = null;
     private $cache_dir;
@@ -89,6 +96,10 @@ class SPW_Data_Sync {
      */
     public function sync_all($force = false) {
         update_option('spw_last_check', time(), false);
+        // Files written by an older plugin lack the settings and first results:
+        // rebuild them once, whatever the API's version says.
+        $format_changed = (int) get_option('spw_bundle_format', 0) !== self::BUNDLE_FORMAT;
+        if ($format_changed) $force = true;
 
         if (!$this->ensure_dir()) {
             return ['error' => 'Cache directory not writable: ' . $this->cache_dir];
@@ -98,6 +109,10 @@ class SPW_Data_Sync {
         $versions_local = get_option('spw_data_versions', []);
         if (!is_array($versions_local)) $versions_local = [];
         $results = [];
+        // Dashboard settings, saved with every language's file so the widget
+        // can draw the page without waiting for the API (it still refreshes
+        // them in the background). Fetched once: they don't vary by language.
+        $dashboard_config = null;
 
         foreach ($this->languages() as $lang) {
             $file = $this->bundle_file($lang);
@@ -135,6 +150,16 @@ class SPW_Data_Sync {
                 continue;
             }
 
+            // Optional extras (since 2.8): a bundle without them still works,
+            // the widget then just asks the API as before.
+            if ($dashboard_config === null) {
+                $c = SPW_API_Client::get('api/v1/widget-config');
+                $dashboard_config = (!is_wp_error($c) && is_array($c['data'] ?? $c)) ? ($c['data'] ?? $c) : false;
+            }
+            if (is_array($dashboard_config)) $bundle['config'] = $dashboard_config;
+            $first = $this->first_results();
+            if ($first) $bundle['results'] = $first;
+
             // Write to a temp file and rename, so a page never reads a half-written bundle.
             $tmp = $this->cache_dir . $file . '.tmp';
             $written = @file_put_contents(
@@ -154,6 +179,8 @@ class SPW_Data_Sync {
         $this->sync_site_config();
 
         update_option('spw_data_versions', $versions_local, false);
+        $all_ok = !array_filter($results, function ($r) { return empty($r['success']); });
+        if ($format_changed && $all_ok) update_option('spw_bundle_format', self::BUNDLE_FORMAT, false);
         update_option('spw_last_sync', time(), false);
         update_option('spw_last_sync_results', $results, false);
         return $results;
@@ -218,6 +245,20 @@ class SPW_Data_Sync {
             update_option('spw_sync_version', (int) $data['syncVersion'], true);
         }
         return (is_array($data) && isset($data['syncVersion'])) ? (int) $data['syncVersion'] : null;
+    }
+
+    /**
+     * The first page of the results page's opening search, so a visitor sees
+     * listings the moment the page opens; the widget swaps in the live answer
+     * straight after. Keyed exactly as the widget keys a search: the API query
+     * string with its parameters sorted (see searchKey in the widget).
+     */
+    private function first_results() {
+        $params = ['limit' => 12, 'page' => 1];
+        $r = SPW_API_Client::get('api/v1/properties', $params);
+        if (is_wp_error($r) || !is_array($r) || !isset($r['data']) || !is_array($r['data']) || !isset($r['meta'])) return null;
+        ksort($params);
+        return [http_build_query($params) => ['data' => $r['data'], 'meta' => $r['meta']]];
     }
 
     private function bundle_count($bundle) {

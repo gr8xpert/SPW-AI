@@ -31,22 +31,30 @@ export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
     return JSON.stringify(filters, Object.keys(filters).sort());
   }, [enabled, attrs]);
 
-  const [state, setState] = useState<{ results: SearchResults | null; loading: boolean }>({ results: null, loading: enabled });
+  // A saved copy of this block's answer (this browser's last visit) is drawn
+  // at once; the live answer replaces it.
+  const [state, setState] = useState<{ results: SearchResults | null; loading: boolean }>(() => {
+    if (!enabled) return { results: null, loading: false };
+    const saved = getDataLoader()?.peekSearch({ page: 1, limit: 6, ...(JSON.parse(key) as SearchFilters) }) ?? null;
+    return { results: saved, loading: !saved };
+  });
 
   useEffect(() => {
     if (!enabled) return;
     const loader = getDataLoader();
     if (!loader) return;
     let cancelled = false;
-    const filters = JSON.parse(key) as SearchFilters;
-    setState((s) => ({ ...s, loading: true }));
+    const filters: SearchFilters = { page: 1, limit: 6, ...(JSON.parse(key) as SearchFilters) };
+    const saved = loader.peekSearch(filters);
+    setState((s) => (saved ? { results: saved, loading: false } : { ...s, loading: true }));
     loader
-      .searchProperties({ page: 1, limit: 6, ...filters })
+      .searchProperties(filters, { fresh: !!saved })
       .then((results) => {
         if (!cancelled) setState({ results, loading: false });
       })
       .catch(() => {
-        if (!cancelled) setState({ results: null, loading: false });
+        // Keep a saved copy on screen rather than an empty block.
+        if (!cancelled) setState((s) => ({ results: saved ?? s.results, loading: false }));
       });
     return () => {
       cancelled = true;

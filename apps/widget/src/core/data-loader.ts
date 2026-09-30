@@ -4,6 +4,7 @@ import { ApiClient } from './api-client';
 import { getCached, setCache, clearCache as clearIDB } from './idb-cache';
 import { store } from './store';
 import { actions } from './actions';
+import { SnapshotCache, searchKey } from './snapshot-cache';
 
 export interface BundleData {
   syncVersion: number;
@@ -13,6 +14,9 @@ export interface BundleData {
   features: Feature[];
   labels: Record<string, string>;
   defaultResults?: SearchResults;
+  // Results the WordPress plugin saved for the page's first search, keyed by
+  // searchKey() of the query — shown at once, refreshed straight after.
+  results?: Record<string, SearchResults>;
 }
 
 interface SyncMeta {
@@ -43,9 +47,15 @@ export class DataLoader {
   private readonly MEMORY_TTL = 5 * 60 * 1000;
   private localDataAvailable: boolean | null = null;
   private config: WidgetConfig;
+  private snapshot: SnapshotCache;
+  private snapshotResults: Record<string, SearchResults> = {};
+  // Called when the dashboard settings arrive from the API after the page was
+  // already drawn with a saved copy (the plugin's file or the browser's).
+  onLiveConfig: ((config: Partial<WidgetConfig>) => void) | null = null;
 
   constructor(config: WidgetConfig) {
     this.config = config;
+    this.snapshot = new SnapshotCache(config.apiKey, config.language || 'en');
     this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
@@ -63,7 +73,12 @@ export class DataLoader {
 
     // Layer 0b: the WordPress plugin's per-language bundle file
     const pluginBundle = await this.tryPluginBundle();
-    if (pluginBundle) return pluginBundle;
+    if (pluginBundle) {
+      // Kept in this browser too: if the file ever fails to load, the next
+      // visit starts from this copy instead of rebuilding it from the API.
+      this.persistToIDB(pluginBundle);
+      return pluginBundle;
+    }
 
     // Layer 1: IndexedDB cache
     const cached = await this.tryIDBCache();
@@ -84,24 +99,26 @@ export class DataLoader {
   }
 
   // One request for all four lookup lists, served (and browser/CDN cached)
-  // from the WordPress site. Dashboard settings still come live from the API
-  // in parallel — they change independently of the lookup data. A bundle for a
-  // different language, or one that fails to load, falls back to the normal
-  // layers. A stale bundle is corrected by the regular sync-version polling.
+  // from the WordPress site. Since plugin 2.8 the file also carries the
+  // dashboard settings and the first page of results, so the page is drawn
+  // without waiting for the API; the live settings follow in the background.
+  // A bundle for a different language, or one that fails to load, falls back
+  // to the normal layers. A stale bundle is corrected by sync-version polling.
   private async tryPluginBundle(): Promise<BundleData | null> {
     const url = this.config.dataBundleUrl;
     if (!url) return null;
     try {
-      const [res, dashboardConfig] = await Promise.all([
-        // A file that never arrives falls back to the other layers instead of
-        // leaving the page empty.
-        fetch(url, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(10_000) } : undefined),
-        this.api.get<Partial<WidgetConfig>>('/v1/widget-config').catch(() => null),
-      ]);
+      // Start the live settings now, in parallel with the file.
+      const live = this.liveConfig();
+      // A file that never arrives falls back to the other layers instead of
+      // leaving the page empty.
+      const res = await fetch(url, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(10_000) } : undefined);
       if (!res.ok) return null;
       const json = await res.json() as {
         lang?: string;
         syncVersion?: number;
+        config?: Partial<WidgetConfig>;
+        results?: Record<string, SearchResults>;
         locations?: Location[];
         types?: PropertyType[];
         features?: Feature[];
@@ -109,9 +126,10 @@ export class DataLoader {
       };
       if (json.lang && json.lang !== (this.config.language || 'en')) return null;
       if (!Array.isArray(json.locations) || !Array.isArray(json.types)) return null;
+      if (json.results && typeof json.results === 'object') this.snapshotResults = json.results;
       return {
         syncVersion: json.syncVersion ?? 0,
-        config: dashboardConfig ?? undefined,
+        config: (await this.dashboardConfig(live, json.config)) ?? undefined,
         locations: json.locations,
         types: json.types,
         features: json.features ?? [],
@@ -120,6 +138,33 @@ export class DataLoader {
     } catch {
       return null;
     }
+  }
+
+  // The dashboard settings from the API, remembered in the browser once they
+  // arrive.
+  private liveConfig(): Promise<Partial<WidgetConfig> | null> {
+    return this.api.get<Partial<WidgetConfig>>('/v1/widget-config')
+      .then((c) => {
+        if (!c || typeof c !== 'object') return null;
+        this.snapshot.writeConfig(c);
+        return c;
+      })
+      .catch(() => null);
+  }
+
+  // The settings to draw with: a saved copy at once when there is one (the
+  // plugin's file, else this browser's last visit), with the live settings
+  // handed to onLiveConfig when they differ; otherwise wait for the live ones.
+  private async dashboardConfig(
+    live: Promise<Partial<WidgetConfig> | null>,
+    saved?: Partial<WidgetConfig> | null,
+  ): Promise<Partial<WidgetConfig> | null> {
+    const copy = saved && typeof saved === 'object' ? saved : this.snapshot.readConfig();
+    if (!copy) return live;
+    live.then((c) => {
+      if (c && this.onLiveConfig && JSON.stringify(c) !== JSON.stringify(copy)) this.onLiveConfig(c);
+    });
+    return copy;
   }
 
   private tryInlineData(): BundleData | null {
@@ -154,15 +199,14 @@ export class DataLoader {
   }
 
   private async loadFromAPI(): Promise<BundleData> {
-    const [locations, types, features, labels, dashboardConfig] = await Promise.all([
+    const [locations, types, features, labels, dashboardConfig, syncMeta] = await Promise.all([
       this.loadLocalFileOrAPI<Location[]>('locations.json', '/v1/locations'),
       this.loadLocalFileOrAPI<PropertyType[]>('types.json', '/v1/property-types'),
       this.loadLocalFileOrAPI<Feature[]>('features.json', '/v1/features'),
       this.loadLocalFileOrAPI<Record<string, string>>('labels.json', '/v1/labels'),
-      this.api.get<Partial<WidgetConfig>>('/v1/widget-config').catch(() => null),
+      this.dashboardConfig(this.liveConfig()),
+      this.fetchSyncMeta(),
     ]);
-
-    const syncMeta = await this.fetchSyncMeta();
 
     const bundle: BundleData = {
       syncVersion: syncMeta?.syncVersion ?? 0,
@@ -240,14 +284,33 @@ export class DataLoader {
     }
   }
 
-  async searchProperties(filters: SearchFilters): Promise<SearchResults> {
+  // fresh: skip this page's memory (to refresh something drawn from a saved copy).
+  async searchProperties(filters: SearchFilters, opts: { fresh?: boolean } = {}): Promise<SearchResults> {
     const cacheKey = `search:${JSON.stringify(filters)}`;
-    const cached = this.getMemoryCache<SearchResults>(cacheKey);
-    if (cached) return cached;
+    if (!opts.fresh) {
+      const cached = this.getMemoryCache<SearchResults>(cacheKey);
+      if (cached) return cached;
+    }
 
-    const results = await this.api.get<SearchResults>('/v1/properties', searchParams(filters));
+    const params = searchParams(filters);
+    const results = await this.api.get<SearchResults>('/v1/properties', params);
     this.setMemoryCache(cacheKey, results);
+    if (results && Array.isArray(results.data)) this.snapshot.writeSearch(searchKey(params), results);
     return results;
+  }
+
+  // A saved answer for this search — from this page, the plugin's file or
+  // this browser's recent visits — to draw at once while the live answer is
+  // fetched. Null when nothing is saved.
+  peekSearch(filters: SearchFilters): SearchResults | null {
+    const mem = this.getMemoryCache<SearchResults>(`search:${JSON.stringify(filters)}`);
+    if (mem) return mem;
+    const key = searchKey(searchParams(filters));
+    return this.snapshotResults[key] ?? this.snapshot.readSearch(key);
+  }
+
+  searchKeyFor(filters: SearchFilters): string {
+    return searchKey(searchParams(filters));
   }
 
   // "Describe your dream property": the sentence goes to the API, which asks

@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.7.0
+Stable tag: 2.8.0
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,11 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.8.0 =
+* Faster: the site's data file now also holds your dashboard settings and the first page of listings, so the search and the listings appear as soon as the page opens. They are refreshed from the API straight after, and the file is rebuilt whenever something changes in the dashboard (checked every 10 minutes and hourly), or with Sync Now.
+* Faster: the page asks the browser to fetch the widget and the data file, and to connect to the API, while the rest of the page is still loading.
+* Existing data files are rebuilt once after updating, to add the new parts.
 
 = 2.7.3 =
 * Changed: SPM → Blocks now shows the block form — `<div data-spm-widget="site-listing"></div>` — instead of shortcodes. It is the same line on WordPress, Wix, Squarespace, Webflow or plain HTML, so there is one set of instructions to follow. Pages you built with `[spm_listing …]` keep working exactly as before.
