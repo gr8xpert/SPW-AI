@@ -6,6 +6,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import type { PropertyType } from '@/types';
+import { useFacets, facetCount } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -181,6 +182,7 @@ function Typeahead({ types, value, onChange, placeholder, locked }: {
   placeholder: string;
   locked: boolean;
 }) {
+  const facets = useFacets();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -248,8 +250,8 @@ function Typeahead({ types, value, onChange, placeholder, locked }: {
                     onClick={() => { onChange(pt.id); setOpen(false); setQuery(''); }}
                   >
                     <span>{pt.name}</span>
-                    {!!pt.propertyCount && (
-                      <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                    {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
+                      <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
                     )}
                   </li>
                 ))
@@ -273,6 +275,7 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
   locked: boolean;
   t: (key: string, fallback: string) => string;
 }) {
+  const facets = useFacets();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -352,8 +355,8 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
                     {selected.has(pt.id) && <CheckIcon />}
                   </span>
                   <span>{pt.name}</span>
-                  {!!pt.propertyCount && (
-                    <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                  {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
+                    <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
                   )}
                 </li>
               ))}
@@ -378,6 +381,7 @@ function CheckboxDropdown({ types, value, onChange, allLabel, locked }: {
   allLabel: string;
   locked: boolean;
 }) {
+  const facets = useFacets();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
@@ -431,8 +435,8 @@ function CheckboxDropdown({ types, value, onChange, allLabel, locked }: {
                     {pt.id === value && <CheckIcon />}
                   </span>
                   <span>{pt.name}</span>
-                  {!!pt.propertyCount && (
-                    <span class="rs-dropdown__count">{pt.propertyCount}</span>
+                  {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
+                    <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
                   )}
                 </li>
               ))}
@@ -497,6 +501,7 @@ function IconsMultiSelect({ types, selected, onChange, locked }: {
   onChange: (ids: number[]) => void;
   locked: boolean;
 }) {
+  const facets = useFacets();
   const drag = useDragScroll();
   const toggle = (id: number) => {
     const next = new Set(selected);
@@ -516,8 +521,8 @@ function IconsMultiSelect({ types, selected, onChange, locked }: {
         >
           <TypeLineIcon slug={pt.slug} />
           <span>{pt.name}</span>
-          {!!pt.propertyCount && (
-            <span class="rs-type-icon__count">{pt.propertyCount}</span>
+          {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
+            <span class="rs-type-icon__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
           )}
           {selected.has(pt.id) && (
             <span class="rs-type-icon__check">

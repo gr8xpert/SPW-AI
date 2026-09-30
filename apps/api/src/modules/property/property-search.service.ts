@@ -50,6 +50,55 @@ export class PropertySearchService {
     private propertyTypeRepository: Repository<PropertyType>,
   ) {}
 
+  // The numbers beside each choice in the search form's dropdowns, for the
+  // search as it stands: with Mijas picked, Duplex shows Mijas's duplexes.
+  // Each list is counted with every filter except its own, so the choices in
+  // it stay comparable (ticking Duplex doesn't zero Apartment). A place or
+  // type counts everything below it, like the static counts it replaces.
+  async facets(tenantId: number, dto: SearchPropertyDto): Promise<{
+    types: Record<number, number>;
+    locations: Record<number, number>;
+  }> {
+    const grouped = async (column: 'propertyTypeId' | 'locationId', without: Partial<SearchPropertyDto>) => {
+      const query = this.propertyRepository
+        .createQueryBuilder('p')
+        .select(`p.${column}`, 'id')
+        .addSelect('COUNT(*)', 'count')
+        .where('p.tenantId = :tenantId', { tenantId })
+        .andWhere('p.status = :status', { status: 'active' })
+        .andWhere('p.isPublished = :published', { published: true })
+        .andWhere(`p.${column} IS NOT NULL`)
+        .groupBy(`p.${column}`);
+      await this.applyFilters(query, { ...dto, ...without } as SearchPropertyDto, tenantId);
+      const rows = await query.getRawMany<{ id: number; count: string }>();
+      return new Map(rows.map((r) => [Number(r.id), Number(r.count)]));
+    };
+    const rollUp = async (direct: Map<number, number>, table: 'locations' | 'property_types') => {
+      const rows: Array<{ id: number; parentId: number | null }> = await this.propertyRepository.manager.query(
+        `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
+        [tenantId],
+      );
+      const parentOf = new Map(rows.map((r) => [Number(r.id), r.parentId == null ? null : Number(r.parentId)]));
+      const out: Record<number, number> = {};
+      for (const [id, count] of direct) {
+        const seen = new Set<number>();
+        for (let at: number | null | undefined = id; at != null && !seen.has(at); at = parentOf.get(at)) {
+          seen.add(at);
+          out[at] = (out[at] || 0) + count;
+        }
+      }
+      return out;
+    };
+    const [types, locations] = await Promise.all([
+      grouped('propertyTypeId', { propertyTypeId: undefined, propertyTypeIds: undefined }),
+      grouped('locationId', { locationId: undefined, locationIds: undefined }),
+    ]);
+    return {
+      types: await rollUp(types, 'property_types'),
+      locations: await rollUp(locations, 'locations'),
+    };
+  }
+
   async search(tenantId: number, dto: SearchPropertyDto): Promise<SearchResult> {
     const query = this.propertyRepository
       .createQueryBuilder('p')

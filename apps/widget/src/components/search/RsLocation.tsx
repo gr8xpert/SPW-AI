@@ -7,6 +7,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Location } from '@/types';
+import { useFacets, facetCount } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -194,6 +195,7 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
   placeholder: string;
   locked: boolean;
 }) {
+  const facets = useFacets();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -269,8 +271,8 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
                       <span>{loc.name}</span>
                       <span class="rs-dropdown__meta">
                         <LevelBadge level={loc.level} />
-                        {!!loc.propertyCount && (
-                          <span class="rs-dropdown__count">{loc.propertyCount}</span>
+                        {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
+                          <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
                         )}
                       </span>
                     </li>
@@ -332,6 +334,7 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
     dropdown3: { levels: string[]; visible?: boolean };
   };
 }) {
+  const facets = useFacets();
   const [activeTab, setActiveTab] = useState<number | null>(null);
   // A search that arrives with the page (a results page opened from the
   // homepage, a shared link) starts the tabs on its places.
@@ -588,8 +591,8 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
                           <span class="rs-cascading-v2__label">{loc.name}</span>
                           <span class="rs-dropdown__meta">
                             <LevelBadge level={loc.level} />
-                            {!!loc.propertyCount && (
-                              <span class="rs-dropdown__count">{loc.propertyCount}</span>
+                            {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
+                              <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
                             )}
                           </span>
                         </li>
@@ -621,6 +624,7 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
   allLabel: string;
   locked: boolean;
 }) {
+  const facets = useFacets();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
@@ -677,8 +681,8 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
                   <span>{loc.name}</span>
                   <span class="rs-dropdown__meta">
                     <LevelBadge level={loc.level} />
-                    {!!loc.propertyCount && (
-                      <span class="rs-dropdown__count">{loc.propertyCount}</span>
+                    {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
+                      <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
                     )}
                   </span>
                 </li>
@@ -702,6 +706,7 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
   locked: boolean;
   placeholder: string;
 }) {
+  const facets = useFacets();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
@@ -782,8 +787,8 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
           <span>{loc.name}</span>
           <span class="rs-dropdown__meta">
             <LevelBadge level={loc.level} />
-            {!!loc.propertyCount && (
-              <span class="rs-dropdown__count">{loc.propertyCount}</span>
+            {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
+              <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
             )}
           </span>
         </div>

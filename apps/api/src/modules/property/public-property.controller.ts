@@ -76,6 +76,14 @@ export class PublicPropertyController {
     return this.propertySearchService.areas(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
   }
 
+  // Live counts beside the search form's type and location choices.
+  @Public()
+  @Get('facets')
+  async facets(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
+    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
+    return this.propertySearchService.facets(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
+  }
+
   @Public()
   @Get('map')
   async mapPoints(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {

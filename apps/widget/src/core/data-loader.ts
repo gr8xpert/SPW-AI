@@ -269,6 +269,18 @@ export class DataLoader {
   // Every listing matching the filters as a light map point (not one page),
   // with a position from its own GPS or, marked approximate, its location.
   // The area box and paging are the list's business, not the map's.
+  // Counts beside the type and location choices for the search as it stands.
+  async getFacets(filters: SearchFilters): Promise<Facets> {
+    const { page, limit, sortBy, bounds, ...rest } = filters;
+    void page; void limit; void sortBy; void bounds;
+    const cacheKey = `facets:${JSON.stringify(rest)}`;
+    const cached = this.getMemoryCache<Facets>(cacheKey);
+    if (cached) return cached;
+    const res = await this.api.get<Facets>('/v1/properties/facets', searchParams(rest));
+    this.setMemoryCache(cacheKey, res);
+    return res;
+  }
+
   async getMapPoints(filters: SearchFilters): Promise<MapPointsResponse> {
     const { page, limit, sortBy, bounds, ...rest } = filters;
     void page; void limit; void sortBy; void bounds;
@@ -500,6 +512,13 @@ export interface LocationOutline {
   boundary: AreaBoundary | null;
   // The nearest outline worth drawing: this place's, or its municipality's.
   fence: AreaBoundary | null;
+}
+
+// Listing counts per property type and per location (ids as keys), each
+// including everything below it.
+export interface Facets {
+  types: Record<number, number>;
+  locations: Record<number, number>;
 }
 
 export interface MapPointsResponse {
