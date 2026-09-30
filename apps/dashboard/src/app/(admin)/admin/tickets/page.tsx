@@ -135,8 +135,7 @@ export default function AdminTicketsPage() {
     } finally {
       setStatsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api.get, toast]);
 
   /* Fetch tickets */
   const fetchTickets = useCallback(async () => {
@@ -168,8 +167,7 @@ export default function AdminTicketsPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page]);
+  }, [statusFilter, page, api.get, toast]);
 
   useEffect(() => {
     // Wait for the session to hydrate: firing on mount sent the request with

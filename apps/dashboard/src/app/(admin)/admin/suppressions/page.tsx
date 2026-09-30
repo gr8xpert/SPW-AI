@@ -83,8 +83,7 @@ export default function SuppressionsPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, search, api.get, toast]);
 
   useEffect(() => {
     // Wait for the session to hydrate: firing on mount sent the request with

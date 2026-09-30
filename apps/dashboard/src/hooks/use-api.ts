@@ -59,6 +59,15 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+  // The request functions read the session through refs, so they never go
+  // stale: a callback a page memoised on its first render (before the login
+  // token existed) still sends the current token, and api.get keeps one
+  // identity, so a page that lists it as a dependency doesn't re-fetch every
+  // time the session object is refreshed.
+  const auth = useRef({ effectiveAccessToken, sessionToken: session?.accessToken, update, impersonation });
+  auth.current = { effectiveAccessToken, sessionToken: session?.accessToken, update, impersonation };
+  const hasToken = !!effectiveAccessToken;
+
   const request = useCallback(
     async (
       endpoint: string,
@@ -66,6 +75,7 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     ): Promise<T | null> => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
+      const { effectiveAccessToken, sessionToken, update, impersonation } = auth.current;
       try {
         const isFormData = requestOptions.body instanceof FormData;
         const headers: HeadersInit = {
@@ -89,11 +99,11 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         // Skip the refresh-and-bounce dance when running as an impersonation
         // session — impersonation tokens can't be refreshed via NextAuth,
         // and signing out here would kill the super-admin's real session.
-        if (response.status === 401 && session?.accessToken && !impersonation) {
+        if (response.status === 401 && sessionToken && !impersonation) {
           try {
             const refreshed = await update();
             const newToken = (refreshed as any)?.accessToken;
-            if (newToken && newToken !== session.accessToken) {
+            if (newToken && newToken !== sessionToken) {
               (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
               response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { ...requestOptions, headers });
             }
@@ -135,11 +145,11 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         throw err;
       }
     },
-    // `update` is required so the 401-retry path captures the latest
-    // session-refresh function — without it, a stale `update` from the
-    // first render could fail to actually refresh the token across long
-    // idle periods.
-    [apiUrl, effectiveAccessToken, session?.accessToken, update, impersonation]
+    // The session is read from `auth` at call time (see above). Only signing
+    // in or out gives the functions a new identity: pages that fetch when
+    // api.get changes then load once the token exists, and not again on
+    // every background session refresh.
+    [apiUrl, hasToken]
   );
 
   const get = useCallback(

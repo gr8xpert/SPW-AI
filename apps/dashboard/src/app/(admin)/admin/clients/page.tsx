@@ -114,11 +114,12 @@ export default function ClientsPage() {
       setTotal(response.total);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
+      // Never let a failed load pass for "no clients".
+      toast({ title: 'Failed to load clients', description: (error as Error)?.message || 'Please try again.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, status, page]);
+  }, [search, status, page, api.get, toast]);
 
   useEffect(() => {
     // Wait for the session to hydrate: firing on mount sent the request with

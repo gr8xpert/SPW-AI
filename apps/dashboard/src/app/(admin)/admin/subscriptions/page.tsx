@@ -97,8 +97,7 @@ export default function SubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page]);
+  }, [statusFilter, page, api.get, toast]);
 
   useEffect(() => {
     // Wait for the session to hydrate: firing on mount sent the request with
