@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, DataSource, Like, Not, FindOptionsWhere } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import {
@@ -54,6 +54,9 @@ export interface ClientListItem {
   propertyCount?: number;
   createdAt: Date;
 }
+
+// The internal tenant the seed creates for the super-admin accounts.
+const PLATFORM_TENANT_SLUG = 'platform';
 
 @Injectable()
 export class SuperAdminService {
@@ -116,7 +119,10 @@ export class SuperAdminService {
       sortOrder = 'DESC',
     } = query;
 
-    const where: FindOptionsWhere<Tenant> = {};
+    // The seeded "Platform" tenant only holds the super-admin logins; it is not
+    // a client, so it stays out of the list (deleting it from there would
+    // delete those logins). Only this one: other internal clients are shown.
+    const where: FindOptionsWhere<Tenant> = { slug: Not(PLATFORM_TENANT_SLUG) };
 
     if (search) {
       // Search in name, slug, domain, ownerEmail
