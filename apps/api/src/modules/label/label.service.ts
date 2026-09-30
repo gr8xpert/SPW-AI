@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Label } from '../../database/entities';
 import { CreateLabelDto, UpdateLabelDto } from './dto';
-import { DEFAULT_LABELS } from './default-labels';
+import { DEFAULT_LABELS, PREVIOUS_DEFAULTS } from './default-labels';
+
+function isPreviousDefault(key: string, lang: string, text: string): boolean {
+  return !!PREVIOUS_DEFAULTS[key]?.[lang]?.includes(text);
+}
 
 @Injectable()
 export class LabelService {
@@ -72,13 +76,43 @@ export class LabelService {
     if (staleLabels.length > 0) {
       await this.labelRepository.remove(staleLabels);
     }
+
+    // A default the client never changed follows a new default wording, so
+    // the Labels page shows what the site shows.
+    const byKey = new Map(DEFAULT_LABELS.map((dl) => [dl.key, dl]));
+    const upgraded = existingLabels.filter((l) => {
+      const dl = byKey.get(l.key);
+      if (!dl || l.isCustom) return false;
+      let changed = false;
+      const next = { ...l.translations };
+      for (const [lang, text] of Object.entries(l.translations || {})) {
+        if (dl.translations[lang] && isPreviousDefault(l.key, lang, text)) {
+          next[lang] = dl.translations[lang];
+          changed = true;
+        }
+      }
+      if (changed) l.translations = next;
+      return changed;
+    });
+    if (upgraded.length > 0) {
+      await this.labelRepository.save(upgraded);
+    }
   }
 
+  // Every default, in the page's language, with the client's own labels on
+  // top. A client who never opened the Labels page has no rows at all, and
+  // used to get nothing — the site then showed the widget's built-in words.
   async getLabelsForWidget(tenantId: number, language = 'en'): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    for (const dl of DEFAULT_LABELS) {
+      out[dl.key] = dl.translations[language] || dl.translations['en'] || '';
+    }
     const labels = await this.findAll(tenantId);
-    return labels.reduce((acc, label) => {
-      acc[label.key] = label.translations[language] || label.translations['en'] || '';
-      return acc;
-    }, {} as Record<string, string>);
+    for (const label of labels) {
+      const text = label.translations[language] || (language === 'en' ? '' : label.translations['en']) || '';
+      if (!text || isPreviousDefault(label.key, language, text)) continue;
+      out[label.key] = text;
+    }
+    return out;
   }
 }

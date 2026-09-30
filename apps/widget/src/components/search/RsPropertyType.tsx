@@ -539,7 +539,7 @@ export default function RsPropertyType({ variation = 1 }: Props) {
   const locked = isLocked('propertyTypeId');
   const current = filters.propertyTypeId;
   const currentIds = filters.propertyTypeIds;
-  const allLabel = t('property_type_all', 'All Types');
+  const allLabel = t('property_type_all', 'Property Type');
   const placeholder = t('property_type_placeholder', 'Search type...');
   const label = t('property_type', 'Property Type');
 

@@ -63,9 +63,16 @@ export default function RsListingType({ variation = 1 }: Props) {
     );
   }
 
+  // LISTING_TYPES follows the dashboard's Listing Types, which arrive after
+  // the first render; without it here the list kept every type.
+  // In the dropdown the empty choice names the field ("Status"); the tabs and
+  // radios keep "All".
   const selectOptions = useMemo(() =>
-    LISTING_TYPES.map(lt => ({ value: lt.value, label: t(lt.labelKey, lt.fallback) })),
-  [t]);
+    LISTING_TYPES.map(lt => ({
+      value: lt.value,
+      label: lt.value === '' ? t('listing_type_placeholder', 'Status') : t(lt.labelKey, lt.fallback),
+    })),
+  [t, LISTING_TYPES]);
 
   if (variation === 2) {
     return (

@@ -27,8 +27,8 @@ export default function RsPrice({ variation = 1 }: Props) {
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
   const locked = isLocked('minPrice');
-  const minLabel = t('price_min', 'Min Price');
-  const maxLabel = t('price_max', 'Max Price');
+  const minLabel = t('price_min', 'Min. Price');
+  const maxLabel = t('price_max', 'Max. Price');
 
   const priceOptions = useMemo(() => {
     const opts = config.priceOptions;

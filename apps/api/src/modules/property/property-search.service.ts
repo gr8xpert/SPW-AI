@@ -141,6 +141,7 @@ export class PropertySearchService {
     tenantId: number,
     reference: string,
     limit: number,
+    siteListingTypes?: string[] | null,
   ): Promise<Property[]> {
     const source = await this.propertyRepository.findOne({
       where: { tenantId, reference },
@@ -158,6 +159,9 @@ export class PropertySearchService {
       .andWhere('p.id != :id', { id: source.id })
       .andWhere('p.status = :status', { status: 'active' })
       .andWhere('p.isPublished = :published', { published: true });
+    if (siteListingTypes?.length) {
+      qb.andWhere('p.listingType IN (:...siteListingTypes)', { siteListingTypes });
+    }
 
     if (source.locationId || source.propertyTypeId) {
       qb.andWhere('(p.locationId = :locationId OR p.propertyTypeId = :propertyTypeId)', {
@@ -222,6 +226,9 @@ export class PropertySearchService {
     }
     if (dto.ids?.length) {
       query.andWhere('p.id IN (:...ids)', { ids: dto.ids });
+    }
+    if (dto.siteListingTypes?.length) {
+      query.andWhere('p.listingType IN (:...siteListingTypes)', { siteListingTypes: dto.siteListingTypes });
     }
     // Multi-location: union of expanded subtrees so picking several cities
     // returns properties across all of them.

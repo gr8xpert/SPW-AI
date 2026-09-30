@@ -59,6 +59,11 @@ export class SearchPropertyDto {
   @Transform(toIntArray)
   propertyTypeIds?: number[];
 
+  // Set by the server from the client's "Listing Types" setting, never from
+  // the query string (no validator, so a visitor sending it gets a 400): a
+  // type the client switched off doesn't exist anywhere on their site.
+  siteListingTypes?: string[];
+
   // Latitude/longitude/radius are used by the map view to search a circular
   // region. Bounds is a SW/NE box "swLat,swLng,neLat,neLng" used by the map's
   // rectangular drag-to-search.

@@ -12,6 +12,18 @@ import { PropertyUrlInterceptor, PropertyUrlRequest } from './property-url.inter
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
+const LISTING_TYPES = ['sale', 'rent', 'holiday_rent', 'development'];
+
+// Settings -> Widget -> Listing Types. Unticking one (say both rentals) means
+// the site has none: not in search, lists, map, similar, nor at its own URL.
+// Nothing set, or nothing valid, means every type.
+function siteListingTypes(settings: unknown): string[] | null {
+  const raw = (settings as { enabledListingTypes?: unknown } | null)?.enabledListingTypes;
+  if (!Array.isArray(raw)) return null;
+  const types = raw.filter((t): t is string => typeof t === 'string' && LISTING_TYPES.includes(t));
+  return types.length && types.length < LISTING_TYPES.length ? types : null;
+}
+
 // Public widget/property API. Rate limits are scoped per tenant API key
 // (not per IP) so one tenant's hot widget can't consume another tenant's
 // budget when they share a CDN/proxy IP. The global IP-based throttlers
@@ -39,7 +51,10 @@ export class PublicPropertyController {
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
-    if (req) req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
+    if (req) {
+      req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
+      req.spwListingTypes = siteListingTypes(tenant.settings);
+    }
     return tenant.id;
   }
 
@@ -47,7 +62,7 @@ export class PublicPropertyController {
   @Get()
   async search(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertyService.search(tenantId, dto);
+    return this.propertyService.search(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
   }
 
   // Map search: every matching listing as a light point (declared before
@@ -58,14 +73,14 @@ export class PublicPropertyController {
   @Get('areas')
   async areas(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertySearchService.areas(tenantId, dto);
+    return this.propertySearchService.areas(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
   }
 
   @Public()
   @Get('map')
   async mapPoints(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertySearchService.mapPoints(tenantId, dto);
+    return this.propertySearchService.mapPoints(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
   }
 
   // Similar properties for the widget detail page. Declared BEFORE `:reference`
@@ -81,7 +96,7 @@ export class PublicPropertyController {
   ) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 6, 1), 50) : 6;
-    return this.propertySearchService.findSimilar(tenantId, reference, limit);
+    return this.propertySearchService.findSimilar(tenantId, reference, limit, req.spwListingTypes);
   }
 
   @Public()
@@ -89,7 +104,8 @@ export class PublicPropertyController {
   async findByReference(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Param('reference') reference: string) {
     const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
     const property = await this.propertyService.findByReference(tenantId, reference);
-    if (!property || property.status !== 'active' || !property.isPublished) {
+    const allowed = req.spwListingTypes;
+    if (!property || property.status !== 'active' || !property.isPublished || (allowed && !allowed.includes(property.listingType))) {
       throw new NotFoundException('Property not found');
     }
     return property;

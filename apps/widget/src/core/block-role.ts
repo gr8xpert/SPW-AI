@@ -46,6 +46,29 @@ export function isPageResults(el: HTMLElement | null | undefined): boolean {
   return !!block && showsResults(block) && !isCurated(block);
 }
 
+const SEARCH_BLOCK_RE = /^(site-search|search-template-\d+)$/;
+
+/**
+ * Page builders put each column in its own stacking layer (Divi: every column
+ * z-index 2), and the results column comes later on the page with the same
+ * number, so a search dropdown opened downwards is drawn under the results'
+ * sort bar and cards however high its own z-index. One step up for each
+ * numbered layer holding a search block puts the search above what follows it,
+ * without lifting it over the site's header or menus.
+ */
+export function liftSearchBlocks(): void {
+  for (const block of document.querySelectorAll<HTMLElement>('[data-spm-widget]')) {
+    if (!SEARCH_BLOCK_RE.test(block.getAttribute('data-spm-widget') || '')) continue;
+    for (let el = block.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (el.dataset.spmLifted) continue;
+      const z = parseInt(getComputedStyle(el).zIndex, 10);
+      if (Number.isNaN(z)) continue;
+      el.style.zIndex = String(z + 1);
+      el.dataset.spmLifted = '1';
+    }
+  }
+}
+
 /**
  * On a page with nowhere to show a search — a homepage carrying only a search
  * box and a curated list — that list is given its own search, so its filters

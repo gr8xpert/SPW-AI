@@ -350,7 +350,7 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
   const dropdowns: DropdownDef[] = useMemo(() => {
     const labels = [
       t('location_dropdown1_label', 'Location'),
-      t('location_dropdown2_label', 'Sub-location'),
+      t('location_dropdown2_label', 'Sub Location'),
       t('location_dropdown3_label', 'Area'),
     ];
     if (config) {

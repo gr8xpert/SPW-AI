@@ -6,7 +6,7 @@ export default function RsReference() {
   const { filters, setFilter } = useFilters();
   const { t } = useLabels();
   const label = t('reference_label', 'Reference');
-  const placeholder = t('reference_placeholder', 'Enter reference...');
+  const placeholder = t('reference_placeholder', 'Reference');
 
   const handleInput = useCallback((e: Event) => {
     const value = (e.target as HTMLInputElement).value;

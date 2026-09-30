@@ -11,7 +11,7 @@ import { mountAll, unmountAll } from './core/component-mounter';
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
-import { isCurated, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
+import { isCurated, liftSearchBlocks, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
 import { installLegacyAPI, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
 import { extractRefCandidates, refFirst } from './core/url-utils';
@@ -87,6 +87,7 @@ async function init(): Promise<void> {
     // "featured" along to the results page and the visitor got someone else's
     // idea of what to look at.
     markCuratedBlocksStandalone();
+    liftSearchBlocks();
 
     // Now that locations, types and features are in the store, the page's own
     // filters can be read (names resolve to ids against the client's lists).

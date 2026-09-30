@@ -84,9 +84,12 @@ export default function RsBathrooms({ variation = 1 }: Props) {
     );
   }
 
+  // In a dropdown the empty choice names the field ("Bathrooms"); "Any" alone
+  // says nothing there. The button chips above keep "Any".
+  const placeholderLabel = t('bathrooms_placeholder', 'Bathrooms');
   const selectOptions = useMemo(() =>
-    options.map(v => ({ value: v, label: displayLabel(v) })),
-  [options, anyLabel]);
+    options.map(v => ({ value: v, label: v === '' ? placeholderLabel : displayLabel(v) })),
+  [options, placeholderLabel]);
 
   return (
     <div class={`rs_bathrooms rs-field${locked ? ' rs-field--locked' : ''}`}>
@@ -95,7 +98,7 @@ export default function RsBathrooms({ variation = 1 }: Props) {
         options={selectOptions}
         value={current?.toString() ?? ''}
         onChange={handleChange}
-        placeholder={anyLabel}
+        placeholder={placeholderLabel}
         disabled={locked}
       />
     </div>
