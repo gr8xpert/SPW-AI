@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -64,8 +65,10 @@ export class WeeklyReportService {
     const tenants: any[] = await this.db.query(
       `SELECT t.id, t.settings FROM tenants t
         WHERE t.isActive = 1
+          AND t.slug != ?
           AND (EXISTS (SELECT 1 FROM properties p WHERE p.tenantId = t.id AND p.isPublished = 1)
                OR EXISTS (SELECT 1 FROM feed_configs f WHERE f.tenantId = t.id AND f.isActive = 1))`,
+      [PLATFORM_TENANT_SLUG],
     );
     let sent = 0;
     let skipped = 0;

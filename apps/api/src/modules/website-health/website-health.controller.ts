@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
 import { Throttle } from '@nestjs/throttler';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -76,10 +77,12 @@ export class SuperAdminWebsiteHealthController {
     const tenants: Array<{ id: number; name: string; slug: string }> = await this.db.query(
       `SELECT t.id, t.name, t.slug FROM tenants t
         WHERE t.isActive = 1
+          AND t.slug != ?
           AND (t.tier >= 2
                OR EXISTS (SELECT 1 FROM properties p WHERE p.tenantId = t.id)
                OR EXISTS (SELECT 1 FROM feed_configs f WHERE f.tenantId = t.id))
         ORDER BY t.name`,
+      [PLATFORM_TENANT_SLUG],
     );
     const rows = [];
     for (const t of tenants) {

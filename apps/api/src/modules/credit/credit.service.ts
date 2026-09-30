@@ -4,9 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { CreditBalance, CreditTransaction, Tenant, Ticket } from '../../database/entities';
 import { AdjustCreditDto, ConsumeCreditDto } from './dto';
+import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
 
 export interface CreditHistory {
   transactions: CreditTransaction[];
@@ -312,8 +313,10 @@ export class CreditService {
     balance: number;
     lastActivity: Date | null;
   }>> {
+    // Not the Platform tenant: it holds the super-admin logins, not a client.
     const tenants = await this.tenantRepository.find({
       select: ['id', 'name', 'slug'],
+      where: { slug: Not(PLATFORM_TENANT_SLUG) },
     });
 
     const balances = await this.creditBalanceRepository.find();

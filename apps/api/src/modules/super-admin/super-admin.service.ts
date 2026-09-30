@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Like, Not, FindOptionsWhere } from 'typeorm';
+import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import {
@@ -54,9 +55,6 @@ export interface ClientListItem {
   propertyCount?: number;
   createdAt: Date;
 }
-
-// The internal tenant the seed creates for the super-admin accounts.
-const PLATFORM_TENANT_SLUG = 'platform';
 
 @Injectable()
 export class SuperAdminService {
@@ -1010,9 +1008,11 @@ export class SuperAdminService {
     recentClients: any[];
     subscriptionsByStatus: Record<string, number>;
   }> {
-    const totalClients = await this.tenantRepository.count();
+    // The Platform tenant (super-admin logins) is not a client.
+    const notPlatform = Not(PLATFORM_TENANT_SLUG);
+    const totalClients = await this.tenantRepository.count({ where: { slug: notPlatform } });
     const activeClients = await this.tenantRepository.count({
-      where: { isActive: true },
+      where: { isActive: true, slug: notPlatform },
     });
 
     // Clients expiring in next 7 days
@@ -1024,14 +1024,16 @@ export class SuperAdminService {
       .where('tenant.expiresAt BETWEEN NOW() AND :sevenDays', { sevenDays: sevenDaysFromNow })
       .andWhere('tenant.adminOverride = false')
       .andWhere('tenant.isInternal = false')
+      .andWhere('tenant.slug != :platform', { platform: PLATFORM_TENANT_SLUG })
       .getCount();
 
     const expiredClients = await this.tenantRepository.count({
-      where: { subscriptionStatus: 'expired' },
+      where: { subscriptionStatus: 'expired', slug: notPlatform },
     });
 
     // Recent clients (last 5)
     const recentClients = await this.tenantRepository.find({
+      where: { slug: notPlatform },
       order: { createdAt: 'DESC' },
       take: 5,
       select: ['id', 'name', 'slug', 'subscriptionStatus', 'createdAt'],
@@ -1042,6 +1044,7 @@ export class SuperAdminService {
       .createQueryBuilder('tenant')
       .select('tenant.subscriptionStatus', 'status')
       .addSelect('COUNT(*)', 'count')
+      .where('tenant.slug != :platform', { platform: PLATFORM_TENANT_SLUG })
       .groupBy('tenant.subscriptionStatus')
       .getRawMany();
 

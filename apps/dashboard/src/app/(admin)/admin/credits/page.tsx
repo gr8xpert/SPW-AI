@@ -47,6 +47,7 @@ import {
   Minus,
   Users,
   Coins,
+  AlertTriangle,
   History,
   ChevronLeft,
   ChevronRight,
@@ -237,9 +238,10 @@ export default function CreditsPage() {
 
   /* ---------- computed ---------- */
 
-  const totalOutstanding = tenants.reduce((sum, t) => sum + (t.balance || 0), 0);
   const tenantsWithBalance = tenants.filter((t) => (t.balance || 0) > 0).length;
+  const tenantsNegative = tenants.filter((t) => (t.balance || 0) < 0).length;
   const tenantsWithZero = tenants.filter((t) => (t.balance || 0) === 0).length;
+  const plural = (n: number) => `client${n !== 1 ? 's' : ''}`;
 
   /* ---------- render ---------- */
 
@@ -263,18 +265,6 @@ export default function CreditsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Credits Outstanding</CardTitle>
-            <div className="stat-card-icon"><Coins className="h-4 w-4" /></div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight">
-              {loading ? '...' : formatSignedHM(totalOutstanding)}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all clients</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clients with Balance</CardTitle>
             <div className="stat-card-icon"><Users className="h-4 w-4" /></div>
           </CardHeader>
@@ -282,21 +272,31 @@ export default function CreditsPage() {
             <div className="text-2xl font-bold tracking-tight">
               {loading ? '...' : tenantsWithBalance}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {tenantsWithZero} client{tenantsWithZero !== 1 ? 's' : ''} at zero
-            </p>
+            <p className="text-xs text-muted-foreground">{plural(tenantsWithBalance)} with hours left</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <CardTitle className="text-sm font-medium">Negative Balance</CardTitle>
+            <div className="stat-card-icon"><AlertTriangle className="h-4 w-4" /></div>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold tracking-tight${tenantsNegative > 0 ? ' text-destructive' : ''}`}>
+              {loading ? '...' : tenantsNegative}
+            </div>
+            <p className="text-xs text-muted-foreground">{plural(tenantsNegative)} owing hours</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Zero Balance</CardTitle>
             <div className="stat-card-icon"><CreditCard className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">
-              {loading ? '...' : tenants.length}
+              {loading ? '...' : tenantsWithZero}
             </div>
-            <p className="text-xs text-muted-foreground">With credit accounts</p>
+            <p className="text-xs text-muted-foreground">{plural(tenantsWithZero)} with no hours</p>
           </CardContent>
         </Card>
       </div>
