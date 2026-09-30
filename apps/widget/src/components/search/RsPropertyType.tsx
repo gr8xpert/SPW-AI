@@ -543,7 +543,11 @@ export default function RsPropertyType({ variation = 1 }: Props) {
   const placeholder = t('property_type_placeholder', 'Search type...');
   const label = t('property_type', 'Property Type');
 
-  const selectedSet = useMemo(() => new Set(currentIds ?? []), [currentIds]);
+  // A single type from the URL (type=villa-12) shows as ticked too.
+  const selectedSet = useMemo(
+    () => new Set(currentIds ?? (current != null ? [current] : [])),
+    [currentIds, current],
+  );
 
   const handleChange = useCallback((id: number | undefined) => {
     setFilter('propertyTypeId', id as number);

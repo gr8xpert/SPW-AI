@@ -241,9 +241,15 @@ export class PropertySearchService {
       const ids = await this.expandDescendants(tenantId, dto.locationId, 'locations');
       query.andWhere('p.locationId IN (:...locationIds)', { locationIds: ids });
     }
-    if (dto.propertyTypeId) {
-      const ids = await this.expandDescendants(tenantId, dto.propertyTypeId, 'property_types');
-      query.andWhere('p.propertyTypeId IN (:...typeIds)', { typeIds: ids });
+    // Several types (the search form's multi-select) or one; each with its
+    // sub-types, like locations.
+    const typeRoots = dto.propertyTypeIds?.length ? dto.propertyTypeIds : dto.propertyTypeId ? [dto.propertyTypeId] : [];
+    if (typeRoots.length) {
+      const all = new Set<number>();
+      for (const id of typeRoots) {
+        for (const expanded of await this.expandDescendants(tenantId, id, 'property_types')) all.add(expanded);
+      }
+      if (all.size > 0) query.andWhere('p.propertyTypeId IN (:...typeIds)', { typeIds: [...all] });
     }
     // Geo filters. `bounds` (SW/NE box) takes priority over lat/lng/radius
     // because the map drag-to-search is the more deliberate query shape.

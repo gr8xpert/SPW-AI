@@ -53,6 +53,12 @@ export class SearchPropertyDto {
   @IsNumber()
   propertyTypeId?: number;
 
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  @Transform(toIntArray)
+  propertyTypeIds?: number[];
+
   // Latitude/longitude/radius are used by the map view to search a circular
   // region. Bounds is a SW/NE box "swLat,swLng,neLat,neLng" used by the map's
   // rectangular drag-to-search.

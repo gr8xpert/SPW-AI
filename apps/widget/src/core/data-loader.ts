@@ -515,6 +515,7 @@ function searchParams(filters: SearchFilters): Record<string, string | number | 
   if (filters.locationId) params.locationId = filters.locationId;
   if (filters.locationIds?.length) params.locationIds = filters.locationIds.join(',');
   if (filters.propertyTypeId) params.propertyTypeId = filters.propertyTypeId;
+  if (filters.propertyTypeIds?.length) params.propertyTypeIds = filters.propertyTypeIds.join(',');
   if (filters.minPrice) params.minPrice = filters.minPrice;
   if (filters.maxPrice) params.maxPrice = filters.maxPrice;
   if (filters.minBedrooms) params.minBedrooms = filters.minBedrooms;
