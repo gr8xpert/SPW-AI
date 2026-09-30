@@ -62,7 +62,9 @@ export class SearchPropertyDto {
   // Set by the server from the client's "Listing Types" setting, never from
   // the query string (no validator, so a visitor sending it gets a 400): a
   // type the client switched off doesn't exist anywhere on their site.
-  siteListingTypes?: string[];
+  // `declare`: a plain field would exist (undefined) on every instance and the
+  // whitelist would reject every search.
+  declare siteListingTypes?: string[];
 
   // Latitude/longitude/radius are used by the map view to search a circular
   // region. Bounds is a SW/NE box "swLat,swLng,neLat,neLng" used by the map's
