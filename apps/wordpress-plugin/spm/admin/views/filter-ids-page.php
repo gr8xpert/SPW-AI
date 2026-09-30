@@ -1,0 +1,202 @@
+<?php
+if (!defined('ABSPATH')) exit;
+if (!current_user_can('manage_options')) return;
+
+/**
+ * Reads the cached locations / property-types / features JSON written by
+ * SPM_Data_Sync and renders a searchable, hierarchical reference so an admin
+ * can find the numeric IDs needed to lock a widget to specific filters
+ * (e.g. `data-spm-lock-location="5"`). No API calls happen here — everything
+ * is served from the JSON cache.
+ */
+
+$sync      = SPM_Data_Sync::instance();
+$locations = $sync->read_list('locations');
+$types     = $sync->read_list('types');
+$features  = $sync->read_list('features');
+
+/**
+ * Build a parentId-keyed tree from a flat list with `id` and `parentId`.
+ * Items whose parent isn't in the list are treated as roots so an orphan row
+ * still shows up rather than disappearing silently.
+ */
+function spm_build_tree($items) {
+    $by_parent = [];
+    $ids = [];
+    foreach ($items as $it) {
+        $ids[$it['id']] = true;
+    }
+    foreach ($items as $it) {
+        $pid = $it['parentId'] ?? null;
+        if ($pid === null || !isset($ids[$pid])) $pid = 0; // root
+        $by_parent[$pid][] = $it;
+    }
+    $build = function ($parentId) use (&$build, $by_parent) {
+        $out = [];
+        foreach (($by_parent[$parentId] ?? []) as $row) {
+            $out[] = ['node' => $row, 'children' => $build($row['id'])];
+        }
+        return $out;
+    };
+    return $build(0);
+}
+
+function spm_render_id_tree($nodes, $depth, $kind) {
+    foreach ($nodes as $n) {
+        $row    = $n['node'];
+        $rowId  = (int)($row['id'] ?? 0);
+        $name   = (string)($row['name'] ?? '');
+        $level  = (string)($row['level'] ?? '');
+        $count  = isset($row['propertyCount']) ? (int)$row['propertyCount'] : null;
+        $has_kids = !empty($n['children']);
+        ?>
+        <div class="spm-id-row spm-tree-row depth-<?php echo (int)$depth; ?>"
+             data-name="<?php echo esc_attr(strtolower($name)); ?>"
+             data-id="<?php echo esc_attr($rowId); ?>"
+             style="padding-left:<?php echo 12 + ($depth * 22); ?>px">
+            <div class="spm-id-left">
+                <?php if ($depth > 0): ?>
+                    <span class="spm-tree-elbow" aria-hidden="true"></span>
+                <?php endif; ?>
+                <span class="spm-id-name"><?php echo esc_html($name); ?></span>
+                <?php if ($level): ?>
+                    <span class="spm-id-tag spm-tag--<?php echo esc_attr(sanitize_html_class($level)); ?>"><?php echo esc_html(strtoupper($level)); ?></span>
+                <?php endif; ?>
+            </div>
+            <div class="spm-id-right">
+                <?php if ($count !== null && $count > 0): ?>
+                    <span class="spm-id-count"><?php echo (int)$count; ?> properties</span>
+                <?php endif; ?>
+                <code class="spm-id-badge">ID: <?php echo (int)$rowId; ?></code>
+                <button type="button"
+                        class="button button-small spm-copy-btn"
+                        data-copy="<?php echo (int)$rowId; ?>"
+                        data-kind="<?php echo esc_attr($kind); ?>">Copy</button>
+            </div>
+        </div>
+        <?php
+        if ($has_kids) {
+            spm_render_id_tree($n['children'], $depth + 1, $kind);
+        }
+    }
+}
+
+$loc_tree   = $locations ? spm_build_tree($locations) : [];
+$type_tree  = $types     ? spm_build_tree($types)     : [];
+
+// Group features by category.
+$features_by_cat = [];
+if ($features) {
+    foreach ($features as $f) {
+        $cat = $f['category'] ?? 'other';
+        $features_by_cat[$cat][] = $f;
+    }
+    ksort($features_by_cat);
+}
+
+$site_host = parse_url(home_url(), PHP_URL_HOST);
+$has_any   = $locations || $types || $features;
+?>
+<div class="wrap spm-wrap spm-ids-wrap">
+    <div class="spm-ids-hero">
+        <div>
+            <h1>Filter IDs Reference</h1>
+            <p>Use these IDs to lock filters on your property pages (for example, show only Marbella properties).</p>
+        </div>
+        <span class="spm-ids-site"><?php echo esc_html($site_host); ?></span>
+    </div>
+
+    <?php if (!$has_any): ?>
+        <div class="notice notice-warning"><p>
+            No cached data yet.
+            <a href="<?php echo esc_url(admin_url('admin.php?page=spm-settings')); ?>">Open Settings</a>
+            and click <strong>Sync Now</strong> to fetch your tenant's locations, types, and features.
+        </p></div>
+    <?php else: ?>
+        <div class="spm-ids-toolbar">
+            <input type="search" id="spm-id-search" placeholder="Search by name or ID&hellip;" autocomplete="off" />
+            <span class="spm-ids-hint">Tip: click <strong>Copy</strong> on any row to copy its ID to your clipboard.</span>
+        </div>
+
+        <?php if (!empty($loc_tree)): ?>
+            <div class="spm-id-section spm-acc" data-section="locations">
+                <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
+                    <span class="spm-acc-caret" aria-hidden="true"></span>
+                    <h2>Locations <span class="spm-pill"><?php echo count($locations); ?></span></h2>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-location="ID"</code></span>
+                </button>
+                <div class="spm-acc-body">
+                    <div class="spm-id-list">
+                        <?php spm_render_id_tree($loc_tree, 0, 'location'); ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($type_tree)): ?>
+            <div class="spm-id-section spm-acc" data-section="types">
+                <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
+                    <span class="spm-acc-caret" aria-hidden="true"></span>
+                    <h2>Property Types <span class="spm-pill"><?php echo count($types); ?></span></h2>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-property-type="ID"</code></span>
+                </button>
+                <div class="spm-acc-body">
+                    <div class="spm-id-list">
+                        <?php spm_render_id_tree($type_tree, 0, 'property-type'); ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($features_by_cat)): ?>
+            <div class="spm-id-section spm-acc" data-section="features">
+                <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
+                    <span class="spm-acc-caret" aria-hidden="true"></span>
+                    <h2>Features <span class="spm-pill"><?php echo count($features); ?></span></h2>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-features="ID,ID,&hellip;"</code> (comma-separated)</span>
+                </button>
+                <div class="spm-acc-body">
+                    <?php foreach ($features_by_cat as $cat => $list): ?>
+                        <div class="spm-id-cat" data-cat="<?php echo esc_attr($cat); ?>">
+                            <h3 class="spm-id-cat-title"><?php echo esc_html(ucfirst($cat)); ?> <span class="spm-id-cat-count"><?php echo count($list); ?></span></h3>
+                            <div class="spm-id-list spm-id-list--flat">
+                                <?php foreach ($list as $f):
+                                    $fid   = (int)($f['id'] ?? 0);
+                                    $fname = (string)($f['name'] ?? '');
+                                ?>
+                                    <div class="spm-id-row"
+                                         data-name="<?php echo esc_attr(strtolower($fname)); ?>"
+                                         data-id="<?php echo esc_attr($fid); ?>">
+                                        <div class="spm-id-left">
+                                            <span class="spm-id-name"><?php echo esc_html($fname); ?></span>
+                                        </div>
+                                        <div class="spm-id-right">
+                                            <code class="spm-id-badge">ID: <?php echo (int)$fid; ?></code>
+                                            <button type="button"
+                                                    class="button button-small spm-copy-btn"
+                                                    data-copy="<?php echo (int)$fid; ?>"
+                                                    data-kind="feature">Copy</button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="spm-card spm-ids-howto">
+            <div class="spm-card-head"><h3>How to use</h3></div>
+            <div class="spm-card-body">
+                <p>Paste any of these attributes into your widget block to lock the search to a specific value. Multiple locks are AND-combined; <code>lock-features</code> is comma-separated.</p>
+<pre class="spm-snippet"><code>&lt;div data-spm-widget="listing-template-03"
+     data-spm-lock-location="5"
+     data-spm-lock-property-type="2"
+     data-spm-lock-features="10,12"
+     data-spm-sort="is_featured_desc"
+     data-spm-limit="6"&gt;&lt;/div&gt;</code></pre>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>

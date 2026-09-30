@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Packages apps/wordpress-plugin/spw as an installable WordPress plugin zip:
-//   dist/wordpress-plugin/spw-<version>.zip   (contains a top-level spw/ folder)
+// Packages apps/wordpress-plugin/spm as an installable WordPress plugin zip:
+//   dist/wordpress-plugin/spm-<version>.zip   (contains a top-level spm/ folder)
 // Upload it via WordPress → Plugins → Add New → Upload Plugin.
 //
 // Dependency-free (scripts/lib/zip.mjs).
@@ -10,14 +10,14 @@ import { fileURLToPath } from 'node:url';
 import { buildZip } from './lib/zip.mjs';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const pluginDir = join(root, 'apps', 'wordpress-plugin', 'spw');
+const pluginDir = join(root, 'apps', 'wordpress-plugin', 'spm');
 const outDir = join(root, 'dist', 'wordpress-plugin');
 
-const header = readFileSync(join(pluginDir, 'spw.php'), 'utf8');
+const header = readFileSync(join(pluginDir, 'spm.php'), 'utf8');
 const version = header.match(/^\s*\*\s*Version:\s*([\w.-]+)/m)?.[1];
-const constVersion = header.match(/define\('SPW_VERSION',\s*'([\w.-]+)'\)/)?.[1];
+const constVersion = header.match(/define\('SPM_VERSION',\s*'([\w.-]+)'\)/)?.[1];
 if (!version || version !== constVersion) {
-  console.error(`Version mismatch in spw.php: header "${version}" vs SPW_VERSION "${constVersion}"`);
+  console.error(`Version mismatch in spm.php: header "${version}" vs SPM_VERSION "${constVersion}"`);
   process.exit(1);
 }
 
@@ -37,9 +37,9 @@ function walk(dir) {
 }
 
 const files = walk(pluginDir);
-const zip = buildZip(files.map((file) => ({ name: 'spw/' + relative(pluginDir, file).split(sep).join('/'), file })));
+const zip = buildZip(files.map((file) => ({ name: 'spm/' + relative(pluginDir, file).split(sep).join('/'), file })));
 
 mkdirSync(outDir, { recursive: true });
-const outFile = join(outDir, `spw-${version}.zip`);
+const outFile = join(outDir, `spm-${version}.zip`);
 writeFileSync(outFile, zip);
 console.log(`Built ${relative(root, outFile)} (${files.length} files, v${version})`);

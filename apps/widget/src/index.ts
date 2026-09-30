@@ -278,6 +278,9 @@ async function init(): Promise<void> {
   actions.setInitialized();
   actions.setLoading(false);
 
+  // spm:ready is the name going forward; spw:ready stays for pages and
+  // plugin versions that listen for it.
+  document.dispatchEvent(new CustomEvent('spm:ready'));
   document.dispatchEvent(new CustomEvent('spw:ready'));
 
   const rc = window.RealtySoftConfig;
