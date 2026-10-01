@@ -53,8 +53,36 @@ export class LocationTemplateUnmatched {
   dismissed: boolean;
 
   // AI was already asked where this belongs — don't ask again every sync.
+  // Only set when the AI actually answered; a failed call is retried.
   @Column({ default: false })
   aiAttempted: boolean;
+
+  // What sorting this entry changed, so Undo can reverse exactly that:
+  // an alias added to a place (only if it wasn't there already), a town
+  // created for it, or a dismiss. Null while the entry is open.
+  @Column({ type: 'json', nullable: true })
+  resolution: {
+    kind: 'alias' | 'new' | 'dismiss';
+    nodeId?: number;
+    alias?: string;
+    aliasAdded?: boolean;
+    createdNode?: boolean;
+    by: 'person' | 'ai';
+    at: string;
+  } | null;
+
+  // The AI review's answer (see unmatched-review.ts), shown in Super Admin
+  // with an Accept button.
+  @Column({ type: 'json', nullable: true })
+  aiProposal: {
+    action: 'same' | 'new' | 'dismiss' | null;
+    nodeId?: number;
+    target?: string;
+    reason?: string;
+    km?: number | null;
+    flagged?: boolean;
+    at: string;
+  } | null;
 
   @CreateDateColumn()
   firstSeenAt: Date;

@@ -152,6 +152,11 @@ export class PropertyService {
       query.andWhere('p.propertyTypeId = :propertyTypeId', { propertyTypeId: dto.propertyTypeId });
     }
 
+    if (dto.locationId !== undefined) {
+      const locationIds = await this.searchService.expandDescendants(tenantId, dto.locationId, 'locations');
+      query.andWhere('p.locationId IN (:...locationIds)', { locationIds });
+    }
+
     if (dto.isFeatured !== undefined) {
       query.andWhere('p.isFeatured = :isFeatured', { isFeatured: dto.isFeatured });
     }

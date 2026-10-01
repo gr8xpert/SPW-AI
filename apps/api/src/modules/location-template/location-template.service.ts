@@ -15,7 +15,6 @@ import {
   Property,
 } from '../../database/entities';
 import { LocationService } from '../location/location.service';
-import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { levelIndex, locationKey, locationSlug, LOCATION_LEVELS, TemplateLevel } from './location-name';
 import {
   FeedLocationInput,
@@ -64,7 +63,6 @@ export interface TemplateRunContext {
 }
 
 // Most unknown towns AI is asked to place per run; the rest wait for the next.
-const AI_BATCH_LIMIT = 40;
 // A system-set point further than this from where its place should be is wrong.
 const ROW_POINT_MAX_KM = 15;
 
@@ -84,7 +82,6 @@ export class LocationTemplateService {
     // bulkMove merges a moved row into a same-slug sibling (properties and
     // children included) instead of hitting the unique index.
     private readonly locationService: LocationService,
-    private readonly aiEnrichmentService: AiEnrichmentService,
   ) {}
 
   // ===================================================================
@@ -353,7 +350,15 @@ export class LocationTemplateService {
     const existing = [...ctx.rows.values()].find(
       (r) => r.parentId === parentId && locationKey(r.name?.en) === key,
     );
-    if (existing) return existing;
+    if (existing) {
+      // Rows from before the level rule (an "urbanization" straight under a
+      // province) are corrected, unless the client chose the level themselves.
+      if (existing.level !== extra.level && !existing.userLocked) {
+        existing.level = extra.level;
+        await this.locationRepository.update({ id: existing.id, tenantId: ctx.tenantId }, { level: extra.level });
+      }
+      return existing;
+    }
     // A place the template doesn't know sits where its parent is until it's added.
     const parent = ctx.rows.get(parentId);
     return this.createRow(ctx, {
@@ -414,17 +419,32 @@ export class LocationTemplateService {
     return row;
   }
 
-  // After an import: record unknown locations, ask AI to place new unknown
-  // towns under a template municipality, re-place this tenant's listings if AI
-  // added any, and remove location rows the template made redundant.
+  // The AI review of unknown names (UnmatchedReviewService registers itself
+  // here, which keeps the two services free of a circular dependency).
+  private unmatchedReviewer:
+    | ((entries: LocationTemplateUnmatched[], keyTenantId: number) => Promise<{ applied: number; tenantIds: number[] }>)
+    | null = null;
+  setUnmatchedReviewer(fn: NonNullable<LocationTemplateService['unmatchedReviewer']>): void {
+    this.unmatchedReviewer = fn;
+  }
+
+  // After an import: record unknown locations, let the AI review sort the new
+  // ones it is sure of (another spelling of a template place near the
+  // listings, or a new town in a municipality), re-place the listings of EVERY
+  // client that sent those names — not just this one — and remove location
+  // rows the template made redundant.
   async finishRun(ctx: TemplateRunContext): Promise<{ unmatched: number; aiPlaced: number; relocated: number; cleaned: number }> {
     const entries = await this.saveUnmatched(ctx);
-    const aiPlaced = await this.askAiForUnmatched(ctx.tenantId, entries).catch((err) => {
-      this.logger.warn(`AI placement of unknown locations failed for tenant=${ctx.tenantId}: ${(err as Error).message}`);
-      return 0;
-    });
+    const fresh = entries.filter((e) => !e.dismissed && !e.aiAttempted && e.resolvedNodeId == null);
+    const review = this.unmatchedReviewer && fresh.length
+      ? await this.unmatchedReviewer(fresh, ctx.tenantId).catch((err) => {
+          this.logger.warn(`AI review of unknown locations failed for tenant=${ctx.tenantId}: ${(err as Error).message}`);
+          return { applied: 0, tenantIds: [] as number[] };
+        })
+      : { applied: 0, tenantIds: [] as number[] };
+    const aiPlaced = review.applied;
     let relocated = 0;
-    if (aiPlaced > 0) relocated = (await this.reapplyTenant(ctx.tenantId)).relocated;
+    if (aiPlaced > 0) relocated = (await this.reapplyTenants([ctx.tenantId, ...review.tenantIds])).relocated;
     const cleaned = await this.cleanupRedundantRows(ctx.tenantId);
     if (ctx.stats.created || ctx.stats.adopted || ctx.stats.moved || entries.length || aiPlaced || cleaned) {
       this.logger.log(
@@ -460,93 +480,6 @@ export class LocationTemplateService {
       saved.push(await this.unmatchedRepository.save(row));
     }
     return saved;
-  }
-
-  // Unknown towns whose area/province the template does know get placed under
-  // one of that area's municipalities by AI. The model can only pick from the
-  // template's own list, and every answer is saved as an "AI suggested" node
-  // for Super Admin to confirm, so the same name is never asked twice.
-  private async askAiForUnmatched(tenantId: number, entries: LocationTemplateUnmatched[]): Promise<number> {
-    const index = await this.loadIndex();
-    const todo = entries
-      .filter((e) => !e.dismissed && !e.aiAttempted && e.placedUnderNodeId != null)
-      .filter((e) => {
-        const anchor = index.byId.get(e.placedUnderNodeId!);
-        return anchor && levelIndex(anchor.level) <= levelIndex('area');
-      })
-      .slice(0, AI_BATCH_LIMIT);
-    if (!todo.length) return 0;
-
-    const municipalitiesByAnchor = new Map<number, TemplateNodeLite[]>();
-    const municipalitiesUnder = (anchorId: number) => {
-      if (!municipalitiesByAnchor.has(anchorId)) {
-        const anchor = index.byId.get(anchorId)!;
-        municipalitiesByAnchor.set(
-          anchorId,
-          [...index.byId.values()].filter((n) => n.level === 'municipality' && index.isUnder(n, anchor)),
-        );
-      }
-      return municipalitiesByAnchor.get(anchorId)!;
-    };
-
-    const questions = todo
-      .map((e) => ({ entry: e, options: municipalitiesUnder(e.placedUnderNodeId!) }))
-      .filter((q) => q.options.length > 0);
-    if (!questions.length) {
-      await this.unmatchedRepository.update({ id: In(todo.map((e) => e.id)) }, { aiAttempted: true });
-      return 0;
-    }
-
-    const lines = questions.map((q, i) => {
-      const anchor = index.byId.get(q.entry.placedUnderNodeId!)!;
-      const where = index.path(anchor).map((n) => n.name).join(' > ');
-      const geo = q.entry.lat != null && q.entry.lng != null ? ` (listings around ${q.entry.lat}, ${q.entry.lng})` : '';
-      const sub = q.entry.subName ? ` / sub-location "${q.entry.subName}"` : '';
-      return `${i + 1}. "${q.entry.name}"${sub} in ${where}${geo}\n   Municipalities: ${q.options.map((o) => o.name).join('; ')}`;
-    });
-    const prompt = `You place Spanish real-estate locations in their official municipality (municipio).
-
-For each place below, choose the municipality it belongs to FROM ITS LIST ONLY. Places are towns, villages, districts, beaches or urbanizations inside a municipality. If the place IS one of the listed municipalities, choose that one. If you are not confident, answer null.
-
-${lines.join('\n')}
-
-Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ... }`;
-
-    const answer = await this.aiEnrichmentService.completeJson(tenantId, prompt);
-    await this.unmatchedRepository.update({ id: In(todo.map((e) => e.id)) }, { aiAttempted: true });
-    if (!answer) return 0;
-
-    let placed = 0;
-    for (let i = 0; i < questions.length; i++) {
-      const choice = answer[String(i + 1)];
-      if (typeof choice !== 'string' || !choice.trim()) continue;
-      const q = questions[i];
-      const municipality = q.options.find((o) => o.nameKey === locationKey(choice));
-      if (!municipality) continue; // not from the list — ignore rather than invent
-
-      const nameKey = locationKey(q.entry.name);
-      let node = await this.nodeRepository.findOne({ where: { parentId: municipality.id, nameKey } });
-      if (!node) {
-        // The place is the municipality itself spelled differently: record the
-        // spelling as an alias instead of adding a town.
-        if (municipality.nameKey === nameKey) continue;
-        node = await this.nodeRepository.save(
-          this.nodeRepository.create({
-            parentId: municipality.id,
-            level: 'town',
-            name: q.entry.name.trim().slice(0, 150),
-            nameKey,
-            lat: q.entry.lat,
-            lng: q.entry.lng,
-            status: 'ai_suggested',
-            note: `Suggested by AI for "${q.entry.name}" from a ${q.entry.provider} feed${q.entry.area ? ` (${q.entry.area})` : ''}.`,
-          }),
-        );
-        placed++;
-      }
-      await this.unmatchedRepository.update({ id: q.entry.id }, { resolvedNodeId: node.id });
-    }
-    return placed;
   }
 
   // Re-places every feed listing of a tenant from the names stored on it, so
@@ -673,8 +606,10 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     if (dto.parentId != null) {
       parent = await this.nodeRepository.findOne({ where: { id: dto.parentId } });
       if (!parent) throw new NotFoundException('Parent not found');
-      if (levelIndex(dto.level) <= levelIndex(parent.level)) {
-        throw new BadRequestException(`A ${dto.level} cannot sit under a ${parent.level}`);
+      // Strict hierarchy: Region › Province › Area › Municipality › Town ›
+      // Urbanization, each exactly one level below its parent.
+      if (levelIndex(dto.level) !== levelIndex(parent.level) + 1) {
+        throw new BadRequestException(levelMismatch(parent.level));
       }
     } else if (dto.level !== 'region') {
       throw new BadRequestException('Only regions can be at the top level');
@@ -782,13 +717,13 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     } else {
       const parent = await this.nodeRepository.findOne({ where: { id: parentId } });
       if (!parent) throw new NotFoundException('Target not found');
-      if (levelIndex(level) <= levelIndex(parent.level)) {
-        throw new BadRequestException(`A ${level} cannot sit under a ${parent.level}`);
+      if (levelIndex(level) !== levelIndex(parent.level) + 1) {
+        throw new BadRequestException(levelMismatch(parent.level));
       }
     }
     const children = await this.nodeRepository.find({ where: { parentId: node.id }, select: ['level'] });
-    if (children.some((c) => levelIndex(c.level) <= levelIndex(level))) {
-      throw new BadRequestException(`Its children would sit at or above ${level} level`);
+    if (children.some((c) => levelIndex(c.level) !== levelIndex(level) + 1)) {
+      throw new BadRequestException(`The places inside it would no longer be one level below a ${level}`);
     }
   }
 
@@ -833,8 +768,161 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     });
   }
 
-  async dismissUnmatched(id: number): Promise<void> {
-    await this.unmatchedRepository.update({ id }, { dismissed: true });
+  async dismissUnmatched(id: number, by: 'person' | 'ai' = 'person'): Promise<void> {
+    await this.unmatchedRepository.update(
+      { id },
+      { dismissed: true, resolution: { kind: 'dismiss', by, at: new Date().toISOString() } },
+    );
+  }
+
+  /** Names sorted recently (newest first), each with what Undo would reverse. */
+  async listSortedUnmatched(): Promise<Array<LocationTemplateUnmatched & { placedUnder: string; target: string }>> {
+    const rows = await this.unmatchedRepository.find({
+      where: { resolution: Not(IsNull()) },
+      order: { lastSeenAt: 'DESC' },
+      take: 300,
+    });
+    const index = await this.loadIndex();
+    const pathOf = (id: number | null | undefined) => {
+      const n = id != null ? index.byId.get(id) : undefined;
+      return n ? index.path(n).map((p) => p.name).join(' › ') : '';
+    };
+    return rows.map((r) => ({ ...r, placedUnder: pathOf(r.placedUnderNodeId), target: pathOf(r.resolution?.nodeId) }));
+  }
+
+  /**
+   * Reverses what sorting this entry changed — removes the alias it added, the
+   * town it created, or the dismiss — puts it back in the open list (its AI
+   * suggestion kept) and re-sorts the clients that sent it.
+   */
+  async undoUnmatched(id: number): Promise<{ undone: string; tenants: number; relocated: number; cleaned: number }> {
+    const row = await this.unmatchedRepository.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Unmatched entry not found');
+    const res = row.resolution;
+    if (!res) throw new BadRequestException('Nothing to undo for this name');
+
+    if (res.kind === 'alias' && res.nodeId && res.aliasAdded) {
+      const node = await this.nodeRepository.findOne({ where: { id: res.nodeId } });
+      if (node) {
+        const key = locationKey(res.alias ?? row.name);
+        node.aliases = this.cleanAliases((node.aliases || []).filter((a) => locationKey(a) !== key), node.name);
+        await this.nodeRepository.save(node);
+      }
+    }
+    if (res.kind === 'new' && res.nodeId && res.createdNode) {
+      const inside = await this.nodeRepository.count({ where: { parentId: res.nodeId } });
+      if (inside > 0) {
+        throw new BadRequestException('Places were added inside that town since — move or delete them first');
+      }
+      if (await this.nodeRepository.findOne({ where: { id: res.nodeId } })) await this.remove(res.nodeId);
+    }
+    await this.unmatchedRepository.update({ id }, { dismissed: false, resolvedNodeId: null, resolution: null });
+
+    const tenantIds = res.kind === 'dismiss' ? [] : [...new Set(row.tenantIds || [])];
+    const r = await this.reapplyTenants(tenantIds);
+    return { undone: res.kind, tenants: tenantIds.length, ...r };
+  }
+
+  /**
+   * "ADSUBIA is L'Atzúbia": the feed's spelling becomes an alias of an
+   * existing template place, so every client's feed matches it from now on.
+   * The clients that sent it are re-applied straight away, which moves their
+   * listings onto the right place and clears the stray row the miss created.
+   */
+  async mapUnmatched(
+    id: number,
+    nodeId: number,
+  ): Promise<{ alias: string; node: string; tenants: number; relocated: number; cleaned: number }> {
+    const { row, node } = await this.linkUnmatchedAsAlias(id, nodeId);
+    const tenantIds = [...new Set(row.tenantIds || [])];
+    const r = await this.reapplyTenants(tenantIds);
+    return { alias: row.name, node: node.name, tenants: tenantIds.length, ...r };
+  }
+
+  /** The unmatched name becomes an alias of an existing place (no re-apply). */
+  async linkUnmatchedAsAlias(
+    id: number,
+    nodeId: number,
+    by: 'person' | 'ai' = 'person',
+  ): Promise<{ row: LocationTemplateUnmatched; node: LocationTemplateNode }> {
+    const row = await this.unmatchedRepository.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Unmatched entry not found');
+    const node = await this.nodeRepository.findOne({ where: { id: nodeId } });
+    if (!node) throw new NotFoundException('Location not found');
+    const key = locationKey(row.name);
+    // Undo only removes a spelling this action added, never one already there.
+    const aliasAdded = key !== node.nameKey && !(node.aliases || []).some((a) => locationKey(a) === key);
+    node.aliases = this.cleanAliases([...(node.aliases || []), row.name], node.name);
+    await this.nodeRepository.save(node);
+    await this.unmatchedRepository.update(
+      { id },
+      {
+        resolvedNodeId: node.id,
+        resolution: { kind: 'alias', nodeId: node.id, alias: row.name, aliasAdded, by, at: new Date().toISOString() },
+      },
+    );
+    return { row, node };
+  }
+
+  /**
+   * The unmatched name becomes a new town inside a template municipality (no
+   * re-apply). From an automatic AI run it is marked "AI suggested" for review.
+   */
+  async addTownForUnmatched(
+    id: number,
+    municipalityId: number,
+    status: 'ok' | 'ai_suggested',
+    note?: string,
+  ): Promise<{ row: LocationTemplateUnmatched; node: LocationTemplateNode }> {
+    const row = await this.unmatchedRepository.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Unmatched entry not found');
+    const municipality = await this.nodeRepository.findOne({ where: { id: municipalityId } });
+    if (!municipality || municipality.level !== 'municipality') throw new BadRequestException('Pick a municipality');
+    const nameKey = locationKey(row.name);
+    let node =
+      (await this.nodeRepository.findOne({ where: { parentId: municipality.id, nameKey } })) ??
+      // The name is the municipality itself, spelled differently.
+      (municipality.nameKey === nameKey ? municipality : null);
+    const createdNode = !node;
+    if (!node) {
+      node = await this.nodeRepository.save(
+        this.nodeRepository.create({
+          parentId: municipality.id,
+          level: 'town',
+          name: row.name.trim().slice(0, 150),
+          nameKey,
+          lat: row.lat,
+          lng: row.lng,
+          status,
+          note: note ?? null,
+        }),
+      );
+    }
+    await this.unmatchedRepository.update(
+      { id },
+      {
+        resolvedNodeId: node.id,
+        resolution: {
+          kind: 'new',
+          nodeId: node.id,
+          createdNode,
+          by: status === 'ai_suggested' ? 'ai' : 'person',
+          at: new Date().toISOString(),
+        },
+      },
+    );
+    return { row, node };
+  }
+
+  async reapplyTenants(tenantIds: number[]): Promise<{ relocated: number; cleaned: number }> {
+    let relocated = 0;
+    let cleaned = 0;
+    for (const tenantId of [...new Set(tenantIds)]) {
+      const r = await this.reapplyTenant(tenantId);
+      relocated += r.relocated;
+      cleaned += r.cleaned;
+    }
+    return { relocated, cleaned };
   }
 
   // ===================================================================
@@ -1145,6 +1233,14 @@ Reply ONLY with JSON: { "1": "<municipality from list 1 or null>", "2": ..., ...
     await this.nodeRepository.delete({ id: source.id });
     tally.merged++;
   }
+}
+
+function levelMismatch(parentLevel: TemplateLevel): string {
+  const next = LOCATION_LEVELS[levelIndex(parentLevel) + 1];
+  const a = (w: string) => (/^[aeiou]/.test(w) ? `an ${w}` : `a ${w}`);
+  return next
+    ? `Inside ${a(parentLevel)} only ${a(next)} fits (Region › Province › Area › Municipality › Town › Urbanization)`
+    : `Nothing goes inside ${a(parentLevel)}`;
 }
 
 function sameSpot(row: { lat: unknown; lng: unknown }, c: { lat: number; lng: number }): boolean {

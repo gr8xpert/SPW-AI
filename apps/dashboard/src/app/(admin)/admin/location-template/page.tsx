@@ -56,6 +56,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApi } from '@/hooks/use-api';
+import { AiSuggestion, type AiProposal } from './ai-suggestion';
+import { DuplicatesTab } from './duplicates-tab';
+import { SortedList } from './sorted-list';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -94,6 +97,7 @@ interface Unmatched {
   occurrences: number;
   tenantIds: number[] | null;
   lastSeenAt: string;
+  aiProposal?: AiProposal | null;
 }
 
 interface Client {
@@ -111,6 +115,7 @@ const levelColors: Record<Level, string> = {
 };
 
 const levelIndex = (l: Level) => LEVELS.indexOf(l);
+const withArticle = (w: string) => (/^[aeiou]/.test(w) ? `an ${w}` : `a ${w}`);
 // Same rule as the API's locationKey: lower case, accents (combining marks
 // U+0300..U+036F after NFD) dropped, other symbols collapsed to spaces.
 const keyOf = (s: string) =>
@@ -165,24 +170,44 @@ export default function LocationTemplatePage() {
   const [checking, setChecking] = useState(false);
   const [merging, setMerging] = useState<TemplateNode | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+  // "Same place as…": a feed spelling (ADSUBIA) that belongs to an existing
+  // place (L'Atzúbia) becomes one of its aliases.
+  // AI review of the unmatched list.
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
+  const [acceptingAll, setAcceptingAll] = useState(false);
+  const [dupesKey, setDupesKey] = useState(0);
+  const [unmatchedView, setUnmatchedView] = useState<'open' | 'sorted'>('open');
+  const [sortedKey, setSortedKey] = useState(0);
+  const [mapping, setMapping] = useState<Unmatched | null>(null);
+  const [mapTargetId, setMapTargetId] = useState<number | null>(null);
+  const [mapBusy, setMapBusy] = useState(false);
   const [mergeKeep, setMergeKeep] = useState<'target' | 'source'>('target');
   const [mergeBusy, setMergeBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     try {
-      const [list, open] = await Promise.all([
+      // Loaded separately: a failing Unmatched list must not blank the whole
+      // template (it did on 10-02, before its migration had run).
+      const [list, open] = await Promise.allSettled([
         api.get('/api/super-admin/location-template'),
         api.get('/api/super-admin/location-template/unmatched'),
       ]);
-      const body = (list as any)?.data ?? list;
-      setNodes(body?.nodes || []);
-      setUsage(body?.usage || {});
-      setUnmatchedOpen(body?.unmatchedOpen || 0);
-      const um = (open as any)?.data ?? open;
-      setUnmatched(Array.isArray(um) ? um : []);
-    } catch (e) {
-      toast({ title: 'Could not load the template', description: errorText(e, ''), variant: 'destructive' });
+      if (list.status === 'fulfilled') {
+        const body = (list.value as any)?.data ?? list.value;
+        setNodes(body?.nodes || []);
+        setUsage(body?.usage || {});
+        setUnmatchedOpen(body?.unmatchedOpen || 0);
+      } else {
+        toast({ title: 'Could not load the template', description: errorText(list.reason, ''), variant: 'destructive' });
+      }
+      if (open.status === 'fulfilled') {
+        const um = (open.value as any)?.data ?? open.value;
+        setUnmatched(Array.isArray(um) ? um : []);
+      } else {
+        toast({ title: 'Could not load the unmatched list', description: errorText(open.reason, ''), variant: 'destructive' });
+      }
     } finally {
       setLoading(false);
     }
@@ -308,6 +333,32 @@ export default function LocationTemplatePage() {
 
   const numberOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 
+  // Strict hierarchy: a place is always exactly one level below its parent
+  // (Region › Province › Area › Municipality › Town › Urbanization), so the
+  // level follows from where it goes rather than being picked.
+  const levelUnder = (parentId: number | null): Level | null => {
+    if (parentId == null) return 'region';
+    const parent = byId.get(parentId);
+    return parent ? LEVELS[levelIndex(parent.level) + 1] ?? null : null;
+  };
+
+  // Existing places whose name or other spelling matches what is typed in
+  // Add — usually the place already exists somewhere and should be moved
+  // here rather than added twice.
+  const addMatches = useMemo(() => {
+    if (!form || form.mode !== 'add') return [];
+    const k = keyOf(form.name);
+    if (k.length < 2) return [];
+    const parent = form.parentId != null ? byId.get(form.parentId) : undefined;
+    const blocked = new Set(parent ? pathOf(parent).map((p) => p.id) : []);
+    return nodes
+      .filter((n) => !blocked.has(n.id))
+      .filter((n) => keyOf(n.name).includes(k) || (n.aliases || []).some((a) => keyOf(a).includes(k)))
+      .sort((a, b) => Number(keyOf(b.name) === k) - Number(keyOf(a.name) === k) || levelIndex(a.level) - levelIndex(b.level))
+      .slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form?.mode, form?.name, form?.parentId, nodes]);
+
   const saveForm = async () => {
     if (!form) return;
     const lat = numberOrNull(form.lat);
@@ -317,12 +368,17 @@ export default function LocationTemplatePage() {
       return;
     }
     const aliases = form.aliases.split(',').map((a) => a.trim()).filter(Boolean);
+    const addLevel = levelUnder(form.parentId);
+    if (form.mode === 'add' && !addLevel) {
+      toast({ title: 'Nothing goes inside an urbanization', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       if (form.mode === 'add') {
         await api.post('/api/super-admin/location-template', {
           parentId: form.parentId,
-          level: form.level,
+          level: addLevel,
           name: form.name.trim(),
           aliases,
           postcode: form.postcode.trim() || null,
@@ -334,10 +390,8 @@ export default function LocationTemplatePage() {
         }
         toast({ title: `Added "${form.name.trim()}"`, description: 'Clients pick it up on their next sync, or use Re-apply.' });
       } else {
-        const original = byId.get(form.id!);
         await api.put(`/api/super-admin/location-template/${form.id}`, {
           name: form.name.trim(),
-          ...(original && original.level !== form.level ? { level: form.level } : {}),
           aliases,
           postcode: form.postcode.trim() || null,
           lat,
@@ -485,6 +539,105 @@ export default function LocationTemplatePage() {
       toast({ title: 'Check failed', description: errorText(e, ''), variant: 'destructive' });
     } finally {
       setChecking(false);
+    }
+  };
+
+  // Asks the AI about every open name nobody has asked about yet, 40 at a time.
+  const runAiReview = async () => {
+    let total = 0;
+    try {
+      for (let round = 0; round < 15; round++) {
+        setReviewing(total ? `${total} reviewed…` : 'Reviewing…');
+        const res: any = await api.post('/api/super-admin/location-template/unmatched/ai-review', {});
+        const r = res?.data ?? res;
+        total += r.answered;
+        if (!r.remaining || (r.answered === 0 && r.failed > 0) || (r.answered === 0 && r.failed === 0)) {
+          if (r.failed > 0 && r.answered === 0) {
+            toast({ title: 'The AI could not be reached', description: 'Nothing was lost — run the review again in a minute.', variant: 'destructive' });
+          }
+          break;
+        }
+      }
+      toast({ title: `AI reviewed ${total} name(s)`, description: 'Check its suggestions, then Accept them one by one or all at once.' });
+    } catch (e) {
+      toast({ title: 'AI review failed', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setReviewing(null);
+      await load();
+    }
+  };
+
+  const askAiFor = async (u: Unmatched) => {
+    setRowBusy(u.id);
+    try {
+      const res: any = await api.post(`/api/super-admin/location-template/unmatched/${u.id}/ai-review`, {});
+      const proposal = (res?.data ?? res) as AiProposal | null;
+      setUnmatched((prev) => prev.map((x) => (x.id === u.id ? { ...x, aiProposal: proposal } : x)));
+    } catch (e) {
+      toast({ title: 'AI review failed', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const acceptSuggestion = async (u: Unmatched) => {
+    setRowBusy(u.id);
+    try {
+      const res: any = await api.post(`/api/super-admin/location-template/unmatched/${u.id}/accept`, {});
+      const r = res?.data ?? res;
+      toast({
+        title: `Accepted for "${u.name}"`,
+        description: r.tenants ? `${r.relocated} listing(s) moved for ${r.tenants} client(s).` : undefined,
+      });
+      setUnmatched((prev) => prev.filter((x) => x.id !== u.id));
+      setUnmatchedOpen((c) => Math.max(0, c - 1));
+      await load();
+    } catch (e) {
+      toast({ title: 'Could not accept', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setRowBusy(null);
+    }
+  };
+
+  const acceptAllSuggestions = async () => {
+    setAcceptingAll(true);
+    try {
+      const res: any = await api.post('/api/super-admin/location-template/unmatched/accept-all', {});
+      const r = res?.data ?? res;
+      toast({
+        title: `Accepted ${r.accepted} suggestion(s)`,
+        description: `${r.relocated} listing(s) moved for ${r.tenants} client(s). Flagged ones were left for you to check.`,
+      });
+      await load();
+    } catch (e) {
+      toast({ title: 'Could not accept', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setAcceptingAll(false);
+    }
+  };
+
+  const runMap = async () => {
+    if (!mapping || mapTargetId == null) return;
+    setMapBusy(true);
+    try {
+      const res: any = await api.post(`/api/super-admin/location-template/unmatched/${mapping.id}/map`, {
+        nodeId: mapTargetId,
+      });
+      const r = res?.data ?? res;
+      toast({
+        title: `"${r.alias}" is now another name for "${r.node}"`,
+        description: r.tenants
+          ? `${r.relocated} listing(s) moved for ${r.tenants} client(s); ${r.cleaned} stray location row(s) removed.`
+          : 'Feeds that send this spelling will land there from now on.',
+      });
+      setUnmatched((prev) => prev.filter((x) => x.id !== mapping.id));
+      setUnmatchedOpen((c) => Math.max(0, c - 1));
+      setMapping(null);
+      await load();
+    } catch (e) {
+      toast({ title: 'Could not link it', description: errorText(e, ''), variant: 'destructive' });
+    } finally {
+      setMapBusy(false);
     }
   };
 
@@ -731,6 +884,9 @@ export default function LocationTemplatePage() {
           <TabsTrigger value="unmatched">
             Unmatched from feeds {unmatchedOpen > 0 && <Badge variant="secondary" className="ml-2">{unmatchedOpen}</Badge>}
           </TabsTrigger>
+          <TabsTrigger value="duplicates" onClick={() => setDupesKey((k) => k + 1)}>
+            Duplicates
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="template">
@@ -802,14 +958,75 @@ export default function LocationTemplatePage() {
         <TabsContent value="unmatched">
           <Card>
             <CardHeader>
-              <CardTitle>Unmatched from feeds</CardTitle>
-              <CardDescription>
-                Places client feeds sent that the template doesn&apos;t know. Their listings are shown under the place in
-                &quot;Placed under&quot; until you add them. AI suggests a municipality for new towns automatically.
-              </CardDescription>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <CardTitle>Unmatched from feeds</CardTitle>
+                  <CardDescription>
+                    Places client feeds sent that the template doesn&apos;t know. Their listings are shown under the
+                    place in &quot;Placed under&quot; until you sort them. After each feed import AI already applies
+                    what it is sure of; the rest waits here with its suggestion.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex rounded-md border p-0.5" role="group" aria-label="Show">
+                    {(['open', 'sorted'] as const).map((v) => (
+                      <Button
+                        key={v}
+                        size="sm"
+                        variant={unmatchedView === v ? 'secondary' : 'ghost'}
+                        className="h-8"
+                        data-testid={`unmatched-view-${v}`}
+                        onClick={() => {
+                          setUnmatchedView(v);
+                          if (v === 'sorted') setSortedKey((k) => k + 1);
+                        }}
+                      >
+                        {v === 'open' ? `Open (${unmatched.length})` : 'Sorted recently'}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button variant="outline" onClick={runAiReview} disabled={!!reviewing || acceptingAll} data-testid="ai-review-all">
+                    {reviewing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    {reviewing || 'AI review'}
+                  </Button>
+                  <Button
+                    onClick={acceptAllSuggestions}
+                    disabled={!!reviewing || acceptingAll || !unmatched.some((u) => u.aiProposal?.action && !u.aiProposal.flagged)}
+                    data-testid="ai-accept-all"
+                  >
+                    {acceptingAll && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Accept all suggestions ({unmatched.filter((u) => u.aiProposal?.action && !u.aiProposal.flagged).length})
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {unmatched.length === 0 ? (
+              {unmatchedView === 'sorted' ? (
+                <SortedList
+                  reloadKey={sortedKey}
+                  load={async () => {
+                    const res: any = await api.get('/api/super-admin/location-template/unmatched/sorted');
+                    const body = res?.data ?? res;
+                    return Array.isArray(body) ? body : [];
+                  }}
+                  onUndo={async (id, name) => {
+                    try {
+                      const res: any = await api.post(`/api/super-admin/location-template/unmatched/${id}/undo`, {});
+                      const r = res?.data ?? res;
+                      toast({
+                        title: `Undone for "${name}"`,
+                        description: r.tenants
+                          ? `It is back in the open list; ${r.relocated} listing(s) moved back for ${r.tenants} client(s).`
+                          : 'It is back in the open list.',
+                      });
+                      await load();
+                    } catch (e) {
+                      toast({ title: 'Could not undo', description: errorText(e, ''), variant: 'destructive' });
+                      throw e;
+                    }
+                  }}
+                />
+              ) : unmatched.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">Nothing unmatched. Every feed location is in the template.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -820,6 +1037,7 @@ export default function LocationTemplatePage() {
                         <TableHead>Placed under</TableHead>
                         <TableHead className="text-right">Listings</TableHead>
                         <TableHead>Feed</TableHead>
+                        <TableHead>AI suggestion</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -835,6 +1053,14 @@ export default function LocationTemplatePage() {
                             <TableCell className="text-sm text-muted-foreground">{u.placedUnder || '—'}</TableCell>
                             <TableCell className="text-right">{u.occurrences}</TableCell>
                             <TableCell className="text-sm capitalize">{u.provider}</TableCell>
+                            <TableCell>
+                              <AiSuggestion
+                                proposal={u.aiProposal}
+                                busy={rowBusy === u.id || !!reviewing}
+                                onAccept={() => acceptSuggestion(u)}
+                                onAsk={() => askAiFor(u)}
+                              />
+                            </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -852,6 +1078,14 @@ export default function LocationTemplatePage() {
                                 >
                                   <Plus className="mr-1 h-3 w-3" /> Add to template
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid="unmatched-map"
+                                  onClick={() => { setMapping(u); setMapTargetId(null); }}
+                                >
+                                  <Merge className="mr-1 h-3 w-3" /> Same place as…
+                                </Button>
                                 <Button size="sm" variant="ghost" onClick={() => dismiss(u)}>
                                   Dismiss
                                 </Button>
@@ -866,6 +1100,23 @@ export default function LocationTemplatePage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="duplicates">
+          <DuplicatesTab
+            reloadKey={dupesKey}
+            load={async () => {
+              const res: any = await api.get('/api/super-admin/location-template/duplicates');
+              const body = res?.data ?? res;
+              return Array.isArray(body) ? body : [];
+            }}
+            onMerge={(sourceId, targetId) => {
+              const source = byId.get(sourceId);
+              if (!source) return;
+              openMerge(source);
+              setMergeTargetId(targetId);
+            }}
+          />
         </TabsContent>
       </Tabs>
 
@@ -884,36 +1135,73 @@ export default function LocationTemplatePage() {
             <div className="grid gap-4">
               {form.mode === 'add' && form.fromUnmatchedId && (
                 <ParentPicker
-                  label="Put it inside"
+                  label="Put it inside (a municipality, or a town for an urbanization)"
                   nodes={form.scopeId != null ? nodes.filter((n) => pathOf(n).some((p) => p.id === form.scopeId)) : nodes}
                   pathOf={pathOf}
-                  maxLevel={levelIndex(form.level) - 1}
+                  accept={(n) => n.level === 'municipality' || n.level === 'town'}
                   value={form.parentId}
                   onChange={(id) => setForm({ ...form, parentId: id })}
                 />
               )}
               <div className="grid gap-2">
                 <Label htmlFor="tpl-name">Name</Label>
-                <Input id="tpl-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+                <Input id="tpl-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus autoComplete="off" />
+                {addMatches.length > 0 && (() => {
+                  const want = levelUnder(form.parentId);
+                  const parent = form.parentId != null ? byId.get(form.parentId) : undefined;
+                  return (
+                    <div className="rounded-md border bg-muted/30" data-testid="add-matches">
+                      <p className="border-b px-3 py-1.5 text-xs text-muted-foreground">Already in the template:</p>
+                      {addMatches.map((n) => {
+                        const here = n.parentId === form.parentId;
+                        const fits = !here && want != null && n.level === want;
+                        return (
+                          <div key={n.id} className="flex items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-b-0">
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">
+                                {n.name} <span className="text-xs font-normal capitalize text-muted-foreground">({n.level})</span>
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {pathOf(n).slice(0, -1).map((p) => p.name).join(' › ') || 'Top level'}
+                              </span>
+                            </span>
+                            {here ? (
+                              <span className="shrink-0 text-xs text-muted-foreground">already here</span>
+                            ) : fits ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0"
+                                data-testid="add-match-move"
+                                onClick={async () => {
+                                  setForm(null);
+                                  await moveTo(n, form.parentId);
+                                }}
+                              >
+                                <MoveRight className="mr-1 h-3 w-3" /> Move here
+                              </Button>
+                            ) : (
+                              <span className="shrink-0 text-right text-xs text-muted-foreground">
+                                {withArticle(n.level)}; only {want ? withArticle(want) : 'nothing'} fits inside {parent ? withArticle(parent.level) : 'the top level'}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1">
                 <Label>Level</Label>
-                <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v as Level })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LEVELS.filter((l) => {
-                      const parent = form.parentId != null ? byId.get(form.parentId) : undefined;
-                      if (form.fromUnmatchedId && !parent) return l === 'town' || l === 'urbanization';
-                      return parent ? levelIndex(l) > levelIndex(parent.level) : l === 'region';
-                    }).map((l) => (
-                      <SelectItem key={l} value={l} className="capitalize">
-                        {l}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="text-sm">
+                  <span className="capitalize font-medium">
+                    {form.mode === 'add' ? levelUnder(form.parentId) ?? '—' : form.level}
+                  </span>{' '}
+                  <span className="text-muted-foreground">
+                    — always one level below its parent (Region › Province › Area › Municipality › Town › Urbanization)
+                  </span>
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tpl-aliases">Other spellings feeds use</Label>
@@ -996,6 +1284,48 @@ export default function LocationTemplatePage() {
               onChange={(id) => id != null && moveTo(moving, id)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Same place as… (unmatched feed spelling → alias) */}
+      <Dialog open={!!mapping} onOpenChange={(o) => !o && setMapping(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>&quot;{mapping?.name}&quot; is the same place as…</DialogTitle>
+            <DialogDescription>
+              It becomes another name for the place you pick, for every client. Listings the feeds sent under
+              &quot;{mapping?.name}&quot; move there now.
+            </DialogDescription>
+          </DialogHeader>
+          {mapping && (() => {
+            const anchor = mapping.placedUnderNodeId != null ? byId.get(mapping.placedUnderNodeId) : undefined;
+            // Within the province (or area) the feed placed it under, when known.
+            const scope = anchor
+              ? pathOf(anchor).find((p) => p.level === 'province') ?? anchor
+              : undefined;
+            const inScope = scope
+              ? nodes.filter((n) => n.id === scope.id || pathOf(n).some((p) => p.id === scope.id))
+              : nodes;
+            return (
+              <ParentPicker
+                label="Place"
+                nodes={inScope}
+                pathOf={pathOf}
+                accept={(n) => levelIndex(n.level) >= levelIndex('municipality')}
+                initialQuery=""
+                value={mapTargetId}
+                onChange={setMapTargetId}
+              />
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMapping(null)}>
+              Cancel
+            </Button>
+            <Button onClick={runMap} disabled={mapBusy || mapTargetId == null} data-testid="unmatched-map-save">
+              {mapBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Link
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

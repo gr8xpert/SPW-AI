@@ -240,8 +240,12 @@ function extrasBelow(
   let depth = levelIndex(anchor.level);
   for (const n of generalToSpecific) {
     if (locationKey(n.name) === anchor.nameKey) continue;
-    const level = Math.max(levelIndex(n.level), depth + 1);
+    let level = Math.max(levelIndex(n.level), depth + 1);
     if (level > levelIndex('urbanization')) break;
+    // An urbanization only ever sits inside a town. Without a town above it
+    // (ADSUBIA under the province) the name is shown as a town until someone
+    // places it, never as an urbanization skipping the levels in between.
+    if (level === levelIndex('urbanization') && depth !== levelIndex('town')) level = levelIndex('town');
     const name = n.name.trim();
     out.push({ name, level: (['region', 'province', 'area', 'municipality', 'town', 'urbanization'] as const)[level] });
     depth = level;

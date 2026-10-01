@@ -1,73 +1,81 @@
-import { LocationTemplateService } from './location-template.service';
+import { UnmatchedReviewService } from './unmatched-review.service';
 import { locationKey } from './location-name';
+import { TemplateIndex } from './location-template.resolver';
 
-// AI may only place an unknown town under a municipality of the template's own
-// list, every answer becomes an "AI suggested" node, and a name is asked once.
-function makeService(nodes: any[], answer: Record<string, any> | null) {
-  const svc = Object.create(LocationTemplateService.prototype) as any;
-  svc.logger = { log: jest.fn(), warn: jest.fn() };
-  const saved: any[] = [];
-  svc.nodeRepository = {
-    find: jest.fn().mockResolvedValue(nodes),
-    findOne: jest.fn().mockResolvedValue(null),
-    create: jest.fn((x) => x),
-    save: jest.fn(async (x) => {
-      const row = { id: 900 + saved.length, ...x };
-      saved.push(row);
-      return row;
-    }),
-  };
-  svc.unmatchedRepository = { update: jest.fn() };
-  svc.aiEnrichmentService = { completeJson: jest.fn().mockResolvedValue(answer) };
-  return { svc, saved };
-}
+// The AI review of unknown feed names: it can only point at places it was
+// shown, a failed call is retried later, and after a feed import only safe
+// answers are applied without a person — for every client that sent the name.
 
-const n = (id: number, parentId: number | null, level: string, name: string) => ({
-  id, parentId, level, name, nameKey: locationKey(name), aliases: null, status: 'ok',
+const n = (id: number, parentId: number | null, level: string, name: string, lat: number | null = null, lng: number | null = null) => ({
+  id, parentId, level, name, nameKey: locationKey(name), aliases: null, status: 'ok', lat, lng,
 });
 const TEMPLATE = [
-  n(1, null, 'region', 'Andalucía'),
-  n(2, 1, 'province', 'Málaga'),
-  n(3, 2, 'area', 'Costa del Sol'),
-  n(4, 3, 'municipality', 'Mijas'),
-  n(5, 3, 'municipality', 'Fuengirola'),
+  n(1, null, 'region', 'Valencia Community'),
+  n(2, 1, 'province', 'Alicante'),
+  n(3, 2, 'area', 'Marina Alta'),
+  n(4, 3, 'municipality', "L'Atzúbia", 38.8475, -0.1519),
+  n(5, 4, 'town', "L'Atzúbia", 38.8475, -0.1519),
+  n(6, 3, 'municipality', 'Jalón', 38.739, -0.0084),
 ];
 const entry = (id: number, name: string, extra: Record<string, any> = {}) => ({
-  id, name, subName: null, provider: 'resales', area: 'Costa del Sol', placedUnderNodeId: 3,
-  lat: 36.5, lng: -4.7, dismissed: false, aiAttempted: false, ...extra,
+  id, name, subName: null, provider: 'resales', placedUnderNodeId: 2, lat: null, lng: null,
+  dismissed: false, aiAttempted: false, resolvedNodeId: null, aiProposal: null, tenantIds: [7, 8], ...extra,
 });
 
-describe('AI placement of unknown towns', () => {
-  it('adds an AI-suggested town under the chosen municipality', async () => {
-    const { svc, saved } = makeService(TEMPLATE, { '1': 'Mijas' });
-    const placed = await svc.askAiForUnmatched(6, [entry(10, 'El Faro')]);
-    expect(placed).toBe(1);
-    expect(saved[0]).toMatchObject({ parentId: 4, level: 'town', name: 'El Faro', status: 'ai_suggested', lat: 36.5 });
-    expect(svc.unmatchedRepository.update).toHaveBeenCalledWith({ id: 10 }, { resolvedNodeId: saved[0].id });
-    const prompt = svc.aiEnrichmentService.completeJson.mock.calls[0][1] as string;
-    expect(prompt).toContain('"El Faro" in Andalucía > Málaga > Costa del Sol (listings around 36.5, -4.7)');
-    expect(prompt).toContain('Municipalities: Mijas; Fuengirola');
+function makeService(answer: Record<string, any> | null) {
+  const template = {
+    loadIndex: jest.fn().mockResolvedValue(new TemplateIndex(TEMPLATE as any)),
+    linkUnmatchedAsAlias: jest.fn().mockResolvedValue({}),
+    addTownForUnmatched: jest.fn().mockResolvedValue({}),
+    dismissUnmatched: jest.fn(),
+    reapplyTenants: jest.fn().mockResolvedValue({ relocated: 0, cleaned: 0 }),
+    setUnmatchedReviewer: jest.fn(),
+  };
+  const unmatchedRepository = { update: jest.fn() };
+  const ai = { completeJson: jest.fn().mockResolvedValue(answer) };
+  const svc = new UnmatchedReviewService(unmatchedRepository as any, {} as any, template as any, ai as any);
+  return { svc, template, unmatchedRepository, ai };
+}
+
+describe('AI review of unknown feed names', () => {
+  it('a failed AI call stores nothing, so the name is asked again next time', async () => {
+    const { svc, unmatchedRepository } = makeService(null);
+    const r = await svc.review([entry(1, 'ADSUBIA')] as any);
+    expect(r).toEqual({ answered: 0, failed: 1 });
+    expect(unmatchedRepository.update).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ aiAttempted: true }));
   });
 
-  it('ignores a municipality that is not in the list', async () => {
-    const { svc, saved } = makeService(TEMPLATE, { '1': 'Marbella' });
-    expect(await svc.askAiForUnmatched(6, [entry(10, 'El Faro')])).toBe(0);
-    expect(saved).toHaveLength(0);
+  it('after an import, applies a "same" answer near the listings and re-sorts every client that sent it', async () => {
+    const { svc, template } = makeService({ 1: { action: 'same', id: 'P1', reason: 'Valencian spelling' } });
+    const e = entry(1, 'ADSUBIA', { lat: 38.85, lng: -0.15 });
+    const r = await svc.reviewAndApply([e] as any, 7);
+    expect(template.linkUnmatchedAsAlias).toHaveBeenCalledWith(1, expect.any(Number), 'ai');
+    expect(r).toEqual({ applied: 1, tenantIds: [7, 8] });
   });
 
-  it('asks only once per name, and not for dismissed or deeper unknowns', async () => {
-    const { svc } = makeService(TEMPLATE, {});
-    await svc.askAiForUnmatched(6, [
-      entry(11, 'Asked Before', { aiAttempted: true }),
-      entry(12, 'Dismissed', { dismissed: true }),
-      entry(13, 'Urbanization under a known town', { placedUnderNodeId: 4 }),
-    ]);
-    expect(svc.aiEnrichmentService.completeJson).not.toHaveBeenCalled();
+  it('keeps a "same" answer without GPS for a person to accept', async () => {
+    const { svc, template, unmatchedRepository } = makeService({ 1: { action: 'same', id: 'P1' } });
+    const r = await svc.reviewAndApply([entry(1, 'ADSUBIA')] as any, 7);
+    expect(r.applied).toBe(0);
+    expect(template.linkUnmatchedAsAlias).not.toHaveBeenCalled();
+    expect(unmatchedRepository.update).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ aiProposal: expect.objectContaining({ action: 'same' }) }));
   });
 
-  it('marks entries as asked even when AI gives no answer', async () => {
-    const { svc } = makeService(TEMPLATE, null);
-    await svc.askAiForUnmatched(6, [entry(14, 'Somewhere')]);
-    expect(svc.unmatchedRepository.update).toHaveBeenCalledWith({ id: expect.anything() }, { aiAttempted: true });
+  it('adds a new town as "AI suggested", and never dismisses on its own', async () => {
+    const { svc, template } = makeService({
+      1: { action: 'new', id: 'M2', reason: 'village in Jalón' },
+      2: { action: 'dismiss', reason: 'not a place' },
+    });
+    const r = await svc.reviewAndApply([entry(1, 'Les Planes'), entry(2, 'Rural location')] as any, 7);
+    expect(template.addTownForUnmatched).toHaveBeenCalledWith(1, expect.any(Number), 'ai_suggested', expect.stringContaining('Les Planes'));
+    expect(template.dismissUnmatched).not.toHaveBeenCalled();
+    expect(r.applied).toBe(1);
+  });
+
+  it('ignores an id the model was not shown', async () => {
+    const { svc, template } = makeService({ 1: { action: 'new', id: 'M99' } });
+    const r = await svc.reviewAndApply([entry(1, 'Somewhere')] as any, 7);
+    expect(r.applied).toBe(0);
+    expect(template.addTownForUnmatched).not.toHaveBeenCalled();
   });
 });

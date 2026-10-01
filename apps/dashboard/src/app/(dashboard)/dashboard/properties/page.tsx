@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -102,7 +102,9 @@ function displayName(name: Record<string, string> | string): string {
 
 export default function PropertiesPage() {
   const { toast } = useToast();
-  const { addons } = useDashboardAddons();
+  const { addons, known: addonsKnown } = useDashboardAddons();
+  // Not greyed out while the plan is still loading (see useDashboardAddons).
+  const canAddProperty = addons.addProperty || !addonsKnown;
   const [lockOpen, setLockOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -116,6 +118,25 @@ export default function PropertiesPage() {
   const [source, setSource] = useState('');
   const [isOwnProperty, setIsOwnProperty] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
+  // Set from a link on the Locations page (?locationId=…&locationName=…):
+  // that place and every place inside it, matching the count shown there.
+  const [location, setLocation] = useState<{ id: string; name: string } | null>(null);
+  // The list waits for the address to be read, so a filtered link doesn't
+  // first load every property.
+  const [urlRead, setUrlRead] = useState(false);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get('locationId');
+    if (id && /^\d+$/.test(id)) setLocation({ id, name: q.get('locationName') || `#${id}` });
+    setUrlRead(true);
+  }, []);
+
+  const clearLocation = () => {
+    setLocation(null);
+    setPage(1);
+    window.history.replaceState(null, '', window.location.pathname);
+  };
 
   const hasActiveFilters = !!(status || listingType || propertyTypeId || source || isOwnProperty || isFeatured);
 
@@ -138,18 +159,20 @@ export default function PropertiesPage() {
     if (source) params.source = source;
     if (isOwnProperty) params.isOwnProperty = true;
     if (isFeatured) params.isFeatured = true;
+    if (location) params.locationId = location.id;
     return params;
   };
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
       'properties', page, search,
-      status, listingType, propertyTypeId, source, isOwnProperty, isFeatured,
+      status, listingType, propertyTypeId, source, isOwnProperty, isFeatured, location?.id,
     ],
     queryFn: () =>
       apiGet<PropertiesResponse>('/api/dashboard/properties', {
         params: buildParams(),
       }),
+    enabled: urlRead,
   });
 
   const properties = data?.data || [];
@@ -250,7 +273,7 @@ export default function PropertiesPage() {
               )}
             </Button>
           )}
-          {addons.addProperty ? (
+          {canAddProperty ? (
             <Button asChild className="shadow-sm">
               <Link href="/dashboard/properties/create">
                 <Plus className="h-4 w-4 mr-2" />
@@ -303,6 +326,19 @@ export default function PropertiesPage() {
               {filtersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </Button>
           </div>
+
+          {location && (
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Location:</span>
+              <Badge variant="secondary" className="gap-1 pr-1" data-testid="location-filter">
+                {location.name}
+                <button type="button" onClick={clearLocation} aria-label="Remove location filter" className="rounded-full p-0.5 hover:bg-muted">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+              <span className="text-xs text-muted-foreground">including the places inside it</span>
+            </div>
+          )}
 
           {filtersOpen && (
             <div className="mt-4 pt-4 border-t">
@@ -394,7 +430,7 @@ export default function PropertiesPage() {
           {/* Total beside the heading: the "Showing x to y of n" line below only
               appears when there is more than one page. */}
           <CardTitle data-testid="properties-heading">
-            {hasActiveFilters || search.trim() ? 'Matching Properties' : 'All Properties'}
+            {hasActiveFilters || location || search.trim() ? 'Matching Properties' : 'All Properties'}
             {meta && (
               <>
                 {' '}
@@ -404,7 +440,7 @@ export default function PropertiesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || !urlRead ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
@@ -419,7 +455,7 @@ export default function PropertiesPage() {
           ) : properties.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No properties found</p>
-              {addons.addProperty ? (
+              {canAddProperty ? (
                 <Button asChild className="mt-4">
                   <Link href="/dashboard/properties/create">
                     <Plus className="h-4 w-4 mr-2" />

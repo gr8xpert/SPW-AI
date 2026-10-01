@@ -581,9 +581,20 @@ export default function LocationsPage() {
             <Badge variant="outline" className={levelColors[location.level]}>
               {location.level}
             </Badge>
-            <span className="text-sm text-muted-foreground min-w-[80px] text-right">
-              {location.propertyCount ?? 0} properties
-            </span>
+            {(location.propertyCount ?? 0) > 0 ? (
+              // Opens Properties filtered to this place and the places inside
+              // it — the same set this count is made of.
+              <a
+                href={`/dashboard/properties?locationId=${location.id}&locationName=${encodeURIComponent(location.name.en || '')}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm text-primary underline-offset-4 hover:underline min-w-[80px] text-right"
+                data-testid="location-property-count"
+              >
+                {location.propertyCount} {location.propertyCount === 1 ? 'property' : 'properties'}
+              </a>
+            ) : (
+              <span className="text-sm text-muted-foreground min-w-[80px] text-right">0 properties</span>
+            )}
             <div
               className="flex items-center gap-1.5"
               title={location.isActive !== false ? 'Visible on website' : 'Hidden from website'}

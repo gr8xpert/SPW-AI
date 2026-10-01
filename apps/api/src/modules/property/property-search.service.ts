@@ -238,7 +238,7 @@ export class PropertySearchService {
 
   // Expands a selected parent id (location or type) to itself + all descendants.
   // Used so picking "Marbella" returns properties in every child town/area.
-  private async expandDescendants(
+  async expandDescendants(
     tenantId: number,
     rootId: number,
     table: 'locations' | 'property_types',

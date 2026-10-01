@@ -20,6 +20,13 @@ export class ListPropertyDto {
   @IsNumber()
   propertyTypeId?: number;
 
+  // A place and every place inside it — the same set the Locations page
+  // counts, so "2 properties" there opens exactly those 2.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  locationId?: number;
+
   @IsOptional()
   @IsIn(['manual', 'resales', 'inmoba', 'infocasa', 'redsp'])
   source?: string;

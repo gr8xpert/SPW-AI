@@ -111,6 +111,12 @@ export class ReapplyTemplateDto {
   tenantId?: number;
 }
 
+export class MapUnmatchedDto {
+  // The existing template place the feed's spelling belongs to.
+  @IsInt()
+  nodeId: number;
+}
+
 export class MergeTemplateNodeDto {
   @IsInt()
   targetId: number;

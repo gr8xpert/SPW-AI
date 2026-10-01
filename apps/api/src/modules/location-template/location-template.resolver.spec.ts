@@ -106,6 +106,17 @@ describe('resolveLocation (other feeds and edge cases)', () => {
     expect(r.extras).toEqual([{ name: 'Brand New Place', level: 'town' }]);
   });
 
+  it('never puts an urbanization anywhere but inside a town (ADSUBIA under Alicante is a town)', () => {
+    const r = resolveLocation(index, { province: 'Alicante', urbanization: 'ADSUBIA' })!;
+    expect(r.anchor.level).toBe('province');
+    expect(r.extras).toEqual([{ name: 'ADSUBIA', level: 'town' }]);
+  });
+
+  it('an unknown urbanization inside a known town stays an urbanization', () => {
+    const r = resolveLocation(index, { province: 'Málaga', area: 'Costa del Sol', town: 'Arroyo de la Miel', urbanization: 'Brand New Urb' })!;
+    expect(r.extras).toEqual([{ name: 'Brand New Urb', level: 'urbanization' }]);
+  });
+
   it('matches aliases', () => {
     const higueron = [...index.byId.values()].find((n) => n.nameKey === 'higueron' && n.level === 'town')!;
     const withAlias = seedIndex([{ id: higueron.id, aliases: ['El Higuerón Resort'] }]);
