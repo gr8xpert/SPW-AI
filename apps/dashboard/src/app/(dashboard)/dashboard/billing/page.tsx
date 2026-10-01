@@ -41,7 +41,7 @@ const TIER_NAMES: Record<1 | 2 | 3, string> = {
 // checkout success/cancel URLs (api payment module) return here.
 export default function CreditHoursPage() {
   const { toast } = useToast();
-  const { tier } = useDashboardAddons();
+  const { tier, known: tierKnown } = useDashboardAddons();
   const [loading, setLoading] = useState(true);
 
   const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
@@ -142,7 +142,7 @@ export default function CreditHoursPage() {
                 <Layers className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <div className="text-lg font-semibold">{TIER_NAMES[tier]}</div>
+                <div className="text-lg font-semibold">{tierKnown ? TIER_NAMES[tier] : '…'}</div>
                 <div className="text-sm text-muted-foreground">
                   Contact your account manager to upgrade your tier.
                 </div>

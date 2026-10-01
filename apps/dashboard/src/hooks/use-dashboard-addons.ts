@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { apiGet } from '@/lib/api';
+import { useImpersonation } from '@/hooks/use-impersonation';
 
 export interface DashboardAddons {
   addProperty: boolean;
@@ -33,92 +35,71 @@ interface TenantMeta {
   tier: TenantTier;
 }
 
-const DEFAULT_META: TenantMeta = {
-  addons: ALL_LOCKED,
-  tier: 1,
-};
-
-// Process-wide cache so every component reading the addons does ONE
-// fetch per dashboard session (and re-fetches on explicit invalidate).
-// Using module-level state instead of context avoids prop-drilling
-// while keeping the hook usable from any client component.
-let cached: TenantMeta | null = null;
-let inflight: Promise<TenantMeta> | null = null;
-const subscribers = new Set<(m: TenantMeta) => void>();
-
 function coerceTier(raw: unknown): TenantTier {
   const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
   if (n === 2 || n === 3) return n as TenantTier;
   return 1;
 }
 
-async function load(): Promise<TenantMeta> {
-  if (cached) return cached;
-  if (inflight) return inflight;
-  inflight = (async () => {
-    try {
-      const raw = await apiGet<TenantResponse | { data: TenantResponse }>(
-        '/api/dashboard/tenant',
-      );
-      const tenant: TenantResponse =
-        raw && typeof raw === 'object' && 'data' in raw && raw.data
-          ? raw.data
-          : (raw as TenantResponse);
-      const meta: TenantMeta = {
-        addons: { ...ALL_LOCKED, ...(tenant?.dashboardAddons ?? {}) },
-        tier: coerceTier(tenant?.tier),
-      };
-      cached = meta;
-      subscribers.forEach((fn) => fn(meta));
-      return meta;
-    } finally {
-      inflight = null;
-    }
-  })();
-  return inflight;
+async function fetchTenantMeta(): Promise<TenantMeta> {
+  const raw = await apiGet<TenantResponse | { data: TenantResponse }>('/api/dashboard/tenant');
+  const tenant: TenantResponse =
+    raw && typeof raw === 'object' && 'data' in raw && raw.data
+      ? raw.data
+      : (raw as TenantResponse);
+  return {
+    addons: { ...ALL_LOCKED, ...(tenant?.dashboardAddons ?? {}) },
+    tier: coerceTier(tenant?.tier),
+  };
 }
 
-export function invalidateDashboardAddons(): void {
-  cached = null;
-}
-
+/**
+ * The client's tier and add-ons, which decide what the dashboard greys out.
+ *
+ * This used to be fetched once per session into a module variable, falling
+ * back to "Tier 1, nothing unlocked" if that one request failed — so a single
+ * dropped request, or a tier changed while the client was logged in, left the
+ * whole dashboard locked until a hard refresh. Now:
+ *   - keyed by the signed-in user (and impersonated client), so a new login
+ *     never reuses another session's answer;
+ *   - retried with backoff, re-checked when the tab regains focus and every
+ *     few minutes, so a tier change shows up without a reload;
+ *   - `known` is false until a real answer arrives. Callers must not treat
+ *     "not known yet" as "locked": the API does not enforce tiers, so the
+ *     greying is guidance only and a wrong lock is the worse failure.
+ */
 export function useDashboardAddons(): {
   addons: DashboardAddons;
   tier: TenantTier;
+  known: boolean;
   isLoading: boolean;
+  isError: boolean;
+  retry: () => void;
 } {
-  const [meta, setMeta] = useState<TenantMeta>(cached ?? DEFAULT_META);
-  const [isLoading, setIsLoading] = useState<boolean>(cached === null);
+  const { data: session, status } = useSession();
+  const { session: impersonation } = useImpersonation();
+  const who = (session?.user as { id?: string | number; email?: string } | undefined);
 
-  useEffect(() => {
-    let live = true;
-    if (cached) {
-      setMeta(cached);
-      setIsLoading(false);
-      return;
-    }
-    const onUpdate = (m: TenantMeta) => {
-      if (live) {
-        setMeta(m);
-        setIsLoading(false);
-      }
-    };
-    subscribers.add(onUpdate);
-    load()
-      .then(onUpdate)
-      .catch(() => {
-        // Network / auth failures: leave everything locked. Better
-        // safe-default than accidentally showing a feature the tenant
-        // hasn't paid for.
-        if (live) setIsLoading(false);
-      });
-    return () => {
-      live = false;
-      subscribers.delete(onUpdate);
-    };
-  }, []);
+  const query = useQuery({
+    queryKey: ['tenant-meta', who?.id ?? who?.email ?? null, impersonation?.tenant.id ?? null],
+    queryFn: fetchTenantMeta,
+    enabled: status === 'authenticated',
+    retry: 4,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
+  });
 
-  return { addons: meta.addons, tier: meta.tier, isLoading };
+  const meta = query.data;
+  return {
+    addons: meta?.addons ?? ALL_LOCKED,
+    tier: meta?.tier ?? 1,
+    known: !!meta,
+    isLoading: !meta && !query.isError,
+    isError: !meta && query.isError,
+    retry: () => void query.refetch(),
+  };
 }
 
 export type DashboardAddonKey = keyof DashboardAddons;

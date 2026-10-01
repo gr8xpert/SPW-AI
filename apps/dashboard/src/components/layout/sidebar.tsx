@@ -252,7 +252,7 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   const role = userRole || session?.user?.role;
   const isSuperAdmin = role === 'super_admin';
   const isWebmaster = role === 'webmaster';
-  const { addons, tier } = useDashboardAddons();
+  const { addons, tier, known } = useDashboardAddons();
   const [lockedDialog, setLockedDialog] = useState<{
     name: string;
     requiredTier?: 2 | 3;
@@ -263,7 +263,9 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   // localStorage), so `role === 'super_admin'` remains true throughout an
   // impersonation session — a real Tier 1 client login has role='admin'
   // and hits the tier gate.
-  const bypassTier = isSuperAdmin;
+  // Until the tier is actually known nothing is greyed out: locking everything
+  // on a slow or failed request made Tier 2 clients see a Tier 1 dashboard.
+  const bypassTier = isSuperAdmin || !known;
 
   return (
     <aside

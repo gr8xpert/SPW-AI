@@ -8193,7 +8193,9 @@ a.rs-map-results-card:hover .rs-map-results-card__image img {
   position: relative;
 }
 
-.rs-ai__badge {
+/* button.… so it outranks the [data-spm-widget] button reset in base.css,
+   which otherwise strips the background and padding. */
+button.rs-ai__badge {
   position: absolute;
   top: -14px;
   right: -10px;
@@ -8214,14 +8216,20 @@ a.rs-map-results-card:hover .rs-map-results-card__image img {
   transition: transform var(--rs-transition), filter var(--rs-transition);
 }
 
-.rs-ai__badge:hover {
+button.rs-ai__badge:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
 }
 
+/* At least as tall as the search box it covers, and free to grow past it:
+   a one- or two-row search box is far shorter than the panel's content. */
 .rs-ai__panel {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 100%;
+  box-sizing: border-box;
   z-index: 5;
   display: flex;
   flex-direction: column;
@@ -8231,7 +8239,6 @@ a.rs-map-results-card:hover .rs-map-results-card__image img {
   border: 1px solid var(--rs-border);
   border-radius: var(--rs-radius-lg);
   box-shadow: var(--rs-shadow-lg);
-  overflow: auto;
 }
 
 .rs-ai__head {
@@ -8259,6 +8266,9 @@ button.rs-ai__back {
 }
 
 textarea.rs-ai__input {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-height: 88px;
   width: 100%;
   padding: 12px;
   border: 1px solid var(--rs-border);
@@ -8318,11 +8328,11 @@ button.rs-ai__chip:hover {
   font-style: italic;
 }
 
-/* A panel that covers a one-row search box would be too short to use. */
+/* No fixed-position version for phones: page builders put the search in its
+   own stacking layer, so a fixed panel ends up under the site's header. The
+   panel above already grows past a short search box. */
 @media (max-width: 600px) {
   .rs-ai__panel {
-    position: fixed;
-    inset: 12px;
-    z-index: 2147483000;
+    padding: 16px;
   }
 }

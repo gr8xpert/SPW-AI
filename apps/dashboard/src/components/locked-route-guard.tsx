@@ -24,8 +24,16 @@ export function LockedRouteGuard({
   description,
   children,
 }: LockedRouteGuardProps) {
-  const { addons, isLoading } = useDashboardAddons();
+  const { addons, isLoading, isError, retry } = useDashboardAddons();
   if (isLoading) return null;
+  if (isError) {
+    return (
+      <div className="rounded-md border p-6 text-sm text-muted-foreground">
+        Could not check your plan.{' '}
+        <button type="button" className="underline" onClick={retry}>Try again</button>
+      </div>
+    );
+  }
   if (!addons[addon]) {
     return (
       <LockedRouteScreen

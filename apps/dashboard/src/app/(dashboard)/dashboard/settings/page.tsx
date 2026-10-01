@@ -721,6 +721,10 @@ export default function SettingsPage() {
     setSavingAi(true);
     try {
       const payload: Record<string, string> = { openRouterModel: aiModel };
+      if (aiApiKey.trim() && !aiApiKey.trim().startsWith('sk-or-')) {
+        toast({ title: 'That is not an OpenRouter key', description: 'OpenRouter keys start with "sk-or-". Copy yours from openrouter.ai/keys.', variant: 'destructive' });
+        return;
+      }
       if (aiApiKey.trim()) {
         payload.openRouterApiKey = aiApiKey.trim();
       }
@@ -742,6 +746,24 @@ export default function SettingsPage() {
       toast({ title: 'AI settings saved', description: 'Your OpenRouter configuration has been updated.' });
     } catch (err) {
       toast({ title: 'Failed to save AI settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  // An empty key clears the stored one; with no key the website stops
+  // offering AI search.
+  const onRemoveAiKey = async () => {
+    if (!confirm('Remove the OpenRouter key? AI features on your website stop until you add one again.')) return;
+    setSavingAi(true);
+    try {
+      await apiPut('/api/dashboard/tenant/settings', { openRouterApiKey: '' });
+      setAiApiKeyMasked('');
+      setAiApiKey('');
+      setAiTestResult(null);
+      toast({ title: 'AI key removed', description: 'AI search no longer shows on your website.' });
+    } catch (err) {
+      toast({ title: 'Could not remove the key', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
     } finally {
       setSavingAi(false);
     }
@@ -1708,6 +1730,7 @@ export default function SettingsPage() {
                   <Input
                     id="recaptchaSecretKey"
                     type="password"
+                    autoComplete="new-password"
                     placeholder="6Lc..."
                     value={recaptchaSecretKey}
                     onChange={(e) => setRecaptchaSecretKey(e.target.value)}
@@ -1782,6 +1805,7 @@ export default function SettingsPage() {
                     <Input
                       id="smtpPassword"
                       type="password"
+                      autoComplete="new-password"
                       {...emailForm.register('smtpPassword')}
                     />
                   </div>
@@ -2455,6 +2479,11 @@ export default function SettingsPage() {
                 <Input
                   id="ai-api-key"
                   type="password"
+                  // Without this the browser fills in the dashboard login
+                  // password, and one Save stores it as the AI key — which
+                  // switches AI search on for the website with a key that
+                  // can never work.
+                  autoComplete="new-password"
                   placeholder={aiApiKeyMasked ? 'Enter new key to replace' : 'sk-or-...'}
                   value={aiApiKey}
                   onChange={(e) => setAiApiKey(e.target.value)}
@@ -2522,6 +2551,11 @@ export default function SettingsPage() {
               <Button variant="outline" onClick={onTestAi} disabled={testingAi}>
                 {testingAi ? 'Testing…' : 'Test Connection'}
               </Button>
+              {aiApiKeyMasked && (
+                <Button variant="ghost" className="ml-auto text-destructive" onClick={onRemoveAiKey} disabled={savingAi}>
+                  Remove key
+                </Button>
+              )}
             </CardFooter>
           </Card>
         </TabsContent>
