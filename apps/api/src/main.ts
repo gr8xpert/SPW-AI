@@ -2,12 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
+import { resolve } from 'path';
 import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { runBootSecurityAudit } from './common/security/boot-audit';
 import { parseTrustProxy } from './common/security/trust-proxy';
 import { JsonLogger } from './common/logging/json-logger';
+import { UploadSyncService } from './modules/upload/upload-sync.service';
 
 async function bootstrap() {
   // Switch to JSON-lines logging in production so log aggregators can index
@@ -75,6 +78,35 @@ async function bootstrap() {
     }),
   );
   app.use(compression());
+
+  // Local uploads, in order:
+  //  1. a file UploadSyncService moved to R2 → 301 to the R2 copy, so old
+  //     /uploads/<key> links (cached pages, rows it didn't rewrite) keep working;
+  //  2. a file still on disk (R2 was down at upload time, or no R2 configured);
+  //  3. a plain 404 — never fall through to Nest, whose guards and exception
+  //     filter would turn a missing file into a 500.
+  // Must be the same directory UploadService writes to (cwd-relative).
+  const uploadSync = app.get(UploadSyncService);
+  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    let key: string;
+    try {
+      key = decodeURIComponent(req.path).replace(/^\/+/, '');
+    } catch {
+      return next();
+    }
+    uploadSync
+      .movedUploadUrl(key)
+      .then((url) => (url ? res.redirect(301, url) : next()))
+      .catch(() => next());
+  });
+  app.useStaticAssets(resolve(configService.get<string>('UPLOAD_DIR') || './uploads'), {
+    prefix: '/uploads',
+    index: false,
+  });
+  app.use('/uploads', (_req: Request, res: Response) => {
+    res.status(404).end();
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -225,11 +225,7 @@ export class UploadService {
     // win for documents tenants typically upload once.
     const filename = `${uuidv4()}${safeExt}`;
     const storedPath = `${tenantId}/${propertyId || 'unassigned'}/${filename}`;
-    const storageType = config?.storageType || 'local';
-    const url =
-      storageType === 's3' && config
-        ? await this.uploadToS3(config, storedPath, file.buffer, file.mimetype)
-        : await this.uploadToLocal(storedPath, file.buffer);
+    const { url, storageType } = await this.putObject(config, storedPath, file.buffer, file.mimetype);
 
     const mediaFile = this.mediaFileRepository.create({
       tenantId,
@@ -378,8 +374,6 @@ export class UploadService {
     const hash = createHash('sha256').update(buffer).digest('hex');
     const ext = mimeType === 'image/webp' ? '.webp' : '';
     const storageKey = `blobs/${tenantId}/${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash}${ext}`;
-    const storageType: 'local' | 's3' =
-      config?.storageType === 's3' ? 's3' : 'local';
 
     // Fast path: already-stored content. Bump refcount, return existing URL.
     const existing = await this.mediaBlobRepository.findOne({
@@ -403,10 +397,7 @@ export class UploadService {
     // Cold path: upload first so a crash doesn't leave a refcount-1 row
     // pointing at nothing. The unique key on (tenantId, hash) catches a
     // concurrent insert and we just bump the winner instead.
-    const url =
-      storageType === 's3' && config
-        ? await this.uploadToS3(config, storageKey, buffer, mimeType)
-        : await this.uploadToLocal(storageKey, buffer);
+    const { url, storageType } = await this.putObject(config, storageKey, buffer, mimeType);
 
     try {
       await this.mediaBlobRepository.insert({
@@ -541,7 +532,35 @@ export class UploadService {
     }
   }
 
-  private urlForKey(
+  // R2 first. If R2 is configured but fails (outage, network), the file is
+  // parked on local disk so the upload still succeeds; UploadSyncService moves
+  // it to R2 once R2 answers again and deletes the local copy. With no R2
+  // config at all (local dev) disk is the only store.
+  private async putObject(
+    config: TenantStorageConfig | null,
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+  ): Promise<{ url: string; storageType: 'local' | 's3' }> {
+    if (config?.storageType === 's3') {
+      try {
+        return { url: await this.uploadToS3(config, key, buffer, contentType), storageType: 's3' };
+      } catch (err) {
+        this.logger.warn(
+          `R2 upload failed for ${key}; kept on disk until R2 is back: ${(err as Error).message}`,
+        );
+      }
+    }
+    return { url: await this.uploadToLocal(key, buffer), storageType: 'local' };
+  }
+
+  // Absolute path of a local upload, or null if the key escapes uploadDir.
+  localPath(key: string): string | null {
+    const resolved = path.resolve(this.uploadDir, key);
+    return resolved.startsWith(this.uploadDir + path.sep) ? resolved : null;
+  }
+
+  urlForKey(
     config: TenantStorageConfig | null,
     storageKey: string,
     storageType: 'local' | 's3',
@@ -594,7 +613,7 @@ export class UploadService {
     return `${this.baseUrl}/uploads/${storedPath}`;
   }
 
-  private async deleteFromLocal(storedPath: string): Promise<void> {
+  async deleteFromLocal(storedPath: string): Promise<void> {
     const fullPath = path.join(this.uploadDir, storedPath);
     const resolved = path.resolve(fullPath);
     if (!resolved.startsWith(this.uploadDir + path.sep)) return;
@@ -617,7 +636,7 @@ export class UploadService {
     });
   }
 
-  private async uploadToS3(
+  async uploadToS3(
     config: TenantStorageConfig,
     storedPath: string,
     buffer: Buffer,
@@ -639,7 +658,7 @@ export class UploadService {
     return `https://${config.s3Bucket}.s3.${config.s3Region}.amazonaws.com/${storedPath}`;
   }
 
-  private async deleteFromS3(
+  async deleteFromS3(
     config: TenantStorageConfig,
     storedPath: string,
   ): Promise<void> {

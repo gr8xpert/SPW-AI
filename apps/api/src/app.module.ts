@@ -3,9 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { resolve } from 'path';
 
 // Config
 import { databaseConfig, redisConfig, jwtConfig } from './config';
@@ -110,22 +108,8 @@ import { BrochureModule } from './modules/brochure/brochure.module';
       inject: [ConfigService],
     }),
 
-    // Static file serving for uploads. Must resolve to the SAME directory
-    // UploadService writes to — otherwise ticket attachments / MediaBlobs
-    // 500 with ENOENT. UploadService uses `path.resolve(process.env.UPLOAD_DIR || './uploads')`
-    // which is cwd-relative; mirror that here so both sides land on the same path.
-    ServeStaticModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => [{
-        rootPath: resolve(config.get<string>('UPLOAD_DIR') || './uploads'),
-        serveRoot: '/uploads',
-        serveStaticOptions: {
-          index: false,
-          fallthrough: false, // 404 misses instead of falling through to Nest's guards → 500
-        },
-      }],
-    }),
+    // /uploads/* is served in main.ts (redirect to R2 → file on disk → 404),
+    // where the order of those steps can be controlled.
 
     // Global rate limiting. Individual controllers can tighten limits further with @Throttle().
     // The 'default' tracker is required because controllers use @Throttle({ default: { ... } })
