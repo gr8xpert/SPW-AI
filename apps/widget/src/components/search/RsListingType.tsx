@@ -3,6 +3,7 @@ import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useDragScroll } from '@/hooks/useDragScroll';
+import { useFacets } from '@/hooks/useFacets';
 import RsCustomSelect from './RsCustomSelect';
 
 interface Props {
@@ -10,11 +11,13 @@ interface Props {
   [key: string]: unknown;
 }
 
+// The four listing types a client can switch on in Dashboard → Settings.
+// "Off Plan" is not a stored type (filter-attributes maps it to development),
+// so it isn't offered here.
 const ALL_LISTING_TYPES = [
   { value: '', labelKey: 'listing_type_all', fallback: 'All' },
   { value: 'sale', labelKey: 'listing_type_sale', fallback: 'Sale' },
   { value: 'development', labelKey: 'listing_type_development', fallback: 'New Dev' },
-  { value: 'offplan', labelKey: 'listing_type_offplan', fallback: 'Off Plan' },
   { value: 'rent', labelKey: 'listing_type_rent', fallback: 'Rent' },
   { value: 'holiday_rent', labelKey: 'listing_type_holiday', fallback: 'Holiday Rent' },
 ] as const;
@@ -25,6 +28,9 @@ export default function RsListingType({ variation = 1 }: Props) {
   const { t } = useLabels();
   const locked = isLocked('listingType');
   const current = filters.listingType ?? '';
+  // Counts follow the search as the visitor narrows it, like the type and
+  // location lists (each status counted without the status filter itself).
+  const facets = useFacets();
 
   const LISTING_TYPES = useMemo(() => {
     const enabled = config.enabledListingTypes;
@@ -71,8 +77,9 @@ export default function RsListingType({ variation = 1 }: Props) {
     LISTING_TYPES.map(lt => ({
       value: lt.value,
       label: lt.value === '' ? t('listing_type_placeholder', 'Status') : t(lt.labelKey, lt.fallback),
+      count: lt.value === '' ? undefined : facets?.listingTypes?.[lt.value],
     })),
-  [t, LISTING_TYPES]);
+  [t, LISTING_TYPES, facets]);
 
   if (variation === 2) {
     return (

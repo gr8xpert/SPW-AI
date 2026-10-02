@@ -59,8 +59,9 @@ export class PropertySearchService {
   async facets(tenantId: number, dto: SearchPropertyDto): Promise<{
     types: Record<number, number>;
     locations: Record<number, number>;
+    listingTypes: Record<string, number>;
   }> {
-    const grouped = async (column: 'propertyTypeId' | 'locationId', without: Partial<SearchPropertyDto>) => {
+    const grouped = async (column: 'propertyTypeId' | 'locationId' | 'listingType', without: Partial<SearchPropertyDto>) => {
       const query = this.propertyRepository
         .createQueryBuilder('p')
         .select(`p.${column}`, 'id')
@@ -71,9 +72,10 @@ export class PropertySearchService {
         .andWhere(`p.${column} IS NOT NULL`)
         .groupBy(`p.${column}`);
       await this.applyFilters(query, { ...dto, ...without } as SearchPropertyDto, tenantId);
-      const rows = await query.getRawMany<{ id: number; count: string }>();
-      return new Map(rows.map((r) => [Number(r.id), Number(r.count)]));
+      return query.getRawMany<{ id: number | string; count: string }>();
     };
+    const byId = (rows: Array<{ id: number | string; count: string }>) =>
+      new Map(rows.map((r) => [Number(r.id), Number(r.count)]));
     const rollUp = async (direct: Map<number, number>, table: 'locations' | 'property_types') => {
       const rows: Array<{ id: number; parentId: number | null }> = await this.propertyRepository.manager.query(
         `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
@@ -90,13 +92,17 @@ export class PropertySearchService {
       }
       return out;
     };
-    const [types, locations] = await Promise.all([
+    const [types, locations, listingTypes] = await Promise.all([
       grouped('propertyTypeId', { propertyTypeId: undefined, propertyTypeIds: undefined }),
       grouped('locationId', { locationId: undefined, locationIds: undefined }),
+      // Counted without the chosen status, so For Sale still shows how many
+      // rentals there are. The site's own listing-type limit still applies.
+      grouped('listingType', { listingType: undefined }),
     ]);
     return {
-      types: await rollUp(types, 'property_types'),
-      locations: await rollUp(locations, 'locations'),
+      types: await rollUp(byId(types), 'property_types'),
+      locations: await rollUp(byId(locations), 'locations'),
+      listingTypes: Object.fromEntries(listingTypes.map((r) => [String(r.id), Number(r.count)])),
     };
   }
 

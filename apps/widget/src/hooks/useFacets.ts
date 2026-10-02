@@ -56,7 +56,7 @@ export function useFacets(): Facets | null {
 
 // The number to show beside a choice: the live count once known (0 hides it),
 // otherwise the count the list arrived with.
-export function facetCount(facets: Facets | null, dimension: keyof Facets, id: number, fallback?: number): number {
+export function facetCount(facets: Facets | null, dimension: 'types' | 'locations', id: number, fallback?: number): number {
   if (!facets) return fallback ?? 0;
   return facets[dimension][id] ?? 0;
 }

@@ -578,10 +578,12 @@ export interface LocationOutline {
 }
 
 // Listing counts per property type and per location (ids as keys), each
-// including everything below it.
+// including everything below it, and per listing type ('sale', 'rent', …).
 export interface Facets {
   types: Record<number, number>;
   locations: Record<number, number>;
+  // Optional: absent from APIs older than 2026-10-03.
+  listingTypes?: Record<string, number>;
 }
 
 export interface MapPointsResponse {
