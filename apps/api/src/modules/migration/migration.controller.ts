@@ -68,7 +68,8 @@ export class MigrationController {
     @CurrentUser('id') userId: number,
     @Body() body: StartMigrationDto & { fileId: string },
   ) {
-    if (!body.fileId) {
+    // Only a name /validate generated (uuid + .csv/.json) — never a path.
+    if (!body.fileId || !/^[0-9a-f-]{36}\.(csv|json)$/i.test(body.fileId)) {
       throw new BadRequestException('fileId is required');
     }
 

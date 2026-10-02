@@ -1,5 +1,43 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, IsObject, IsArray, IsIn, IsDateString, MinLength, MaxLength } from 'class-validator';
-import { ListingType, PropertySource, PropertyStatus, PropertyImage } from '../../../database/entities/property.entity';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsObject, IsArray, IsIn, IsDateString, MinLength, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ListingType, PropertySource, PropertyStatus } from '../../../database/entities/property.entity';
+
+// Array items need a class + @Type: with an interface, the global
+// enableImplicitConversion turns each object into [] and the photos are lost.
+export class PropertyImageDto {
+  @IsString()
+  @MaxLength(1000)
+  url: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  sourceUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  contentHash?: string;
+
+  @IsNumber()
+  order: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  alt?: string;
+}
+
+export class FloorPlanDto {
+  @IsString()
+  @MaxLength(1000)
+  url: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  label?: string;
+}
 
 export class CreatePropertyDto {
   @IsString()
@@ -169,7 +207,9 @@ export class CreatePropertyDto {
 
   @IsArray()
   @IsOptional()
-  images?: PropertyImage[];
+  @ValidateNested({ each: true })
+  @Type(() => PropertyImageDto)
+  images?: PropertyImageDto[];
 
   @IsString()
   @IsOptional()
@@ -190,7 +230,9 @@ export class CreatePropertyDto {
   // floorPlans[0].url into floorPlanUrl so legacy readers keep working.
   @IsArray()
   @IsOptional()
-  floorPlans?: Array<{ url: string; label?: string }>;
+  @ValidateNested({ each: true })
+  @Type(() => FloorPlanDto)
+  floorPlans?: FloorPlanDto[];
 
   @IsString()
   @IsOptional()

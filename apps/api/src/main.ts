@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
-import { resolve } from 'path';
+import { posix, resolve } from 'path';
 import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { runBootSecurityAudit } from './common/security/boot-audit';
@@ -95,6 +95,8 @@ async function bootstrap() {
     } catch {
       return next();
     }
+    // Import files (CSV/JSON of a client's listings) are private.
+    if (posix.normalize(key).replace(/^\/+/, '').startsWith('migrations/')) return res.status(404).end();
     uploadSync
       .movedUploadUrl(key)
       .then((url) => (url ? res.redirect(301, url) : next()))
