@@ -2,7 +2,7 @@
 
 import { useRef, useState, DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Paperclip, UploadCloud, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Paperclip, UploadCloud, X, FileText, Film, Image as ImageIcon } from 'lucide-react';
 
 export interface Attachment {
   name: string;
@@ -32,7 +32,7 @@ export function AttachmentDropzone({
   onRemove,
   onUpload,
   isUploading,
-  accept = 'image/*,.pdf',
+  accept = 'image/*,.pdf,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm',
   compact = false,
   disabled = false,
 }: AttachmentDropzoneProps) {
@@ -94,7 +94,7 @@ export function AttachmentDropzone({
           <span className="text-primary underline underline-offset-2">browse</span>
         </div>
         <div className="text-[11px] text-muted-foreground">
-          Select multiple files (hold Ctrl/Cmd to pick more than one)
+          Images and PDFs up to 10 MB, videos (MP4, MOV, WebM) up to 90 MB
         </div>
         <input
           ref={inputRef}
@@ -114,7 +114,9 @@ export function AttachmentDropzone({
         <div className="flex flex-wrap gap-2">
           {attachments.map((att, i) => (
             <div key={`${att.url}-${i}`} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
-              {/\.(jpg|jpeg|png|gif|webp)$/i.test(att.name) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(att.name) ? <ImageIcon className="h-3 w-3" />
+                : /\.(mp4|mov|webm)$/i.test(att.name) ? <Film className="h-3 w-3" />
+                : <FileText className="h-3 w-3" />}
               <span className="max-w-[140px] truncate" title={att.name}>{att.name}</span>
               <button
                 type="button"
@@ -139,7 +141,7 @@ export function AttachmentPickerButton({
   onAdd,
   onUpload,
   isUploading,
-  accept = 'image/*,.pdf',
+  accept = 'image/*,.pdf,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm',
   disabled = false,
   label = 'Attach',
 }: {

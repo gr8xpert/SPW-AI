@@ -47,7 +47,6 @@ import {
   Loader2,
   Paperclip,
   X,
-  FileText,
   Image as ImageIcon,
   Building2,
   Timer,
@@ -59,6 +58,7 @@ import { formatHM } from '@/lib/time';
 import { HoursMinutesInput } from '@/components/ui/hours-minutes-input';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { AttachmentList } from '@/components/tickets/attachment-list';
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 
 interface TicketData {
@@ -420,22 +420,7 @@ export default function WebmasterTicketDetailPage() {
                             </span>
                           </div>
                           <div className="text-sm whitespace-pre-wrap">{msg.message}</div>
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {msg.attachments.map((att, i) =>
-                                att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block">
-                                    <img src={att.url} alt={att.name} className="max-w-[200px] max-h-[150px] rounded border object-cover" />
-                                  </a>
-                                ) : (
-                                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs border hover:bg-muted">
-                                    <FileText className="h-3 w-3" />
-                                    {att.name}
-                                  </a>
-                                ),
-                              )}
-                            </div>
-                          )}
+                          <AttachmentList attachments={msg.attachments} />
                         </div>
                       </div>
                     </div>

@@ -8,7 +8,7 @@ import { UploadService } from '../upload/upload.service';
 
 const REFRESH_TOKEN_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const WEBHOOK_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-const TICKET_ATTACHMENT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const TICKET_ATTACHMENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const CLEANUP_LOCK_KEY = 'cron:cleanup';
 const CLEANUP_LOCK_TTL_MS = 10 * 60 * 1000;

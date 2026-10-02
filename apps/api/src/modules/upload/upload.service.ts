@@ -53,7 +53,14 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/gif': '.gif',
   'image/webp': '.webp',
   'application/pdf': '.pdf',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'video/webm': '.webm',
 };
+
+// Videos (ticket attachments) get their own cap. Cloudflare's free plan
+// rejects request bodies over 100 MB, so stay under it.
+export const MAX_VIDEO_MB = 90;
 
 export interface TenantStorageSnapshot {
   tenantId: number;
@@ -158,11 +165,9 @@ export class UploadService {
     }
 
     const config = await this.getStorageConfig(tenantId);
-    const maxSize = (config?.maxFileSize || 10) * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new BadRequestException(
-        `File size exceeds maximum of ${config?.maxFileSize || 10}MB`,
-      );
+    const maxMb = file.mimetype.startsWith('video/') ? MAX_VIDEO_MB : config?.maxFileSize || 10;
+    if (file.size > maxMb * 1024 * 1024) {
+      throw new BadRequestException(`File size exceeds maximum of ${maxMb}MB`);
     }
 
     const isImage = this.isImage(file.mimetype);

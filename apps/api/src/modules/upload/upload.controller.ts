@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsArray, IsInt } from 'class-validator';
-import { UploadService, UploadedFile as IUploadedFile } from './upload.service';
+import { MAX_VIDEO_MB, UploadService, UploadedFile as IUploadedFile } from './upload.service';
 import { CreateStorageConfigDto, UpdateStorageConfigDto } from './dto';
 import { CurrentTenant, Roles } from '../../common/decorators';
 import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
@@ -66,7 +66,7 @@ export class UploadController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB hard cap; per-tenant cap applied later
+      limits: { fileSize: MAX_VIDEO_MB * 1024 * 1024 }, // hard cap (videos); per-type cap applied in UploadService
     }),
   )
   async uploadFile(
