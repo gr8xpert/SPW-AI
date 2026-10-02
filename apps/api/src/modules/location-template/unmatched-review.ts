@@ -220,9 +220,13 @@ export function readAnswers(
   return out;
 }
 
-/** Safe to apply without a person: an actual place, and the listings are near it. */
+/**
+ * Safe to apply without a person: another spelling of a place the template
+ * already has, with the listings near it. A "new" place is never added on its
+ * own — it would appear in every client's locations although no feed lists it
+ * as a location (the "Centro" from a Resales SubLocation); Super Admin accepts it.
+ */
 export function autoApplicable(p: AiProposal): boolean {
-  if (p.action === 'new') return !p.flagged;
   if (p.action === 'same') return p.km != null && !p.flagged;
   return false;
 }

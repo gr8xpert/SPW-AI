@@ -59,6 +59,7 @@ import { useApi } from '@/hooks/use-api';
 import { AiSuggestion, type AiProposal } from './ai-suggestion';
 import { DuplicatesTab } from './duplicates-tab';
 import { SortedList } from './sorted-list';
+import { AutoFillPanel } from './autofill-panel';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -81,9 +82,19 @@ interface TemplateNode {
   status: Status;
   note: string | null;
   coordsIssue: string | null;
+  coordsConfirmed?: boolean;
+  autoFill?: {
+    coordsSource?: 'map' | 'ai';
+    postcodeSource?: 'map' | 'ai';
+    problem?: string;
+  } | null;
 }
 
-type Filter = 'all' | 'needs_review' | 'ai_suggested' | 'missing_coords';
+type Filter = 'all' | 'needs_review' | 'ai_suggested' | 'missing_coords' | 'auto_filled';
+
+// Filled by the automatic fill and not yet edited/confirmed by a person.
+const autoFilled = (n: TemplateNode) =>
+  !!(n.autoFill?.postcodeSource || (n.autoFill?.coordsSource && !n.coordsConfirmed));
 
 interface Unmatched {
   id: number;
@@ -128,6 +139,7 @@ const keyOf = (s: string) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 const errorText = (e: any, fallback: string) => e?.message || fallback;
+const unwrap = (res: any) => res?.data ?? res;
 
 interface NodeForm {
   mode: 'add' | 'edit';
@@ -252,12 +264,13 @@ export default function LocationTemplatePage() {
     (n.lat == null || n.lng == null || (Number(n.lat) === 0 && Number(n.lng) === 0));
 
   const stats = useMemo(() => {
-    const s: Record<string, number> = { needs_review: 0, ai_suggested: 0, missing_coords: 0 };
+    const s: Record<string, number> = { needs_review: 0, ai_suggested: 0, missing_coords: 0, auto_filled: 0 };
     for (const l of LEVELS) s[l] = 0;
     for (const n of nodes) {
       s[n.level]++;
       if (n.status !== 'ok') s[n.status]++;
       if (missingCoords(n)) s.missing_coords++;
+      if (autoFilled(n)) s.auto_filled++;
     }
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -272,7 +285,9 @@ export default function LocationTemplatePage() {
     let count = 0;
     for (const n of nodes) {
       const textHit = !q || keyOf(n.name).includes(q) || (n.aliases || []).some((a) => keyOf(a).includes(q));
-      const statusHit = filter === 'all' || (filter === 'missing_coords' ? missingCoords(n) : n.status === filter);
+      const statusHit =
+        filter === 'all' ||
+        (filter === 'missing_coords' ? missingCoords(n) : filter === 'auto_filled' ? autoFilled(n) : n.status === filter);
       if (!textHit || !statusHit) continue;
       count++;
       const path = pathOf(n);
@@ -745,6 +760,20 @@ export default function LocationTemplatePage() {
               {node.coordsIssue && missingCoords(node) ? (
                 <p className="text-xs text-red-700 dark:text-red-400">{node.coordsIssue}</p>
               ) : null}
+              {autoFilled(node) ? (
+                <p className="text-xs text-sky-700 dark:text-sky-400">
+                  Auto-filled:{' '}
+                  {[
+                    node.autoFill?.coordsSource && !node.coordsConfirmed && `point (${node.autoFill.coordsSource === 'ai' ? 'AI' : 'map'})`,
+                    node.autoFill?.postcodeSource && `postcode ${node.postcode ?? ''} (${node.autoFill.postcodeSource === 'ai' ? 'AI' : 'map'})`,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}{' '}
+                  — check it, then Edit and Save to confirm.
+                </p>
+              ) : node.autoFill?.problem && missingCoords(node) ? (
+                <p className="text-xs text-muted-foreground">Auto-fill: {node.autoFill.problem}</p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
@@ -908,7 +937,7 @@ export default function LocationTemplatePage() {
                   )}
                 </div>
                 <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-                  <SelectTrigger className="w-[190px]">
+                  <SelectTrigger className="w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -916,15 +945,24 @@ export default function LocationTemplatePage() {
                     <SelectItem value="needs_review">Needs review ({stats.needs_review})</SelectItem>
                     <SelectItem value="ai_suggested">AI suggested ({stats.ai_suggested})</SelectItem>
                     <SelectItem value="missing_coords">No coordinates ({stats.missing_coords})</SelectItem>
+                    <SelectItem value="auto_filled">Auto-filled ({stats.auto_filled})</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <AutoFillPanel
+                getStatus={async () => unwrap(await api.get('/api/super-admin/location-template/fill-missing'))}
+                fill={async (retry) => unwrap(await api.post('/api/super-admin/location-template/fill-missing', retry ? { retry: true } : {}))}
+                undo={async () => unwrap(await api.post('/api/super-admin/location-template/fill-missing/undo', {}))}
+                onChanged={load}
+                onFinished={openReapply}
+                notify={(title, description, destructive) => toast({ title, description, variant: destructive ? 'destructive' : undefined })}
+              />
               <CardDescription>
                 {filter === 'missing_coords' ? (
                   <span className="flex flex-wrap items-center gap-3">
                     <span>
                       {matches.toLocaleString()} place(s) with no point on the map — their listings are drawn at the
-                      municipality instead. Add them by hand, or import a CSV that has them.
+                      municipality instead. Use Fill missing above, add them by hand, or import a CSV that has them.
                     </span>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={checkCoords} disabled={checking}>
                       {checking && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Re-check all coordinates

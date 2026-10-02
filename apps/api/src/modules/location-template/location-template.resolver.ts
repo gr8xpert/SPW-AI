@@ -183,6 +183,7 @@ export function resolveLocation(index: TemplateIndex, loc: FeedLocationInput): L
     names.push({ name, level });
   }
 
+  const hasTown = !!loc.town?.trim();
   for (let i = 0; i < names.length; i++) {
     let candidates = index.find(names[i].name, PLACE_LEVELS);
     if (candidates.length === 0) continue;
@@ -211,22 +212,34 @@ export function resolveLocation(index: TemplateIndex, loc: FeedLocationInput): L
         statusPreference(a.status) - statusPreference(b.status) ||
         a.id - b.id,
     );
-    const anchor = candidates[0];
-    const extras = extrasBelow(anchor, names.slice(0, i).reverse());
-    return {
-      anchor,
-      extras,
-      unmatched: extras.length ? { name: extras[0].name, subName: extras[1]?.name ?? null } : null,
-    };
+    return withExtras(candidates[0], names.slice(0, i).reverse(), hasTown);
   }
 
   const fallback = areaNode || provinceNode;
   if (!fallback) return null;
-  const extras = extrasBelow(fallback, [...names].reverse());
+  return withExtras(fallback, [...names].reverse(), hasTown);
+}
+
+// The names below the anchor that the template doesn't know. The feed's own
+// place (Resales "Location") is created for the client as sent; a name from
+// the feed's sub-location field (Resales "SubLocation", e.g. "Centro" under
+// Málaga Centro) is not — it isn't one of the feed's locations, so the listing
+// stays in its place. Both still go to Super Admin's Unmatched list. A feed
+// that sends only a sub-location (no town) has nothing else to go on, so that
+// name is still used.
+function withExtras(
+  anchor: TemplateNodeLite,
+  generalToSpecific: Array<{ name: string; level: TemplateLevel }>,
+  hasTown: boolean,
+): LocationResolution {
+  const all = extrasBelow(anchor, generalToSpecific);
+  const extras = hasTown
+    ? extrasBelow(anchor, generalToSpecific.filter((n) => n.level !== 'urbanization'))
+    : all;
   return {
-    anchor: fallback,
+    anchor,
     extras,
-    unmatched: extras.length ? { name: extras[0].name, subName: extras[1]?.name ?? null } : null,
+    unmatched: all.length ? { name: all[0].name, subName: all[1]?.name ?? null } : null,
   };
 }
 

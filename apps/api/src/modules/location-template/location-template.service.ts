@@ -15,7 +15,7 @@ import {
   Property,
 } from '../../database/entities';
 import { LocationService } from '../location/location.service';
-import { levelIndex, locationKey, locationSlug, LOCATION_LEVELS, TemplateLevel } from './location-name';
+import { extraFeedKey, levelIndex, locationKey, locationSlug, LOCATION_LEVELS, TemplateLevel } from './location-name';
 import {
   FeedLocationInput,
   resolveLocation,
@@ -56,6 +56,9 @@ export interface TemplateRunContext {
   index: TemplateIndex;
   rows: Map<number, Location>;
   byTemplateId: Map<number, Location>;
+  // Rows found by the feed place they stand for (Location.feedKeys), wherever
+  // the client moved, renamed or merged them.
+  byFeedKey: Map<string, Location>;
   placed: Map<string, number>;
   unmatched: Map<string, UnmatchedTally>;
   recordUnmatched: boolean;
@@ -109,6 +112,7 @@ export class LocationTemplateService {
       index,
       rows: new Map(),
       byTemplateId: new Map(),
+      byFeedKey: new Map(),
       placed: new Map(),
       unmatched: new Map(),
       recordUnmatched: options.recordUnmatched !== false,
@@ -122,8 +126,20 @@ export class LocationTemplateService {
     const rows = await this.locationRepository.find({ where: { tenantId: ctx.tenantId } });
     ctx.rows = new Map(rows.map((r) => [r.id, r]));
     ctx.byTemplateId = new Map();
+    ctx.byFeedKey = new Map();
     for (const r of rows) {
       if (r.templateNodeId != null && !ctx.byTemplateId.has(r.templateNodeId)) ctx.byTemplateId.set(r.templateNodeId, r);
+    }
+    for (const r of rows) {
+      for (const k of r.feedKeys || []) {
+        // "t:<id>": a template place the client merged into this row.
+        if (k.startsWith('t:')) {
+          const id = Number(k.slice(2));
+          if (Number.isFinite(id) && !ctx.byTemplateId.has(id)) ctx.byTemplateId.set(id, r);
+        } else if (!ctx.byFeedKey.has(k)) {
+          ctx.byFeedKey.set(k, r);
+        }
+      }
     }
   }
 
@@ -200,6 +216,9 @@ export class LocationTemplateService {
   ): Promise<Location> {
     let row = ctx.byTemplateId.get(node.id);
     if (row && !ctx.rows.has(row.id)) row = undefined;
+    // The client merged this place into another of their locations: its
+    // listings go there, and that row is theirs — never moved or renamed.
+    if (row && row.templateNodeId !== node.id) return row;
     if (!row) {
       row = this.findAdoptable(ctx, node, expectedParentId);
       if (row) ctx.stats.adopted++;
@@ -341,16 +360,30 @@ export class LocationTemplateService {
     return survivor;
   }
 
+  // A feed place the template doesn't know, under `parentId`. Found first by
+  // the key it was created with (so a row the client moved, renamed or merged
+  // keeps getting its listings), then by name where the feed puts it.
   private async ensureExtraRow(
     ctx: TemplateRunContext,
     extra: { name: string; level: TemplateLevel },
     parentId: number,
   ): Promise<Location> {
     const key = locationKey(extra.name);
+    const feedKey = extraFeedKey(parentId, extra.name);
+    const known = ctx.byFeedKey.get(feedKey);
+    if (known && ctx.rows.has(known.id)) return known;
+
+    const moved = this.findMovedExtra(ctx, key, parentId);
+    if (moved) {
+      await this.addFeedKey(ctx, moved, feedKey);
+      return moved;
+    }
+
     const existing = [...ctx.rows.values()].find(
       (r) => r.parentId === parentId && locationKey(r.name?.en) === key,
     );
     if (existing) {
+      await this.addFeedKey(ctx, existing, feedKey);
       // Rows from before the level rule (an "urbanization" straight under a
       // province) are corrected, unless the client chose the level themselves.
       if (existing.level !== extra.level && !existing.userLocked) {
@@ -361,13 +394,47 @@ export class LocationTemplateService {
     }
     // A place the template doesn't know sits where its parent is until it's added.
     const parent = ctx.rows.get(parentId);
-    return this.createRow(ctx, {
+    const row = await this.createRow(ctx, {
       name: extra.name,
       level: extra.level,
       parentId,
       templateNodeId: null,
       coords: parent ? validCoords(parent.lat, parent.lng) : null,
     });
+    await this.addFeedKey(ctx, row, feedKey);
+    return row;
+  }
+
+  // Rows from before feedKeys existed: one the client moved (userLocked) away
+  // from where the feed puts it, with the same name, still in the same
+  // province. Without this the import made a twin at the original spot.
+  private findMovedExtra(ctx: TemplateRunContext, key: string, parentId: number): Location | undefined {
+    let scope = ctx.rows.get(parentId);
+    const seen = new Set<number>();
+    while (scope && scope.level !== 'province' && scope.parentId != null && !seen.has(scope.id)) {
+      seen.add(scope.id);
+      scope = ctx.rows.get(scope.parentId);
+    }
+    if (!scope) return undefined;
+    return [...ctx.rows.values()]
+      .filter(
+        (r) =>
+          r.userLocked &&
+          r.templateNodeId == null &&
+          r.parentId !== parentId &&
+          locationKey(r.name?.en) === key &&
+          // A row already standing for another feed place is a different one.
+          !(r.feedKeys || []).some((k) => k.startsWith('x:')) &&
+          this.isDescendant(ctx, r, scope!.id),
+      )
+      .sort((a, b) => a.id - b.id)[0];
+  }
+
+  private async addFeedKey(ctx: TemplateRunContext, row: Location, feedKey: string): Promise<void> {
+    ctx.byFeedKey.set(feedKey, row);
+    if ((row.feedKeys || []).includes(feedKey)) return;
+    row.feedKeys = [...(row.feedKeys || []), feedKey];
+    await this.locationRepository.update({ id: row.id, tenantId: ctx.tenantId }, { feedKeys: row.feedKeys });
   }
 
   private async createRow(
@@ -686,6 +753,21 @@ export class LocationTemplateService {
       if (dto.status === 'ok') node.note = null;
     }
     if (dto.note !== undefined) node.note = dto.note?.trim() || null;
+    // A person saved these values: they are no longer "auto-filled", and undo
+    // of the auto-fill leaves them alone.
+    if (node.autoFill && (dto.postcode !== undefined || dto.lat !== undefined || dto.lng !== undefined)) {
+      const r = { ...node.autoFill };
+      if (dto.postcode !== undefined) {
+        delete r.postcode;
+        delete r.postcodeSource;
+      }
+      if (dto.lat !== undefined || dto.lng !== undefined) {
+        delete r.lat;
+        delete r.lng;
+        delete r.coordsSource;
+      }
+      node.autoFill = r;
+    }
     return this.nodeRepository.save(node);
   }
 
@@ -1299,3 +1381,4 @@ export function parseCsv(text: string): string[][] {
   if (row.some((f) => f !== '')) out.push(row);
   return out;
 }
+

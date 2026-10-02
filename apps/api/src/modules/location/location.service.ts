@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Location, LocationBoundary, LocationLevel } from '../../database/entities';
 import { fenceFor, resolveLocationPoints } from './location-points';
 import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
+import { extraFeedKey, locationKey } from '../location-template/location-name';
 
 export interface LocationTree extends Location {
   children: LocationTree[];
@@ -158,7 +159,7 @@ export class LocationService {
         throw new NotFoundException('Parent location not found');
       }
     }
-    const location = this.locationRepository.create({ ...dto, tenantId });
+    const location = this.locationRepository.create({ ...dto, tenantId, aliases: cleanAliases(dto.aliases, dto.name?.en) });
     return this.locationRepository.save(location);
   }
 
@@ -207,6 +208,7 @@ export class LocationService {
     for (const key of Object.keys(dto) as Array<keyof UpdateLocationDto>) {
       (updateData as any)[key] = (dto as any)[key];
     }
+    if (dto.aliases !== undefined) updateData.aliases = cleanAliases(dto.aliases, dto.name?.en ?? location.name?.en);
     await this.locationRepository.update({ id, tenantId }, updateData);
     return this.findOne(tenantId, id);
   }
@@ -290,6 +292,14 @@ export class LocationService {
   async mergeInto(tenantId: number, source: Location, target: Location): Promise<void> {
     if (source.id === target.id) return;
 
+    // The next import sends the source's listings here instead of re-creating
+    // it: the target takes over the feed places the source stood for.
+    const keys = new Set([...(target.feedKeys || []), ...(source.feedKeys || []), originKey(source)]);
+    const aliases = cleanAliases([...(target.aliases || []), ...(source.aliases || [])], target.name?.en);
+    await this.locationRepository.update({ id: target.id, tenantId }, { feedKeys: [...keys], aliases });
+    target.feedKeys = [...keys];
+    target.aliases = aliases;
+
     await this.locationRepository.manager.query(
       'UPDATE properties SET locationId = ? WHERE tenantId = ? AND locationId = ?',
       [target.id, tenantId, source.id],
@@ -311,6 +321,39 @@ export class LocationService {
     }
 
     await this.locationRepository.delete({ id: source.id, tenantId });
+  }
+
+  /**
+   * "Merge into…" from the client's dashboard: the source's listings and
+   * places move into the target and the source is removed. Imports then put
+   * the source's feed listings into the target (see mergeInto).
+   */
+  async mergeLocations(tenantId: number, sourceId: number, targetId: number): Promise<Location> {
+    if (sourceId === targetId) throw new ConflictException('Pick a different location to merge into');
+    const source = await this.locationRepository.findOne({ where: { id: sourceId, tenantId } });
+    const target = await this.locationRepository.findOne({ where: { id: targetId, tenantId } });
+    if (!source || !target) throw new NotFoundException('Location not found');
+    // Merging a place into one of its own sub-places would delete the branch.
+    const all = await this.locationRepository.find({ where: { tenantId }, select: ['id', 'parentId'] });
+    const parentOf = new Map(all.map((r) => [r.id, r.parentId]));
+    for (let cur: number | null | undefined = target.parentId, hops = 0; cur != null && hops < 50; cur = parentOf.get(cur), hops++) {
+      if (cur === source.id) throw new ConflictException('A location cannot be merged into a place inside it');
+    }
+    await this.mergeInto(tenantId, source, target);
+    return this.findOne(tenantId, target.id);
+  }
+
+  // Before the client moves or renames rows: remember where the feed put
+  // them, so the next import finds them instead of making a twin there.
+  async rememberOrigins(tenantId: number, ids: number[]): Promise<void> {
+    if (!ids.length) return;
+    const rows = await this.locationRepository.find({ where: { tenantId, id: In(ids) } });
+    for (const r of rows) {
+      if (r.templateNodeId != null) continue; // found through its template link anyway
+      const key = originKey(r);
+      if ((r.feedKeys || []).includes(key)) continue;
+      await this.locationRepository.update({ id: r.id, tenantId }, { feedKeys: [...(r.feedKeys || []), key] });
+    }
   }
 
   // Marks rows the client arranged by hand (moved, renamed, created) so the
@@ -337,4 +380,26 @@ export class LocationService {
   async decrementPropertyCount(tenantId: number, locationId: number): Promise<void> {
     await this.locationRepository.decrement({ id: locationId, tenantId }, 'propertyCount', 1);
   }
+}
+
+// What a row stands for in feed terms: its template place, or the feed name
+// under the parent it was created in.
+function originKey(row: Location): string {
+  return row.templateNodeId != null ? `t:${row.templateNodeId}` : extraFeedKey(row.parentId, row.name?.en);
+}
+
+// Trimmed, de-duplicated, without the location's own name.
+function cleanAliases(list: string[] | null | undefined, ownName?: string | null): string[] | null {
+  if (!list) return null;
+  const own = locationKey(ownName);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    const name = String(raw ?? '').trim().slice(0, 100);
+    const k = locationKey(name);
+    if (!k || k === own || seen.has(k)) continue;
+    seen.add(k);
+    out.push(name);
+  }
+  return out.length ? out.slice(0, 20) : null;
 }

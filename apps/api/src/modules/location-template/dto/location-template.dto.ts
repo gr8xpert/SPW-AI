@@ -1,6 +1,7 @@
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -125,4 +126,11 @@ export class MergeTemplateNodeDto {
   @IsOptional()
   @IsIn(['target', 'source'])
   keep?: 'target' | 'source';
+}
+
+export class FillMissingDto {
+  // Ask again about places nothing was found for last time.
+  @IsOptional()
+  @IsBoolean()
+  retry?: boolean;
 }

@@ -29,3 +29,10 @@ export type TemplateLevel = (typeof LOCATION_LEVELS)[number];
 export function levelIndex(level: string): number {
   return LOCATION_LEVELS.indexOf(level as TemplateLevel);
 }
+
+// The key a feed place the template doesn't know is created under: where the
+// feed put it and what it called it. The import looks rows up by it; moves and
+// merges in the client's dashboard record it for where a row came from.
+export function extraFeedKey(parentId: number | null, name: string | null | undefined): string {
+  return `x:${parentId ?? 0}:${locationKey(name)}`;
+}

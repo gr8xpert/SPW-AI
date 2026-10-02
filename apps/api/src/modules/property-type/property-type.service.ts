@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { PropertyType } from '../../database/entities';
 import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
+import { locationKey } from '../location-template/location-name';
 
 @Injectable()
 export class PropertyTypeService {
@@ -126,6 +127,15 @@ export class PropertyTypeService {
 
   // Marks types the client arranged by hand so the type template never
   // re-parents or renames them.
+  // Before the client renames a type the feed created: keep its feed name, so
+  // the next import updates this row instead of creating the old name again.
+  async rememberFeedName(tenantId: number, row: PropertyType): Promise<void> {
+    if (row.templateNodeId != null) return; // found through its template link
+    const key = `n:${locationKey(row.name?.en)}`;
+    if (key === 'n:' || (row.feedKeys || []).includes(key)) return;
+    await this.propertyTypeRepository.update({ id: row.id, tenantId }, { feedKeys: [...(row.feedKeys || []), key] });
+  }
+
   async markUserLocked(tenantId: number, ids: number[]): Promise<void> {
     if (!ids.length) return;
     await this.propertyTypeRepository

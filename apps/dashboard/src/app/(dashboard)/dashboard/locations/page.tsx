@@ -60,12 +60,15 @@ import {
   Settings2,
   Save,
   Sparkles,
+  MoveRight,
+  Merge,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { MoveMergeDialog, type PickableLocation } from './move-merge-dialog';
 
 interface Location {
   id: number;
@@ -81,8 +84,14 @@ interface Location {
   sortOrder?: number;
   isActive?: boolean;
   aiAssigned?: boolean;
+  // "Other spellings": searching any of these names on the website also
+  // shows this location's properties.
+  aliases?: string[] | null;
   children?: Location[];
 }
+
+const parseAliases = (text: string) =>
+  text.split(',').map((a) => a.trim()).filter(Boolean);
 
 const defaultLanguageNames: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
@@ -117,7 +126,7 @@ const levelColors: Record<string, string> = {
 
 const levels = ['region', 'province', 'area', 'municipality', 'town', 'urbanization'] as const;
 
-const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'region' as string, parentId: null as number | null, lat: '', lng: '' };
+const emptyForm = { names: { en: '', es: '' } as Record<string, string>, slug: '', level: 'region' as string, parentId: null as number | null, lat: '', lng: '', aliases: '' };
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('');
@@ -150,6 +159,7 @@ export default function LocationsPage() {
   const [hideEmpty, setHideEmpty] = useState(true);
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
   const [isPlacingOnMap, setIsPlacingOnMap] = useState(false);
+  const [moveMerge, setMoveMerge] = useState<{ mode: 'move' | 'merge'; id: number } | null>(null);
 
   const api = useApi();
   const { toast } = useToast();
@@ -273,6 +283,7 @@ export default function LocationsPage() {
         parentId: form.parentId ?? null,
         lat: form.lat.trim() === '' ? null : Number(form.lat),
         lng: form.lng.trim() === '' ? null : Number(form.lng),
+        aliases: parseAliases(form.aliases),
       });
       toast({ title: 'Location created' });
       setIsAddOpen(false);
@@ -293,6 +304,7 @@ export default function LocationsPage() {
         parentId: form.parentId ?? null,
         lat: form.lat.trim() === '' ? null : Number(form.lat),
         lng: form.lng.trim() === '' ? null : Number(form.lng),
+        aliases: parseAliases(form.aliases),
       });
       toast({ title: 'Location updated' });
       setIsEditOpen(false);
@@ -370,6 +382,7 @@ export default function LocationsPage() {
       parentId: location.parentId,
       lat: location.lat == null ? '' : String(location.lat),
       lng: location.lng == null ? '' : String(location.lng),
+      aliases: (location.aliases || []).join(', '),
     });
     setIsEditOpen(true);
   };
@@ -570,6 +583,9 @@ export default function LocationsPage() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="font-medium">{location.name.en}</p>
+              {location.aliases?.length ? (
+                <p className="text-xs text-muted-foreground">also shown for: {location.aliases.join(', ')}</p>
+              ) : null}
               {languages.filter((l) => l !== 'en' && location.name[l]).map((l) => (
                 <p key={l} className="text-xs text-muted-foreground">
                   <span className="uppercase font-medium">{l}</span>: {location.name[l]}
@@ -620,11 +636,19 @@ export default function LocationsPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => openAdd(location.id, location.level)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Child Location
+                  Add inside
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openEdit(location)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'move', id: location.id })}>
+                  <MoveRight className="h-4 w-4 mr-2" />
+                  Move to…
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'merge', id: location.id })}>
+                  <Merge className="h-4 w-4 mr-2" />
+                  Merge into…
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => openDelete(location)}>
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -661,6 +685,40 @@ export default function LocationsPage() {
     return out;
   })();
 
+  // Every location with its path, for Move to… / Merge into….
+  const pickable = (() => {
+    const out: PickableLocation[] = [];
+    const walk = (nodes: Location[], trail: string[]) => {
+      for (const n of nodes) {
+        const name = n.name.en || Object.values(n.name)[0] || `#${n.id}`;
+        out.push({ id: n.id, parentId: n.parentId, name, level: n.level, path: [...trail, name].join(' › ') });
+        if (n.children?.length) walk(n.children, [...trail, name]);
+      }
+    };
+    walk(locations, []);
+    return out;
+  })();
+
+  const confirmMoveMerge = async (targetId: number | null) => {
+    if (!moveMerge) return;
+    const source = pickable.find((l) => l.id === moveMerge.id);
+    const target = targetId != null ? pickable.find((l) => l.id === targetId) : null;
+    try {
+      if (moveMerge.mode === 'merge') {
+        await api.post(`/api/dashboard/locations/${moveMerge.id}/merge`, { targetId });
+        toast({ title: `Merged "${source?.name}" into "${target?.name}"` });
+      } else {
+        await api.put(`/api/dashboard/locations/${moveMerge.id}`, { parentId: targetId });
+        toast({ title: `Moved "${source?.name}"`, description: target ? `Now inside ${target.path}` : 'Now at the top level' });
+        if (targetId != null) setExpandedIds((prev) => new Set(prev).add(targetId));
+      }
+      fetchLocations();
+    } catch (e: any) {
+      toast({ title: moveMerge.mode === 'merge' ? 'Could not merge' : 'Could not move', description: e.message, variant: 'destructive' });
+      throw e;
+    }
+  };
+
   const formFields = (
     <div className="space-y-4 py-4">
       {languages.map((lang) => (
@@ -672,6 +730,18 @@ export default function LocationsPage() {
       <div className="space-y-2">
         <Label>Slug</Label>
         <Input placeholder="spain" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+      </div>
+      <div className="space-y-2">
+        <Label>Other spellings <span className="text-xs text-muted-foreground font-normal">(optional, comma separated)</span></Label>
+        <Input
+          placeholder="Malaga, Málaga City"
+          value={form.aliases}
+          onChange={(e) => setForm({ ...form, aliases: e.target.value })}
+          data-testid="location-aliases"
+        />
+        <p className="text-xs text-muted-foreground">
+          When a visitor searches any of these names on your website, this location&apos;s properties are shown too.
+        </p>
       </div>
       <div className="space-y-2">
         <Label>Level</Label>
@@ -948,6 +1018,14 @@ export default function LocationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MoveMergeDialog
+        mode={moveMerge?.mode ?? null}
+        source={moveMerge ? pickable.find((l) => l.id === moveMerge.id) ?? null : null}
+        locations={pickable}
+        onClose={() => setMoveMerge(null)}
+        onConfirm={confirmMoveMerge}
+      />
 
       {/* Bulk Move Dialog */}
       <Dialog open={isBulkMoveOpen} onOpenChange={setIsBulkMoveOpen}>

@@ -61,15 +61,17 @@ describe('AI review of unknown feed names', () => {
     expect(unmatchedRepository.update).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ aiProposal: expect.objectContaining({ action: 'same' }) }));
   });
 
-  it('adds a new town as "AI suggested", and never dismisses on its own', async () => {
-    const { svc, template } = makeService({
+  it('never adds a new town or dismisses on its own: both wait for Super Admin', async () => {
+    const { svc, template, unmatchedRepository } = makeService({
       1: { action: 'new', id: 'M2', reason: 'village in Jalón' },
       2: { action: 'dismiss', reason: 'not a place' },
     });
     const r = await svc.reviewAndApply([entry(1, 'Les Planes'), entry(2, 'Rural location')] as any, 7);
-    expect(template.addTownForUnmatched).toHaveBeenCalledWith(1, expect.any(Number), 'ai_suggested', expect.stringContaining('Les Planes'));
+    expect(template.addTownForUnmatched).not.toHaveBeenCalled();
     expect(template.dismissUnmatched).not.toHaveBeenCalled();
-    expect(r.applied).toBe(1);
+    expect(r.applied).toBe(0);
+    // The suggestion is kept for Super Admin to accept.
+    expect(unmatchedRepository.update).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ aiProposal: expect.objectContaining({ action: 'new' }) }));
   });
 
   it('ignores an id the model was not shown', async () => {

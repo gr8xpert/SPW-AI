@@ -112,6 +112,20 @@ export class Location {
   @Column({ default: false })
   coordsLocked: boolean;
 
+  // The client's "Other spellings": searching any of these names (in the
+  // widget) also shows this location's properties. Search-only — imports
+  // don't place listings by them.
+  @Column({ type: 'json', nullable: true })
+  aliases: string[] | null;
+
+  // Which feed places this row stands for, kept when the client moves, renames
+  // or merges it: "x:<parentId>:<nameKey>" for a feed name the template
+  // doesn't know, "t:<templateNodeId>" for a template place merged into it.
+  // Imports look rows up by these so they update the client's row instead of
+  // creating a twin at the original spot. See location-template.service.
+  @Column({ type: 'json', nullable: true })
+  feedKeys: string[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

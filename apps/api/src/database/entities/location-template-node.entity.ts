@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
+import type { AutoFillRecord } from '../../modules/location-template/template-autofill';
 
 export type LocationTemplateStatus = 'ok' | 'needs_review' | 'ai_suggested';
 
@@ -65,6 +66,11 @@ export class LocationTemplateNode {
   // A person entered or accepted this point: the distance check trusts it.
   @Column({ default: false })
   coordsConfirmed: boolean;
+
+  // What the automatic fill (map geocoder, then AI) put here, so it shows as
+  // auto-filled and can be undone. See template-autofill.ts.
+  @Column({ type: 'json', nullable: true })
+  autoFill: AutoFillRecord | null;
 
   @Column({ default: 0 })
   sortOrder: number;

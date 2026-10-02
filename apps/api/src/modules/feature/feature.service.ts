@@ -70,7 +70,16 @@ export class FeatureService {
 
   async update(tenantId: number, id: number, dto: UpdateFeatureDto): Promise<Feature> {
     const feature = await this.findOne(tenantId, id);
+    // A rename or a new category is the client's choice: imports keep it, and
+    // the old name still finds this row (no duplicate on the next sync).
+    const oldName = (feature.name?.en || '').toLowerCase();
+    const renamed = dto.name?.en !== undefined && dto.name.en.toLowerCase() !== oldName;
+    const recategorised = dto.category !== undefined && dto.category !== feature.category;
+    if (renamed && oldName && !(feature.feedKeys || []).includes(`n:${oldName}`)) {
+      feature.feedKeys = [...(feature.feedKeys || []), `n:${oldName}`];
+    }
     Object.assign(feature, dto);
+    if (renamed || recategorised) feature.userLocked = true;
     return this.featureRepository.save(feature);
   }
 

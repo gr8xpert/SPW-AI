@@ -71,20 +71,17 @@ describe('resolveLocation (Resales: Province / Area / Location / SubLocation)', 
     expect(pathOf(resales('Fuengirola', 'Los Boliches'))?.slice(-2)).toEqual(['municipality:Fuengirola', 'town:Los Boliches']);
   });
 
-  it('an unknown SubLocation becomes an urbanization under the known town', () => {
+  it('an unknown SubLocation is not created: the listing stays in its Location, and it is reported', () => {
     const r = resolveLocation(index, resales('Fuengirola', 'Mirador del Castillo'))!;
     expect(r.anchor.name).toBe('Fuengirola');
-    expect(r.extras).toEqual([{ name: 'Mirador del Castillo', level: 'urbanization' }]);
+    expect(r.extras).toEqual([]);
     expect(r.unmatched).toEqual({ name: 'Mirador del Castillo', subName: null });
   });
 
   it('an unknown town is kept under the area and reported', () => {
     const r = resolveLocation(index, resales('Villa Nowhere', 'Sub Nowhere'))!;
     expect(index.path(r.anchor).map((n) => n.name)).toEqual(['Andalucía', 'Málaga', 'Costa del Sol']);
-    expect(r.extras).toEqual([
-      { name: 'Villa Nowhere', level: 'town' },
-      { name: 'Sub Nowhere', level: 'urbanization' },
-    ]);
+    expect(r.extras).toEqual([{ name: 'Villa Nowhere', level: 'town' }]);
     expect(r.unmatched).toEqual({ name: 'Villa Nowhere', subName: 'Sub Nowhere' });
   });
 });
@@ -112,9 +109,11 @@ describe('resolveLocation (other feeds and edge cases)', () => {
     expect(r.extras).toEqual([{ name: 'ADSUBIA', level: 'town' }]);
   });
 
-  it('an unknown urbanization inside a known town stays an urbanization', () => {
+  it('an unknown urbanization inside a known town is not created (Centro under Málaga Centro)', () => {
     const r = resolveLocation(index, { province: 'Málaga', area: 'Costa del Sol', town: 'Arroyo de la Miel', urbanization: 'Brand New Urb' })!;
-    expect(r.extras).toEqual([{ name: 'Brand New Urb', level: 'urbanization' }]);
+    expect(r.anchor.name).toBe('Arroyo de la Miel');
+    expect(r.extras).toEqual([]);
+    expect(r.unmatched).toEqual({ name: 'Brand New Urb', subName: null });
   });
 
   it('matches aliases', () => {

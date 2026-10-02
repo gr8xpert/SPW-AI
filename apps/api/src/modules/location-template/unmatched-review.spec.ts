@@ -98,7 +98,7 @@ describe('autoApplicable', () => {
   it('applies a near "same" or an unflagged "new" by itself, never a dismiss or a "same" without GPS', () => {
     expect(autoApplicable({ action: 'same', km: 2, flagged: false, at: '' })).toBe(true);
     expect(autoApplicable({ action: 'same', km: null, flagged: false, at: '' })).toBe(false);
-    expect(autoApplicable({ action: 'new', km: null, flagged: false, at: '' })).toBe(true);
+    expect(autoApplicable({ action: 'new', km: null, flagged: false, at: '' })).toBe(false);
     expect(autoApplicable({ action: 'new', km: 30, flagged: true, at: '' })).toBe(false);
     expect(autoApplicable({ action: 'dismiss', at: '' })).toBe(false);
   });

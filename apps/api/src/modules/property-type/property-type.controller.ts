@@ -71,6 +71,9 @@ export class PropertyTypeController {
     @Body() dto: UpdatePropertyTypeDto,
   ) {
     const before = await this.propertyTypeService.findOne(tenantId, id);
+    if (dto.name?.en !== undefined && dto.name.en !== before.name?.en) {
+      await this.propertyTypeService.rememberFeedName(tenantId, before);
+    }
     const type = await this.propertyTypeService.update(tenantId, id, dto);
     // A real move or a new English name locks the row; translations and the
     // visibility toggle don't.

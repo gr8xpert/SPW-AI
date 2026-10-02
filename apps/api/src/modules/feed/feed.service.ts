@@ -1406,6 +1406,12 @@ export class FeedService {
       const enName = (f.name.en || '').toLowerCase();
       if (enName) featureMap.set(enName, f);
     }
+    // Names the client renamed away from still point at their row.
+    for (const f of features) {
+      for (const k of f.feedKeys || []) {
+        if (k.startsWith('n:') && !featureMap.has(k.slice(2))) featureMap.set(k.slice(2), f);
+      }
+    }
 
     const resolved: number[] = [];
     const toCreate: string[] = [];
@@ -1418,7 +1424,7 @@ export class FeedService {
       if (existing) {
         resolved.push(existing.id);
         // Upgrade existing 'other' → real category when feed provides a hint.
-        if (hintedCategory && hintedCategory !== 'other' && existing.category === 'other') {
+        if (hintedCategory && hintedCategory !== 'other' && existing.category === 'other' && !existing.userLocked) {
           await this.featureRepository.update(existing.id, { category: hintedCategory as any });
           existing.category = hintedCategory as any;
         }

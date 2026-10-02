@@ -63,6 +63,11 @@ export class PropertyType {
   @Column({ default: false })
   userLocked: boolean;
 
+  // Feed names this row stands for ("n:<nameKey>"), kept when the client
+  // renames or merges it, so imports don't create the old name again.
+  @Column({ type: 'json', nullable: true })
+  feedKeys: string[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

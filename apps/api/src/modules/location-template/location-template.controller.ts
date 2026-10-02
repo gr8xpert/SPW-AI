@@ -22,8 +22,10 @@ import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { LocationTemplateService } from './location-template.service';
 import { UnmatchedReviewService } from './unmatched-review.service';
+import { TemplateAutoFillService } from './template-autofill.service';
 import {
   CreateTemplateNodeDto,
+  FillMissingDto,
   MapUnmatchedDto,
   MergeTemplateNodeDto,
   MoveTemplateNodeDto,
@@ -39,6 +41,7 @@ export class LocationTemplateController {
   constructor(
     private readonly service: LocationTemplateService,
     private readonly review: UnmatchedReviewService,
+    private readonly autoFill: TemplateAutoFillService,
   ) {}
 
   @Get()
@@ -140,6 +143,26 @@ export class LocationTemplateController {
   @HttpCode(HttpStatus.OK)
   checkCoords() {
     return this.service.checkAllCoords();
+  }
+
+  // Fill missing points and postcodes: map geocoder first, then AI. Each call
+  // works ~35 s and reports progress; the page calls again until none remain.
+  @Get('fill-missing')
+  fillStatus() {
+    return this.autoFill.status();
+  }
+
+  @Post('fill-missing')
+  @HttpCode(HttpStatus.OK)
+  fillMissing(@Body() dto: FillMissingDto) {
+    return this.autoFill.fillNext(dto.retry === true);
+  }
+
+  // Clears every auto-filled value nobody has changed since.
+  @Post('fill-missing/undo')
+  @HttpCode(HttpStatus.OK)
+  undoFill() {
+    return this.autoFill.undoAll();
   }
 
   @Post()

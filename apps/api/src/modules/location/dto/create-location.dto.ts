@@ -1,4 +1,4 @@
-import { IsObject, IsString, IsOptional, IsNumber, IsBoolean, IsIn, MinLength, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsObject, IsString, IsOptional, IsNumber, IsBoolean, IsIn, MinLength, MaxLength } from 'class-validator';
 import { LocationLevel } from '../../../database/entities/location.entity';
 
 export class CreateLocationDto {
@@ -36,4 +36,13 @@ export class CreateLocationDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // "Other spellings": searching any of these names also shows this
+  // location's properties.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  aliases?: string[];
 }

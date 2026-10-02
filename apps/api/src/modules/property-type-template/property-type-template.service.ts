@@ -218,7 +218,11 @@ export class PropertyTypeTemplateService {
 
   private async ensureExtraRow(ctx: TypeRunContext, name: string, parentId: number): Promise<PropertyType> {
     const key = locationKey(name);
-    const existing = [...ctx.rows.values()].find((r) => r.templateNodeId == null && locationKey(r.name?.en) === key);
+    const unlinked = [...ctx.rows.values()].filter((r) => r.templateNodeId == null);
+    // A row the client renamed keeps the feed name in feedKeys.
+    const existing =
+      unlinked.find((r) => (r.feedKeys || []).includes(`n:${key}`)) ||
+      unlinked.find((r) => locationKey(r.name?.en) === key);
     if (existing) {
       if (!existing.userLocked && existing.parentId !== parentId) {
         await this.typeRepository.update({ id: existing.id, tenantId: ctx.tenantId }, { parentId });

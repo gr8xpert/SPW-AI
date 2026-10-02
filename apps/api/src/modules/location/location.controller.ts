@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { LocationService } from './location.service';
 import { LocationGeocodeService } from './location-geocode.service';
-import { CreateLocationDto, UpdateLocationDto } from './dto';
+import { CreateLocationDto, MergeLocationDto, UpdateLocationDto } from './dto';
 import { ReorderDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
@@ -48,6 +48,7 @@ export class LocationController {
 
   @Put('bulk-move')
   async bulkMove(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[]; parentId: number | null }) {
+    await this.locationService.rememberOrigins(tenantId, dto.ids || []);
     const result = await this.locationService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
     await this.locationService.markUserLocked(tenantId, dto.ids || []);
     return result;
@@ -75,6 +76,10 @@ export class LocationController {
   @Put(':id')
   async update(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLocationDto) {
     const before = await this.locationService.findOne(tenantId, id);
+    const movingOrRenaming =
+      (dto.parentId !== undefined && (dto.parentId ?? null) !== before.parentId) ||
+      (dto.name?.en !== undefined && dto.name.en !== before.name?.en);
+    if (movingOrRenaming) await this.locationService.rememberOrigins(tenantId, [id]);
     const location = await this.locationService.update(tenantId, id, dto);
     // Only a real move, level change or new English name locks the row —
     // adding a translation or toggling visibility doesn't.
@@ -95,6 +100,16 @@ export class LocationController {
       location.coordsLocked = true;
     }
     return location;
+  }
+
+  // "Merge into…": this location's listings and places move into the target.
+  @Post(':id/merge')
+  async merge(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: MergeLocationDto,
+  ) {
+    return this.locationService.mergeLocations(tenantId, id, dto.targetId);
   }
 
   @Delete(':id')

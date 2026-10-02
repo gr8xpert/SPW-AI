@@ -4,6 +4,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Property, Location, PropertyType, LocationBoundary } from '../../database/entities';
 import { SearchPropertyDto } from './dto';
 import { fenceFor, resolveLocationPoints } from '../location/location-points';
+import { locationKey } from '../location-template/location-name';
 
 // Where a listing is for map and area searches: its own GPS, else its
 // location's point (filled from the location template). Feeds such as Resales
@@ -243,10 +244,13 @@ export class PropertySearchService {
     rootId: number,
     table: 'locations' | 'property_types',
   ): Promise<number[]> {
-    const rows: Array<{ id: number; parentId: number | null }> = await this.propertyRepository.manager.query(
-      `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
-      [tenantId],
-    );
+    const rows: Array<{ id: number; parentId: number | null; name?: unknown; aliases?: unknown }> =
+      await this.propertyRepository.manager.query(
+        table === 'locations'
+          ? 'SELECT id, parentId, name, aliases FROM locations WHERE tenantId = ?'
+          : `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
+        [tenantId],
+      );
     const childrenOf = new Map<number, number[]>();
     for (const r of rows) {
       if (r.parentId != null) {
@@ -257,6 +261,20 @@ export class PropertySearchService {
     }
     const result = new Set<number>([rootId]);
     const stack = [rootId];
+    // A location's "Other spellings" (set by the client): picking "Málaga"
+    // also brings in "Centro" when Centro lists Malaga as another name.
+    if (table === 'locations') {
+      const root = rows.find((r) => Number(r.id) === rootId);
+      const rootKeys = new Set(Object.values(jsonOf<Record<string, string>>(root?.name) || {}).map(locationKey).filter(Boolean));
+      for (const r of rows) {
+        const aliases = jsonOf<string[]>(r.aliases);
+        if (!Array.isArray(aliases) || !aliases.some((a) => rootKeys.has(locationKey(a)))) continue;
+        if (!result.has(Number(r.id))) {
+          result.add(Number(r.id));
+          stack.push(Number(r.id));
+        }
+      }
+    }
     while (stack.length) {
       const id = stack.pop()!;
       for (const child of childrenOf.get(id) || []) {
@@ -452,5 +470,16 @@ export class PropertySearchService {
       case 'location_id': query.addOrderBy('p.locationId', 'ASC'); break;
       default: query.addOrderBy('p.createdAt', 'DESC');
     }
+  }
+}
+
+// mysql2 returns JSON columns parsed, but a raw query on some setups gives text.
+function jsonOf<T>(v: unknown): T | null {
+  if (v == null) return null;
+  if (typeof v !== 'string') return v as T;
+  try {
+    return JSON.parse(v) as T;
+  } catch {
+    return null;
   }
 }

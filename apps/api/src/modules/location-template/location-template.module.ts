@@ -6,6 +6,7 @@ import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
 import { LocationTemplateService } from './location-template.service';
 import { LocationTemplateController } from './location-template.controller';
 import { UnmatchedReviewService } from './unmatched-review.service';
+import { TemplateAutoFillService } from './template-autofill.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { UnmatchedReviewService } from './unmatched-review.service';
     AiEnrichmentModule,
   ],
   controllers: [LocationTemplateController],
-  providers: [LocationTemplateService, UnmatchedReviewService],
+  providers: [LocationTemplateService, UnmatchedReviewService, TemplateAutoFillService],
   exports: [LocationTemplateService],
 })
 export class LocationTemplateModule {}
