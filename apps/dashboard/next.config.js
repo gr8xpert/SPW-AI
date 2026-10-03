@@ -1,25 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // The dashboard never uses next/image. `unoptimized` makes Next answer
+  // /_next/image with a 404 before the optimizer runs, which closes the
+  // AVIF image-optimizer RCE that Next 14.x leaves unpatched (fixed in 15.5.24).
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.r2.dev',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.cloudflarestorage.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'resales-online.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.resales-online.com',
-      },
-    ],
+    unoptimized: true,
   },
   async headers() {
     return [

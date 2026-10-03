@@ -21,12 +21,14 @@ export interface StripeProcessResult {
   processed: boolean;
   eventId: string;
   eventType: string;
-  outcome: 'applied' | 'replay' | 'ignored' | 'no-tenant';
+  outcome: 'applied' | 'replay' | 'ignored' | 'no-tenant' | 'awaiting-payment' | 'payment-failed';
   tenantId?: number;
 }
 
 const HANDLED_EVENTS = new Set([
   'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.async_payment_failed',
   'customer.subscription.created',
   'customer.subscription.updated',
   'customer.subscription.deleted',
@@ -106,7 +108,25 @@ export class StripeWebhookService {
 
       switch (eventType) {
         case 'checkout.session.completed':
+          // Delayed methods (SEPA, bank transfer) complete checkout before the
+          // money arrives: Stripe sends payment_status 'unpaid' here, then
+          // async_payment_succeeded or async_payment_failed later. Grant
+          // nothing until it is paid.
+          if (obj.payment_status === 'unpaid') {
+            this.logger.log(
+              `checkout ${obj.id} completed but unpaid (tenant=${obj.metadata?.tenantId}) — waiting for async payment`,
+            );
+            return { processed: true, eventId, eventType, outcome: 'awaiting-payment' as const };
+          }
           return await this.handleCheckoutCompleted(manager, obj, eventId, eventType);
+        case 'checkout.session.async_payment_succeeded':
+          return await this.handleCheckoutCompleted(manager, obj, eventId, eventType);
+        case 'checkout.session.async_payment_failed':
+          // Nothing was granted on the unpaid completion, so nothing to undo.
+          this.logger.warn(
+            `checkout ${obj.id} async payment FAILED (tenant=${obj.metadata?.tenantId}, hours=${obj.metadata?.hours ?? '-'}, plan=${obj.metadata?.planId ?? '-'}) — nothing granted`,
+          );
+          return { processed: true, eventId, eventType, outcome: 'payment-failed' as const };
         case 'customer.subscription.created':
         case 'customer.subscription.updated':
           return await this.handleSubscriptionSync(manager, obj, eventId, eventType);
@@ -166,6 +186,16 @@ export class StripeWebhookService {
           `checkout.session.completed (payment) for unknown tenant ${tenantId}`,
         );
         return { processed: true, eventId, eventType, outcome: 'no-tenant' };
+      }
+
+      // Event-id dedup can't catch two different events for one payment
+      // (e.g. completed + async_payment_succeeded), so check the payment too.
+      const alreadyCredited = await manager.findOne(CreditTransaction, {
+        where: { tenantId, type: 'purchase', paymentReference: paymentIntent },
+      });
+      if (alreadyCredited) {
+        this.logger.warn(`Stripe payment ${paymentIntent} already credited to tenant ${tenantId} — skipping`);
+        return { processed: true, eventId, eventType, outcome: 'replay' };
       }
 
       let balance = await manager.findOne(CreditBalance, { where: { tenantId } });
