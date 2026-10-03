@@ -205,3 +205,33 @@ describe('AI voice search', () => {
     expect(chatCompletion).not.toHaveBeenCalled();
   });
 });
+
+// The upload's header is not trusted for length or cost: a lying byte rate
+// can't pass a long clip off as short, and only the counted samples are sent.
+describe('AI voice search upload checks', () => {
+  it('refuses a header whose byte rate does not match its format', async () => {
+    const { svc, tenant, chatCompletion } = build('{}');
+    const forged = wav(25); // 800 KB, under the size cap
+    forged.writeUInt32LE(16000 * 2 * 100, 28); // claims 100x the real rate: "0.6 s"
+    await expect(svc.voiceSearch(tenant, forged)).rejects.toThrow(/could not be read/);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('refuses formats the widget never sends (stereo, 8-bit, float)', async () => {
+    const { svc, tenant } = build('{}');
+    const stereo = wav(2); stereo.writeUInt16LE(2, 22);
+    const eightBit = wav(2); eightBit.writeUInt16LE(8, 34);
+    const float = wav(2); float.writeUInt16LE(3, 20);
+    for (const bad of [stereo, eightBit, float]) {
+      await expect(svc.voiceSearch(tenant, bad)).rejects.toThrow(/could not be read/);
+    }
+  });
+
+  it('sends the model only the counted samples, not data smuggled after them', async () => {
+    const { svc, tenant, chatCompletion } = build(JSON.stringify({ filters: { minBedrooms: 2 } }));
+    const clean = wav(2);
+    await svc.voiceSearch(tenant, Buffer.concat([clean, Buffer.alloc(200_000, 7)]));
+    const sent = Buffer.from(chatCompletion.mock.calls[0][1][1].content[1].input_audio.data, 'base64');
+    expect(sent.equals(clean)).toBe(true);
+  });
+});

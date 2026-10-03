@@ -134,7 +134,8 @@ export class AiSearchService {
         role: 'user',
         content: [
           { type: 'text', text: 'Parse the property search spoken in this recording.' },
-          { type: 'input_audio', input_audio: { data: audio.toString('base64'), format: 'wav' } },
+          // The rebuilt file, not the upload: only the samples that were counted.
+          { type: 'input_audio', input_audio: { data: wav.wav.toString('base64'), format: 'wav' } },
         ],
       },
     });
