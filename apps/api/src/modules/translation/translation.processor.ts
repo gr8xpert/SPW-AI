@@ -219,8 +219,11 @@ export class TranslationProcessor extends WorkerHost {
       { role: 'user', content: JSON.stringify(texts) },
     ];
 
+    // Property text spends the client's key; types, features and labels the
+    // platform key from .env.
     const response = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.2,
+      keySource: context === 'property' ? 'client' : 'platform',
     });
 
     const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

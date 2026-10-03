@@ -320,12 +320,25 @@ export class DataLoader {
     return this.api.post('/v1/ai-search', { query, language });
   }
 
-  async aiSearchEnabled(): Promise<boolean> {
+  // The same search, spoken: a short WAV goes up and the client's AI turns it
+  // into filters, returning what it heard so the visitor can see it.
+  async aiVoiceSearch(audio: Blob, language: string): Promise<{ filters: Record<string, unknown>; interpretation?: string; heard?: string }> {
+    const form = new FormData();
+    form.append('audio', audio, 'search.wav');
+    form.append('language', language);
+    return this.api.postForm('/v1/ai-search/voice', form);
+  }
+
+  // Whether to show the AI button, and the mic inside it (voice has its own
+  // switch in Super Admin).
+  async aiSearchStatus(): Promise<{ enabled: boolean; voice: boolean }> {
     try {
-      const res = await this.api.get<{ enabled?: boolean; data?: { enabled?: boolean } }>('/v1/ai-search/status');
-      return !!(res?.enabled ?? res?.data?.enabled);
+      type Status = { enabled?: boolean; voice?: boolean };
+      const res = await this.api.get<Status & { data?: Status }>('/v1/ai-search/status');
+      const s = res?.data ?? res;
+      return { enabled: !!s?.enabled, voice: !!s?.enabled && !!s?.voice };
     } catch {
-      return false;
+      return { enabled: false, voice: false };
     }
   }
 

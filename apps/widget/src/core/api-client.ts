@@ -35,15 +35,22 @@ export class ApiClient {
     });
   }
 
+  // A file upload (a voice search). Sent once, with a longer wait than a
+  // read: the answer comes from an AI model, not the database. The browser
+  // sets the multipart Content-Type itself.
+  async postForm<T>(endpoint: string, form: FormData, timeoutMs = 30_000): Promise<T> {
+    return this.request<T>(`${this.apiUrl}/api${endpoint}`, { method: 'POST', body: form }, timeoutMs);
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(`${this.apiUrl}/api${endpoint}`, { method: 'DELETE' });
   }
 
-  private async request<T>(url: string, init: RequestInit): Promise<T> {
+  private async request<T>(url: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set('X-API-Key', this.apiKey);
 
-    const res = await this.fetchWithRetry(url, { ...init, headers });
+    const res = await this.fetchWithRetry(url, { ...init, headers }, timeoutMs);
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -64,13 +71,13 @@ export class ApiClient {
   // visitor refreshed. Each try now gives up after REQUEST_TIMEOUT_MS, and a
   // read that got no response is tried again. Writes are sent once: repeating
   // an inquiry could send it twice.
-  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  private async fetchWithRetry(url: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
     const method = (init.method || 'GET').toUpperCase();
     const attempts = method === 'GET' ? GET_ATTEMPTS : 1;
     let lastError: unknown;
     for (let i = 0; i < attempts; i++) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         return await fetch(url, { ...init, signal: controller.signal });
       } catch (err) {

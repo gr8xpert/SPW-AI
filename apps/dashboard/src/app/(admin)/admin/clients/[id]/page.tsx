@@ -68,6 +68,7 @@ interface ClientDetail {
     mapSearch: boolean;
     mapView: boolean;
     aiSearch: boolean;
+    aiVoiceSearch?: boolean;
     aiChatbot: boolean;
     mortgageCalculator: boolean;
     currencyConverter: boolean;
@@ -422,6 +423,7 @@ export default function ClientDetailPage() {
                   { key: 'mapSearch', label: 'Map Search' },
                   { key: 'mapView', label: 'Map View' },
                   { key: 'aiSearch', label: 'AI Search' },
+                  { key: 'aiVoiceSearch', label: 'AI Voice Search' },
                   { key: 'aiChatbot', label: 'AI Chatbot' },
                   { key: 'mortgageCalculator', label: 'Mortgage Calculator' },
                   { key: 'currencyConverter', label: 'Currency Converter' },

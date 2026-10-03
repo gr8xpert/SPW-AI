@@ -411,18 +411,47 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
   const items2 = useMemo(() => getItemsForDropdown(1), [getItemsForDropdown]);
   const items3 = useMemo(() => getItemsForDropdown(2), [getItemsForDropdown]);
 
+  // What the tabs stand for: the deepest tab with anything ticked.
+  const tabIds = (): number[] => {
+    if (selected3.size > 0) return [...selected3];
+    if (selected2.size > 0) return [...selected2];
+    if (selected1.size > 0) return [...selected1];
+    return [];
+  };
+  const sameIds = (a: number[], b: number[]) => a.length === b.length && a.every((id) => b.includes(id));
+
+  // Set when the tabs were just redrawn from the store (below), so that
+  // redraw is not reported back as if the visitor had picked something.
+  const fromStoreRef = useRef(false);
+
   useEffect(() => {
-    let ids: number[] = [];
-    if (selected3.size > 0) ids = [...selected3];
-    else if (selected2.size > 0) ids = [...selected2];
-    else if (selected1.size > 0) ids = [...selected1];
+    if (fromStoreRef.current) { fromStoreRef.current = false; return; }
     // Only a change the visitor made: reporting the store's own value back
     // (on mount, say) would replace a single locationId from the URL and
     // leave the map and the count with no location at all.
-    const current = value ?? [];
-    if (ids.length === current.length && ids.every((id) => current.includes(id))) return;
+    const ids = tabIds();
+    if (sameIds(ids, value ?? [])) return;
     onChange(ids);
   }, [selected1, selected2, selected3]);
+
+  // The other way round: a location set from outside the tabs — AI or voice
+  // search, a link — must show in them. They used to read the store only when
+  // first drawn, so after an AI search for "Marbella" the results were right
+  // but the picker still said "Location". Also catches the list of places
+  // arriving after the tabs were drawn.
+  const valueKey = (value ?? []).join(',');
+  useEffect(() => {
+    if (!value?.length || !locations.length) return; // emptying is the Reset effect's job
+    if (sameIds(tabIds(), value)) return;
+    const [a, b, c] = initialSelection(locations, value, config);
+    // A place the tabs don't list: leave them alone. Redrawing them empty
+    // would report "no location" and quietly widen the search.
+    if (!a.size && !b.size && !c.size) return;
+    fromStoreRef.current = true;
+    setSelected1(a);
+    setSelected2(b);
+    setSelected3(c);
+  }, [valueKey, locations]);
 
   // The tabs keep their own selection (each level is a separate Set), so a
   // Reset elsewhere on the page has to reach them: when the store no longer

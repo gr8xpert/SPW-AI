@@ -679,14 +679,14 @@ Use the exact category strings above (lowercase).`;
     return this.callOpenRouterJson(tenantId, prompt);
   }
 
-  // Single thin wrapper around OpenRouter for enrichment work. Resolves a
-  // key via AiService (tenant override → platform key), uses Haiku 4.5 for
-  // cost/speed, parses JSON from the response. Returns null on failure so
-  // callers can skip gracefully instead of crashing the import.
+  // Single thin wrapper around OpenRouter for enrichment work. Locations,
+  // property types and features always run on the platform key from .env,
+  // never the client's. Parses JSON from the response. Returns null on
+  // failure so callers can skip gracefully instead of crashing the import.
   private async callOpenRouterJson(tenantId: number, prompt: string): Promise<Record<string, any> | null> {
-    const resolved = await this.aiService.resolveBackgroundKey(tenantId, ENRICHMENT_MODEL);
+    const resolved = await this.aiService.resolvePlatformKey(ENRICHMENT_MODEL);
     if (!resolved) {
-      this.logger.warn(`No OpenRouter key for tenant=${tenantId} (and no platform key set) — skipping enrichment`);
+      this.logger.warn(`No platform OpenRouter key (OPENROUTER_API_KEY) — skipping enrichment for tenant=${tenantId}`);
       return null;
     }
 

@@ -719,14 +719,18 @@ export default function LocationsPage() {
     }
   };
 
+  // Scrolls between a fixed header and footer: with several languages the
+  // form is taller than the screen, and Save used to end up out of reach.
   const formFields = (
-    <div className="space-y-4 py-4">
-      {languages.map((lang) => (
-        <div key={lang} className="space-y-2">
-          <Label>Name ({defaultLanguageNames[lang] || lang.toUpperCase()})</Label>
-          <Input placeholder={lang === 'en' ? 'Spain' : ''} value={form.names[lang] || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })} />
-        </div>
-      ))}
+    <div className="-mx-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {languages.map((lang) => (
+          <div key={lang} className="space-y-2">
+            <Label>Name ({defaultLanguageNames[lang] || lang.toUpperCase()})</Label>
+            <Input placeholder={lang === 'en' ? 'Spain' : ''} value={form.names[lang] || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })} />
+          </div>
+        ))}
+      </div>
       <div className="space-y-2">
         <Label>Slug</Label>
         <Input placeholder="spain" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
@@ -985,7 +989,7 @@ export default function LocationsPage() {
 
       {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
           <DialogHeader>
             <DialogTitle>Add Location</DialogTitle>
             <DialogDescription>Create a new location in the hierarchy</DialogDescription>
@@ -1003,7 +1007,7 @@ export default function LocationsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingLocation(null); setForm(emptyForm); } }}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
           <DialogHeader>
             <DialogTitle>Edit Location</DialogTitle>
             <DialogDescription>Update the location details</DialogDescription>

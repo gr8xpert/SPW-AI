@@ -72,6 +72,10 @@ export class AiSeoService {
     if (!Array.isArray(dto.targetLanguages) || dto.targetLanguages.length === 0) {
       throw new BadRequestException('At least one target language is required');
     }
+    // Refuse up front rather than queue a run where every property fails.
+    if (!(await this.aiService.hasClientKey(tenantId))) {
+      throw new BadRequestException('Add your OpenRouter API key in Settings → AI to generate SEO.');
+    }
 
     // One run per tenant. A second click — after a refresh, from another tab,
     // or by a teammate — hands back the job already in flight instead of
@@ -227,10 +231,10 @@ Requirements:
       },
     ];
 
+    // Property AI runs on the client's own key only.
     const raw = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.2,
       maxTokens: 1500,
-      allowPlatformKey: true,
     });
 
     let cleaned = raw.trim();
@@ -292,13 +296,10 @@ Requirements:
       },
     ];
 
-    // Tenant's own OpenRouter key when they've set one, otherwise the platform
-    // key from OPENROUTER_API_KEY — a bulk run must not stop at tenants who
-    // never configured AI themselves.
+    // Property SEO runs on the client's own key only — never the platform key.
     const raw = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.4,
       maxTokens: 800,
-      allowPlatformKey: true,
     });
 
     return this.parseResponse(raw);

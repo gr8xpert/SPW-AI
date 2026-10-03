@@ -1,8 +1,15 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiSearchUsage, Tenant } from '../../database/entities';
-import { AiService } from './ai.service';
+import { AiService, ChatMessage, MultimodalMessage } from './ai.service';
+import { readWav } from './wav';
 import { LocationService } from '../location/location.service';
 import { PropertyTypeService } from '../property-type/property-type.service';
 import { FeatureService } from '../feature/feature.service';
@@ -28,6 +35,9 @@ export interface AiSearchResult {
   filters: AiSearchFilters;
   // A plain sentence describing what was understood, shown back to the visitor.
   interpretation?: string;
+  // Voice only: the words the model heard, put in the search box so the
+  // visitor can see (and correct) them.
+  heard?: string;
 }
 
 const LISTING_TYPES = new Set(['sale', 'rent', 'holiday_rent', 'development']);
@@ -38,6 +48,20 @@ const DEFAULT_DAILY_LIMIT = 200;
 // Long enough for a sentence about a house, short enough that a pasted wall of
 // text can't run up the client's bill.
 export const MAX_QUERY_LENGTH = 400;
+
+// Voice search needs a model that accepts audio, whatever the client picked
+// for text (Claude, for one, can't hear). First one OpenRouter still offers
+// wins; cheap and fast, since a spoken search is a sentence, not a podcast.
+export const VOICE_MODELS = [
+  'google/gemini-3.1-flash-lite',
+  'google/gemini-2.5-flash-lite',
+  'google/gemini-2.5-flash',
+];
+// The widget stops recording at 15 s; a little slack for the header and
+// rounding. 16 kHz mono 16-bit is 32 KB/s, so 20 s fits well inside 1 MB.
+export const MAX_VOICE_SECONDS = 20;
+export const MIN_VOICE_SECONDS = 0.4;
+export const MAX_VOICE_BYTES = 1_000_000;
 
 @Injectable()
 export class AiSearchService {
@@ -52,17 +76,19 @@ export class AiSearchService {
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
   ) {}
 
+  /** Whether super admin has switched voice on for this site (off by default). */
+  voiceEnabled(tenant: Tenant): boolean {
+    return tenant.featureFlags?.aiVoiceSearch === true;
+  }
+
   /** Whether a site can offer AI search at all: switched on, and paid for. */
   async status(tenant: Tenant): Promise<{ enabled: boolean; reason?: string }> {
     if (!tenant.aiSearchEnabled) return { enabled: false, reason: 'disabled' };
-    const row = await this.tenants.findOne({
-      where: { id: tenant.id },
-      select: ['id', 'settings', 'openrouterApiKey'],
-    });
-    const hasKey = !!(row?.openrouterApiKey || row?.settings?.openRouterApiKey);
-    // No key means no credit to spend: the platform key is for super-admin
-    // work, never for a client's visitors.
-    if (!hasKey) return { enabled: false, reason: 'no_api_key' };
+    // Only the key the client sees in Settings → AI counts. A leftover legacy
+    // copy in settings JSON is hidden from the dashboard, so honouring it
+    // showed AI search on sites whose AI tab says "no key". The platform key
+    // is never spent on a client's visitors.
+    if (!(await this.ai.hasClientKey(tenant.id))) return { enabled: false, reason: 'no_api_key' };
     return { enabled: true };
   }
 
@@ -73,6 +99,54 @@ export class AiSearchService {
       throw new BadRequestException(`Keep it under ${MAX_QUERY_LENGTH} characters.`);
     }
 
+    return this.ask(tenant, language, {
+      model: (await this.model(tenant.id)) || DEFAULT_MODEL,
+      message: { role: 'user', content: `Parse this property search: "${trimmed}"` },
+    });
+  }
+
+  /**
+   * The visitor spoke instead of typing. The recording goes straight to an
+   * audio-capable model together with the client's own lists, so it hears
+   * "Benahavís" as the location it is rather than guessing at a spelling —
+   * one call, on the client's key, under the same daily ceiling.
+   */
+  async voiceSearch(tenant: Tenant, audio: Buffer | undefined, language = 'en'): Promise<AiSearchResult> {
+    // Its own switch in Super Admin, on top of AI search being on.
+    if (!this.voiceEnabled(tenant)) throw new ForbiddenException('Voice search is not enabled for this website.');
+    if (!audio?.length) throw new BadRequestException('No recording arrived. Please try again.');
+    if (audio.length > MAX_VOICE_BYTES) throw new BadRequestException('That recording is too long.');
+    const wav = readWav(audio);
+    if (!wav) throw new BadRequestException('That recording could not be read. Please try again.');
+    if (wav.seconds < MIN_VOICE_SECONDS) throw new BadRequestException('That was too short. Hold on a moment longer.');
+    if (wav.seconds > MAX_VOICE_SECONDS) throw new BadRequestException('Keep it under 15 seconds.');
+
+    const model = await this.ai.firstAvailableModel(VOICE_MODELS);
+    if (!model) {
+      this.logger.error('No audio-capable model is available on OpenRouter for voice search');
+      throw new ServiceUnavailableException('Voice search is unavailable right now. Please type instead.');
+    }
+
+    return this.ask(tenant, language, {
+      model,
+      voice: true,
+      message: {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Parse the property search spoken in this recording.' },
+          { type: 'input_audio', input_audio: { data: audio.toString('base64'), format: 'wav' } },
+        ],
+      },
+    });
+  }
+
+  // Shared by typing and speaking: the gates, the daily ceiling, the client's
+  // lists, one model call on the client's key, and the strict parse.
+  private async ask(
+    tenant: Tenant,
+    language: string,
+    req: { model: string; message: ChatMessage | MultimodalMessage; voice?: boolean },
+  ): Promise<AiSearchResult> {
     const state = await this.status(tenant);
     if (!state.enabled) {
       throw new ForbiddenException(
@@ -90,20 +164,28 @@ export class AiSearchService {
       this.features.findAll(tenant.id),
     ]);
 
-    const reply = await this.ai.chatCompletion(
-      tenant.id,
-      [
-        { role: 'system', content: this.systemPrompt(locations, types, features, language) },
-        { role: 'user', content: `Parse this property search: "${trimmed}"` },
-      ],
-      {
-        model: (await this.model(tenant.id)) || DEFAULT_MODEL,
-        temperature: 0.1,
-        maxTokens: 500,
-        // Never the platform key: this spends the client's own credit.
-        allowPlatformKey: false,
-      },
-    );
+    let reply: string;
+    try {
+      reply = await this.ai.chatCompletion(
+        tenant.id,
+        [
+          { role: 'system', content: this.systemPrompt(locations, types, features, language, req.voice) },
+          req.message,
+        ],
+        {
+          model: req.model,
+          temperature: 0.1,
+          maxTokens: 500,
+          // Spends the client's own credit, never the platform key.
+          keySource: 'client',
+        },
+      );
+    } catch (err) {
+      // "Your key is invalid / out of credit" is for the client, not their
+      // visitors: log the reason, show the visitor something they can act on.
+      this.logger.warn(`AI search failed for tenant ${tenant.id} (${req.model}): ${(err as Error).message}`);
+      throw new ServiceUnavailableException('AI search is unavailable right now. Please use the filters instead.');
+    }
 
     return this.parse(reply, locations, types, features);
   }
@@ -142,6 +224,7 @@ export class AiSearchService {
     types: Array<{ id: number; name: unknown }>,
     features: Array<{ id: number; name: unknown; category?: string }>,
     language: string,
+    voice = false,
   ): string {
     const label = (name: unknown): string =>
       typeof name === 'string' ? name : (name as Record<string, string>)?.en ?? Object.values(name as object)[0] ?? '';
@@ -166,10 +249,17 @@ export class AiSearchService {
       '- listingType is one of: sale, rent, holiday_rent, development ("new build" is development).',
       '- Sizes in m² set minBuildSize/maxBuildSize, plots set minPlotSize/maxPlotSize.',
       '- A reference code like "R1234567" sets reference.',
-      `- The visitor is writing in "${language}".`,
+      ...(voice
+        ? [
+          `- The visitor SPOKE the search; the website is in "${language}" but they may speak any language.`,
+          '- Place names you hear are most likely ones in the LOCATIONS list, even when pronounced loosely.',
+          '- If the recording is silent, noise, or not about a property, return empty filters.',
+          '- Also return "heard": what they said, written out in the language they spoke.',
+        ]
+        : [`- The visitor is writing in "${language}".`]),
       '',
       'Reply with this shape, leaving out anything the sentence does not say:',
-      '{"filters":{"locationId":0,"propertyTypeId":0,"listingType":"","minBedrooms":0,"minBathrooms":0,"minPrice":0,"maxPrice":0,"minBuildSize":0,"maxBuildSize":0,"minPlotSize":0,"maxPlotSize":0,"features":[],"reference":""},"interpretation":"one short sentence"}',
+      `{"filters":{"locationId":0,"propertyTypeId":0,"listingType":"","minBedrooms":0,"minBathrooms":0,"minPrice":0,"maxPrice":0,"minBuildSize":0,"maxBuildSize":0,"minPlotSize":0,"maxPlotSize":0,"features":[],"reference":""},"interpretation":"one short sentence"${voice ? ',"heard":"what they said"' : ''}}`,
     ].join('\n');
   }
 
@@ -191,7 +281,7 @@ export class AiSearchService {
       throw new BadRequestException('Could not understand that search. Try different words.');
     }
 
-    let parsed: { filters?: Record<string, unknown>; interpretation?: unknown };
+    let parsed: { filters?: Record<string, unknown>; interpretation?: unknown; heard?: unknown };
     try {
       parsed = JSON.parse(cleaned.slice(start, end + 1));
     } catch {
@@ -249,6 +339,10 @@ export class AiSearchService {
       ? parsed.interpretation.slice(0, 200)
       : undefined;
 
-    return { filters: out, interpretation };
+    const heard = typeof parsed.heard === 'string' && parsed.heard.trim()
+      ? parsed.heard.trim().slice(0, MAX_QUERY_LENGTH)
+      : undefined;
+
+    return { filters: out, interpretation, ...(heard ? { heard } : {}) };
   }
 }

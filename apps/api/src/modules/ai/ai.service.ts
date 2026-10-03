@@ -25,6 +25,15 @@ const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL || FALLBACK_DEFAULT_M
 export const ENRICHMENT_MODEL =
   process.env.OPENROUTER_ENRICHMENT_MODEL || FALLBACK_ENRICHMENT_MODEL;
 
+// Whose OpenRouter account pays. Fixed per feature, never a fallback chain:
+//  - client:   the key the client entered in Settings → AI. Property AI, SEO,
+//              property translations, website AI search and the chatbot.
+//              No key there means the feature is off — never the platform key.
+//  - platform: OPENROUTER_API_KEY from .env. Locations, property types,
+//              features, labels (incl. their translations) and everything in
+//              the super-admin dashboard.
+export type AiKeySource = 'client' | 'platform';
+
 export interface ToolCall {
   id: string;
   type: 'function';
@@ -47,6 +56,17 @@ export interface ChatMessage {
   tool_call_id?: string;
 }
 
+// A user turn carrying more than text, e.g. a recorded voice search. Only
+// models whose input modalities include the part's kind can read it.
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'input_audio'; input_audio: { data: string; format: 'wav' } };
+
+export interface MultimodalMessage {
+  role: 'user';
+  content: ChatContentPart[];
+}
+
 export interface StreamEvent {
   type: 'delta' | 'tool_calls' | 'done' | 'error';
   content?: string;
@@ -64,6 +84,15 @@ export class AiService {
     private tenantRepository: Repository<Tenant>,
     private readonly catalog: OpenRouterCatalogService,
   ) {}
+
+  // For features that need a particular kind of model (audio input): the
+  // first candidate OpenRouter still offers, or null when none is.
+  async firstAvailableModel(candidates: string[]): Promise<string | null> {
+    for (const id of candidates) {
+      if (await this.catalog.isAvailable(id)) return id;
+    }
+    return null;
+  }
 
   // The requested model if OpenRouter still offers it, else the first of the
   // defaults that it does. Logged once per retired model.
@@ -104,25 +133,19 @@ export class AiService {
 
   async chatCompletion(
     tenantId: number,
-    messages: ChatMessage[],
+    messages: Array<ChatMessage | MultimodalMessage>,
     options?: {
       model?: string;
       temperature?: number;
       maxTokens?: number;
-      // Bill the platform key when the tenant hasn't configured their own.
-      // Opt-in per caller: interactive features want the "add your key"
-      // error, while platform-run work (bulk SEO, enrichment) should keep
-      // working for tenants who never set one up.
-      allowPlatformKey?: boolean;
+      // Defaults to the client's own key; see AiKeySource.
+      keySource?: AiKeySource;
     },
   ): Promise<string> {
-    // Single source of truth for key resolution — reads the encrypted column
-    // first (post-5Q split), falls back to the legacy settings JSON for any
-    // tenant row not yet through the data migration.
     const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(
       tenantId,
       options?.model,
-      options?.allowPlatformKey === true,
+      options?.keySource ?? 'client',
     );
     const model = resolvedModel;
 
@@ -174,7 +197,8 @@ export class AiService {
     tools?: ToolDefinition[],
     options?: { model?: string; temperature?: number; maxTokens?: number },
   ): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
-    const { apiKey, model } = await this.resolveKeyAndModel(tenantId, options?.model);
+    // The website chatbot: always the client's own key.
+    const { apiKey, model } = await this.resolveKeyAndModel(tenantId, options?.model, 'client');
 
     try {
       const body: Record<string, any> = {
@@ -223,20 +247,31 @@ export class AiService {
     }
   }
 
+  /** Whether the client has entered their own key in Settings → AI. */
+  async hasClientKey(tenantId: number): Promise<boolean> {
+    const row = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'openrouterApiKey'] });
+    return !!row?.openrouterApiKey;
+  }
+
   private async resolveKeyAndModel(
     tenantId: number,
-    modelOverride?: string,
-    allowPlatformFallback: boolean = false,
+    modelOverride: string | undefined,
+    source: AiKeySource,
   ): Promise<{ apiKey: string; model: string }> {
+    if (source === 'platform') {
+      const apiKey = process.env.OPENROUTER_API_KEY;
+      if (!apiKey) throw new BadRequestException('Platform AI key (OPENROUTER_API_KEY) is not set.');
+      // Our bill, our model: the client's model choice applies to their key only.
+      return { apiKey, model: await this.usableModel(modelOverride || DEFAULT_MODEL) };
+    }
+
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       select: ['id', 'settings', 'openrouterApiKey'],
     });
-    // Priority: dedicated encrypted column → legacy settings field → platform key.
-    const apiKey =
-      tenant?.openrouterApiKey ||
-      tenant?.settings?.openRouterApiKey ||
-      (allowPlatformFallback ? process.env.OPENROUTER_API_KEY : null);
+    // Only the key shown in Settings → AI. A legacy settings.openRouterApiKey
+    // copy is hidden from the dashboard, so it is never spent.
+    const apiKey = tenant?.openrouterApiKey;
     if (!apiKey) {
       throw new BadRequestException(
         'OpenRouter API key not configured. Go to Settings → AI to add your key.',
@@ -248,12 +283,11 @@ export class AiService {
     };
   }
 
-  // Public wrapper used by background services (e.g. AI enrichment) that
-  // should silently fall back to the platform key when a tenant hasn't
-  // configured their own. Returns null if no key is available anywhere.
-  async resolveBackgroundKey(tenantId: number, modelOverride?: string): Promise<{ apiKey: string; model: string } | null> {
+  // The platform key for classification work (locations, property types,
+  // features, templates). Returns null when .env has no key.
+  async resolvePlatformKey(modelOverride?: string): Promise<{ apiKey: string; model: string } | null> {
     try {
-      return await this.resolveKeyAndModel(tenantId, modelOverride, true);
+      return await this.resolveKeyAndModel(0, modelOverride, 'platform');
     } catch {
       return null;
     }

@@ -6,12 +6,15 @@ import {
   Post,
   SetMetadata,
   UnauthorizedException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { TenantService } from '../tenant/tenant.service';
-import { AiSearchService, MAX_QUERY_LENGTH } from './ai-search.service';
+import { AiSearchService, MAX_QUERY_LENGTH, MAX_VOICE_BYTES } from './ai-search.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
@@ -23,6 +26,13 @@ export class AiSearchDto {
   @MaxLength(MAX_QUERY_LENGTH)
   query: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  language?: string;
+}
+
+export class VoiceSearchDto {
   @IsOptional()
   @IsString()
   @MaxLength(10)
@@ -61,7 +71,9 @@ export class PublicAiSearchController {
     const tenant = await this.tenantFor(apiKey);
     const state = await this.aiSearch.status(tenant);
     // The reason is for the dashboard and our own support, not the visitor.
-    return { enabled: state.enabled };
+    // `voice` decides whether the mic is shown; it is only ever true when AI
+    // search itself is available.
+    return { enabled: state.enabled, voice: state.enabled && this.aiSearch.voiceEnabled(tenant) };
   }
 
   @Public()
@@ -69,5 +81,22 @@ export class PublicAiSearchController {
   async search(@Headers('x-api-key') apiKey: string, @Body() dto: AiSearchDto) {
     const tenant = await this.tenantFor(apiKey);
     return this.aiSearch.search(tenant, dto.query, dto.language || 'en');
+  }
+
+  /**
+   * The same search, spoken. The recording (a short WAV the widget makes) is
+   * held in memory only, never written to disk, and capped in size before
+   * it is read, so an oversized upload is cut off at the door.
+   */
+  @Public()
+  @Post('voice')
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_BYTES, files: 1 } }))
+  async voice(
+    @Headers('x-api-key') apiKey: string,
+    @UploadedFile() audio: Express.Multer.File | undefined,
+    @Body() dto: VoiceSearchDto,
+  ) {
+    const tenant = await this.tenantFor(apiKey);
+    return this.aiSearch.voiceSearch(tenant, audio?.buffer, dto.language || 'en');
   }
 }

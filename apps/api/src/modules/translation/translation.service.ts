@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -175,6 +175,11 @@ export class TranslationService {
     sourceLanguage?: string,
     propertyIds?: number[],
   ): Promise<{ jobId: string; alreadyRunning?: boolean }> {
+    // Property translation spends the client's own key; refuse up front
+    // rather than queue a run where every property fails.
+    if (!(await this.aiService.hasClientKey(tenantId))) {
+      throw new BadRequestException('Add your OpenRouter API key in Settings → AI to translate properties.');
+    }
     // One run per tenant + entity type: a repeat click resumes the job in
     // flight rather than paying to translate the same catalog twice.
     const running = await this.findActiveJob(tenantId, 'property');
@@ -282,8 +287,11 @@ Do NOT include any markdown formatting or code fences in your response`;
       { role: 'user', content: userContent },
     ];
 
+    // Property text spends the client's key; types, features and labels the
+    // platform key from .env.
     const response = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.2,
+      keySource: context === 'property' ? 'client' : 'platform',
     });
 
     try {

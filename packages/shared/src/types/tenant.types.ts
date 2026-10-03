@@ -354,6 +354,9 @@ export interface TenantFeatureFlags {
   mapSearch: boolean;
   mapView: boolean;
   aiSearch: boolean;
+  // Speak-your-search mic in the AI search panel. Needs aiSearch too: same
+  // client key, same daily ceiling.
+  aiVoiceSearch?: boolean;
   aiChatbot: boolean;
   mortgageCalculator: boolean;
   currencyConverter: boolean;
@@ -363,6 +366,7 @@ export const DEFAULT_FEATURE_FLAGS: TenantFeatureFlags = {
   mapSearch: false,
   mapView: false,
   aiSearch: false,
+  aiVoiceSearch: false,
   aiChatbot: false,
   mortgageCalculator: false,
   currencyConverter: false,
@@ -372,6 +376,7 @@ export const ALL_ENABLED_FEATURE_FLAGS: TenantFeatureFlags = {
   mapSearch: true,
   mapView: true,
   aiSearch: true,
+  aiVoiceSearch: true,
   aiChatbot: true,
   mortgageCalculator: true,
   currencyConverter: true,

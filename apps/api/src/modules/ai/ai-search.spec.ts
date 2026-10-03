@@ -1,5 +1,5 @@
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
-import { AiSearchService } from './ai-search.service';
+import { AiSearchService, VOICE_MODELS } from './ai-search.service';
 
 // What the AI returns is untrusted text from a model that is allowed to be
 // wrong: it fences its JSON, invents ids that belong to no client, sends
@@ -11,7 +11,7 @@ const LOCATIONS = [{ id: 11, name: 'Marbella' }, { id: 12, name: 'Estepona' }];
 const TYPES = [{ id: 21, name: 'Villa' }, { id: 22, name: 'Apartment' }];
 const FEATURES = [{ id: 31, name: 'Pool' }, { id: 32, name: 'Sea view' }];
 
-function build(reply: string, opts: { key?: string | null; enabled?: boolean; usedToday?: number; limit?: number } = {}) {
+function build(reply: string, opts: { key?: string | null; enabled?: boolean; voice?: boolean; usedToday?: number; limit?: number } = {}) {
   const chatCompletion = jest.fn().mockResolvedValue(reply);
   const settings: Record<string, unknown> = {};
   if (opts.limit !== undefined) settings.aiSearchDailyLimit = opts.limit;
@@ -28,7 +28,11 @@ function build(reply: string, opts: { key?: string | null; enabled?: boolean; us
     query: jest.fn().mockResolvedValue(undefined),
   };
   const svc = new AiSearchService(
-    { chatCompletion } as any,
+    {
+      chatCompletion,
+      hasClientKey: jest.fn(async () => !!(await tenants.findOne()).openrouterApiKey),
+      firstAvailableModel: jest.fn(async (ids: string[]) => ids[0]),
+    } as any,
     { findAll: jest.fn().mockResolvedValue(LOCATIONS) } as any,
     { findAll: jest.fn().mockResolvedValue(TYPES) } as any,
     { findAll: jest.fn().mockResolvedValue(FEATURES) } as any,
@@ -36,7 +40,7 @@ function build(reply: string, opts: { key?: string | null; enabled?: boolean; us
     tenants as any,
   );
   (svc as any).logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
-  const tenant = { id: 1, aiSearchEnabled: opts.enabled ?? true } as any;
+  const tenant = { id: 1, aiSearchEnabled: opts.enabled ?? true, featureFlags: { aiVoiceSearch: opts.voice ?? true } } as any;
   return { svc, tenant, chatCompletion, usage };
 }
 
@@ -91,6 +95,14 @@ describe('AI search', () => {
     expect(chatCompletion).not.toHaveBeenCalled();
   });
 
+  it('ignores a hidden legacy key in settings: Settings → AI shows no key, so no AI search', async () => {
+    const { svc, tenant, chatCompletion } = build('{}', { key: null });
+    (svc as any).tenants.findOne.mockResolvedValue({ id: 1, settings: { openRouterApiKey: 'sk-or-old' }, openrouterApiKey: null });
+    await expect(svc.status(tenant)).resolves.toEqual({ enabled: false, reason: 'no_api_key' });
+    await expect(svc.search(tenant, 'villa in Marbella')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
   it('never calls the model when the feature is switched off', async () => {
     const { svc, tenant, chatCompletion } = build('{}', { enabled: false });
     await expect(svc.search(tenant, 'villa')).rejects.toBeInstanceOf(ForbiddenException);
@@ -121,7 +133,7 @@ describe('AI search', () => {
     expect(chatCompletion).toHaveBeenCalledWith(
       1,
       expect.any(Array),
-      expect.objectContaining({ allowPlatformKey: false }),
+      expect.objectContaining({ keySource: 'client' }),
     );
   });
 
@@ -132,5 +144,64 @@ describe('AI search', () => {
     expect(messages[0].content).toContain('11: Marbella');
     expect(messages[0].content).toContain('21: Villa');
     expect(messages[1].content).toContain('anything');
+  });
+});
+
+// A spoken search: the widget records a short WAV, the API checks it really is
+// one and how long it runs, then sends it to an audio-capable model with the
+// client's own lists — on the client's key, under the same daily ceiling.
+function wav(seconds: number, sampleRate = 16000): Buffer {
+  const data = Math.round(seconds * sampleRate) * 2;
+  const b = Buffer.alloc(44 + data);
+  b.write('RIFF', 0, 'ascii'); b.writeUInt32LE(36 + data, 4); b.write('WAVE', 8, 'ascii');
+  b.write('fmt ', 12, 'ascii'); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(sampleRate, 24); b.writeUInt32LE(sampleRate * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
+  b.write('data', 36, 'ascii'); b.writeUInt32LE(data, 40);
+  return b;
+}
+
+describe('AI voice search', () => {
+  it('sends the recording to an audio model and returns filters plus what it heard', async () => {
+    const { svc, tenant, chatCompletion } = build(JSON.stringify({
+      filters: { locationId: 12, minBedrooms: 3 }, interpretation: 'Homes in Estepona', heard: '3 bedrooms in Estepona',
+    }));
+    const r = await svc.voiceSearch(tenant, wav(3), 'en');
+    expect(r).toEqual({ filters: { locationId: 12, minBedrooms: 3 }, interpretation: 'Homes in Estepona', heard: '3 bedrooms in Estepona' });
+    const [, messages, opts] = chatCompletion.mock.calls[0];
+    expect(opts).toMatchObject({ model: VOICE_MODELS[0], keySource: 'client' });
+    expect(messages[0].content).toContain('SPOKE');
+    expect(messages[1].content[1]).toMatchObject({ type: 'input_audio', input_audio: { format: 'wav' } });
+  });
+
+  it('refuses something that is not a WAV before spending anything', async () => {
+    const { svc, tenant, chatCompletion } = build('{}');
+    await expect(svc.voiceSearch(tenant, Buffer.from('x'.repeat(2000)))).rejects.toBeInstanceOf(BadRequestException);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('refuses a recording that is too long or too short', async () => {
+    const { svc, tenant, chatCompletion } = build('{}');
+    await expect(svc.voiceSearch(tenant, wav(25, 8000))).rejects.toThrow(/15 seconds/);
+    await expect(svc.voiceSearch(tenant, wav(0.1))).rejects.toThrow(/too short/);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('is off without the client’s own key, like typed search', async () => {
+    const { svc, tenant, chatCompletion } = build('{}', { key: null });
+    await expect(svc.voiceSearch(tenant, wav(2))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('is off until super admin switches voice on, even with AI search on', async () => {
+    const { svc, tenant, chatCompletion } = build('{}', { voice: false });
+    expect(svc.voiceEnabled(tenant)).toBe(false);
+    await expect(svc.voiceSearch(tenant, wav(2))).rejects.toThrow(/Voice search is not enabled/);
+    expect(chatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('counts against the same daily ceiling', async () => {
+    const { svc, tenant, chatCompletion } = build('{}', { usedToday: 5, limit: 5 });
+    await expect(svc.voiceSearch(tenant, wav(2))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(chatCompletion).not.toHaveBeenCalled();
   });
 });
