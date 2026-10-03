@@ -24,6 +24,7 @@ import {
   MigrationValidationResult,
   MigrationData,
 } from './dto';
+import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
 export class MigrationService {
@@ -42,6 +43,7 @@ export class MigrationService {
     private labelRepository: Repository<Label>,
     @InjectQueue('migration')
     private migrationQueue: Queue,
+    private tenantService: TenantService,
   ) {}
 
   async validateFile(
@@ -209,20 +211,22 @@ export class MigrationService {
     job.startedAt = new Date();
     await this.migrationJobRepository.save(job);
 
+    // Outside the try so the finally below can see what got written even
+    // when the run is cancelled or fails part-way.
+    const stats = {
+      properties: 0,
+      locations: 0,
+      types: 0,
+      features: 0,
+      labels: 0,
+      images: 0,
+    };
+
     try {
       const content = fs.readFileSync(job.filePath, 'utf-8');
       const data: MigrationData = job.sourceFormat === 'json'
         ? JSON.parse(content)
         : this.parseCsv(content);
-
-      const stats = {
-        properties: 0,
-        locations: 0,
-        types: 0,
-        features: 0,
-        labels: 0,
-        images: 0,
-      };
 
       const errors: Array<{ row?: number; field?: string; message: string }> = [];
 
@@ -345,6 +349,16 @@ export class MigrationService {
       job.completedAt = new Date();
       job.errors = [{ message: error.message }];
       await this.migrationJobRepository.save(job);
+    } finally {
+      // One syncVersion bump per run, after every row is written — whether it
+      // finished, was cancelled or failed part-way, rows it already wrote are
+      // live. Each row is its own committed save, so nothing rolls back.
+      // (Location/type/feature counts include rows that already existed; an
+      // extra bump then is harmless, a missed one leaves sites stale.)
+      const written = stats.properties + stats.locations + stats.types + stats.features + stats.labels;
+      if (written > 0) {
+        await this.tenantService.bumpSyncVersionSafely(tenantId, `migration import job=${jobId}`);
+      }
     }
   }
 

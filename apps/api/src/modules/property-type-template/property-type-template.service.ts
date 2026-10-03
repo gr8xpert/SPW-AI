@@ -14,6 +14,7 @@ import {
   PropertyTypeTemplateUnmatched,
 } from '../../database/entities';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
+import { TenantService } from '../tenant/tenant.service';
 import { locationKey, locationSlug } from '../location-template/location-name';
 import { parseCsv } from '../location-template/location-template.service';
 import {
@@ -70,6 +71,7 @@ export class PropertyTypeTemplateService {
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
     private readonly aiEnrichmentService: AiEnrichmentService,
+    private readonly tenantService: TenantService,
   ) {}
 
   // ===================================================================
@@ -383,6 +385,13 @@ Reply ONLY with JSON: { "1": "<group or null>", "2": ..., ... }`;
       }
     }
     const cleaned = await this.cleanupRedundantRows(tenantId);
+    // One bump per tenant per apply, after all its rows are written (re-apply
+    // all = one per affected tenant). Created/adopted/moved/renamed rows
+    // change public type names and tree even when no listing moved.
+    const s = ctx.stats;
+    if (relocated || cleaned || s.created || s.adopted || s.moved || s.renamed) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, 'property type template apply');
+    }
     return { relocated, cleaned, listings: listings.length };
   }
 

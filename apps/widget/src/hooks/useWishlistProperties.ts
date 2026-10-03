@@ -60,7 +60,7 @@ export function useWishlistProperties(): { properties: Property[]; loading: bool
       .then((properties) => { if (live) setLoaded(properties); })
       .catch(() => { if (live) setLoaded(null); });
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deliberately keyed on `key` (the sorted favourite ids), not `favorites`.
   }, [key]);
 
   // Until the lookup answers (or if it failed), show whatever saved properties

@@ -6,7 +6,10 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import type { Tenant } from '../../database/entities';
+import { AI_SEARCH_STATUS, type AiSearchStatusProvider } from '../ai/ai-search-status.token';
 import { TenantService } from './tenant.service';
 import { SiteCheckinService } from '../website-health/site-checkin.service';
 import { isPreviewToken } from '../../common/crypto/preview-token';
@@ -26,6 +29,7 @@ export class PublicWidgetConfigController {
   constructor(
     private readonly tenantService: TenantService,
     private readonly checkins: SiteCheckinService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   @Public()
@@ -40,6 +44,22 @@ export class PublicWidgetConfigController {
     }
     // A browser loading the widget: remember which site (Website Health page).
     if (origin && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, origin, 'widget');
-    return this.tenantService.getPublicWidgetConfig(tenant.id);
+    const [config, aiSearch] = await Promise.all([
+      this.tenantService.getPublicWidgetConfig(tenant.id),
+      this.aiSearchStatus(tenant),
+    ]);
+    // Whether to show the AI and voice buttons, so the widget needn't ask
+    // ai-search/status separately. Left out if it can't be worked out — the
+    // widget then asks that endpoint as before.
+    return aiSearch ? { ...config, aiSearch } : config;
+  }
+
+  private async aiSearchStatus(tenant: Tenant): Promise<{ enabled: boolean; voice: boolean } | null> {
+    try {
+      const provider = this.moduleRef.get<AiSearchStatusProvider>(AI_SEARCH_STATUS, { strict: false });
+      return await provider.publicStatus(tenant);
+    } catch {
+      return null;
+    }
   }
 }

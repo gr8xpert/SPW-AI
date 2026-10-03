@@ -55,6 +55,15 @@ import { format } from 'date-fns';
 import { formatDate } from '@/lib/utils';
 import { formatHM } from '@/lib/time';
 import { useApi } from '@/hooks/use-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
+import {
+  adminTicketKeys,
+  useAdminTicket,
+  useAdminTicketMutation,
+  useAdminTicketTimeEntries,
+  useAdminWebmasters,
+} from '../use-admin-tickets';
 import { useToast } from '@/hooks/use-toast';
 
 interface TicketData {
@@ -147,65 +156,37 @@ export default function AdminTicketDetailPage() {
   const api = useApi();
   const { toast } = useToast();
 
-  const [ticket, setTicket] = useState<TicketData | null>(null);
-  const [webmasters, setWebmasters] = useState<Webmaster[]>([]);
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const ticketId = params.id;
-
-  // These are deliberately NOT wrapped in useCallback. `useApi()` returns a new
-  // object each render whose request closure captures the access token as it was
-  // at that render. Freezing them with deps that omit `api` pinned them to the
-  // first render — before the session hydrates — so every call went out with no
-  // Authorization header and 401'd, even though the effect below waits for
-  // `api.isReady`. Same bug that made the Locations page show "Failed to load".
-  const fetchTicket = async () => {
-    try {
-      const res = await api.get(`/api/super-admin/tickets/${ticketId}`);
-      const body = res?.data || res;
-      setTicket(body);
-    } catch {
-      toast({ title: 'Failed to load ticket', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchWebmasters = async () => {
-    try {
-      const res = await api.get('/api/super-admin/webmasters');
-      const body = res?.data || res;
-      setWebmasters(Array.isArray(body) ? body : []);
-    } catch {
-      // non-critical
-    }
-  };
-
-  const fetchTimeEntries = async () => {
-    try {
-      const res = await api.get(`/api/super-admin/webmasters/tickets/${ticketId}/time-entries`);
-      const body = res?.data || res;
-      setTimeEntries(Array.isArray(body) ? body : []);
-    } catch {
-      // non-critical
-    }
-  };
+  const ticketId = params.id as string | undefined;
+  const queryClient = useQueryClient();
+  const { scope } = useTenantQueryScope();
+  // React Query keeps the fetches out of stale useCallback closures, and
+  // api.get reads the current token at call time.
+  const ticketQuery = useAdminTicket<TicketData>(ticketId);
+  const ticket = ticketQuery.data ?? null;
+  // Spinner until the first answer (also while the session/token isn't ready).
+  const isLoading = ticketQuery.isPending;
+  const webmasters = useAdminWebmasters<Webmaster>().data ?? [];
+  const timeEntries = useAdminTicketTimeEntries<TimeEntry>(ticketId).data ?? [];
+  const detailKey = adminTicketKeys.detail(scope, ticketId ?? '');
+  const patchTicket = (patch: Partial<TicketData>) =>
+    queryClient.setQueryData<TicketData>(detailKey, (prev) => (prev ? { ...prev, ...patch } : prev));
 
   useEffect(() => {
-    if (api.isReady && ticketId) {
-      fetchTicket();
-      fetchWebmasters();
-      fetchTimeEntries();
-    }
-  }, [api.isReady, ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (ticketQuery.isError) toast({ title: 'Failed to load ticket', variant: 'destructive' });
+  }, [ticketQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateTicket = useAdminTicketMutation(({ id, body }: { id: number; body: Record<string, unknown> }) =>
+    api.put(`/api/super-admin/tickets/${id}`, body));
+  const sendReply = useAdminTicketMutation(({ id, body }: { id: number; body: any }) =>
+    api.post(`/api/super-admin/tickets/${id}/messages`, body));
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -233,8 +214,8 @@ export default function AdminTicketDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket) return;
     try {
-      await api.put(`/api/super-admin/tickets/${ticket.id}`, { status: newStatus });
-      setTicket((prev) => prev ? { ...prev, status: newStatus } : prev);
+      await updateTicket.mutateAsync({ id: ticket.id, body: { status: newStatus } });
+      patchTicket({ status: newStatus });
       toast({ title: `Status changed to ${statusConfig[newStatus]?.label || newStatus}` });
     } catch (e: any) {
       toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' });
@@ -244,8 +225,8 @@ export default function AdminTicketDetailPage() {
   const handlePriorityChange = async (newPriority: string) => {
     if (!ticket) return;
     try {
-      await api.put(`/api/super-admin/tickets/${ticket.id}`, { priority: newPriority });
-      setTicket((prev) => prev ? { ...prev, priority: newPriority } : prev);
+      await updateTicket.mutateAsync({ id: ticket.id, body: { priority: newPriority } });
+      patchTicket({ priority: newPriority });
       toast({ title: `Priority changed to ${priorityConfig[newPriority]?.label || newPriority}` });
     } catch (e: any) {
       toast({ title: 'Failed to update priority', description: e.message, variant: 'destructive' });
@@ -256,17 +237,12 @@ export default function AdminTicketDetailPage() {
     if (!ticket) return;
     const assignedTo = value === 'unassigned' ? null : parseInt(value);
     try {
-      await api.put(`/api/super-admin/tickets/${ticket.id}`, { assignedTo });
+      await updateTicket.mutateAsync({ id: ticket.id, body: { assignedTo } });
       const assignedUser = webmasters.find((w) => w.id === assignedTo);
-      setTicket((prev) =>
-        prev
-          ? {
-              ...prev,
-              assignedTo,
-              assignedToUser: assignedUser ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email } : undefined,
-            }
-          : prev,
-      );
+      patchTicket({
+        assignedTo,
+        assignedToUser: assignedUser ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email } : undefined,
+      });
       toast({ title: assignedTo ? `Assigned to ${assignedUser?.name || 'webmaster'}` : 'Unassigned' });
     } catch (e: any) {
       toast({ title: 'Failed to assign ticket', description: e.message, variant: 'destructive' });
@@ -279,12 +255,12 @@ export default function AdminTicketDetailPage() {
     try {
       const body: any = { message: replyMessage, isInternal };
       if (replyAttachments.length > 0) body.attachments = replyAttachments;
-      await api.post(`/api/super-admin/tickets/${ticket.id}/messages`, body);
+      await sendReply.mutateAsync({ id: ticket.id, body });
       setReplyMessage('');
       setReplyAttachments([]);
       setIsInternal(false);
       toast({ title: isInternal ? 'Internal note added' : 'Reply sent' });
-      await fetchTicket();
+      await queryClient.invalidateQueries({ queryKey: detailKey });
     } catch (e: any) {
       toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
     } finally {
@@ -292,7 +268,7 @@ export default function AdminTicketDetailPage() {
     }
   };
 
-  if (isLoading || !api.isReady) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

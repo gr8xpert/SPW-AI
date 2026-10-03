@@ -6,6 +6,7 @@ import { AiEnrichmentController } from './ai-enrichment.controller';
 import { AiModule } from '../ai/ai.module';
 import { LocationModule } from '../location/location.module';
 import { PropertyTypeModule } from '../property-type/property-type.module';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
@@ -17,6 +18,8 @@ import { PropertyTypeModule } from '../property-type/property-type.module';
     LocationModule,
     // Same for PropertyTypeService.merge, which folds duplicate type rows.
     PropertyTypeModule,
+    // The controller bumps syncVersion once an AI Organize run finishes.
+    TenantModule,
   ],
   controllers: [AiEnrichmentController],
   providers: [AiEnrichmentService],

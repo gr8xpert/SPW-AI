@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Like, Not, FindOptionsWhere } from 'typeorm';
+import { Repository, DataSource, Brackets, Not, FindOptionsWhere } from 'typeorm';
 import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -29,6 +29,14 @@ import { TierPolicyService } from '../tenant/tier-policy.service';
 import { AuthService } from '../auth/auth.service';
 import { RefreshTokenService } from '../auth/refresh-token.service';
 import { UploadService } from '../upload/upload.service';
+
+/**
+ * Escape LIKE wildcards so user input matches literally ("a_b" must not
+ * match "axb"). Backslash is MySQL's default LIKE escape character.
+ */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -120,40 +128,59 @@ export class SuperAdminService {
     // The seeded "Platform" tenant only holds the super-admin logins; it is not
     // a client, so it stays out of the list (deleting it from there would
     // delete those logins). Only this one: other internal clients are shown.
-    const where: FindOptionsWhere<Tenant> = { slug: Not(PLATFORM_TENANT_SLUG) };
+    const qb = this.tenantRepository
+      .createQueryBuilder('tenant')
+      .leftJoinAndSelect('tenant.plan', 'plan')
+      .where('tenant.slug != :platformSlug', { platformSlug: PLATFORM_TENANT_SLUG });
 
-    if (search) {
-      // Search in name, slug, domain, ownerEmail
-      where.name = Like(`%${search}%`);
+    const term = search?.trim();
+    if (term) {
+      // Operators look a client up by whatever they have to hand: the name,
+      // the slug from a URL, or the email of someone who wrote in. Email
+      // matching goes through EXISTS rather than a JOIN so a tenant with
+      // several matching users is still one row and the count stays right.
+      // LOWER() on both sides keeps it case-insensitive whatever the column
+      // collation, and the input is escaped so "%" or "_" match literally.
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('LOWER(tenant.name) LIKE :search')
+            .orWhere('LOWER(tenant.slug) LIKE :search')
+            .orWhere('LOWER(tenant.domain) LIKE :search')
+            .orWhere('LOWER(tenant.ownerEmail) LIKE :search')
+            .orWhere(
+              'EXISTS (SELECT 1 FROM users u WHERE u.tenantId = tenant.id AND LOWER(u.email) LIKE :search)',
+            );
+        }),
+        { search: `%${escapeLike(term.toLowerCase())}%` },
+      );
     }
 
     if (subscriptionStatus) {
-      where.subscriptionStatus = subscriptionStatus;
+      qb.andWhere('tenant.subscriptionStatus = :subscriptionStatus', { subscriptionStatus });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      qb.andWhere('tenant.isActive = :isActive', { isActive });
     }
 
     if (isInternal !== undefined) {
-      where.isInternal = isInternal;
+      qb.andWhere('tenant.isInternal = :isInternal', { isInternal });
     }
 
     if (adminOverride !== undefined) {
-      where.adminOverride = adminOverride;
+      qb.andWhere('tenant.adminOverride = :adminOverride', { adminOverride });
     }
 
     if (planId) {
-      where.planId = planId;
+      qb.andWhere('tenant.planId = :planId', { planId });
     }
 
-    const [tenants, total] = await this.tenantRepository.findAndCount({
-      where,
-      relations: ['plan'],
-      order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    // sortBy is whitelisted in QueryClientsDto, so interpolating it is safe.
+    const [tenants, total] = await qb
+      .orderBy(`tenant.${sortBy}`, sortOrder)
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     // Get user counts for each tenant
     const tenantIds = tenants.map((t) => t.id);

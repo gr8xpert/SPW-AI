@@ -2,7 +2,7 @@ import { useRef, useCallback } from 'preact/hooks';
 import { useSelector } from '@/hooks/useStore';
 import { useLabels } from '@/hooks/useLabels';
 import { selectors } from '@/core/selectors';
-import PropertyCard from './PropertyCard';
+import { useCardDesign } from './cards/registry';
 import Skeleton from '@/components/common/Skeleton';
 import { useBlockSearch } from '@/hooks/useBlockSearch';
 
@@ -22,6 +22,8 @@ export default function RsPropertyCarousel(props: RsPropertyCarouselProps) {
   const isLoading = own.enabled ? own.loading : pageLoading;
   const { t } = useLabels();
   const trackRef = useRef<HTMLDivElement>(null);
+  // This carousel's card design; null only while it is still being fetched.
+  const Card = useCardDesign(template);
 
   const scrollBy = useCallback((direction: number) => {
     const track = trackRef.current;
@@ -32,7 +34,7 @@ export default function RsPropertyCarousel(props: RsPropertyCarouselProps) {
     track.scrollBy({ left: direction * cardWidth, behavior: 'smooth' });
   }, []);
 
-  if (isLoading) {
+  if (isLoading || (!Card && results?.data.length)) {
     return (
       <div class="rs-carousel">
         <div class="rs-carousel__track">
@@ -53,6 +55,8 @@ export default function RsPropertyCarousel(props: RsPropertyCarouselProps) {
     );
   }
 
+  if (!Card) return null;
+
   const maxItems = limit ? parseInt(limit, 10) : results.data.length;
   const items = results.data.slice(0, maxItems);
 
@@ -72,9 +76,8 @@ export default function RsPropertyCarousel(props: RsPropertyCarouselProps) {
       <div class="rs-carousel__track rs-carousel-track" ref={trackRef}>
         {items.map((property, i) => (
           <div class="rs-carousel__slide" key={property.id}>
-            <PropertyCard
+            <Card
               property={property}
-              template={template}
               index={i}
             />
           </div>

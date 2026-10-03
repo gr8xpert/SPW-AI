@@ -49,6 +49,13 @@ export class DataLoader {
   private config: WidgetConfig;
   private snapshot: SnapshotCache;
   private snapshotResults: Record<string, SearchResults> = {};
+  // Dropdown counts saved with this page's results file, by search key
+  // without paging/sorting (see facetsKey).
+  private snapshotFacets: Record<string, Facets> = {};
+  // The total of each live search, by filters without paging/sorting, so the
+  // Search button's count needn't ask again for a search already run.
+  private knownTotals = new Map<string, number>();
+  private pendingTotals = new Map<string, Promise<SearchResults>>();
   // Called when the dashboard settings arrive from the API after the page was
   // already drawn with a saved copy (the plugin's file or the browser's).
   onLiveConfig: ((config: Partial<WidgetConfig>) => void) | null = null;
@@ -60,6 +67,8 @@ export class DataLoader {
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
     this.dataPath = config.dataPath || '/spm-data';
+    // Module-level "current loader" handle, not a closure alias.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     activeLoader = this;
   }
 
@@ -108,8 +117,10 @@ export class DataLoader {
     const url = this.config.dataBundleUrl;
     if (!url) return null;
     try {
-      // Start the live settings now, in parallel with the file.
+      // Start the live settings and this page's own results file now, in
+      // parallel with the bundle.
       const live = this.liveConfig();
+      const page = this.loadPageResults();
       // A file that never arrives falls back to the other layers instead of
       // leaving the page empty.
       const res = await fetch(url, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(10_000) } : undefined);
@@ -126,7 +137,8 @@ export class DataLoader {
       };
       if (json.lang && json.lang !== (this.config.language || 'en')) return null;
       if (!Array.isArray(json.locations) || !Array.isArray(json.types)) return null;
-      if (json.results && typeof json.results === 'object') this.snapshotResults = json.results;
+      if (json.results && typeof json.results === 'object') this.snapshotResults = { ...json.results, ...this.snapshotResults };
+      await page;
       return {
         syncVersion: json.syncVersion ?? 0,
         config: (await this.dashboardConfig(live, json.config)) ?? undefined,
@@ -138,6 +150,36 @@ export class DataLoader {
     } catch {
       return null;
     }
+  }
+
+  // The WordPress plugin's saved copy of this page's first search (plugin
+  // 2.9+): results and dropdown counts, so the cards draw before any API call.
+  // Anything missing, late (5s) or for another search is simply ignored — the
+  // live search runs as always and replaces what was drawn.
+  private loadPageResults(): Promise<void> {
+    const want = this.config.pageResults;
+    if (!want) return Promise.resolve();
+    const lang = this.config.language || 'en';
+    return fetch(want.url, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(5_000) } : undefined)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { key?: string; lang?: string; results?: SearchResults; facets?: Facets } | null) => {
+        if (!json || json.key !== want.key || (json.lang && json.lang !== lang)) return;
+        if (json.results && Array.isArray(json.results.data)) this.snapshotResults[want.key] = json.results;
+        if (json.facets && typeof json.facets === 'object') this.snapshotFacets[facetsKey(want.key)] = json.facets;
+      })
+      .catch(() => {});
+  }
+
+  /**
+   * The total a search for these filters found on this page, or will find
+   * (one on its way); null when none was asked for.
+   */
+  knownTotal(filters: SearchFilters): Promise<number | null> | null {
+    const key = totalsKey(filters);
+    const known = this.knownTotals.get(key);
+    if (known != null) return Promise.resolve(known);
+    const pending = this.pendingTotals.get(key);
+    return pending ? pending.then((r) => r?.meta?.total ?? null, () => null) : null;
   }
 
   // The dashboard settings from the API, remembered in the browser once they
@@ -293,9 +335,19 @@ export class DataLoader {
     }
 
     const params = searchParams(filters);
-    const results = await this.api.get<SearchResults>('/v1/properties', params);
+    const tKey = totalsKey(filters);
+    const request = this.api.get<SearchResults>('/v1/properties', params);
+    this.pendingTotals.set(tKey, request);
+    let results: SearchResults;
+    try {
+      results = await request;
+    } finally {
+      if (this.pendingTotals.get(tKey) === request) this.pendingTotals.delete(tKey);
+    }
     this.setMemoryCache(cacheKey, results);
     if (results && Array.isArray(results.data)) this.snapshot.writeSearch(searchKey(params), results);
+    const total = results?.meta?.total;
+    if (typeof total === 'number') this.knownTotals.set(totalsKey(filters), total);
     return results;
   }
 
@@ -352,6 +404,11 @@ export class DataLoader {
     const cacheKey = `facets:${JSON.stringify(rest)}`;
     const cached = this.getMemoryCache<Facets>(cacheKey);
     if (cached) return cached;
+    // Saved with this page's results file — as fresh as the plugin's bundle
+    // (rebuilt within minutes of a property change), which is as fresh as the
+    // location and type lists these counts sit beside.
+    const saved = this.snapshotFacets[searchKey(searchParams(rest))];
+    if (saved) return saved;
     const res = await this.api.get<Facets>('/v1/properties/facets', searchParams(rest));
     this.setMemoryCache(cacheKey, res);
     return res;
@@ -605,6 +662,23 @@ export interface MapPointsResponse {
 }
 
 // Query string for /v1/properties (and /map, which takes the same filters).
+// Paging, sorting and the map's box don't change how many listings match or
+// the dropdown counts: these keys leave them out.
+function totalsKey(filters: SearchFilters): string {
+  const { page, limit, sortBy, bounds, ...rest } = filters;
+  void page; void limit; void sortBy; void bounds;
+  return searchKey(searchParams(rest));
+}
+
+// The same, from a search key (a sorted query string) instead of filters.
+function facetsKey(key: string): string {
+  const params: Record<string, string> = {};
+  new URLSearchParams(key).forEach((v, k) => {
+    if (!['page', 'limit', 'sortBy', 'bounds'].includes(k)) params[k] = v;
+  });
+  return searchKey(params);
+}
+
 function searchParams(filters: SearchFilters): Record<string, string | number | boolean | undefined> {
   const params: Record<string, string | number | boolean | undefined> = {};
   if (filters.query) params.query = filters.query;

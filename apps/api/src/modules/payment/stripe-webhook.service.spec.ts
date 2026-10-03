@@ -15,7 +15,11 @@ const SECRET = 'whsec_test_secret';
 //  - processed_stripe_events.eventId is a PRIMARY KEY, so a second insert of
 //    the same id fails (that is the dedup guarantee under concurrency);
 //  - dataSource.transaction() commits the staged writes only if the callback
-//    resolves, and releases the PK "claim" if it throws.
+//    resolves, and releases the PK "claim" if it throws;
+//  - credit_balances.tenantId is UNIQUE (a second insert fails), and reads
+//    inside the transaction see its own staged balance writes.
+// findOne ignores the `lock` option: these tests run one event at a time, so
+// what they check is that the lock is asked for (see `locks`).
 function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = {}) {
   const processed = new Map<string, string>(); // committed
   const claimed = new Set<string>(); // PK held by an open or committed tx
@@ -23,6 +27,7 @@ function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = 
   const balances = new Map<number, any>((seed.balances ?? []).map((b) => [b.tenantId, { ...b }]));
   const ledger: any[] = [];
   const payments: any[] = [...(seed.payments ?? [])];
+  const locks: Array<{ entity: string; where: any; mode: string }> = [];
 
   const claim = (eventId: string, eventType: string) => {
     if (claimed.has(eventId)) {
@@ -53,19 +58,28 @@ function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = 
       const stagedLedger: any[] = [];
       const stagedPayments: any[] = [];
       const stagedSaves: Array<() => void> = [];
+      const stagedBalances = new Map<number, any>();
+      const balanceOf = (tenantId: number) => stagedBalances.get(tenantId) ?? balances.get(tenantId);
       const manager = {
         insert: jest.fn(async (entity: any, row: any) => {
           if (entity === ProcessedStripeEvent) stagedProcessed.push(claim(row.eventId, row.eventType));
           else if (entity === CreditTransaction) stagedLedger.push(row);
           else if (entity === SubscriptionPayment) stagedPayments.push(row);
+          else if (entity === CreditBalance) {
+            if (balanceOf(row.tenantId)) {
+              throw Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' });
+            }
+            stagedBalances.set(row.tenantId, { ...row });
+          }
         }),
-        findOne: jest.fn(async (entity: any, { where }: any) => {
+        findOne: jest.fn(async (entity: any, { where, lock }: any) => {
+          if (lock) locks.push({ entity: entity.name, where, mode: lock.mode });
           if (entity === Tenant) {
             const t = tenants.get(where.id);
             return t ? { ...t } : null;
           }
           if (entity === CreditBalance) {
-            const b = balances.get(where.tenantId);
+            const b = balanceOf(where.tenantId);
             return b ? { ...b } : null;
           }
           if (entity === SubscriptionPayment) return findLatestPayment(where.stripeSubscriptionId);
@@ -83,6 +97,7 @@ function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = 
           const copy = { ...row };
           if (copy.__entity === CreditBalance || ('balance' in copy && 'tenantId' in copy)) {
             delete copy.__entity;
+            stagedBalances.set(copy.tenantId, copy);
             stagedSaves.push(() => balances.set(copy.tenantId, copy));
           } else {
             stagedSaves.push(() => tenants.set(copy.id, copy));
@@ -95,6 +110,7 @@ function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = 
         stagedProcessed.forEach((p) => processed.set(p.eventId, p.eventType));
         ledger.push(...stagedLedger);
         payments.push(...stagedPayments);
+        stagedBalances.forEach((b, id) => balances.set(id, b));
         stagedSaves.forEach((apply) => apply());
         return result;
       } catch (err) {
@@ -104,7 +120,7 @@ function makeDb(seed: { tenants?: any[]; balances?: any[]; payments?: any[] } = 
     }),
   };
 
-  return { processed, tenants, balances, ledger, payments, processedRepo, dataSource };
+  return { processed, tenants, balances, ledger, payments, locks, processedRepo, dataSource };
 }
 
 function makeService(db: ReturnType<typeof makeDb>, env: Record<string, string | undefined> = {}) {
@@ -217,6 +233,13 @@ describe('StripeWebhookService', () => {
         amountEur: 250,
         currency: 'EUR',
       });
+    });
+
+    it('reads the balance with a row lock so concurrent credit changes cannot overwrite it', async () => {
+      const db = makeDb({ tenants: [{ id: 7 }], balances: [{ tenantId: 7, balance: '10.00' }] });
+      const { svc } = makeService(db);
+      await svc.process(signed(creditCheckout('evt_1')));
+      expect(db.locks).toContainEqual({ entity: 'CreditBalance', where: { tenantId: 7 }, mode: 'pessimistic_write' });
     });
 
     it('creates the balance from zero for a tenant without one, and supports fractional hours', async () => {
@@ -667,18 +690,77 @@ describe('StripeWebhookService', () => {
       });
     });
 
-    // RISK: Stripe does not guarantee delivery order and the handler has no
-    // "event.created is older than what we applied" check. A late
-    // subscription.updated(active) arriving after subscription.deleted
-    // re-activates the tenant.
-    it('a late "updated: active" after "deleted" re-activates the tenant (documents current behaviour)', async () => {
-      const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
-      const { svc } = makeService(db);
-      await svc.process(signed(subEvent('evt_del', 'customer.subscription.deleted', { id: 'sub_1', metadata: { tenantId: '7' } })));
-      await svc.process(
-        signed(subEvent('evt_old', 'customer.subscription.updated', { id: 'sub_1', status: 'active', metadata: { tenantId: '7' } })),
-      );
-      expect(db.tenants.get(7).subscriptionStatus).toBe('active');
+    // Stripe does not guarantee delivery order. Each tenant keeps the
+    // `created` of the newest subscription event applied (lastStripeEventAt).
+    describe('out-of-order delivery', () => {
+      const T = 1_790_000_000;
+      const at = (id: string, type: string, created: number, sub: any) => ({
+        ...subEvent(id, type, { id: 'sub_1', metadata: { tenantId: '7' }, ...sub }),
+        created,
+      });
+
+      it('a late "updated: active" after "deleted" does not re-activate the tenant', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_del', 'customer.subscription.deleted', T + 10, {})));
+        const res = await svc.process(
+          signed(at('evt_old', 'customer.subscription.updated', T, { status: 'active', metadata: { tenantId: '7', planId: '9' } })),
+        );
+        expect(res.outcome).toBe('stale');
+        expect(db.tenants.get(7)).toMatchObject({ subscriptionStatus: 'expired', lastStripeEventAt: T + 10 });
+        expect(db.tenants.get(7).planId).toBeUndefined();
+      });
+
+      it('same second: "updated: active" after "deleted" still loses (a canceled subscription is final)', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_del', 'customer.subscription.deleted', T, {})));
+        const res = await svc.process(signed(at('evt_upd', 'customer.subscription.updated', T, { status: 'active' })));
+        expect(res.outcome).toBe('stale');
+        expect(db.tenants.get(7).subscriptionStatus).toBe('expired');
+      });
+
+      it('same second, not terminal: "created: incomplete" then "updated: active" both apply', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'expired' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_c', 'customer.subscription.created', T, { status: 'incomplete' })));
+        const res = await svc.process(signed(at('evt_u', 'customer.subscription.updated', T, { status: 'active' })));
+        expect(res.outcome).toBe('applied');
+        expect(db.tenants.get(7).subscriptionStatus).toBe('active');
+      });
+
+      it('in-order events apply and move the mark forward', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_1', 'customer.subscription.updated', T, { status: 'past_due' })));
+        await svc.process(signed(at('evt_2', 'customer.subscription.updated', T + 5, { status: 'active' })));
+        expect(db.tenants.get(7)).toMatchObject({ subscriptionStatus: 'active', lastStripeEventAt: T + 5 });
+      });
+
+      it('an older "past_due" arriving after a newer "active" is skipped', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_new', 'customer.subscription.updated', T + 5, { status: 'active' })));
+        const res = await svc.process(signed(at('evt_old', 'customer.subscription.updated', T, { status: 'past_due' })));
+        expect(res.outcome).toBe('stale');
+        expect(db.tenants.get(7).subscriptionStatus).toBe('active');
+      });
+
+      it("an old subscription's deletion arriving after a new subscription started is skipped", async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'expired' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_new', 'customer.subscription.created', T + 100, { id: 'sub_2', status: 'active' })));
+        const res = await svc.process(signed(at('evt_old_del', 'customer.subscription.deleted', T, { id: 'sub_1' })));
+        expect(res.outcome).toBe('stale');
+        expect(db.tenants.get(7).subscriptionStatus).toBe('active');
+      });
+
+      it('locks the tenant row (SELECT … FOR UPDATE) so concurrent webhooks apply one after the other', async () => {
+        const db = makeDb({ tenants: [{ id: 7, subscriptionStatus: 'active' }] });
+        const { svc } = makeService(db);
+        await svc.process(signed(at('evt_1', 'customer.subscription.updated', T, { status: 'active' })));
+        expect(db.locks).toContainEqual({ entity: 'Tenant', where: { id: 7 }, mode: 'pessimistic_write' });
+      });
     });
   });
 
@@ -751,6 +833,66 @@ describe('StripeWebhookService', () => {
         expect(db.payments).toHaveLength(0);
       },
     );
+
+    describe('after the subscription ended', () => {
+      const T = 1_790_000_000;
+      const deleted = (created: number) => ({
+        id: 'evt_del',
+        type: 'customer.subscription.deleted',
+        created,
+        data: { object: { id: 'sub_1', metadata: { tenantId: '7' } } },
+      });
+
+      it.each(['invoice.paid', 'invoice.payment_failed'])(
+        'a late %s records the payment but leaves the tenant expired',
+        async (type) => {
+          const db = makeDb({
+            tenants: [{ id: 7, planId: 3, subscriptionStatus: 'active' }],
+            payments: [{ tenantId: 7, stripeSubscriptionId: 'sub_1', planId: 3 }],
+          });
+          const { svc } = makeService(db);
+          await svc.process(signed(deleted(T + 10)));
+          const res = await svc.process(signed({ ...invoice('evt_inv', type), created: T }));
+          expect(res.outcome).toBe('stale');
+          expect(db.payments).toHaveLength(2);
+          expect(db.tenants.get(7)).toMatchObject({ subscriptionStatus: 'expired' });
+          expect(db.tenants.get(7).graceEndsAt).toBeUndefined();
+        },
+      );
+
+      it.each(['invoice.paid', 'invoice.payment_failed'])(
+        'a %s newer than the deletion still cannot reopen an expired tenant',
+        async (type) => {
+          const db = makeDb({
+            tenants: [{ id: 7, planId: 3, subscriptionStatus: 'active' }],
+            payments: [{ tenantId: 7, stripeSubscriptionId: 'sub_1', planId: 3 }],
+          });
+          const { svc } = makeService(db);
+          await svc.process(signed(deleted(T)));
+          await svc.process(signed({ ...invoice('evt_inv', type), created: T + 60 }));
+          expect(db.tenants.get(7).subscriptionStatus).toBe('expired');
+        },
+      );
+
+      it('an older invoice.payment_failed does not undo a newer recovery', async () => {
+        const db = makeDb({
+          tenants: [{ id: 7, planId: 3, subscriptionStatus: 'grace' }],
+          payments: [{ tenantId: 7, stripeSubscriptionId: 'sub_1', planId: 3 }],
+        });
+        const { svc } = makeService(db);
+        await svc.process(
+          signed({
+            id: 'evt_upd',
+            type: 'customer.subscription.updated',
+            created: T + 30,
+            data: { object: { id: 'sub_1', status: 'active', metadata: { tenantId: '7' } } },
+          }),
+        );
+        const res = await svc.process(signed({ ...invoice('evt_fail', 'invoice.payment_failed'), created: T }));
+        expect(res.outcome).toBe('stale');
+        expect(db.tenants.get(7).subscriptionStatus).toBe('active');
+      });
+    });
 
     it('invoice.paid without a subscription (one-off invoice) is ignored', async () => {
       const db = makeDb();

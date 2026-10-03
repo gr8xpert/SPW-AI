@@ -41,10 +41,20 @@ export interface WidgetConfig {
   // and labels in one cacheable file instead of four API calls.
   dataBundleUrl?: string;
 
+  // This page's own first search, saved by the WordPress plugin (since 2.9):
+  // its results and dropdown counts, so the cards draw without waiting for the
+  // API. `key` is the search as the widget keys it (searchKey).
+  pageResults?: { key: string; url: string };
+  // Where to tell the plugin which search this page opens with, when it
+  // hasn't saved that search yet (or saved a different one).
+  reportSearch?: { url: string; page: number };
+
   // AI search is offered only when the client switched it on and holds their
   // own OpenRouter key; /v1/ai-search/status confirms the key before the
   // button appears.
   aiSearchEnabled?: boolean;
+  // The same answer, sent with widget-config by newer APIs (no separate call).
+  aiSearch?: { enabled: boolean; voice: boolean };
 
   locationSearchConfig?: {
     dropdown1: { levels: string[]; visible?: boolean };
@@ -103,6 +113,8 @@ export interface RealtySoftConfig {
   resultsPage?: string;
   wishlistPage?: string;
   dataBundleUrl?: string;
+  pageResults?: { key: string; url: string };
+  reportSearch?: { url: string; page: number };
   searchTemplate?: number;
   listingTemplate?: number;
   mapTemplate?: number;

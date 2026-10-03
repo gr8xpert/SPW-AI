@@ -33,6 +33,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useWebmasterTickets } from './use-webmaster-tickets';
 
 interface TicketItem {
   id: number;
@@ -68,33 +69,25 @@ export default function WebmasterTicketsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [tickets, setTickets] = useState<TicketItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchTickets = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/api/webmaster/tickets');
-      const body = response?.data ?? response;
-      setTickets(Array.isArray(body) ? body : []);
-    } catch (err: any) {
+  const ticketsQuery = useWebmasterTickets<TicketItem>();
+  const tickets = useMemo(() => ticketsQuery.data ?? [], [ticketsQuery.data]);
+  // Spinner on first load and on every refresh, as before.
+  const loading = ticketsQuery.isPending || ticketsQuery.isFetching;
+  const fetchTickets = () => void ticketsQuery.refetch();
+
+  useEffect(() => {
+    const err = ticketsQuery.error as Error | null;
+    if (err) {
       toast({
         title: 'Failed to load tickets',
         description: err?.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
-      setTickets([]);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (api.isReady) fetchTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api.isReady]);
+  }, [ticketsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredTickets = useMemo(() => {
     let list = tickets;

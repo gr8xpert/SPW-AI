@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { Property, PropertyType, Feature, Label, Tenant } from '../../database/entities';
 import { AiModule } from '../ai/ai.module';
+import { TenantModule } from '../tenant/tenant.module';
 import { TranslationService } from './translation.service';
 import { TranslationProcessor } from './translation.processor';
 import { TranslationController } from './translation.controller';
@@ -21,6 +22,9 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
       },
     }),
     AiModule,
+    // TenantService bumps syncVersion once a translation lands, so the widget
+    // and WP plugin refetch. Same process as the BullMQ worker (main.ts).
+    TenantModule,
   ],
   controllers: [TranslationController],
   providers: [TranslationService, TranslationProcessor, DashboardAddonGuard],

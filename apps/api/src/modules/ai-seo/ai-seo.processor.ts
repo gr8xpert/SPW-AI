@@ -4,7 +4,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { Property } from '../../database/entities';
+import { TenantService } from '../tenant/tenant.service';
 import { AiSeoService, BulkSeoJob } from './ai-seo.service';
+
+// A full-catalog run takes hours at concurrency 1. Bumping syncVersion only at
+// the end would hide finished SEO from the widget and WP plugin all that time;
+// bumping per property would make the plugin rebuild its bundle thousands of
+// times. One bump per this many saved properties, plus one at the end.
+export const SEO_BUMP_EVERY = 250;
 
 // Concurrency 1 on purpose. Each property is several OpenRouter calls, and a
 // 15k-property catalog run in parallel earns a 429 (or a 402 once the tenant's
@@ -17,6 +24,7 @@ export class AiSeoProcessor extends WorkerHost {
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
     private readonly aiSeoService: AiSeoService,
+    private readonly tenantService: TenantService,
   ) {
     super();
   }
@@ -40,6 +48,8 @@ export class AiSeoProcessor extends WorkerHost {
     let completed = 0;
     let failed = 0;
     let skipped = 0;
+    // Saved since the last syncVersion bump.
+    let unannounced = 0;
     await job.updateProgress({ total, completed, failed, skipped });
 
     this.logger.log(
@@ -103,6 +113,7 @@ export class AiSeoProcessor extends WorkerHost {
         }
 
         await this.propertyRepository.save(property);
+        unannounced++;
       } catch (err) {
         // One bad property (no content to work from, a malformed model reply)
         // must not take the rest of the catalog down with it.
@@ -112,6 +123,15 @@ export class AiSeoProcessor extends WorkerHost {
 
       completed++;
       await job.updateProgress({ total, completed, failed, skipped });
+
+      if (unannounced >= SEO_BUMP_EVERY) {
+        await this.tenantService.bumpSyncVersionSafely(tenantId, 'bulk SEO batch');
+        unannounced = 0;
+      }
+    }
+
+    if (unannounced > 0) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, 'bulk SEO');
     }
 
     this.logger.log(

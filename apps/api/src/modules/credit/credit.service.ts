@@ -8,6 +8,7 @@ import { Repository, DataSource, Not } from 'typeorm';
 import { CreditBalance, CreditTransaction, Tenant, Ticket } from '../../database/entities';
 import { AdjustCreditDto, ConsumeCreditDto } from './dto';
 import { PLATFORM_TENANT_SLUG } from '../../common/platform-tenant';
+import { ensureCreditBalanceRow, lockCreditBalance } from './credit-balance-lock';
 
 export interface CreditHistory {
   transactions: CreditTransaction[];
@@ -34,23 +35,16 @@ export class CreditService {
    * Get credit balance for a tenant
    */
   async getBalance(tenantId: number): Promise<{ balance: number; tenantId: number }> {
-    let creditBalance = await this.creditBalanceRepository.findOne({
+    const creditBalance = await this.creditBalanceRepository.findOne({
       where: { tenantId },
     });
-
-    // Create if not exists
-    if (!creditBalance) {
-      creditBalance = this.creditBalanceRepository.create({
-        tenantId,
-        balance: 0,
-      });
-      await this.creditBalanceRepository.save(creditBalance);
+    if (creditBalance) {
+      return { balance: Number(creditBalance.balance), tenantId };
     }
 
-    return {
-      balance: Number(creditBalance.balance),
-      tenantId,
-    };
+    // Create at zero. Tolerates a concurrent request creating it first.
+    await ensureCreditBalanceRow(this.creditBalanceRepository.manager, tenantId);
+    return { balance: 0, tenantId };
   }
 
   /**
@@ -125,16 +119,10 @@ export class CreditService {
     await queryRunner.startTransaction();
 
     try {
-      // Get or create balance
-      let creditBalance = await queryRunner.manager.findOne(CreditBalance, {
-        where: { tenantId },
-      });
-
+      // Get or create balance, locked until commit (see credit-balance-lock).
+      const creditBalance = await lockCreditBalance(queryRunner.manager, tenantId, { create: true });
       if (!creditBalance) {
-        creditBalance = queryRunner.manager.create(CreditBalance, {
-          tenantId,
-          balance: 0,
-        });
+        throw new NotFoundException('Credit balance not found');
       }
 
       // Frontend sends positive amount + a type flag; derive signed delta here.
@@ -189,15 +177,9 @@ export class CreditService {
     await queryRunner.startTransaction();
 
     try {
-      let creditBalance = await queryRunner.manager.findOne(CreditBalance, {
-        where: { tenantId },
-      });
-
+      const creditBalance = await lockCreditBalance(queryRunner.manager, tenantId, { create: true });
       if (!creditBalance) {
-        creditBalance = queryRunner.manager.create(CreditBalance, {
-          tenantId,
-          balance: 0,
-        });
+        throw new NotFoundException('Credit balance not found');
       }
 
       const newBalance = Number(creditBalance.balance) + hours;
@@ -259,9 +241,8 @@ export class CreditService {
     await queryRunner.startTransaction();
 
     try {
-      const creditBalance = await queryRunner.manager.findOne(CreditBalance, {
-        where: { tenantId },
-      });
+      // Locked so two bookings can't both pass the "enough credits" check.
+      const creditBalance = await lockCreditBalance(queryRunner.manager, tenantId, { create: false });
 
       if (!creditBalance) {
         throw new BadRequestException('No credit balance found');

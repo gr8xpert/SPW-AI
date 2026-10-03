@@ -4,3 +4,4 @@ export * from './constants/roles';
 // Types
 export * from './types/tenant.types';
 export * from './types/user.types';
+export * from './types/property.types';

@@ -15,6 +15,7 @@ import {
   Property,
 } from '../../database/entities';
 import { LocationService } from '../location/location.service';
+import { TenantService } from '../tenant/tenant.service';
 import { extraFeedKey, levelIndex, locationKey, locationSlug, LOCATION_LEVELS, TemplateLevel } from './location-name';
 import {
   FeedLocationInput,
@@ -85,6 +86,7 @@ export class LocationTemplateService {
     // bulkMove merges a moved row into a same-slug sibling (properties and
     // children included) instead of hitting the unique index.
     private readonly locationService: LocationService,
+    private readonly tenantService: TenantService,
   ) {}
 
   // ===================================================================
@@ -568,6 +570,15 @@ export class LocationTemplateService {
       }
     }
     const cleaned = await this.cleanupRedundantRows(tenantId);
+    // One bump per tenant per apply, after all its rows are written — this is
+    // the unit every template action (re-apply, map/accept/undo a name, the
+    // re-apply-all sweep) goes through, so each affected client hears once.
+    // Rows created, adopted, moved or renamed change public names and tree
+    // even when no listing moved.
+    const s = ctx.stats;
+    if (relocated || cleaned || s.created || s.adopted || s.moved || s.renamed) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, 'location template apply');
+    }
     return { relocated, cleaned, listings: listings.length };
   }
 
@@ -1253,7 +1264,13 @@ export class LocationTemplateService {
     if (index.isUnder(tgtLite, srcLite)) throw new BadRequestException('A place cannot be merged into a place inside it');
 
     const tally = { merged: 0, clientRowsMerged: 0, clientRowsRelinked: 0 };
-    await this.mergeNode(sourceId, targetId, keep, tally);
+    const touched = new Set<number>();
+    await this.mergeNode(sourceId, targetId, keep, tally, touched);
+    // Clients whose rows were folded together lost a place and had listings
+    // moved: one bump each, once the whole merge (recursion included) is done.
+    for (const tenantId of touched) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, 'location template merge');
+    }
     return tally;
   }
 
@@ -1262,6 +1279,9 @@ export class LocationTemplateService {
     targetId: number,
     keep: 'target' | 'source',
     tally: { merged: number; clientRowsMerged: number; clientRowsRelinked: number },
+    // Tenants whose public rows changed. A relink only moves the private
+    // template link, so it doesn't count.
+    touched: Set<number>,
   ): Promise<void> {
     const source = await this.nodeRepository.findOne({ where: { id: sourceId } });
     const target = await this.nodeRepository.findOne({ where: { id: targetId } });
@@ -1289,7 +1309,7 @@ export class LocationTemplateService {
     // 2. Places inside the duplicate.
     for (const kid of kids) {
       const twin = await this.nodeRepository.findOne({ where: { parentId: target.id, nameKey: kid.nameKey } });
-      if (twin) await this.mergeNode(kid.id, twin.id, 'target', tally);
+      if (twin) await this.mergeNode(kid.id, twin.id, 'target', tally, touched);
       else await this.nodeRepository.update({ id: kid.id }, { parentId: target.id });
     }
 
@@ -1302,6 +1322,7 @@ export class LocationTemplateService {
       if (survivor && survivor.id !== row.id) {
         await this.locationService.mergeInto(row.tenantId, row, survivor);
         tally.clientRowsMerged++;
+        touched.add(row.tenantId);
       } else {
         await this.locationRepository.update({ id: row.id, tenantId: row.tenantId }, { templateNodeId: target.id });
         tally.clientRowsRelinked++;

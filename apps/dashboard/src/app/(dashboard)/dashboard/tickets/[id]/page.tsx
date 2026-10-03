@@ -42,6 +42,9 @@ import { formatDate } from '@/lib/utils';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { AttachmentList } from '@/components/tickets/attachment-list';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
+import { tenantTicketKeys, useTenantTicket, useTenantTicketMutation } from '../use-tickets';
 
 interface TicketData {
   id: number;
@@ -100,16 +103,29 @@ export default function TicketDetailPage() {
   const router = useRouter();
   const api = useApi();
   const { toast } = useToast();
-  const [ticket, setTicket] = useState<TicketData | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const ticketId = params.id;
+  const ticketId = params.id as string | undefined;
+  const queryClient = useQueryClient();
+  const ticketQuery = useTenantTicket<TicketData>(ticketId);
+  const ticket = ticketQuery.data ?? null;
+  // Spinner until the first answer (also while the session/token isn't ready).
+  const isLoading = ticketQuery.isPending;
+  const { scope } = useTenantQueryScope();
+
+  useEffect(() => {
+    if (ticketQuery.isError) toast({ title: 'Failed to load ticket', variant: 'destructive' });
+  }, [ticketQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateStatus = useTenantTicketMutation(({ id, status }: { id: number; status: string }) =>
+    api.put(`/api/dashboard/tickets/${id}`, { status }));
+  const sendReply = useTenantTicketMutation(({ id, body }: { id: number; body: any }) =>
+    api.post(`/api/dashboard/tickets/${id}/messages`, body));
 
   const uploadFiles = async (files: FileList) => {
     const uploaded: Array<{ name: string; url: string; size: number }> = [];
@@ -130,22 +146,6 @@ export default function TicketDetailPage() {
     return uploaded;
   };
 
-  const fetchTicket = async () => {
-    try {
-      const res = await api.get(`/api/dashboard/tickets/${ticketId}`);
-      const body = res?.data || res;
-      setTicket(body);
-    } catch {
-      toast({ title: 'Failed to load ticket', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (api.isReady && ticketId) fetchTicket();
-  }, [api.isReady, ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [ticket?.messages?.length]);
@@ -153,8 +153,9 @@ export default function TicketDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket) return;
     try {
-      await api.put(`/api/dashboard/tickets/${ticket.id}`, { status: newStatus });
-      setTicket((prev) => prev ? { ...prev, status: newStatus } : prev);
+      await updateStatus.mutateAsync({ id: ticket.id, status: newStatus });
+      queryClient.setQueryData<TicketData>(tenantTicketKeys.detail(scope, ticket.id), (prev) =>
+        prev ? { ...prev, status: newStatus } : prev);
       toast({ title: `Status changed to ${statusConfig[newStatus]?.label || newStatus}` });
     } catch (e: any) {
       toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' });
@@ -169,11 +170,11 @@ export default function TicketDetailPage() {
       if (replyAttachments.length > 0) {
         body.attachments = replyAttachments;
       }
-      await api.post(`/api/dashboard/tickets/${ticket.id}/messages`, body);
+      await sendReply.mutateAsync({ id: ticket.id, body });
       setReplyMessage('');
       setReplyAttachments([]);
       toast({ title: 'Reply sent' });
-      await fetchTicket();
+      await queryClient.invalidateQueries({ queryKey: tenantTicketKeys.detail(scope, ticket.id) });
     } catch (e: any) {
       toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
     } finally {
@@ -181,7 +182,7 @@ export default function TicketDetailPage() {
     }
   };
 
-  if (isLoading || !api.isReady) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

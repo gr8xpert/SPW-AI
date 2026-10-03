@@ -187,6 +187,21 @@ export class TenantService {
     await this.tenantRepository.increment({ id: tenantId }, 'syncVersion', 1);
   }
 
+  // For writes that change public data (names, translations, SEO, imports)
+  // but have already committed: the bump is how the widget, the WP plugin
+  // and the public ETag cache learn about the change, yet failing it must
+  // not fail work that is already saved — the 5-minute ETag bucket and the
+  // next bump cover the gap. Call once per finished operation, not per row.
+  async bumpSyncVersionSafely(tenantId: number, reason: string): Promise<void> {
+    try {
+      await this.incrementSyncVersion(tenantId);
+    } catch (err) {
+      this.logger.warn(
+        `syncVersion bump failed after ${reason} tenant=${tenantId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
   // Same as incrementSyncVersion but re-reads the row so callers know the
   // exact post-bump value. PropertyService uses this to stamp the new version
   // into outbound webhook payloads so receivers can de-dupe / debug.

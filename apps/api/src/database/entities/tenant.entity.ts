@@ -120,6 +120,12 @@ export class Tenant {
   @Column({ type: 'timestamp', nullable: true })
   graceEndsAt: Date | null;
 
+  // `created` (unix seconds) of the newest Stripe subscription/invoice event
+  // applied here. Stripe delivers out of order; older events are not applied
+  // over newer state. See StripeWebhookService.
+  @Column({ type: 'int', unsigned: true, nullable: true })
+  lastStripeEventAt: number | null;
+
   @Column({ default: false })
   adminOverride: boolean;
 

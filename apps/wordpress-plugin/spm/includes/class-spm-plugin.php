@@ -29,6 +29,7 @@ class SPM_Plugin {
         SPM_Rewrite::instance();
         SPM_OG_Tags::instance();
         SPM_Data_Sync::instance();
+        SPM_Page_Results::instance();
         SPM_Cache_Exclusions::instance();
         SPM_Sitemap::instance();
         SPM_Shortcode::instance();
@@ -235,6 +236,18 @@ class SPM_Plugin {
         if ($bundle_url) $config['dataBundleUrl'] = $bundle_url;
         $sync->maybe_schedule_refresh();
 
+        // This page's own first search, saved so its cards draw without
+        // waiting for the API; and where the widget says which search that
+        // is when it isn't saved yet (SPM_Page_Results). Ordinary pages only:
+        // a property page opens with its property, not a search.
+        $page_results = null;
+        $page_id = is_singular() ? (int) get_queried_object_id() : 0;
+        if ($page_id && !SPM_Rewrite::is_property_detail()) {
+            $page_results = SPM_Page_Results::instance()->for_page($page_id, $lang);
+            if ($page_results) $config['pageResults'] = $page_results;
+            $config['reportSearch'] = ['url' => rest_url('spm/v1/page-search'), 'page' => $page_id];
+        }
+
         // The widget script sits at the end of the page, so the browser would
         // only start on it (and on the data file and the API) once the whole
         // page had arrived. These start all three now, in parallel with the
@@ -250,6 +263,9 @@ class SPM_Plugin {
 <link rel="preload" href="<?php echo esc_url($loader_src); ?>" as="script">
 <?php if ($bundle_url) : ?>
 <link rel="preload" href="<?php echo esc_url($bundle_url); ?>" as="fetch" crossorigin="anonymous">
+<?php endif; ?>
+<?php if ($page_results) : ?>
+<link rel="preload" href="<?php echo esc_url($page_results['url']); ?>" as="fetch" crossorigin="anonymous">
 <?php endif; ?>
 <script>window.RealtySoftConfig = <?php echo wp_json_encode($config); ?>;</script>
 <?php

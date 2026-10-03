@@ -32,8 +32,8 @@ import {
   Building2,
   Loader2,
 } from 'lucide-react';
-import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useCreateLead, useLeads, useUpdateLeadStatus } from './use-leads';
 import { cn } from '@/lib/utils';
 import { staggerContainer, staggerItem } from '@/lib/animations';
 
@@ -103,31 +103,24 @@ function formatDate(d: string): string {
 }
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
-  const api = useApi();
   const { toast } = useToast();
+  const leadsQuery = useLeads<Lead>();
+  const leads = leadsQuery.data ?? [];
+  const updateStatus = useUpdateLeadStatus();
+  const createLead = useCreateLead();
 
-  const fetchLeads = async () => {
-    if (!api.isReady) return;
-    try {
-      const res = await api.get('/api/dashboard/leads');
-      const body = res?.data || res;
-      setLeads(Array.isArray(body) ? body : body.data || []);
-    } catch {
-      toast({ title: 'Failed to load leads', variant: 'destructive' });
-    }
-  };
-
-  useEffect(() => { fetchLeads(); }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  // One toast per failed load (after React Query's retries).
+  useEffect(() => {
+    if (leadsQuery.isError) toast({ title: 'Failed to load leads', variant: 'destructive' });
+  }, [leadsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (id: number, status: LeadStatus) => {
     try {
-      await api.put(`/api/dashboard/leads/${id}`, { status });
+      await updateStatus.mutateAsync({ id, status });
       toast({ title: `Lead moved to ${status.replace('_', ' ')}` });
-      fetchLeads();
     } catch (e: any) {
       toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
     }
@@ -135,7 +128,7 @@ export default function LeadsPage() {
 
   const handleCreate = async () => {
     try {
-      await api.post('/api/dashboard/leads', {
+      await createLead.mutateAsync({
         email: form.email,
         name: form.name || undefined,
         phone: form.phone || undefined,
@@ -147,7 +140,6 @@ export default function LeadsPage() {
       toast({ title: 'Lead created' });
       setIsAddOpen(false);
       setForm(emptyForm);
-      fetchLeads();
     } catch (e: any) {
       toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
     }
@@ -227,7 +219,7 @@ export default function LeadsPage() {
 
       <Card>
         <CardContent className="p-6">
-          {api.isLoading && leads.length === 0 ? (
+          {leadsQuery.isFetching && leads.length === 0 ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -374,8 +366,8 @@ export default function LeadsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!form.email || api.isLoading}>
-              {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleCreate} disabled={!form.email || createLead.isPending}>
+              {createLead.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Create
             </Button>
           </DialogFooter>

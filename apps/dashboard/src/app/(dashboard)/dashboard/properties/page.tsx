@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Property, PropertyListResponse, PropertySource } from '@spm/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,42 +48,26 @@ import {
   ChevronDown,
   Lock,
 } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { apiDelete, apiGet, apiPost } from '@/lib/api';
+import { PROPERTY_SOURCE_LABELS, formatCurrency, hasPrice } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
 import { BulkSeoDialog } from '@/components/bulk-seo-dialog';
 import { useBulkJob } from '@/hooks/use-bulk-job';
+import { propertyKeys, useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 
 interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
-
-interface Property {
-  id: number;
-  reference: string;
-  title: { en?: string; es?: string };
-  price: number;
-  currency: string;
-  bedrooms: number;
-  bathrooms: number;
-  status: 'draft' | 'active' | 'sold' | 'archived';
-  isPublished: boolean;
-  source: string;
-  location?: { name: { en?: string } };
-  propertyType?: { name: { en?: string } };
-  images?: Array<{ url: string }>;
-  createdAt: string;
-}
-
-interface PropertiesResponse {
-  data: Property[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    pages: number;
-  };
-}
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
   draft: 'default',
@@ -109,7 +94,10 @@ export default function PropertiesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [startingTranslate, setStartingTranslate] = useState(false);
+  const queryClient = useQueryClient();
+  // Signed-in user + impersonated client: part of every key below, so a
+  // super-admin switching clients never sees the previous client's cache.
+  const { scope, ready } = useTenantQueryScope();
 
   // Filters
   const [status, setStatus] = useState('');
@@ -163,16 +151,12 @@ export default function PropertiesPage() {
     return params;
   };
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: [
-      'properties', page, search,
-      status, listingType, propertyTypeId, source, isOwnProperty, isFeatured, location?.id,
-    ],
+  const params = buildParams();
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: propertyKeys.list(scope, params),
     queryFn: () =>
-      apiGet<PropertiesResponse>('/api/dashboard/properties', {
-        params: buildParams(),
-      }),
-    enabled: urlRead,
+      apiGet<PropertyListResponse>('/api/dashboard/properties', { params }),
+    enabled: urlRead && ready,
   });
 
   const properties = data?.data || [];
@@ -183,9 +167,10 @@ export default function PropertiesPage() {
   // while the session is still settling is retried instead of silently
   // leaving Translate All hidden and the type filter empty until a reload.
   const { data: tenantData } = useQuery({
-    queryKey: ['dashboard-tenant'],
+    queryKey: ['dashboard-tenant', ...scope],
     queryFn: () =>
       apiGet<{ data: { settings?: { languages?: string[] } } }>('/api/dashboard/tenant'),
+    enabled: ready,
     staleTime: 5 * 60 * 1000,
   });
   const configuredLanguages = tenantData?.data?.settings?.languages;
@@ -193,9 +178,10 @@ export default function PropertiesPage() {
     configuredLanguages && configuredLanguages.length > 1 ? configuredLanguages : [];
 
   const { data: typesData } = useQuery({
-    queryKey: ['dashboard-property-types'],
+    queryKey: ['dashboard-property-types', ...scope],
     queryFn: () =>
       apiGet<{ data: PropertyTypeOption[] } | PropertyTypeOption[]>('/api/dashboard/property-types'),
+    enabled: ready,
     staleTime: 5 * 60 * 1000,
   });
   const propertyTypes: PropertyTypeOption[] = Array.isArray(typesData)
@@ -209,16 +195,62 @@ export default function PropertiesPage() {
   const bulkTranslate = useBulkJob({
     activeUrl: '/api/dashboard/translate/jobs/active?entityType=property',
     statusUrl: (jobId) => `/api/dashboard/translate/job/${jobId}`,
-    onFinished: (s) =>
+    onFinished: (s) => {
+      // Translated titles show in the table, so reload it.
+      void queryClient.invalidateQueries({ queryKey: propertyKeys.lists() });
       toast({
         title: s.status === 'completed' ? 'Bulk translation complete' : 'Bulk translation finished with errors',
         description: `${s.completed - s.failed} succeeded, ${s.failed} failed out of ${s.total} translations.`,
         variant: s.failed > 0 ? 'destructive' : 'default',
-      }),
+      });
+    },
   });
-  const bulkTranslating = startingTranslate || bulkTranslate.running;
 
-  const onBulkTranslate = async () => {
+  const startBulkTranslate = useMutation({
+    mutationFn: async (targetLanguages: string[]) => {
+      const res = await apiPost<{ data: { jobId: string; alreadyRunning?: boolean } }>(
+        '/api/dashboard/translate/properties/bulk',
+        { targetLanguages },
+      );
+      if (!res.data?.jobId) throw new Error('No job ID returned');
+      return res.data;
+    },
+    onSuccess: ({ jobId, alreadyRunning }) => {
+      bulkTranslate.track(jobId);
+      toast(
+        alreadyRunning
+          ? { title: 'Bulk translation is already running', description: 'Showing the progress of the run in flight — no second run was started.' }
+          : { title: 'Bulk translation started', description: 'Translating all properties in the background. You can leave this page — progress shows on the button.' },
+      );
+    },
+    onError: (err) => {
+      toast({ title: 'Bulk translate failed', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+    },
+  });
+  const bulkTranslating = startBulkTranslate.isPending || bulkTranslate.running;
+
+  // Row "Delete": the same endpoint and hard delete as the detail page. The
+  // dialog lives outside the row menu (opened via state) because a dialog
+  // nested in a closing DropdownMenu unmounts with it.
+  const [deleteTarget, setDeleteTarget] = useState<Property | null>(null);
+  const deleteProperty = useMutation({
+    mutationFn: (property: Property) => apiDelete(`/api/dashboard/properties/${property.id}`),
+    onSuccess: (_res, property) => {
+      toast({ title: 'Property deleted', description: `Property ${property.reference || property.id} has been deleted.` });
+      // All property keys, not just lists: a cached detail of this row
+      // would otherwise still open after the delete.
+      void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Delete failed',
+        description: err?.response?.data?.message || err?.message || 'Could not delete property.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const onBulkTranslate = () => {
     if (tenantLanguages.length < 2) {
       toast({ title: 'Multiple languages required', description: 'Enable at least 2 languages in Settings to use AI translation.', variant: 'destructive' });
       return;
@@ -227,25 +259,7 @@ export default function PropertiesPage() {
       `Translate all properties to ${tenantLanguages.length - 1} language(s)? This runs in the background and may take several minutes for large catalogs.`,
     );
     if (!confirmed) return;
-
-    setStartingTranslate(true);
-    try {
-      const res = await apiPost<{ data: { jobId: string; alreadyRunning?: boolean } }>('/api/dashboard/translate/properties/bulk', {
-        targetLanguages: tenantLanguages,
-      });
-      const jobId = res.data?.jobId;
-      if (!jobId) throw new Error('No job ID returned');
-      bulkTranslate.track(jobId);
-      toast(
-        res.data.alreadyRunning
-          ? { title: 'Bulk translation is already running', description: 'Showing the progress of the run in flight — no second run was started.' }
-          : { title: 'Bulk translation started', description: 'Translating all properties in the background. You can leave this page — progress shows on the button.' },
-      );
-    } catch (err) {
-      toast({ title: 'Bulk translate failed', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
-    } finally {
-      setStartingTranslate(false);
-    }
+    startBulkTranslate.mutate(tenantLanguages);
   };
 
   return (
@@ -299,6 +313,29 @@ export default function PropertiesPage() {
         onOpenChange={setLockOpen}
         featureName="Add Property"
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete property?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete property <span className="font-semibold">{deleteTarget?.reference}</span>. This action cannot be undone.
+              {deleteTarget && deleteTarget.source !== 'manual' && (
+                <> It was imported from the {PROPERTY_SOURCE_LABELS[deleteTarget.source] || deleteTarget.source} feed, so the next import adds it back while the feed still lists it.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (deleteTarget) deleteProperty.mutate(deleteTarget); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Search & Filters */}
       <Card>
@@ -396,11 +433,10 @@ export default function PropertiesPage() {
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All sources" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All sources</SelectItem>
-                      <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="resales">Resales Online</SelectItem>
-                      <SelectItem value="inmoba">Inmoba</SelectItem>
-                      <SelectItem value="infocasa">Infocasa</SelectItem>
-                      <SelectItem value="redsp">RedSP</SelectItem>
+                      {/* Every properties.source value, so Kyero/Odoo imports can be filtered too. */}
+                      {(Object.keys(PROPERTY_SOURCE_LABELS) as PropertySource[]).map((s) => (
+                        <SelectItem key={s} value={s}>{PROPERTY_SOURCE_LABELS[s]}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -440,7 +476,7 @@ export default function PropertiesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading || !urlRead ? (
+          {isPending || !urlRead ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
@@ -490,7 +526,7 @@ export default function PropertiesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {properties.map((property) => (
+                  {properties.map((property: Property) => (
                     <TableRow key={property.id}>
                       <TableCell>
                         <div className="h-12 w-16 rounded-lg bg-muted overflow-hidden">
@@ -504,7 +540,7 @@ export default function PropertiesPage() {
                       <TableCell className="font-mono text-sm">{property.reference}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{property.title?.en || property.title?.es || '-'}</TableCell>
                       <TableCell>{property.location?.name?.en || '-'}</TableCell>
-                      <TableCell>{property.price ? formatCurrency(property.price, property.currency) : 'POA'}</TableCell>
+                      <TableCell>{hasPrice(property.price) ? formatCurrency(Number(property.price), property.currency) : 'POA'}</TableCell>
                       <TableCell>{property.bedrooms || '-'} / {property.bathrooms || '-'}</TableCell>
                       <TableCell><Badge variant={statusColors[property.status]}>{property.status}</Badge></TableCell>
                       <TableCell><Badge variant="outline" className="capitalize">{property.source}</Badge></TableCell>
@@ -520,7 +556,13 @@ export default function PropertiesPage() {
                             <DropdownMenuItem asChild>
                               <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              disabled={deleteProperty.isPending}
+                              onSelect={() => setDeleteTarget(property)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

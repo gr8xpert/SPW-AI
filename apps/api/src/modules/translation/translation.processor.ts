@@ -5,6 +5,7 @@ import { Repository, In } from 'typeorm';
 import { Job } from 'bullmq';
 import { Property, PropertyType, Feature, Label } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
+import { TenantService } from '../tenant/tenant.service';
 import { BulkTranslateJob } from './translation.service';
 
 @Processor('translation', { concurrency: 3 })
@@ -21,6 +22,7 @@ export class TranslationProcessor extends WorkerHost {
     @InjectRepository(Label)
     private labelRepository: Repository<Label>,
     private aiService: AiService,
+    private tenantService: TenantService,
   ) {
     super();
   }
@@ -31,14 +33,22 @@ export class TranslationProcessor extends WorkerHost {
 
     this.logger.log(`Bulk translate ${type}s for tenant ${tenantId} → [${targetLanguages.join(', ')}]`);
 
+    let translated = 0;
     if (type === 'property') {
-      await this.processProperties(job, tenantId, targetLanguages, sourceLanguage, propertyIds);
+      translated = await this.processProperties(job, tenantId, targetLanguages, sourceLanguage, propertyIds);
     } else if (type === 'propertyType') {
-      await this.processPropertyTypes(job, tenantId, targetLanguages, sourceLanguage);
+      translated = await this.processPropertyTypes(job, tenantId, targetLanguages, sourceLanguage);
     } else if (type === 'feature') {
-      await this.processFeatures(job, tenantId, targetLanguages, sourceLanguage);
+      translated = await this.processFeatures(job, tenantId, targetLanguages, sourceLanguage);
     } else if (type === 'label') {
-      await this.processLabels(job, tenantId, targetLanguages, sourceLanguage);
+      translated = await this.processLabels(job, tenantId, targetLanguages, sourceLanguage);
+    }
+
+    // One bump for the whole run, after every row is saved: each bump makes
+    // the WP plugin rebuild its bundle, so per-row bumps would rebuild it
+    // hundreds of times. A run that translated nothing changed nothing.
+    if (translated > 0) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, `bulk translate (${type})`);
     }
   }
 
@@ -48,7 +58,7 @@ export class TranslationProcessor extends WorkerHost {
     targetLanguages: string[],
     sourceLanguage?: string,
     propertyIds?: number[],
-  ): Promise<void> {
+  ): Promise<number> {
     const where: any = { tenantId };
     if (propertyIds?.length) {
       where.id = In(propertyIds);
@@ -58,6 +68,7 @@ export class TranslationProcessor extends WorkerHost {
     const total = properties.length * targetLanguages.length;
     let completed = 0;
     let failed = 0;
+    let changed = 0;
 
     await job.updateProgress({ total, completed, failed });
 
@@ -97,6 +108,7 @@ export class TranslationProcessor extends WorkerHost {
             (property as any)[field] = { ...current, [targetLang]: translated };
           }
 
+          changed++;
           completed++;
         } catch (err) {
           this.logger.error(
@@ -113,6 +125,7 @@ export class TranslationProcessor extends WorkerHost {
     }
 
     this.logger.log(`Bulk translate complete: ${completed - failed} succeeded, ${failed} failed out of ${total}`);
+    return changed;
   }
 
   private async processPropertyTypes(
@@ -120,9 +133,9 @@ export class TranslationProcessor extends WorkerHost {
     tenantId: number,
     targetLanguages: string[],
     sourceLanguage?: string,
-  ): Promise<void> {
+  ): Promise<number> {
     const entities = await this.propertyTypeRepository.find({ where: { tenantId } });
-    await this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.propertyTypeRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.propertyTypeRepository);
   }
 
   private async processFeatures(
@@ -130,9 +143,9 @@ export class TranslationProcessor extends WorkerHost {
     tenantId: number,
     targetLanguages: string[],
     sourceLanguage?: string,
-  ): Promise<void> {
+  ): Promise<number> {
     const entities = await this.featureRepository.find({ where: { tenantId } });
-    await this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.featureRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.featureRepository);
   }
 
   private async processLabels(
@@ -140,9 +153,9 @@ export class TranslationProcessor extends WorkerHost {
     tenantId: number,
     targetLanguages: string[],
     sourceLanguage?: string,
-  ): Promise<void> {
+  ): Promise<number> {
     const entities = await this.labelRepository.find({ where: { tenantId } });
-    await this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'translations', this.labelRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'translations', this.labelRepository);
   }
 
   private async processNameEntities<T extends Record<string, any>>(
@@ -153,10 +166,11 @@ export class TranslationProcessor extends WorkerHost {
     sourceLanguage: string | undefined,
     field: string,
     repo: Repository<T>,
-  ): Promise<void> {
+  ): Promise<number> {
     const total = entities.length * targetLanguages.length;
     let completed = 0;
     let failed = 0;
+    let changed = 0;
 
     await job.updateProgress({ total, completed, failed });
 
@@ -182,6 +196,7 @@ export class TranslationProcessor extends WorkerHost {
             tenantId, { value: record[sourceLang] }, sourceLang, targetLang, 'label',
           );
           (entity as any)[field] = { ...record, [targetLang]: result.value || '' };
+          changed++;
           completed++;
         } catch (err) {
           this.logger.error(`Failed to translate entity to ${targetLang}: ${(err as Error).message}`);
@@ -194,6 +209,7 @@ export class TranslationProcessor extends WorkerHost {
 
       await repo.save(entity);
     }
+    return changed;
   }
 
   private async translateTexts(

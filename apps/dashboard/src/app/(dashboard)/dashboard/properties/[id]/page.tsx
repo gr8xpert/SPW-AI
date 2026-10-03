@@ -52,9 +52,12 @@ import {
   User,
   Languages,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { propertyKeys } from '@/hooks/use-tenant-query-scope';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/utils';
+import { PROPERTY_SOURCE_LABELS, formatAmount, formatCurrency, formatDecimal, hasPrice } from '@/lib/utils';
+import type { DecimalValue, Property } from '@spm/shared';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -68,102 +71,6 @@ const LANGUAGES = [
   { code: 'fi', label: 'Finnish' },
   { code: 'ru', label: 'Russian' },
 ];
-
-interface Property {
-  id: number;
-  reference: string;
-  agentReference: string | null;
-  externalId: string | null;
-  source: string;
-  listingType: 'sale' | 'rent' | 'development';
-  propertyTypeId: number | null;
-  locationId: number | null;
-  urbanization: string | null;
-  price: number | null;
-  priceOnRequest: boolean;
-  currency: string;
-  bedrooms: number | null;
-  bedroomsTo: number | null;
-  bathrooms: number | null;
-  bathroomsTo: number | null;
-  buildSize: number | null;
-  buildSizeTo: number | null;
-  plotSize: number | null;
-  plotSizeTo: number | null;
-  terraceSize: number | null;
-  terraceSizeTo: number | null;
-  gardenSize: number | null;
-  solariumSize: number | null;
-  priceTo: number | null;
-  title: Record<string, string>;
-  description: Record<string, string>;
-  images: Array<{ url: string; caption?: string }> | null;
-  videoUrl: string | null;
-  virtualTourUrl: string | null;
-  floorPlanUrl: string | null;
-  externalLink: string | null;
-  blogUrl: string | null;
-  mapLink: string | null;
-  websiteUrl: string | null;
-  features: number[];
-  lat: number | null;
-  lng: number | null;
-  geoLocationLabel: string | null;
-  deliveryDate: string | null;
-  completionDate: string | null;
-  status: 'draft' | 'active' | 'sold' | 'rented' | 'archived';
-  isFeatured: boolean;
-  isPublished: boolean;
-  syncEnabled: boolean;
-  lockedFields: string[] | null;
-  importedAt: string | null;
-  publishedAt: string | null;
-  soldAt: string | null;
-  lastUpdatedResales: string | null;
-  createdAt: string;
-  updatedAt: string;
-  // Address
-  floor: string | null;
-  street: string | null;
-  streetNumber: string | null;
-  postcode: string | null;
-  cadastralReference: string | null;
-  // Financial
-  communityFees: number | null;
-  basuraTax: number | null;
-  ibiFees: number | null;
-  commission: number | null;
-  sharedCommission: boolean;
-  // Building
-  builtYear: number | null;
-  energyConsumption: number | null;
-  energyRating: string | null;
-  brochureVariant: 'inherit' | 'branded' | 'unbranded';
-  distanceToBeach: number | null;
-  // SEO
-  slug: string | null;
-  metaTitle: Record<string, string> | null;
-  metaDescription: Record<string, string> | null;
-  metaKeywords: Record<string, string> | null;
-  pageTitle: Record<string, string> | null;
-  // Agent
-  agentId: number | null;
-  salesAgentId: number | null;
-  project: string | null;
-  lastUpdatedById: number | null;
-  propertyTypeReference: string | null;
-  // Selection
-  isOwnProperty: boolean;
-  villaSelection: boolean;
-  luxurySelection: boolean;
-  apartmentSelection: boolean;
-  // Relations
-  location?: { id: number; name: Record<string, string> };
-  propertyType?: { id: number; name: Record<string, string> };
-  agent?: { id: number; name: string | null; email: string } | null;
-  salesAgent?: { id: number; name: string | null; email: string } | null;
-  lastUpdatedByUser?: { id: number; name: string | null; email: string } | null;
-}
 
 const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'destructive' | 'secondary' | 'outline'> = {
   draft: 'secondary',
@@ -185,6 +92,7 @@ export default function PropertyDetailPage() {
   const router = useRouter();
   const api = useApi();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -245,6 +153,8 @@ export default function PropertyDetailPage() {
     try {
       await api.delete(`/api/dashboard/properties/${id}`);
       toast({ title: 'Property deleted', description: `Property ${property?.reference || id} has been deleted.` });
+      // Drop cached lists so the deleted row is gone when the list opens.
+      void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
       router.push('/dashboard/properties');
     } catch (err) {
       toast({ title: 'Delete failed', description: err instanceof Error ? err.message : 'Could not delete property.', variant: 'destructive' });
@@ -282,25 +192,30 @@ export default function PropertyDetailPage() {
   const fmtDate = (d: string) => format(new Date(d), 'dd MMM yyyy, HH:mm');
   const fmtDateShort = (d: string) => format(new Date(d), 'dd MMM yyyy');
 
-  const fmtRange = (from: number | null, to: number | null, suffix?: string) => {
+  // Sizes are DECIMAL columns, so they arrive as strings ("120.00"):
+  // formatDecimal drops the trailing zeros. An area of 0 is an empty field
+  // (feeds send 0 when they have no figure), so it is hidden like null.
+  const fmtArea = (v: DecimalValue | null) => (v != null && Number(v) > 0 ? formatDecimal(v) : null);
+  const fmtRange = (from: string | null, to: string | null, suffix?: string) => {
     const s = suffix ? ` ${suffix}` : '';
     if (from != null && to != null) return `${from}${s} - ${to}${s}`;
     if (from != null) return `${from}${s}`;
     return null;
   };
+  const withUnit = (v: string | null, unit: string) => (v != null ? `${v} ${unit}` : null);
 
   const detailItems = [
-    { label: 'Bedrooms', display: fmtRange(property.bedrooms, property.bedroomsTo), icon: Bed },
-    { label: 'Bathrooms', display: fmtRange(property.bathrooms, property.bathroomsTo), icon: Bath },
-    { label: 'Build Size', display: fmtRange(property.buildSize, property.buildSizeTo, 'm²'), icon: Ruler },
-    { label: 'Plot Size', display: fmtRange(property.plotSize, property.plotSizeTo, 'm²'), icon: LandPlot },
-    { label: 'Terrace', display: fmtRange(property.terraceSize, property.terraceSizeTo, 'm²'), icon: Sun },
-    { label: 'Garden', display: property.gardenSize != null ? `${property.gardenSize} m²` : null, icon: TreePine },
-    { label: 'Solarium', display: property.solariumSize != null ? `${property.solariumSize} m²` : null, icon: Sun },
+    { label: 'Bedrooms', display: fmtRange(formatDecimal(property.bedrooms), formatDecimal(property.bedroomsTo)), icon: Bed },
+    { label: 'Bathrooms', display: fmtRange(formatDecimal(property.bathrooms), formatDecimal(property.bathroomsTo)), icon: Bath },
+    { label: 'Build Size', display: fmtRange(fmtArea(property.buildSize), fmtArea(property.buildSizeTo), 'm²'), icon: Ruler },
+    { label: 'Plot Size', display: fmtRange(fmtArea(property.plotSize), fmtArea(property.plotSizeTo), 'm²'), icon: LandPlot },
+    { label: 'Terrace', display: fmtRange(fmtArea(property.terraceSize), fmtArea(property.terraceSizeTo), 'm²'), icon: Sun },
+    { label: 'Garden', display: withUnit(fmtArea(property.gardenSize), 'm²'), icon: TreePine },
+    { label: 'Solarium', display: withUnit(fmtArea(property.solariumSize), 'm²'), icon: Sun },
     { label: 'Built Year', display: property.builtYear != null ? String(property.builtYear) : null, icon: Building2 },
-    { label: 'Energy', display: property.energyConsumption != null ? `${property.energyConsumption} kWh/m²` : null, icon: Zap },
+    { label: 'Energy', display: withUnit(formatDecimal(property.energyConsumption), 'kWh/m²'), icon: Zap },
     { label: 'Energy Rating', display: property.energyRating || null, icon: Zap },
-    { label: 'Beach Distance', display: property.distanceToBeach != null ? `${property.distanceToBeach} m` : null, icon: Waves },
+    { label: 'Beach Distance', display: withUnit(formatDecimal(property.distanceToBeach), 'm'), icon: Waves },
   ].filter((item) => item.display != null);
 
   const hasAddress = property.street || property.streetNumber || property.floor || property.postcode || property.cadastralReference;
@@ -346,7 +261,7 @@ export default function PropertyDetailPage() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete property?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete property <span className="font-semibold">{property.reference}</span>. This action cannot be undone.</AlertDialogDescription>
+                <AlertDialogDescription>This will permanently delete property <span className="font-semibold">{property.reference}</span>. This action cannot be undone.{property.source !== 'manual' && <> It was imported from the {PROPERTY_SOURCE_LABELS[property.source] || property.source} feed, so the next import adds it back while the feed still lists it.</>}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -372,10 +287,10 @@ export default function PropertyDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Price</p>
                   <p className="font-medium text-lg">
-                    {property.priceOnRequest ? 'Price on Request' : property.price ? (
-                      property.priceTo
-                        ? `${formatCurrency(property.price, property.currency)} - ${formatCurrency(property.priceTo, property.currency)}`
-                        : formatCurrency(property.price, property.currency)
+                    {property.priceOnRequest ? 'Price on Request' : hasPrice(property.price) ? (
+                      hasPrice(property.priceTo)
+                        ? `${formatCurrency(Number(property.price), property.currency)} - ${formatCurrency(Number(property.priceTo), property.currency)}`
+                        : formatCurrency(Number(property.price), property.currency)
                     ) : 'N/A'}
                   </p>
                 </div>
@@ -448,13 +363,13 @@ export default function PropertyDetailPage() {
               <CardHeader><CardTitle>Fees & Taxes</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {property.communityFees != null && <div><p className="text-sm text-muted-foreground">Community Fees</p><p className="font-medium">€{property.communityFees}/month</p></div>}
-                  {property.basuraTax != null && <div><p className="text-sm text-muted-foreground">Basura Tax</p><p className="font-medium">€{property.basuraTax}/year</p></div>}
-                  {property.ibiFees != null && <div><p className="text-sm text-muted-foreground">IBI Fees</p><p className="font-medium">€{property.ibiFees}/year</p></div>}
+                  {property.communityFees != null && <div><p className="text-sm text-muted-foreground">Community Fees</p><p className="font-medium">{formatAmount(property.communityFees, property.currency)}/month</p></div>}
+                  {property.basuraTax != null && <div><p className="text-sm text-muted-foreground">Basura Tax</p><p className="font-medium">{formatAmount(property.basuraTax, property.currency)}/year</p></div>}
+                  {property.ibiFees != null && <div><p className="text-sm text-muted-foreground">IBI Fees</p><p className="font-medium">{formatAmount(property.ibiFees, property.currency)}/year</p></div>}
                   {property.commission != null && (
                     <div>
                       <p className="text-sm text-muted-foreground">Commission</p>
-                      <p className="font-medium">{property.commission}%{property.sharedCommission ? ' (shared)' : ''}</p>
+                      <p className="font-medium">{formatDecimal(property.commission)}%{property.sharedCommission ? ' (shared)' : ''}</p>
                     </div>
                   )}
                 </div>
@@ -515,7 +430,7 @@ export default function PropertyDetailPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {property.images.map((image, index) => (
                       <div key={index} className="aspect-video rounded-lg bg-muted overflow-hidden">
-                        <img src={image.url} alt={image.caption || `Image ${index + 1}`} className="h-full w-full object-cover" />
+                        <img src={image.url} alt={image.alt || `Image ${index + 1}`} className="h-full w-full object-cover" />
                       </div>
                     ))}
                   </div>

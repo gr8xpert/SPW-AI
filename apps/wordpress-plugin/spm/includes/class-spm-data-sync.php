@@ -177,6 +177,8 @@ class SPM_Data_Sync {
         }
 
         $this->sync_site_config();
+        // Each listings page's own first search (SPM_Page_Results).
+        SPM_Page_Results::instance()->refresh_all($remote_v, $force);
 
         update_option('spm_data_versions', $versions_local, false);
         $all_ok = !array_filter($results, function ($r) { return empty($r['success']); });
@@ -326,6 +328,7 @@ class SPM_Data_Sync {
         foreach ($paths as $p) {
             if ($p && file_exists($p) && @unlink($p)) $n++;
         }
+        $n += SPM_Page_Results::instance()->clear();
         delete_option('spm_last_sync');
         delete_option('spm_data_versions');
         delete_option('spm_last_check');

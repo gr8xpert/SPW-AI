@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, Headers, Req, UnauthorizedException, NotFoundException, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Param, Query, Headers, Req, Res, UnauthorizedException, NotFoundException, UseGuards, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PropertyService } from './property.service';
 import { PropertySearchService } from './property-search.service';
@@ -9,6 +10,8 @@ import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
 import { PropertyUrlInterceptor, PropertyUrlRequest } from './property-url.interceptor';
+import { withWidgetCache } from '../../common/http/widget-http-cache';
+import type { Tenant } from '../../database/entities';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -43,7 +46,7 @@ export class PublicPropertyController {
   // Resolves the tenant + verifies entitlement (active subscription + widget
   // enabled). Returns 401 either way so a probe can't distinguish "wrong key"
   // from "expired subscription".
-  private async getTenantIdFromApiKey(apiKey: string, req?: PropertyUrlRequest): Promise<number> {
+  private async getTenantFromApiKey(apiKey: string, req: PropertyUrlRequest): Promise<Tenant> {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
@@ -51,18 +54,45 @@ export class PublicPropertyController {
     if (!tenant) {
       throw new UnauthorizedException('Invalid API key');
     }
-    if (req) {
-      req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
-      req.spwListingTypes = siteListingTypes(tenant.settings);
-    }
-    return tenant.id;
+    req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
+    req.spwListingTypes = siteListingTypes(tenant.settings);
+    return tenant;
+  }
+
+  // Every route below answers a revalidation with a 304 and no listing query
+  // when nothing that feeds the response has changed — see widget-http-cache.
+  // The tag rests on tenant.syncVersion, which property create/update/delete,
+  // mark-as-sold, feed imports/wipes and "Clear cache" bump. Translation and
+  // SEO jobs, CSV imports, location/type templates and location/type/feature
+  // edits don't yet; the tag's time bucket bounds how stale those can get.
+  private cached<T>(
+    req: PropertyUrlRequest,
+    res: Response,
+    tenant: Tenant,
+    route: string,
+    load: () => Promise<T>,
+    params?: Record<string, unknown>,
+  ): Promise<T | null> {
+    return withWidgetCache(
+      req,
+      res,
+      { tenantId: tenant.id, syncVersion: tenant.syncVersion, settings: tenant.settings, route, params },
+      load,
+    );
   }
 
   @Public()
   @Get()
-  async search(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertyService.search(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
+  async search(
+    @Headers('x-api-key') apiKey: string,
+    @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Query() dto: SearchPropertyDto,
+  ) {
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
+    return this.cached(req, res, tenant, 'search', () =>
+      this.propertyService.search(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+    );
   }
 
   // Map search: every matching listing as a light point (declared before
@@ -71,24 +101,45 @@ export class PublicPropertyController {
   // honestly show when listings have no coordinates of their own.
   @Public()
   @Get('areas')
-  async areas(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertySearchService.areas(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
+  async areas(
+    @Headers('x-api-key') apiKey: string,
+    @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Query() dto: SearchPropertyDto,
+  ) {
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
+    return this.cached(req, res, tenant, 'areas', () =>
+      this.propertySearchService.areas(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+    );
   }
 
   // Live counts beside the search form's type and location choices.
   @Public()
   @Get('facets')
-  async facets(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertySearchService.facets(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
+  async facets(
+    @Headers('x-api-key') apiKey: string,
+    @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Query() dto: SearchPropertyDto,
+  ) {
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
+    return this.cached(req, res, tenant, 'facets', () =>
+      this.propertySearchService.facets(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+    );
   }
 
   @Public()
   @Get('map')
-  async mapPoints(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Query() dto: SearchPropertyDto) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    return this.propertySearchService.mapPoints(tenantId, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined });
+  async mapPoints(
+    @Headers('x-api-key') apiKey: string,
+    @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Query() dto: SearchPropertyDto,
+  ) {
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
+    return this.cached(req, res, tenant, 'map', () =>
+      this.propertySearchService.mapPoints(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+    );
   }
 
   // Similar properties for the widget detail page. Declared BEFORE `:reference`
@@ -99,23 +150,46 @@ export class PublicPropertyController {
   async findSimilar(
     @Headers('x-api-key') apiKey: string,
     @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
     @Param('reference') reference: string,
     @Query('limit') limitStr?: string,
   ) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 6, 1), 50) : 6;
-    return this.propertySearchService.findSimilar(tenantId, reference, limit, req.spwListingTypes);
+    return this.cached(
+      req,
+      res,
+      tenant,
+      'similar',
+      () => this.propertySearchService.findSimilar(tenant.id, reference, limit, req.spwListingTypes),
+      { reference },
+    );
   }
 
   @Public()
   @Get(':reference')
-  async findByReference(@Headers('x-api-key') apiKey: string, @Req() req: PropertyUrlRequest, @Param('reference') reference: string) {
-    const tenantId = await this.getTenantIdFromApiKey(apiKey, req);
-    const property = await this.propertyService.findByReference(tenantId, reference);
-    const allowed = req.spwListingTypes;
-    if (!property || property.status !== 'active' || !property.isPublished || (allowed && !allowed.includes(property.listingType))) {
-      throw new NotFoundException('Property not found');
-    }
-    return property;
+  async findByReference(
+    @Headers('x-api-key') apiKey: string,
+    @Req() req: PropertyUrlRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Param('reference') reference: string,
+  ) {
+    const tenant = await this.getTenantFromApiKey(apiKey, req);
+    // The 404 is thrown inside the loader so it never carries the cache headers.
+    return this.cached(
+      req,
+      res,
+      tenant,
+      'reference',
+      async () => {
+        const property = await this.propertyService.findByReference(tenant.id, reference);
+        const allowed = req.spwListingTypes;
+        if (!property || property.status !== 'active' || !property.isPublished || (allowed && !allowed.includes(property.listingType))) {
+          throw new NotFoundException('Property not found');
+        }
+        return property;
+      },
+      { reference },
+    );
   }
 }

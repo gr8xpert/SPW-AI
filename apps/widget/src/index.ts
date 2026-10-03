@@ -5,7 +5,7 @@ import './styles/animations.css';
 
 import { store } from './core/store';
 import { actions } from './core/actions';
-import { DataLoader } from './core/data-loader';
+import { DataLoader, type BundleData } from './core/data-loader';
 import { scanDOM } from './core/dom-scanner';
 import { mountAll, unmountAll } from './core/component-mounter';
 import { registerAllComponents } from './registry/component-registry';
@@ -17,9 +17,125 @@ import { loadPersistedFavorites } from './hooks/useFavorites';
 import { extractRefCandidates, refFirst } from './core/url-utils';
 import { applyPropertySeo } from './core/seo';
 import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
-import type { SearchFilters, SearchResults, WidgetConfig } from './types';
+import type { Property, SearchFilters, SearchResults, WidgetConfig } from './types';
 
 let dataLoader: DataLoader | null = null;
+
+// Network work that needs nothing from the page but its config: started the
+// moment this script runs instead of at DOMContentLoaded. On a heavy page the
+// script runs seconds before DOMContentLoaded (deferred theme scripts still to
+// come), and the lists, settings and first search used to wait all that time.
+// Mounting still happens at DOMContentLoaded, exactly as before.
+interface Boot {
+  config: WidgetConfig;
+  loader: DataLoader;
+  bundle: Promise<BundleData>;
+  // The newest live dashboard settings, kept until init() can apply them.
+  live: Partial<WidgetConfig> | null;
+  earlyDetail: boolean;
+  earlyRefs: string[];
+  earlyProperty: Promise<Property | null> | null;
+  earlyKey: string;
+  earlySearch: Promise<SearchResults | null> | null;
+}
+
+let boot: Boot | null = null;
+let initStarted = false;
+
+// Location, type and feature names on the page need the client's lists to
+// become ids; until those arrive the first search can't be known.
+const NAMED_LIST_ATTR = /^data-spm-(lock[-_])?(location|area|town|type|property[-_]type|features?)$/;
+function pageHasNamedListFilters(): boolean {
+  for (const el of document.querySelectorAll<HTMLElement>('[data-spm-widget], [data-spm-template]')) {
+    for (const attr of el.attributes) {
+      if (NAMED_LIST_ATTR.test(attr.name) && attr.value.trim() && !/^[\d,\s]+$/.test(attr.value)) return true;
+    }
+  }
+  return false;
+}
+
+// The page's first search as far as it can be known before the lists load —
+// the same steps init() takes below. Null when it can't be known yet (named
+// filters, or a curated block whose filters init() may set aside); the first
+// search then simply starts after the lists, as it always did.
+function guessFirstSearch(config: WidgetConfig): SearchFilters | null {
+  if (pageHasNamedListFilters()) return null;
+  if ([...document.querySelectorAll<HTMLElement>('[data-spm-widget]')].some((el) => isCurated(el))) return null;
+  const fromUrl = filtersFromQuery();
+  const merged: SearchFilters = { ...parsePrefilledFilters(), ...fromUrl };
+  const effective: SearchFilters = { ...merged, page: 1, limit: merged.limit || config.resultsPerPage || 12 };
+  for (const [key, value] of Object.entries(parseLockedFilters())) {
+    if (value != null) (effective as Record<string, unknown>)[key] = value;
+  }
+  return effective;
+}
+
+function startBoot(config: WidgetConfig): Boot {
+  // The loader's CDN fallback reads the config from the store (as it did when
+  // init() set it before loading).
+  actions.setConfig(config);
+  const loader = new DataLoader(config);
+  const b = {} as Boot;
+  b.config = config;
+  b.loader = loader;
+  b.live = null;
+  // Drawn from a saved copy of the dashboard settings; these are the live ones.
+  loader.onLiveConfig = (live) => {
+    b.live = live;
+    // A boot init() replaced (see bootStillValid) must not touch the page.
+    if (initStarted && boot === b) applyLiveConfig(config, live);
+  };
+  b.bundle = loader.loadBundle();
+  b.bundle.catch(() => {}); // init() reports it
+  // Start what the page will need at the same time as the lists and settings,
+  // instead of after them: the property on a detail page, the first search
+  // everywhere else. Used in init() when the filters come out the same.
+  // A script in <head> runs before the blocks exist: nothing to guess from
+  // then, so the first search waits for init() instead of being a wasted one.
+  const entries = scanDOM();
+  b.earlyDetail = entries.some((e) => e.isTemplate && e.templateId?.startsWith('detail-template'));
+  b.earlyRefs = b.earlyDetail ? detailRefCandidates(config) : [];
+  b.earlyProperty = b.earlyRefs[0] ? loader.getProperty(b.earlyRefs[0]).catch(() => null) : null;
+  const guess = b.earlyDetail || !entries.length ? null : guessFirstSearch(config);
+  b.earlyKey = guess ? loader.searchKeyFor(guess) : '';
+  b.earlySearch = guess ? loader.searchProperties(guess).catch(() => null) : null;
+  return b;
+}
+
+function applyLiveConfig(config: WidgetConfig, live: Partial<WidgetConfig>): void {
+  const merged = mergeWithDashboardConfig(config, live);
+  actions.setConfig(merged);
+  applyTheme(merged);
+  actions.setCurrencyBase(merged.currency || 'EUR');
+}
+
+// Tells the WordPress plugin (2.9+) which search this page opens with, when it
+// hasn't saved that one yet. Once per browser session per page and search;
+// never anything about the visitor.
+function reportPageSearch(config: WidgetConfig, key: string): void {
+  const report = config.reportSearch;
+  if (!report || !key || key === config.pageResults?.key) return;
+  const flag = `spm-reported:${report.page}:${key}`;
+  try {
+    if (sessionStorage.getItem(flag)) return;
+    sessionStorage.setItem(flag, '1');
+  } catch {
+    // Storage blocked: still fine to send.
+  }
+  fetch(report.url, {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: report.page, lang: config.language || 'en', key }),
+  }).catch(() => {});
+}
+
+// The boot was made with the config the page had when the script ran; a block
+// that arrived later may say otherwise (its own key, language or data file).
+function bootStillValid(b: Boot, config: WidgetConfig): boolean {
+  return (['apiUrl', 'apiKey', 'language', 'dataBundleUrl', 'dataPath'] as const)
+    .every((k) => b.config[k] === config[k]);
+}
 
 // The property reference(s) a detail page's address may carry: `?ref=` on
 // propertyPageUrl links; on pretty links, the path segment after the detail
@@ -37,6 +153,7 @@ function detailRefCandidates(config: WidgetConfig): string[] {
 
 async function init(): Promise<void> {
   console.log('[SPM] init() starting...');
+  initStarted = true;
   const config = parseConfig();
 
   if (!config.apiUrl || !config.apiKey) {
@@ -74,28 +191,12 @@ async function init(): Promise<void> {
   if (Object.keys(fromUrl).length) actions.setFilters(fromUrl);
 
 
-  dataLoader = new DataLoader(config);
-  // Drawn from a saved copy of the dashboard settings; these are the live ones.
-  dataLoader.onLiveConfig = (live) => {
-    const merged = mergeWithDashboardConfig(config, live);
-    actions.setConfig(merged);
-    applyTheme(merged);
-    actions.setCurrencyBase(merged.currency || 'EUR');
-  };
-
-  // Start what the page will need at the same time as the lists and settings,
-  // instead of after them: the property on a detail page, the first search
-  // everywhere else. Used below when the filters come out the same.
-  const earlyDetail = entries.some((e) => e.isTemplate && e.templateId?.startsWith('detail-template'));
-  const earlyRefs = earlyDetail ? detailRefCandidates(config) : [];
-  const earlyProperty = earlyRefs[0] ? dataLoader.getProperty(earlyRefs[0]).catch(() => null) : null;
-  const earlyFilters: SearchFilters = {
-    ...store.getState().filters,
-    page: 1,
-    limit: store.getState().filters.limit || config.resultsPerPage || 12,
-  };
-  const earlyKey = earlyDetail ? '' : dataLoader.searchKeyFor(earlyFilters);
-  const earlySearch = earlyDetail ? null : dataLoader.searchProperties(earlyFilters).catch(() => null);
+  // Started when the script ran (see startBoot) — or now, when the page was
+  // already loaded or a later block changed the config.
+  const b = boot && bootStillValid(boot, config) ? boot : startBoot(config);
+  boot = b;
+  dataLoader = b.loader;
+  const { earlyDetail, earlyRefs, earlyProperty, earlyKey, earlySearch } = b;
 
   // The page's first search, once its own and locked filters are known.
   const initialFilters = (): SearchFilters => {
@@ -116,7 +217,7 @@ async function init(): Promise<void> {
 
   try {
     console.log('[SPM] Loading bundle...');
-    const bundle = await dataLoader.loadBundle();
+    const bundle = await b.bundle;
     console.log('[SPM] Bundle loaded:', {
       syncVersion: bundle.syncVersion,
       locations: bundle.locations?.length,
@@ -132,6 +233,9 @@ async function init(): Promise<void> {
       applyTheme(merged);
       actions.setCurrencyBase(merged.currency || 'EUR');
     }
+    // Live settings that arrived before this point are newer than the copy
+    // the bundle carried.
+    if (b.live) applyLiveConfig(config, b.live);
     dataLoader.hydrateStore(bundle);
 
     // A curated list on a page that has nowhere to show search results — the
@@ -265,6 +369,11 @@ async function init(): Promise<void> {
     } finally {
       actions.setSearchLoading(false);
     }
+    // The page's own opening search (not one carried in from a shared link):
+    // the plugin saves its results so the next visitor sees them at once.
+    if (hasResultsView && !Object.keys(fromUrl).length) {
+      reportPageSearch(config, dataLoader.searchKeyFor(effectiveFilters));
+    }
   }
 
   dataLoader.loadExchangeRates(store.getState().currency.base || 'EUR');
@@ -290,6 +399,15 @@ async function init(): Promise<void> {
 // Auto-initialize on DOMContentLoaded
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
+    // The lists, settings and first search start now (when the page's config
+    // is already known); the blocks mount at DOMContentLoaded as before.
+    try {
+      const early = parseConfig();
+      if (early.apiUrl && early.apiKey) boot = startBoot(early);
+    } catch (err) {
+      console.warn('[SPM] early start skipped:', err);
+      boot = null;
+    }
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();

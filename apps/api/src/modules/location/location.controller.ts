@@ -4,10 +4,16 @@ import { LocationGeocodeService } from './location-geocode.service';
 import { CreateLocationDto, MergeLocationDto, UpdateLocationDto } from './dto';
 import { ReorderDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
+import { TenantService } from '../tenant/tenant.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
 import { LocationLevel } from '../../database/entities';
 
+// Location names, tree and order are public (widget filters, WP plugin).
+// Every write here ends with one syncVersion bump so those caches refetch.
+// The bump lives in the controller, not LocationService, because the service
+// methods are also used row by row by feed imports and template re-apply,
+// which bump once for the whole run themselves.
 @Controller('api/dashboard/locations')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class LocationController {
@@ -15,7 +21,12 @@ export class LocationController {
     private readonly locationService: LocationService,
     private readonly reorderService: ReorderService,
     private readonly geocodeService: LocationGeocodeService,
+    private readonly tenantService: TenantService,
   ) {}
+
+  private bump(tenantId: number, reason: string): Promise<void> {
+    return this.tenantService.bumpSyncVersionSafely(tenantId, `location ${reason}`);
+  }
 
   /**
    * Put the client's places on the map correctly.
@@ -28,7 +39,10 @@ export class LocationController {
    */
   @Post('geocode')
   async geocode(@CurrentTenant() tenantId: number, @Query('missing') missing?: string) {
-    return this.geocodeService.run(tenantId, missing === 'true' || missing === '1');
+    const outcome = await this.geocodeService.run(tenantId, missing === 'true' || missing === '1');
+    // Points drive the public map; only a run that moved one changed anything.
+    if (outcome.fixed.length > 0) await this.bump(tenantId, 'geocode');
+    return outcome;
   }
 
   @Get()
@@ -43,7 +57,9 @@ export class LocationController {
 
   @Put('reorder')
   async reorder(@CurrentTenant() tenantId: number, @Body() dto: ReorderDto) {
-    return this.reorderService.reorderLocations(tenantId, dto);
+    const result = await this.reorderService.reorderLocations(tenantId, dto);
+    if (result.updated > 0) await this.bump(tenantId, 'reorder');
+    return result;
   }
 
   @Put('bulk-move')
@@ -51,12 +67,15 @@ export class LocationController {
     await this.locationService.rememberOrigins(tenantId, dto.ids || []);
     const result = await this.locationService.bulkMove(tenantId, dto.ids || [], dto.parentId ?? null);
     await this.locationService.markUserLocked(tenantId, dto.ids || []);
+    if (result.count > 0) await this.bump(tenantId, 'bulk move');
     return result;
   }
 
   @Put('bulk-delete')
   async bulkDelete(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[] }) {
-    return this.locationService.bulkDelete(tenantId, dto.ids || []);
+    const result = await this.locationService.bulkDelete(tenantId, dto.ids || []);
+    if (result.count > 0) await this.bump(tenantId, 'bulk delete');
+    return result;
   }
 
   @Get(':id')
@@ -70,6 +89,7 @@ export class LocationController {
     await this.locationService.markUserLocked(tenantId, [location.id]);
     const coordsLocked = location.lat != null && location.lng != null;
     if (coordsLocked) await this.locationService.markCoordsLocked(tenantId, location.id);
+    await this.bump(tenantId, 'create');
     return { ...location, userLocked: true, coordsLocked };
   }
 
@@ -99,6 +119,7 @@ export class LocationController {
       await this.locationService.markCoordsLocked(tenantId, location.id);
       location.coordsLocked = true;
     }
+    await this.bump(tenantId, 'update');
     return location;
   }
 
@@ -109,12 +130,15 @@ export class LocationController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: MergeLocationDto,
   ) {
-    return this.locationService.mergeLocations(tenantId, id, dto.targetId);
+    const merged = await this.locationService.mergeLocations(tenantId, id, dto.targetId);
+    await this.bump(tenantId, 'merge');
+    return merged;
   }
 
   @Delete(':id')
   async remove(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number) {
     await this.locationService.remove(tenantId, id);
+    await this.bump(tenantId, 'delete');
     return { success: true };
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useReducer } from 'preact/hooks';
 import { getDataLoader } from './data-loader';
+import { store } from './store';
 
 // Shared between the AI panel (RsAiSearch) and its buttons (RsAiActions),
 // which sit elsewhere in the search bar — beside Reset, and again in the
@@ -29,12 +30,29 @@ function update(patch: Partial<AiState>): void {
   listeners.forEach((l) => l());
 }
 
-/** Asks the API once per page whether to offer AI search and voice. */
+type Status = { enabled: boolean; voice: boolean };
+function statusIn(config: { aiSearch?: Status }): Status | null {
+  const s = config.aiSearch;
+  return s && typeof s.enabled === 'boolean' ? { enabled: s.enabled, voice: s.enabled && !!s.voice } : null;
+}
+
+/** Finds out once per page whether to offer AI search and voice. */
 export function loadAiStatus(enabledInConfig: boolean): void {
   if (!enabledInConfig || statusAsked) return;
   const loader = getDataLoader();
   if (!loader) return;
   statusAsked = true;
+  // Newer APIs send it with the dashboard settings: follow those (a saved
+  // copy first, then the live ones) instead of asking separately.
+  const fromConfig = statusIn(store.getState().config);
+  if (fromConfig) {
+    update(fromConfig);
+    store.subscribeSlice('config', (config) => {
+      const s = statusIn(config);
+      if (s && (s.enabled !== state.enabled || s.voice !== state.voice)) update(s);
+    });
+    return;
+  }
   void loader.aiSearchStatus().then((s) => update({ enabled: s.enabled, voice: s.voice }));
 }
 

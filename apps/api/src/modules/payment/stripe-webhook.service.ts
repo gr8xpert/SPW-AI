@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { BillingCycle, SubscriptionStatus } from '@spm/shared';
 import {
-  CreditBalance,
   CreditTransaction,
   ProcessedStripeEvent,
   SubscriptionPayment,
@@ -16,12 +15,15 @@ import {
 } from '../../database/entities';
 import { verifyStripeSignature } from './stripe-signature';
 import { XeroSyncService } from '../xero-sync/xero-sync.service';
+import { lockCreditBalance } from '../credit/credit-balance-lock';
 
 export interface StripeProcessResult {
   processed: boolean;
   eventId: string;
   eventType: string;
-  outcome: 'applied' | 'replay' | 'ignored' | 'no-tenant' | 'awaiting-payment' | 'payment-failed';
+  // 'stale': an older event arrived after a newer one was applied; any payment
+  // row is still recorded, but the subscription state is left alone.
+  outcome: 'applied' | 'replay' | 'ignored' | 'no-tenant' | 'awaiting-payment' | 'payment-failed' | 'stale';
   tenantId?: number;
 }
 
@@ -99,6 +101,10 @@ export class StripeWebhookService {
       return { processed: true, eventId, eventType, outcome: 'ignored' };
     }
 
+    // Unix seconds the event was created at Stripe — how out-of-order
+    // deliveries are put back in order (see isStale).
+    const created = typeof event.created === 'number' ? event.created : undefined;
+
     return await this.dataSource.transaction(async (manager) => {
       await manager.insert(ProcessedStripeEvent, { eventId, eventType });
       const obj = event.data?.object;
@@ -118,9 +124,9 @@ export class StripeWebhookService {
             );
             return { processed: true, eventId, eventType, outcome: 'awaiting-payment' as const };
           }
-          return await this.handleCheckoutCompleted(manager, obj, eventId, eventType);
+          return await this.handleCheckoutCompleted(manager, obj, eventId, eventType, created);
         case 'checkout.session.async_payment_succeeded':
-          return await this.handleCheckoutCompleted(manager, obj, eventId, eventType);
+          return await this.handleCheckoutCompleted(manager, obj, eventId, eventType, created);
         case 'checkout.session.async_payment_failed':
           // Nothing was granted on the unpaid completion, so nothing to undo.
           this.logger.warn(
@@ -129,13 +135,13 @@ export class StripeWebhookService {
           return { processed: true, eventId, eventType, outcome: 'payment-failed' as const };
         case 'customer.subscription.created':
         case 'customer.subscription.updated':
-          return await this.handleSubscriptionSync(manager, obj, eventId, eventType);
+          return await this.handleSubscriptionSync(manager, obj, eventId, eventType, created);
         case 'customer.subscription.deleted':
-          return await this.handleSubscriptionDeleted(manager, obj, eventId, eventType);
+          return await this.handleSubscriptionDeleted(manager, obj, eventId, eventType, created);
         case 'invoice.paid':
-          return await this.handleInvoicePaid(manager, obj, eventId, eventType);
+          return await this.handleInvoicePaid(manager, obj, eventId, eventType, created);
         case 'invoice.payment_failed':
-          return await this.handleInvoiceFailed(manager, obj, eventId, eventType);
+          return await this.handleInvoiceFailed(manager, obj, eventId, eventType, created);
         default:
           return { processed: true, eventId, eventType, outcome: 'ignored' as const };
       }
@@ -159,6 +165,7 @@ export class StripeWebhookService {
     session: any,
     eventId: string,
     eventType: string,
+    created: number | undefined,
   ): Promise<StripeProcessResult> {
     const isCreditFlow =
       session.mode === 'payment' ||
@@ -198,9 +205,11 @@ export class StripeWebhookService {
         return { processed: true, eventId, eventType, outcome: 'replay' };
       }
 
-      let balance = await manager.findOne(CreditBalance, { where: { tenantId } });
+      // Locked so a concurrent admin adjustment or ticket booking can't
+      // overwrite this purchase (see credit-balance-lock).
+      const balance = await lockCreditBalance(manager, tenantId, { create: true });
       if (!balance) {
-        balance = manager.create(CreditBalance, { tenantId, balance: 0 });
+        throw new Error(`credit balance row missing for tenant ${tenantId} after create`);
       }
       const newBalance = Number(balance.balance) + hours;
       balance.balance = newBalance;
@@ -275,7 +284,13 @@ export class StripeWebhookService {
         stripeWebhookData: session,
       });
 
-      const tenant = await manager.findOne(Tenant, { where: { id: tenantId } });
+      const tenant = await this.lockTenant(manager, tenantId);
+      if (tenant && isStale(tenant, created)) {
+        this.logger.warn(
+          `checkout ${session.id} (created ${created}) is older than the last subscription event applied to tenant ${tenantId} — payment recorded, plan left alone`,
+        );
+        return { processed: true, eventId, eventType, outcome: 'stale', tenantId };
+      }
       if (tenant) {
         tenant.planId = planId;
         tenant.billingCycle = billingCycle;
@@ -296,14 +311,21 @@ export class StripeWebhookService {
     sub: any,
     eventId: string,
     eventType: string,
+    created: number | undefined,
   ): Promise<StripeProcessResult> {
     const tenantId = await this.resolveTenantFromSubscription(manager, sub);
     if (!tenantId) {
       return { processed: true, eventId, eventType, outcome: 'no-tenant' };
     }
 
-    const tenant = await manager.findOne(Tenant, { where: { id: tenantId } });
+    const tenant = await this.lockTenant(manager, tenantId);
     if (!tenant) return { processed: true, eventId, eventType, outcome: 'no-tenant' };
+    if (isStale(tenant, created, { terminalWinsTie: true })) {
+      this.logger.warn(
+        `${eventType} ${eventId} for ${sub.id} (created ${created}) is older than the last applied (${tenant.lastStripeEventAt}) — skipped`,
+      );
+      return { processed: true, eventId, eventType, outcome: 'stale', tenantId };
+    }
 
     const status = mapStripeSubStatus(sub.status);
     const interval = sub.items?.data?.[0]?.price?.recurring?.interval;
@@ -317,6 +339,10 @@ export class StripeWebhookService {
     if (periodEnd) tenant.expiresAt = periodEnd;
     if (status === 'active') tenant.graceEndsAt = null;
     if (Number.isInteger(planId) && planId > 0) tenant.planId = planId;
+    // Only an event that sets the status moves the mark. One that doesn't
+    // ('incomplete' on a new subscription) must not make an 'expired' left by
+    // an earlier deletion look as if it were from this second.
+    if (status) markApplied(tenant, created);
     await manager.save(tenant);
 
     return { processed: true, eventId, eventType, outcome: 'applied', tenantId };
@@ -327,15 +353,26 @@ export class StripeWebhookService {
     sub: any,
     eventId: string,
     eventType: string,
+    created: number | undefined,
   ): Promise<StripeProcessResult> {
     const tenantId = await this.resolveTenantFromSubscription(manager, sub);
     if (!tenantId) return { processed: true, eventId, eventType, outcome: 'no-tenant' };
 
-    const tenant = await manager.findOne(Tenant, { where: { id: tenantId } });
+    const tenant = await this.lockTenant(manager, tenantId);
     if (!tenant) return { processed: true, eventId, eventType, outcome: 'no-tenant' };
+    // Strictly older only: a deletion from the same second as the last applied
+    // event still wins, as nothing follows it for this subscription. An older
+    // one is a previous subscription ending after a newer one has started.
+    if (isStale(tenant, created)) {
+      this.logger.warn(
+        `${eventType} ${eventId} for ${sub.id} (created ${created}) is older than the last applied (${tenant.lastStripeEventAt}) — skipped`,
+      );
+      return { processed: true, eventId, eventType, outcome: 'stale', tenantId };
+    }
 
     tenant.subscriptionStatus = 'expired';
     if (sub.canceled_at) tenant.expiresAt = new Date(sub.canceled_at * 1000);
+    markApplied(tenant, created);
     await manager.save(tenant);
     return { processed: true, eventId, eventType, outcome: 'applied', tenantId };
   }
@@ -345,6 +382,7 @@ export class StripeWebhookService {
     invoice: any,
     eventId: string,
     eventType: string,
+    created: number | undefined,
   ): Promise<StripeProcessResult> {
     const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
     if (!subscriptionId) return { processed: true, eventId, eventType, outcome: 'ignored' };
@@ -356,7 +394,7 @@ export class StripeWebhookService {
     const tenantId = existing?.tenantId ?? null;
     if (!tenantId) return { processed: true, eventId, eventType, outcome: 'no-tenant' };
 
-    const tenant = await manager.findOne(Tenant, { where: { id: tenantId } });
+    const tenant = await this.lockTenant(manager, tenantId);
     const amount = (invoice.amount_paid ?? 0) / 100;
     const currency = (invoice.currency ?? 'eur').toUpperCase();
 
@@ -375,6 +413,18 @@ export class StripeWebhookService {
       stripeWebhookData: invoice,
     });
 
+    // The money is recorded either way; whether it changes the tenant's state
+    // is another matter. Not when it's older than the subscription state we
+    // have, and never out of 'expired': a canceled Stripe subscription can't
+    // come back (a late invoice for it mustn't reopen access), and a live one
+    // that recovers also sends customer.subscription.updated, which does.
+    if (tenant && (isStale(tenant, created) || tenant.subscriptionStatus === 'expired')) {
+      this.logger.warn(
+        `invoice.paid ${eventId} for ${subscriptionId}: payment recorded, tenant ${tenantId} left ${tenant.subscriptionStatus} (created ${created}, last applied ${tenant.lastStripeEventAt})`,
+      );
+      return { processed: true, eventId, eventType, outcome: 'stale', tenantId };
+    }
+
     if (tenant) {
       tenant.subscriptionStatus = 'active';
       tenant.graceEndsAt = null;
@@ -390,6 +440,7 @@ export class StripeWebhookService {
     invoice: any,
     eventId: string,
     eventType: string,
+    created: number | undefined,
   ): Promise<StripeProcessResult> {
     const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : null;
     if (!subscriptionId) return { processed: true, eventId, eventType, outcome: 'ignored' };
@@ -401,7 +452,7 @@ export class StripeWebhookService {
     const tenantId = existing?.tenantId ?? null;
     if (!tenantId) return { processed: true, eventId, eventType, outcome: 'no-tenant' };
 
-    const tenant = await manager.findOne(Tenant, { where: { id: tenantId } });
+    const tenant = await this.lockTenant(manager, tenantId);
     const amount = (invoice.amount_due ?? 0) / 100;
     const currency = (invoice.currency ?? 'eur').toUpperCase();
     const failure = invoice.last_finalization_error?.message ?? 'payment_failed';
@@ -420,6 +471,15 @@ export class StripeWebhookService {
       stripeWebhookData: invoice,
     });
 
+    // Same rule as invoice.paid: an old failure doesn't undo a newer state,
+    // and an expired tenant isn't handed a fresh grace period.
+    if (tenant && (isStale(tenant, created) || tenant.subscriptionStatus === 'expired')) {
+      this.logger.warn(
+        `invoice.payment_failed ${eventId} for ${subscriptionId}: recorded, tenant ${tenantId} left ${tenant.subscriptionStatus} (created ${created}, last applied ${tenant.lastStripeEventAt})`,
+      );
+      return { processed: true, eventId, eventType, outcome: 'stale', tenantId };
+    }
+
     if (tenant) {
       tenant.subscriptionStatus = 'grace';
       const graceDays = Number(this.config.get<string>('STRIPE_GRACE_DAYS') ?? 7);
@@ -428,6 +488,13 @@ export class StripeWebhookService {
     }
 
     return { processed: true, eventId, eventType, outcome: 'applied', tenantId };
+  }
+
+  // Row-locked for the rest of the transaction, so two webhooks for the same
+  // tenant apply one after the other and the second sees the first's
+  // lastStripeEventAt instead of both passing the age check.
+  private lockTenant(manager: EntityManager, tenantId: number): Promise<Tenant | null> {
+    return manager.findOne(Tenant, { where: { id: tenantId }, lock: { mode: 'pessimistic_write' } });
   }
 
   private async resolveTenantFromSubscription(
@@ -446,6 +513,42 @@ export class StripeWebhookService {
       if (existing) return existing.tenantId;
     }
     return null;
+  }
+}
+
+// Stripe doesn't deliver events in order, so a late
+// customer.subscription.updated (status active) could land after
+// customer.subscription.deleted and reopen a canceled account. Each tenant
+// remembers the `created` time of the newest customer.subscription.* event
+// that set its status (tenants.lastStripeEventAt) and anything older is stale.
+// Comparing timestamps is Stripe's own suggestion, and needs no API call
+// inside the transaction (re-fetching the subscription would).
+//
+// Only subscription events move that mark: they carry the whole subscription
+// state. Invoices and checkouts are checked against it but don't move it, so
+// a renewal's subscription.updated (new period end) delivered after its
+// invoice.paid isn't thrown away.
+//
+// `created` has one-second resolution. With terminalWinsTie, an event from
+// the same second as the last applied one is stale if that left the tenant
+// 'expired' (canceled/deleted) — Stripe never revives a canceled subscription,
+// so the terminal state must win, e.g. over an "updated" sent alongside it.
+// Events without `created` (never from Stripe; some test fixtures) skip the check.
+function isStale(
+  tenant: Tenant,
+  created: number | undefined,
+  opts: { terminalWinsTie?: boolean } = {},
+): boolean {
+  if (created === undefined || tenant.lastStripeEventAt == null) return false;
+  const last = Number(tenant.lastStripeEventAt);
+  if (created < last) return true;
+  return Boolean(opts.terminalWinsTie) && created === last && tenant.subscriptionStatus === 'expired';
+}
+
+function markApplied(tenant: Tenant, created: number | undefined): void {
+  if (created === undefined) return;
+  if (tenant.lastStripeEventAt == null || created > Number(tenant.lastStripeEventAt)) {
+    tenant.lastStripeEventAt = created;
   }
 }
 

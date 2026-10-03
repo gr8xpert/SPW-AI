@@ -57,6 +57,14 @@ import { formatDate } from '@/lib/utils';
 import { formatHM } from '@/lib/time';
 import { HoursMinutesInput } from '@/components/ui/hours-minutes-input';
 import { useApi } from '@/hooks/use-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
+import {
+  useWebmasterTicket,
+  useWebmasterTicketMutation,
+  useWebmasterTimeEntries,
+  webmasterTicketKeys,
+} from '../use-webmaster-tickets';
 import { useToast } from '@/hooks/use-toast';
 import { AttachmentList } from '@/components/tickets/attachment-list';
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
@@ -143,13 +151,10 @@ export default function WebmasterTicketDetailPage() {
   const api = useApi();
   const { toast } = useToast();
 
-  const [ticket, setTicket] = useState<TicketData | null>(null);
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
   const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   const [replyHours, setReplyHours] = useState(0);
   const [showLogTime, setShowLogTime] = useState(false);
@@ -161,41 +166,32 @@ export default function WebmasterTicketDetailPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const ticketId = params.id;
-
-  const fetchTicket = async () => {
-    try {
-      const res = await api.get(`/api/webmaster/tickets/${ticketId}`);
-      const body = res?.data || res;
-      setTicket(body);
-    } catch {
-      toast({ title: 'Failed to load ticket', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchTimeEntries = async () => {
-    try {
-      const res = await api.get('/api/webmaster/time-entries');
-      const body = res?.data || res;
-      const all: TimeEntry[] = Array.isArray(body)
-        ? body
-        : Array.isArray(body?.entries)
-          ? body.entries
-          : [];
-      setTimeEntries(all.filter((e) => e.ticketId === Number(ticketId)));
-    } catch {
-      // non-critical
-    }
-  };
+  const ticketId = params.id as string | undefined;
+  const queryClient = useQueryClient();
+  const { scope } = useTenantQueryScope();
+  const ticketQuery = useWebmasterTicket<TicketData>(ticketId);
+  const ticket = ticketQuery.data ?? null;
+  // Spinner until the first answer (also while the session/token isn't ready).
+  const isLoading = ticketQuery.isPending;
+  const timeEntriesQuery = useWebmasterTimeEntries<TimeEntry>();
+  const timeEntries = (timeEntriesQuery.data ?? []).filter((e) => e.ticketId === Number(ticketId));
+  const detailKey = webmasterTicketKeys.detail(scope, ticketId ?? '');
+  const setTicket = (next: TicketData) => queryClient.setQueryData<TicketData>(detailKey, next);
+  const fetchTicket = () => queryClient.invalidateQueries({ queryKey: detailKey });
+  const fetchTimeEntries = () => queryClient.invalidateQueries({ queryKey: webmasterTicketKeys.timeEntries(scope) });
 
   useEffect(() => {
-    if (api.isReady && ticketId) {
-      fetchTicket();
-      fetchTimeEntries();
-    }
-  }, [api.isReady, ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (ticketQuery.isError) toast({ title: 'Failed to load ticket', variant: 'destructive' });
+  }, [ticketQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sendReply = useWebmasterTicketMutation(({ id, body }: { id: number; body: any }) =>
+    api.post(`/api/webmaster/tickets/${id}/messages`, body));
+  const logTime = useWebmasterTicketMutation((body: Record<string, unknown>) =>
+    api.post('/api/webmaster/time-entries', body));
+  const changeCategory = useWebmasterTicketMutation(({ id, category }: { id: number; category: string }) =>
+    api.put(`/api/webmaster/tickets/${id}/category`, { category }));
+  const completeTicket = useWebmasterTicketMutation((id: number) =>
+    api.post(`/api/webmaster/tickets/${id}/complete`, {}));
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -226,12 +222,12 @@ export default function WebmasterTicketDetailPage() {
     try {
       const body: any = { message: replyMessage };
       if (replyAttachments.length > 0) body.attachments = replyAttachments;
-      await api.post(`/api/webmaster/tickets/${ticket.id}/messages`, body);
+      await sendReply.mutateAsync({ id: ticket.id, body });
 
       let loggedHours = 0;
       if (replyHours > 0) {
         try {
-          await api.post('/api/webmaster/time-entries', {
+          await logTime.mutateAsync({
             ticketId: ticket.id,
             hours: replyHours,
             description: replyMessage.slice(0, 500),
@@ -275,7 +271,7 @@ export default function WebmasterTicketDetailPage() {
     if (!ticket || logHours <= 0) return;
     setIsLogging(true);
     try {
-      await api.post('/api/webmaster/time-entries', {
+      await logTime.mutateAsync({
         ticketId: ticket.id,
         hours: logHours,
         description: logDescription || undefined,
@@ -297,7 +293,7 @@ export default function WebmasterTicketDetailPage() {
     setTicket({ ...ticket, category: next });
     setIsSavingCategory(true);
     try {
-      await api.put(`/api/webmaster/tickets/${ticket.id}/category`, { category: next });
+      await changeCategory.mutateAsync({ id: ticket.id, category: next });
       toast({
         title: `Category updated to ${categoryLabels[next] || next}`,
         description: next === 'bug'
@@ -316,7 +312,7 @@ export default function WebmasterTicketDetailPage() {
     if (!ticket) return;
     setIsCompleting(true);
     try {
-      await api.post(`/api/webmaster/tickets/${ticket.id}/complete`, {});
+      await completeTicket.mutateAsync(ticket.id);
       toast({ title: 'Ticket marked as awaiting customer reply' });
       await fetchTicket();
     } catch (e: any) {
@@ -326,7 +322,7 @@ export default function WebmasterTicketDetailPage() {
     }
   };
 
-  if (isLoading || !api.isReady) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

@@ -22,6 +22,10 @@ function countFor(key: string): Promise<number | null> {
   if (pending) return pending;
   const loader = getDataLoader();
   if (!loader) return Promise.resolve(null);
+  // The page's own search found (or is about to find) this many: no need to
+  // ask again.
+  const known = loader.knownTotal(JSON.parse(key) as SearchFilters);
+  if (known) return known;
   const promise = loader
     .searchProperties({ ...(JSON.parse(key) as SearchFilters), page: 1, limit: 1 })
     .then((res) => res?.meta?.total ?? null)

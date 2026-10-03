@@ -24,7 +24,7 @@ const I18N_KEYS = new Set([
   'pageTitle',
 ]);
 
-function pickLang(req: Request): string {
+export function pickLang(req: Request): string {
   const q = (req.query?.lang as string | undefined)?.trim();
   if (q) return q.toLowerCase().slice(0, 5);
   const header = req.headers['accept-language'];

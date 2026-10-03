@@ -68,7 +68,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
+import { propertyKeys } from '@/hooks/use-tenant-query-scope';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -240,6 +242,7 @@ function MultilingualTextarea({
 function CreatePropertyPageInner() {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const api = useApi();
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
@@ -566,6 +569,8 @@ function CreatePropertyPageInner() {
         description: publish ? 'Your property is now live.' : 'Your property has been saved as a draft.',
       });
 
+      // The list is cached; make it load the new row.
+      void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
       router.push('/dashboard/properties');
     } catch {
       toast({ title: 'Error', description: 'Failed to create property. Please try again.', variant: 'destructive' });

@@ -54,6 +54,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatHM } from '@/lib/time';
 import { AttachmentList } from '@/components/tickets/attachment-list';
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
+import { useTenantTicket, useTenantTicketMutation, useTenantTicketStats, useTenantTickets } from './use-tickets';
 
 interface Ticket {
   id: number;
@@ -122,13 +123,11 @@ function formatDate(d: string): string {
 
 export default function TicketsPage() {
   const [search, setSearch] = useState('');
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [stats, setStats] = useState<TicketStats>({ open: 0, inProgress: 0, awaitingReply: 0, resolved: 0 });
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  // The row that was clicked; the dialog shows the full ticket once loaded.
+  const [selectedRow, setSelectedRow] = useState<Ticket | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [createAttachments, setCreateAttachments] = useState<Attachment[]>([]);
@@ -159,39 +158,24 @@ export default function TicketsPage() {
     return uploaded;
   };
 
-  const fetchTickets = async () => {
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: '20' });
-      const res = await api.get(`/api/dashboard/tickets?${params}`);
-      if (Array.isArray(res?.data)) {
-        setTickets(res.data);
-        setTotalPages(Math.ceil((res.total || res.data.length) / 20) || 1);
-      } else {
-        const body = res?.data || res;
-        setTickets(body?.data || []);
-        setTotalPages(Math.ceil((body?.total || 0) / 20) || 1);
-      }
-    } catch {
-      toast({ title: 'Failed to load tickets', variant: 'destructive' });
-    }
-  };
+  const ticketsQuery = useTenantTickets<Ticket>(page);
+  const tickets = ticketsQuery.data?.tickets ?? [];
+  const totalPages = ticketsQuery.data?.totalPages ?? 1;
+  const statsQuery = useTenantTicketStats();
+  const stats: TicketStats = statsQuery.data ?? { open: 0, inProgress: 0, awaitingReply: 0, resolved: 0 };
+  const detailQuery = useTenantTicket<Ticket>(isDetailOpen ? selectedRow?.id : null);
+  // Show what we have (the list row) until / unless the full ticket loads.
+  const selectedTicket = (selectedRow && detailQuery.data) || selectedRow;
 
-  const fetchStats = async () => {
-    try {
-      const res = await api.get('/api/dashboard/tickets/stats');
-      const body = res?.data || res;
-      setStats({
-        open: body.open ?? 0,
-        inProgress: body.inProgress ?? 0,
-        awaitingReply: body.waitingCustomer ?? 0,
-        resolved: body.resolved ?? 0,
-      });
-    } catch {
-      // non-fatal
-    }
-  };
+  // One toast per failed list load (after React Query's retries). Stats and
+  // detail failures stay silent, as before.
+  useEffect(() => {
+    if (ticketsQuery.isError) toast({ title: 'Failed to load tickets', variant: 'destructive' });
+  }, [ticketsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (api.isReady) { fetchTickets(); fetchStats(); } }, [page, api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  const createTicket = useTenantTicketMutation((body: any) => api.post('/api/dashboard/tickets', body));
+  const sendReply = useTenantTicketMutation(({ id, body }: { id: number; body: any }) =>
+    api.post(`/api/dashboard/tickets/${id}/messages`, body));
 
   const handleCreate = async () => {
     try {
@@ -204,29 +188,20 @@ export default function TicketsPage() {
       if (createAttachments.length > 0) {
         body.attachments = createAttachments;
       }
-      await api.post('/api/dashboard/tickets', body);
+      await createTicket.mutateAsync(body);
       toast({ title: 'Ticket created' });
       setIsCreateOpen(false);
       setForm(emptyForm);
       setCreateAttachments([]);
-      fetchTickets();
-      fetchStats();
     } catch (e: any) {
       toast({ title: 'Failed to create ticket', description: e.message, variant: 'destructive' });
     }
   };
 
-  const openDetail = async (ticket: Ticket) => {
-    setSelectedTicket(ticket);
+  const openDetail = (ticket: Ticket) => {
+    setSelectedRow(ticket);
     setReplyMessage('');
     setIsDetailOpen(true);
-    try {
-      const res = await api.get(`/api/dashboard/tickets/${ticket.id}`);
-      const body = res?.data || res;
-      setSelectedTicket(body);
-    } catch {
-      // show what we have
-    }
   };
 
   const handleReply = async () => {
@@ -236,13 +211,10 @@ export default function TicketsPage() {
       if (replyAttachments.length > 0) {
         body.attachments = replyAttachments;
       }
-      await api.post(`/api/dashboard/tickets/${selectedTicket.id}/messages`, body);
+      await sendReply.mutateAsync({ id: selectedTicket.id, body });
       toast({ title: 'Reply sent' });
       setReplyMessage('');
       setReplyAttachments([]);
-      const res = await api.get(`/api/dashboard/tickets/${selectedTicket.id}`);
-      setSelectedTicket(res?.data || res);
-      fetchTickets();
     } catch (e: any) {
       toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
     }
@@ -323,7 +295,7 @@ export default function TicketsPage() {
       <Card>
         <CardHeader><CardTitle>All Tickets</CardTitle></CardHeader>
         <CardContent>
-          {api.isLoading && tickets.length === 0 ? (
+          {ticketsQuery.isFetching && tickets.length === 0 ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -477,8 +449,8 @@ export default function TicketsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsCreateOpen(false); setCreateAttachments([]); }}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!form.subject || !form.message || api.isLoading || isUploading}>
-              {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleCreate} disabled={!form.subject || !form.message || createTicket.isPending || isUploading}>
+              {createTicket.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Submit Ticket
             </Button>
           </DialogFooter>
@@ -486,7 +458,7 @@ export default function TicketsPage() {
       </Dialog>
 
       {/* Ticket Detail Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={(open) => { setIsDetailOpen(open); if (!open) setSelectedTicket(null); }}>
+      <Dialog open={isDetailOpen} onOpenChange={(open) => { setIsDetailOpen(open); if (!open) setSelectedRow(null); }}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedTicket?.subject}</DialogTitle>
@@ -554,8 +526,8 @@ export default function TicketsPage() {
                     isUploading={isUploading}
                   />
                   <div className="flex justify-end">
-                    <Button onClick={handleReply} disabled={!replyMessage.trim() || api.isLoading} size="sm">
-                      {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                    <Button onClick={handleReply} disabled={!replyMessage.trim() || sendReply.isPending} size="sm">
+                      {sendReply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
                       Send
                     </Button>
                   </div>

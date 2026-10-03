@@ -1,6 +1,7 @@
 import { IsOptional, IsNumber, IsString, IsIn, IsBoolean, Min, Max } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { PropertyStatus, ListingType } from '../../../database/entities/property.entity';
+import { PropertyStatus, ListingType, PropertySource } from '../../../database/entities/property.entity';
+import { PROPERTY_SOURCES } from '@spm/shared';
 
 export class ListPropertyDto {
   @IsOptional()
@@ -27,9 +28,11 @@ export class ListPropertyDto {
   @IsNumber()
   locationId?: number;
 
+  // Every properties.source value from the shared list, not a hand-copied
+  // one: a copy here missed kyero/odoo and 400'd the dashboard's Source filter.
   @IsOptional()
-  @IsIn(['manual', 'resales', 'inmoba', 'infocasa', 'redsp'])
-  source?: string;
+  @IsIn(PROPERTY_SOURCES)
+  source?: PropertySource;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

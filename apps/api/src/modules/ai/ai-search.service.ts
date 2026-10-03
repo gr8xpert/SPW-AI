@@ -92,6 +92,12 @@ export class AiSearchService {
     return { enabled: true };
   }
 
+  /** What the widget needs to know: show the AI button, and the mic in it. */
+  async publicStatus(tenant: Tenant): Promise<{ enabled: boolean; voice: boolean }> {
+    const state = await this.status(tenant);
+    return { enabled: state.enabled, voice: state.enabled && this.voiceEnabled(tenant) };
+  }
+
   async search(tenant: Tenant, query: string, language = 'en'): Promise<AiSearchResult> {
     const trimmed = (query || '').trim();
     if (!trimmed) throw new BadRequestException('Describe what you are looking for.');

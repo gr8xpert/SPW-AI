@@ -6,13 +6,25 @@ import { CreditService } from './credit.service';
 // built with `new` and each TypeORM collaborator is a bag of jest.fn()s.
 // The fake queryRunner keeps the balance row in memory so the maths can be
 // checked end to end (read -> add/subtract -> save -> ledger row).
+// insert(CreditBalance) creates the row, or throws ER_DUP_ENTRY like the
+// UNIQUE(tenantId) index does when one already exists.
 
-function makeQueryRunner(balanceRow: { tenantId: number; balance: any } | null) {
+const LOCKED = { mode: 'pessimistic_write' };
+
+function makeQueryRunner(initialRow: { tenantId: number; balance: any } | null) {
   const saved: any[] = [];
+  let balanceRow = initialRow;
   const manager = {
     findOne: jest.fn(async (entity: any, _opts: any) =>
       entity === CreditBalance ? balanceRow : null,
     ),
+    insert: jest.fn(async (entity: any, row: any) => {
+      if (entity !== CreditBalance) return;
+      if (balanceRow) {
+        throw Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' });
+      }
+      balanceRow = { ...row };
+    }),
     create: jest.fn((entity: any, data: any) => ({ __entity: entity, ...data })),
     save: jest.fn(async (row: any) => {
       saved.push({ ...row });
@@ -38,6 +50,7 @@ function makeService(opts: {
   const { qr, manager, saved } = makeQueryRunner(opts.balanceRow ?? null);
   const creditBalanceRepository = {
     findOne: jest.fn(),
+    manager: { insert: jest.fn().mockResolvedValue(undefined) },
     create: jest.fn((d: any) => ({ ...d })),
     save: jest.fn(async (r: any) => r),
     find: jest.fn().mockResolvedValue([]),
@@ -94,7 +107,16 @@ describe('CreditService', () => {
       t.creditBalanceRepository.findOne.mockResolvedValue(null);
 
       await expect(t.svc.getBalance(9)).resolves.toEqual({ balance: 0, tenantId: 9 });
-      expect(t.creditBalanceRepository.save).toHaveBeenCalledWith({ tenantId: 9, balance: 0 });
+      expect(t.creditBalanceRepository.manager.insert).toHaveBeenCalledWith(CreditBalance, { tenantId: 9, balance: 0 });
+    });
+
+    it('two first reads racing: the loser of the insert still answers 0 instead of a 500', async () => {
+      const t = makeService();
+      t.creditBalanceRepository.findOne.mockResolvedValue(null);
+      t.creditBalanceRepository.manager.insert.mockRejectedValue(
+        Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' }),
+      );
+      await expect(t.svc.getBalance(9)).resolves.toEqual({ balance: 0, tenantId: 9 });
     });
   });
 
@@ -130,7 +152,8 @@ describe('CreditService', () => {
       const res = await t.svc.adjustCredits(7, { amount: 2.5, type: 'add', reason: 'Goodwill' }, 99);
 
       expect(res.balance).toBe(12.5);
-      expect(t.manager.findOne).toHaveBeenCalledWith(CreditBalance, { where: { tenantId: 7 } });
+      // The balance is read with SELECT … FOR UPDATE so concurrent changes queue.
+      expect(t.manager.findOne).toHaveBeenCalledWith(CreditBalance, { where: { tenantId: 7 }, lock: LOCKED });
       const [tx] = ledgerRows(t.saved);
       expect(tx).toMatchObject({
         tenantId: 7,
@@ -192,7 +215,20 @@ describe('CreditService', () => {
       const res = await t.svc.adjustCredits(7, { amount: 5, type: 'add', reason: 'x' }, 1);
 
       expect(res.balance).toBe(5);
-      expect(t.manager.create).toHaveBeenCalledWith(CreditBalance, { tenantId: 7, balance: 0 });
+      expect(t.manager.insert).toHaveBeenCalledWith(CreditBalance, { tenantId: 7, balance: 0 });
+    });
+
+    it('carries on when a concurrent request created the row first (duplicate key)', async () => {
+      const t = makeService({ balanceRow: { tenantId: 7, balance: 3 } });
+      // The existence check runs before the other request's insert lands…
+      t.manager.findOne.mockResolvedValueOnce(null);
+
+      const res = await t.svc.adjustCredits(7, { amount: 2, type: 'add', reason: 'x' }, 1);
+
+      // …so our insert hits the UNIQUE index, and we add onto the row it made.
+      expect(t.manager.insert).toHaveBeenCalledTimes(1);
+      expect(res.balance).toBe(5);
+      expect(t.qr.commitTransaction).toHaveBeenCalledTimes(1);
     });
 
     it('rejects a deduct on a tenant with no balance row (0 - n < 0)', async () => {
@@ -234,7 +270,7 @@ describe('CreditService', () => {
       const res = await t.svc.addPurchasedCredits(7, 5, 'pi_123', 3);
 
       expect(res.balance).toBe(15);
-      expect(t.manager.findOne).toHaveBeenCalledWith(CreditBalance, { where: { tenantId: 7 } });
+      expect(t.manager.findOne).toHaveBeenCalledWith(CreditBalance, { where: { tenantId: 7 }, lock: LOCKED });
       const [tx] = ledgerRows(t.saved);
       expect(tx).toMatchObject({
         tenantId: 7,
@@ -276,6 +312,7 @@ describe('CreditService', () => {
       const res = await t.svc.consumeCredits(7, { hours: 1.5, ticketId: 55 }, 2);
 
       expect(res.balance).toBe(2.5);
+      expect(t.manager.findOne).toHaveBeenCalledWith(CreditBalance, { where: { tenantId: 7 }, lock: LOCKED });
       expect(t.ticketRepository.findOne).toHaveBeenCalledWith({ where: { id: 55, tenantId: 7 } });
       expect(ledgerRows(t.saved)[0]).toMatchObject({
         tenantId: 7,
@@ -301,9 +338,10 @@ describe('CreditService', () => {
       await expect(t.svc.consumeCredits(7, { hours: 2 }, 2)).resolves.toMatchObject({ balance: 0 });
     });
 
-    it('rejects a tenant with no balance row', async () => {
+    it('rejects a tenant with no balance row (and does not create one)', async () => {
       const t = makeService({ balanceRow: null });
       await expect(t.svc.consumeCredits(7, { hours: 1 }, 2)).rejects.toThrow('No credit balance found');
+      expect(t.manager.insert).not.toHaveBeenCalled();
     });
 
     it("rejects a ticket from another tenant (lookup is tenant-scoped)", async () => {

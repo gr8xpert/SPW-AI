@@ -7,7 +7,9 @@ if (!defined('ABSPATH')) exit;
  */
 class SPM_API_Client {
 
-    public static function get($path, $params = [], $timeout = 15) {
+    // $headers: extra request headers, e.g. Accept-Language for endpoints
+    // that take the language from it rather than a ?lang= parameter.
+    public static function get($path, $params = [], $timeout = 15, $headers = []) {
         // Same base URL the browser widget gets (SPM_Plugin::inject_config), so
         // a wp-config SPM_API_URL override applies to Test Connection, sync,
         // OG tags and the sitemap too.
@@ -21,13 +23,13 @@ class SPM_API_Client {
 
         $resp = wp_remote_get($url, [
             'timeout' => $timeout,
-            'headers' => [
+            'headers' => array_merge((array) $headers, [
                 'x-api-key' => $key,
                 'Accept'    => 'application/json',
                 // Lets the SPM dashboard show this site on its Website Health page.
                 'x-spm-site'   => home_url('/'),
                 'x-spm-plugin' => SPM_VERSION,
-            ],
+            ]),
         ]);
 
         if (is_wp_error($resp)) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useApi } from '@/hooks/use-api';
+import { useAdminTicketStats, useAdminTickets } from './use-admin-tickets';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search,
@@ -102,16 +102,10 @@ function unwrapArray<T>(response: any): T[] {
 /* ---------- Component ---------- */
 
 export default function AdminTicketsPage() {
-  const api = useApi();
   const { toast } = useToast();
   const router = useRouter();
 
   /* State */
-  const [tickets, setTickets] = useState<TicketItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<TicketStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
 
   /* Filters */
   const [statusFilter, setStatusFilter] = useState('all');
@@ -119,68 +113,37 @@ export default function AdminTicketsPage() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  /* Fetch stats */
-  const fetchStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const response = await api.get('/api/super-admin/tickets/stats');
-      const body = unwrap<TicketStats>(response);
-      setStats(body);
-    } catch (err: any) {
+  /* Data (React Query; waits for the session token before fetching) */
+  const statsQuery = useAdminTicketStats<TicketStats>((response) => unwrap<TicketStats>(response));
+  const stats = statsQuery.data ?? null;
+  const statsLoading = statsQuery.isPending || statsQuery.isFetching;
+  const ticketsQuery = useAdminTickets<TicketItem>(statusFilter, page, limit);
+  const tickets = useMemo(() => ticketsQuery.data?.tickets ?? [], [ticketsQuery.data]);
+  const total = ticketsQuery.data?.total ?? 0;
+  // Spinner on first load, filter/page changes and refresh, as before.
+  const loading = ticketsQuery.isPending || ticketsQuery.isFetching;
+
+  useEffect(() => {
+    const err = statsQuery.error as Error | null;
+    if (err) {
       toast({
         title: 'Failed to load ticket stats',
         description: err?.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
-    } finally {
-      setStatsLoading(false);
     }
-  }, [api.get, toast]);
+  }, [statsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Fetch tickets */
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      params.append('page', page.toString());
-      params.append('limit', limit.toString());
-
-      const response = await api.get(`/api/super-admin/tickets?${params.toString()}`);
-      const body = response?.data ?? response;
-
-      if (Array.isArray(body)) {
-        setTickets(body);
-        setTotal(body.length);
-      } else {
-        setTickets(body?.data ?? []);
-        setTotal(body?.total ?? 0);
-      }
-    } catch (err: any) {
+  useEffect(() => {
+    const err = ticketsQuery.error as Error | null;
+    if (err) {
       toast({
         title: 'Failed to load tickets',
         description: err?.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
-      setTickets([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
     }
-  }, [statusFilter, page, api.get, toast]);
-
-  useEffect(() => {
-    // Wait for the session to hydrate: firing on mount sent the request with
-    // no Authorization header, it 401'd, and nothing re-ran once the token
-    // arrived — so the page sat there empty until a manual refresh.
-    if (!api.isReady) return;
-    fetchStats();
-  }, [api.isReady, fetchStats]);
-
-  useEffect(() => {
-    if (!api.isReady) return;
-    fetchTickets();
-  }, [api.isReady, fetchTickets]);
+  }, [ticketsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Client-side search filter */
   const filteredTickets = useMemo(() => {
@@ -202,8 +165,8 @@ export default function AdminTicketsPage() {
   };
 
   const handleRefresh = () => {
-    fetchStats();
-    fetchTickets();
+    void statsQuery.refetch();
+    void ticketsQuery.refetch();
   };
 
   return (

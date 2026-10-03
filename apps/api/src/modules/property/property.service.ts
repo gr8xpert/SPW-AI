@@ -308,7 +308,10 @@ export class PropertyService {
     const property = await this.findOne(tenantId, id);
     property.status = 'sold';
     property.soldAt = new Date();
-    return this.propertyRepository.save(property);
+    const saved = await this.propertyRepository.save(property);
+    // A sold listing leaves the public search, so widgets need the bump too.
+    await this.emit(tenantId, 'property.updated', saved);
+    return saved;
   }
 
   // When a caller writes `floorPlans` (new multi-plan field), reflect the

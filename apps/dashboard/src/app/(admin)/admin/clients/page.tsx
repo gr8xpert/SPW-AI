@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -93,33 +93,44 @@ export default function ClientsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Filters
-  const [search, setSearch] = useState(searchParams.get('search') || '');
+  // Filters. `search` is what's in the box; `appliedSearch` is what the list
+  // was fetched with. Only the latter drives requests — fetching on every
+  // keystroke tripped the API throttler ("Too Many Requests") while typing.
+  const initialSearch = (searchParams.get('search') || '').trim();
+  const [search, setSearch] = useState(initialSearch);
+  const [appliedSearch, setAppliedSearch] = useState(initialSearch);
   const [status, setStatus] = useState(searchParams.get('status') || 'all');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
   const limit = 20;
 
+  // Responses can land out of order (slow search, then a faster one); only
+  // the newest request may write to the table.
+  const requestSeq = useRef(0);
+
   const fetchClients = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      if (appliedSearch) params.append('search', appliedSearch);
       if (status !== 'all') params.append('subscriptionStatus', status);
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
       const response = await api.get(`/api/super-admin/clients?${params.toString()}`);
+      if (seq !== requestSeq.current) return;
       // Response is already { data: [...], total, ... } from the API
       setClients(response.data);
       setTotal(response.total);
     } catch (error) {
+      if (seq !== requestSeq.current) return;
       console.error('Failed to fetch clients:', error);
       // Never let a failed load pass for "no clients".
       toast({ title: 'Failed to load clients', description: (error as Error)?.message || 'Please try again.', variant: 'destructive' });
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [search, status, page, api.get, toast]);
+  }, [appliedSearch, status, page, api.get, toast]);
 
   useEffect(() => {
     // Wait for the session to hydrate: firing on mount sent the request with
@@ -129,10 +140,30 @@ export default function ClientsPage() {
     fetchClients();
   }, [api.isReady, fetchClients]);
 
+  // Typing applies the search once the user pauses for 400ms. Changing
+  // appliedSearch re-runs this effect, whose cleanup drops any pending timer.
+  useEffect(() => {
+    const next = search.trim();
+    if (next === appliedSearch) return;
+    const timer = setTimeout(() => {
+      setAppliedSearch(next);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search, appliedSearch]);
+
+  // Enter / Search button applies immediately. If nothing changed (same term,
+  // already on page 1) no state update would trigger a fetch, so treat it as
+  // an explicit refresh.
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    const next = search.trim();
+    if (next === appliedSearch && page === 1) {
+      fetchClients();
+      return;
+    }
+    setAppliedSearch(next);
     setPage(1);
-    fetchClients();
   };
 
   const [deleteTarget, setDeleteTarget] = useState<DeletableClient | null>(null);

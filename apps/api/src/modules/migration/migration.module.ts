@@ -12,6 +12,7 @@ import {
 import { MigrationService } from './migration.service';
 import { MigrationProcessor } from './migration.processor';
 import { MigrationController } from './migration.controller';
+import { TenantModule } from '../tenant/tenant.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { MigrationController } from './migration.controller';
         removeOnFail: 100,
       },
     }),
+    // For the syncVersion bump when an import finishes.
+    TenantModule,
   ],
   controllers: [MigrationController],
   providers: [MigrationService, MigrationProcessor],

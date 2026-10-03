@@ -95,7 +95,7 @@ export default function RsChatPanel() {
       let fullContent = '';
       let inlineProperties: Property[] | undefined;
 
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
 

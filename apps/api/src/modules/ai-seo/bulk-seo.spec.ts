@@ -1,4 +1,4 @@
-import { AiSeoProcessor } from './ai-seo.processor';
+import { AiSeoProcessor, SEO_BUMP_EVERY } from './ai-seo.processor';
 
 // Hand-rolled fakes rather than a Nest module + live DB: what's under test is
 // which properties the pass pays for and what it writes, not persistence.
@@ -19,6 +19,8 @@ function makeProcessor(rows: Row[]) {
   const seoCalls: Array<{ id: number; languages: string[] }> = [];
   const schemaCalls: number[] = [];
   const saved: Row[] = [];
+  // Shared timeline of saves and syncVersion bumps, to check the order.
+  const events: string[] = [];
 
   const propertyRepository = {
     find: async () => rows.map((r) => ({ id: r.id })),
@@ -33,6 +35,7 @@ function makeProcessor(rows: Row[]) {
     },
     save: async (row: Row) => {
       saved.push(row);
+      events.push(`save:${row.id}`);
       return row;
     },
   };
@@ -57,12 +60,17 @@ function makeProcessor(rows: Row[]) {
     },
   };
 
+  const tenantService = {
+    bumpSyncVersionSafely: jest.fn(async () => void events.push('bump')),
+  };
+
   const processor = new (AiSeoProcessor as any)(
     propertyRepository,
     aiSeoService,
+    tenantService,
   ) as AiSeoProcessor;
 
-  return { processor, seoCalls, schemaCalls, saved };
+  return { processor, seoCalls, schemaCalls, saved, events, tenantService };
 }
 
 function makeJob(data: any) {
@@ -204,6 +212,40 @@ describe('AiSeoProcessor', () => {
 
     expect(seoCalls.map((c) => c.id)).toEqual([1, 2, 3]);
     expect(progress.at(-1)).toEqual({ total: 3, completed: 3, failed: 1, skipped: 0 });
+  });
+
+  it('bumps syncVersion once, after the last save', async () => {
+    const rows: Row[] = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const { processor, events, tenantService } = makeProcessor(rows);
+    const { job } = makeJob({ tenantId: 7, targetLanguages: ['en'] });
+
+    await processor.process(job);
+
+    expect(tenantService.bumpSyncVersionSafely).toHaveBeenCalledTimes(1);
+    expect(tenantService.bumpSyncVersionSafely).toHaveBeenCalledWith(7, expect.any(String));
+    expect(events).toEqual(['save:1', 'save:2', 'save:3', 'bump']);
+  });
+
+  it('does not bump when every property was already done', async () => {
+    const rows: Row[] = [{ id: 1, ...seoComplete(['en']) }];
+    const { processor, tenantService } = makeProcessor(rows);
+    const { job } = makeJob({ tenantId: 1, targetLanguages: ['en'] });
+
+    await processor.process(job);
+
+    expect(tenantService.bumpSyncVersionSafely).not.toHaveBeenCalled();
+  });
+
+  // A catalog run lasts hours: sites should see finished SEO in batches, not
+  // only at the very end — but never once per property.
+  it('bumps once per batch on a long run, plus once for the remainder', async () => {
+    const rows: Row[] = Array.from({ length: SEO_BUMP_EVERY * 2 + 1 }, (_, i) => ({ id: i + 1 }));
+    const { processor, tenantService } = makeProcessor(rows);
+    const { job } = makeJob({ tenantId: 1, targetLanguages: ['en'] });
+
+    await processor.process(job);
+
+    expect(tenantService.bumpSyncVersionSafely).toHaveBeenCalledTimes(3);
   });
 
   it('reports progress after every property', async () => {

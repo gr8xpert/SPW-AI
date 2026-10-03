@@ -97,7 +97,7 @@ export function escapeHtml(value: unknown): string {
 // visitor's currency symbol and conversion from formatPrice.
 export function shortPrice(formatted: string, amount: number | null): string {
   if (amount == null || !Number.isFinite(amount)) return formatted;
-  const symbol = formatted.replace(/[\d.,\s ]/g, '') || '';
+  const symbol = formatted.replace(/[\d.,\s\u00a0]/g, '') || '';
   const digits = Number(formatted.replace(/[^\d]/g, '')) || amount;
   // "1.50" -> "1.5", "2.00" -> "2"; whole numbers ("350") are left alone.
   const trim = (n: number) => (n >= 100 ? n.toFixed(0) : n >= 10 ? n.toFixed(1) : n.toFixed(2)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');

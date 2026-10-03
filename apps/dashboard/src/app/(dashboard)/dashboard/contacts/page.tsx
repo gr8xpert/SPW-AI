@@ -57,6 +57,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useContactMutation, useContacts } from './use-contacts';
 
 interface Contact {
   id: number;
@@ -82,9 +83,6 @@ const emptyForm = { name: '', email: '', phone: '', source: 'manual' as string, 
 export default function ContactsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -102,26 +100,29 @@ export default function ContactsPage() {
   const api = useApi();
   const { toast } = useToast();
 
-  const fetchContacts = async () => {
-    if (!api.isReady) return;
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: '20' });
-      if (search) params.set('search', search);
-      const res = await api.get(`/api/dashboard/contacts?${params}`);
-      const body = res?.data || res;
-      setContacts(body.data || []);
-      setTotal(body.total || 0);
-      setTotalPages(body.meta?.pages || Math.ceil((body.total || 0) / 20) || 1);
-    } catch {
-      toast({ title: 'Failed to load contacts', variant: 'destructive' });
-    }
-  };
+  const contactsQuery = useContacts<Contact>(page, search);
+  const contacts = contactsQuery.data?.contacts ?? [];
+  const total = contactsQuery.data?.total ?? 0;
+  const totalPages = contactsQuery.data?.totalPages ?? 1;
 
-  useEffect(() => { fetchContacts(); }, [page, search, api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  // One toast per failed load (after React Query's retries).
+  useEffect(() => {
+    if (contactsQuery.isError) toast({ title: 'Failed to load contacts', variant: 'destructive' });
+  }, [contactsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const createContact = useContactMutation((body: Record<string, unknown>) =>
+    api.post('/api/dashboard/contacts', body));
+  const updateContact = useContactMutation(({ id, body }: { id: number; body: Record<string, unknown> }) =>
+    api.put(`/api/dashboard/contacts/${id}`, body));
+  const deleteContact = useContactMutation((id: number) => api.delete(`/api/dashboard/contacts/${id}`));
+  const unsubscribeContact = useContactMutation((id: number) =>
+    api.post(`/api/dashboard/contacts/${id}/unsubscribe`));
+  const importContacts = useContactMutation((rows: Record<string, any>[]) =>
+    api.post('/api/dashboard/contacts/import', { contacts: rows }));
 
   const handleCreate = async () => {
     try {
-      await api.post('/api/dashboard/contacts', {
+      await createContact.mutateAsync({
         email: form.email,
         name: form.name || undefined,
         phone: form.phone || undefined,
@@ -132,7 +133,6 @@ export default function ContactsPage() {
       toast({ title: 'Contact created' });
       setIsAddOpen(false);
       setForm(emptyForm);
-      fetchContacts();
     } catch (e: any) {
       toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
     }
@@ -141,17 +141,19 @@ export default function ContactsPage() {
   const handleUpdate = async () => {
     if (!editingContact) return;
     try {
-      await api.put(`/api/dashboard/contacts/${editingContact.id}`, {
-        email: form.email,
-        name: form.name || undefined,
-        phone: form.phone || undefined,
-        tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+      await updateContact.mutateAsync({
+        id: editingContact.id,
+        body: {
+          email: form.email,
+          name: form.name || undefined,
+          phone: form.phone || undefined,
+          tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+        },
       });
       toast({ title: 'Contact updated' });
       setIsEditOpen(false);
       setEditingContact(null);
       setForm(emptyForm);
-      fetchContacts();
     } catch (e: any) {
       toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
     }
@@ -160,11 +162,10 @@ export default function ContactsPage() {
   const handleDelete = async () => {
     if (!deletingContact) return;
     try {
-      await api.delete(`/api/dashboard/contacts/${deletingContact.id}`);
+      await deleteContact.mutateAsync(deletingContact.id);
       toast({ title: 'Contact deleted' });
       setIsDeleteOpen(false);
       setDeletingContact(null);
-      fetchContacts();
     } catch (e: any) {
       toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
     }
@@ -172,9 +173,8 @@ export default function ContactsPage() {
 
   const handleUnsubscribe = async (contact: Contact) => {
     try {
-      await api.post(`/api/dashboard/contacts/${contact.id}/unsubscribe`);
+      await unsubscribeContact.mutateAsync(contact.id);
       toast({ title: `${contact.name || contact.email} unsubscribed` });
-      fetchContacts();
     } catch (e: any) {
       toast({ title: 'Failed to unsubscribe', description: e.message, variant: 'destructive' });
     }
@@ -306,11 +306,10 @@ export default function ContactsPage() {
     }
 
     try {
-      const res = await api.post('/api/dashboard/contacts/import', { contacts });
+      const res: any = await importContacts.mutateAsync(contacts);
       const body = res?.data || res;
       setImportResult(body);
       toast({ title: `Import complete: ${body.created} created, ${body.updated} updated` });
-      fetchContacts();
     } catch (e: any) {
       toast({ title: 'Import failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -419,7 +418,7 @@ export default function ContactsPage() {
           <CardTitle>All Contacts</CardTitle>
         </CardHeader>
         <CardContent>
-          {api.isLoading && contacts.length === 0 ? (
+          {contactsQuery.isFetching && contacts.length === 0 ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -546,8 +545,8 @@ export default function ContactsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!form.email || api.isLoading}>
-              {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleCreate} disabled={!form.email || createContact.isPending}>
+              {createContact.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Create
             </Button>
           </DialogFooter>
@@ -581,8 +580,8 @@ export default function ContactsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={!form.email || api.isLoading}>
-              {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleUpdate} disabled={!form.email || updateContact.isPending}>
+              {updateContact.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
             </Button>
           </DialogFooter>

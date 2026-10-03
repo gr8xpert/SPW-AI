@@ -5,6 +5,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { Property, PropertyType, Feature, Label } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
+import { TenantService } from '../tenant/tenant.service';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French',
@@ -56,6 +57,7 @@ export class TranslationService {
     @InjectQueue('translation')
     private translationQueue: Queue,
     private aiService: AiService,
+    private tenantService: TenantService,
   ) {}
 
   async translateProperty(
@@ -84,6 +86,7 @@ export class TranslationService {
       return property;
     }
 
+    let changed = false;
     for (const targetLang of targetLanguages) {
       if (targetLang === sourceLang) continue;
 
@@ -94,10 +97,13 @@ export class TranslationService {
       for (const [field, translated] of Object.entries(translations)) {
         const current = ((property as any)[field] as Record<string, string>) || {};
         (property as any)[field] = { ...current, [targetLang]: translated };
+        changed = true;
       }
     }
 
-    return this.propertyRepository.save(property);
+    const saved = await this.propertyRepository.save(property);
+    if (changed) await this.tenantService.bumpSyncVersionSafely(tenantId, `translate property=${propertyId}`);
+    return saved;
   }
 
   async translatePropertyType(
@@ -120,7 +126,7 @@ export class TranslationService {
       entity.name = { ...entity.name, [targetLang]: result.name || entity.name[targetLang] || '' };
     }
 
-    return this.propertyTypeRepository.save(entity);
+    return this.saveAndBump(tenantId, this.propertyTypeRepository, entity, `translate property type=${id}`, targetLanguages, sourceLang);
   }
 
   async translateFeature(
@@ -143,7 +149,7 @@ export class TranslationService {
       entity.name = { ...entity.name, [targetLang]: result.name || entity.name[targetLang] || '' };
     }
 
-    return this.featureRepository.save(entity);
+    return this.saveAndBump(tenantId, this.featureRepository, entity, `translate feature=${id}`, targetLanguages, sourceLang);
   }
 
   async translateLabel(
@@ -166,7 +172,25 @@ export class TranslationService {
       entity.translations = { ...entity.translations, [targetLang]: result.value || entity.translations[targetLang] || '' };
     }
 
-    return this.labelRepository.save(entity);
+    return this.saveAndBump(tenantId, this.labelRepository, entity, `translate label=${id}`, targetLanguages, sourceLang);
+  }
+
+  // Single-row translate (types, features, labels): save, then bump once so
+  // the widget and WP plugin pick the new language up. Nothing to translate
+  // (every target is the source language) means nothing changed — no bump.
+  private async saveAndBump<T extends object>(
+    tenantId: number,
+    repo: Repository<T>,
+    entity: T,
+    reason: string,
+    targetLanguages: string[],
+    sourceLang: string,
+  ): Promise<T> {
+    const saved = await repo.save(entity);
+    if (targetLanguages.some((l) => l !== sourceLang)) {
+      await this.tenantService.bumpSyncVersionSafely(tenantId, reason);
+    }
+    return saved;
   }
 
   async bulkTranslate(

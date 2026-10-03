@@ -3,7 +3,7 @@ import { useSelector } from '@/hooks/useStore';
 import { useLabels } from '@/hooks/useLabels';
 import { useFilters } from '@/hooks/useFilters';
 import { selectors } from '@/core/selectors';
-import PropertyCard from './PropertyCard';
+import { useCardDesign } from './cards/registry';
 import Skeleton from '@/components/common/Skeleton';
 import { useBlockSearch } from '@/hooks/useBlockSearch';
 import { isPageResults } from '@/core/block-role';
@@ -40,6 +40,8 @@ export default function RsPropertyGrid(props: RsPropertyGridProps) {
   const { setFilter } = useFilters();
   const gridRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
+  // This template's card design; null only while it is still being fetched.
+  const Card = useCardDesign(template);
 
   // On mount: check if we need to restore page from back navigation
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function RsPropertyGrid(props: RsPropertyGridProps) {
     ? `grid-template-columns: repeat(${columns}, 1fr)`
     : undefined;
 
-  if (isLoading) {
+  if (isLoading || (!Card && results?.data.length)) {
     return frame(
       <div class={`rs-property-grid${layoutClass}`} style={gridStyle}>
         <Skeleton type="card" count={parseInt(columns || '3', 10) * 2} />
@@ -108,13 +110,14 @@ export default function RsPropertyGrid(props: RsPropertyGridProps) {
     );
   }
 
+  if (!Card) return null;
+
   return frame(
     <div class={`rs-property-grid${layoutClass}`} style={gridStyle} ref={gridRef}>
       {results.data.map((property, i) => (
-        <PropertyCard
+        <Card
           key={property.id}
           property={property}
-          template={template}
           index={i}
         />
       ))}

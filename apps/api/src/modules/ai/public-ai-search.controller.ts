@@ -69,11 +69,11 @@ export class PublicAiSearchController {
   @Get('status')
   async status(@Headers('x-api-key') apiKey: string) {
     const tenant = await this.tenantFor(apiKey);
-    const state = await this.aiSearch.status(tenant);
     // The reason is for the dashboard and our own support, not the visitor.
     // `voice` decides whether the mic is shown; it is only ever true when AI
-    // search itself is available.
-    return { enabled: state.enabled, voice: state.enabled && this.aiSearch.voiceEnabled(tenant) };
+    // search itself is available. Also sent with widget-config (newer widgets
+    // read it there and skip this call).
+    return this.aiSearch.publicStatus(tenant);
   }
 
   @Public()

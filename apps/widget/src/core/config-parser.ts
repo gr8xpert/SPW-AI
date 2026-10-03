@@ -65,6 +65,12 @@ function parseLegacyConfig(): Partial<WidgetConfig> {
   if (rc.resultsPage) config.resultsPage = rc.resultsPage;
   if (rc.wishlistPage) config.wishlistPage = rc.wishlistPage;
   if (rc.dataBundleUrl) config.dataBundleUrl = rc.dataBundleUrl;
+  if (rc.pageResults && typeof rc.pageResults.key === 'string' && typeof rc.pageResults.url === 'string') {
+    config.pageResults = { key: rc.pageResults.key, url: rc.pageResults.url };
+  }
+  if (rc.reportSearch && typeof rc.reportSearch.url === 'string' && Number(rc.reportSearch.page) > 0) {
+    config.reportSearch = { url: rc.reportSearch.url, page: Number(rc.reportSearch.page) };
+  }
   if (rc.searchTemplate) config.searchTemplateId = rc.searchTemplate;
   if (rc.listingTemplate) config.listingTemplateId = rc.listingTemplate;
   if (rc.mapTemplate) config.defaultMapTemplate = rc.mapTemplate;

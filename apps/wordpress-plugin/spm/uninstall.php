@@ -21,6 +21,7 @@ $names = [
     'sync_version',
     'bundle_format',
     'migrated_from_spw',
+    'page_searches',
 ];
 foreach (['spm_', 'spw_'] as $prefix) {
     foreach ($names as $name) delete_option($prefix . $name);

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { Property, Tenant } from '../../database/entities';
 import { AiModule } from '../ai/ai.module';
+import { TenantModule } from '../tenant/tenant.module';
 import { AiSeoService } from './ai-seo.service';
 import { AiSeoProcessor } from './ai-seo.processor';
 import { AiSeoController } from './ai-seo.controller';
@@ -22,6 +23,8 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
       },
     }),
     AiModule,
+    // The processor bumps syncVersion as SEO lands (runs in this process).
+    TenantModule,
   ],
   controllers: [AiSeoController],
   providers: [AiSeoService, AiSeoProcessor, DashboardAddonGuard],
