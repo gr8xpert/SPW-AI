@@ -55,6 +55,16 @@ export default function RsAiSearch({ badge = true }: Props) {
 
   useEffect(() => () => recordingRef.current?.cancel(), []);
 
+  // Mark the search template while the panel is open: CSS then hides the
+  // filters and lets the panel take their place, so the section grows with it
+  // instead of the panel spilling over the listings below.
+  useEffect(() => {
+    const host = rootRef.current?.parentElement;
+    if (!host) return;
+    host.classList.toggle('rs-ai-open', open);
+    return () => host.classList.remove('rs-ai-open');
+  }, [open, ai.enabled]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), TOAST_MS);

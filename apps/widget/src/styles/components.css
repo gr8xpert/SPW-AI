@@ -8248,6 +8248,19 @@ button.rs-ai__badge:hover {
   box-shadow: var(--rs-shadow-lg);
 }
 
+/* Inside a search template the open panel takes the filters' place instead
+   of floating over them, so the search area grows to fit it and never covers
+   the listings below. (Placed on its own, the panel still floats: hiding a
+   page's other content there would be wrong.) */
+[class*="rs-search-template-"].rs-ai-open > :not(.rs-ai) {
+  display: none !important;
+}
+
+[class*="rs-search-template-"].rs-ai-open > .rs-ai > .rs-ai__panel {
+  position: relative;
+  min-height: 0;
+}
+
 .rs-ai__head {
   display: flex;
   align-items: center;
