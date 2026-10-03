@@ -8,13 +8,14 @@ import RsPrice from '@/components/search/RsPrice';
 import RsSearchButton from '@/components/search/RsSearchButton';
 import RsResetButton from '@/components/search/RsResetButton';
 import RsAiSearch from '@/components/search/RsAiSearch';
+import RsAiActions from '@/components/search/RsAiActions';
 
 export default function SearchTemplate04() {
   const { t } = useLabels();
 
   return (
     <div class="rs-search-template-04">
-      <RsAiSearch />
+      <RsAiSearch badge={false} />
       <div class="rs-t04-listing-type">
         <RsListingType variation={1} />
       </div>
@@ -46,6 +47,7 @@ export default function SearchTemplate04() {
         <div class="rs-t04-action">
           <RsSearchButton />
           <RsResetButton variation={2} />
+          <RsAiActions />
         </div>
       </div>
     </div>

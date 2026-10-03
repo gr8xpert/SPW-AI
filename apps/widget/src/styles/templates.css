@@ -55,6 +55,7 @@
 }
 
 .rs-search-template-01 .rs-search-row > .rs_search_button,
+.rs-search-template-01 .rs-search-row > .rs_ai_actions,
 .rs-search-template-01 .rs-search-row > .rs_reset_button,
 .rs-search-template-01 .rs-search-row > .rs_features {
   flex: 0 0 auto;
@@ -92,6 +93,7 @@
 }
 
 .rs-search-row > .rs_search_button,
+.rs-search-row > .rs_ai_actions,
 .rs-search-row > .rs_reset_button,
 .rs-search-row > .rs_features {
   flex: 0 0 auto;
@@ -115,6 +117,7 @@
 
 .rs-search-template-02 .rs-search-row--inline > .rs_more_filters,
 .rs-search-template-02 .rs-search-row--inline > .rs_search_button,
+.rs-search-template-02 .rs-search-row--inline > .rs_ai_actions,
 .rs-search-template-02 .rs-search-row--inline > .rs_reset_button {
   flex: 0 0 auto;
   width: auto;
@@ -286,6 +289,7 @@ button.rs-more-filters-btn--active:hover {
 }
 
 .rs-search-template-03 .rs-t03-actions > .rs_search_button,
+.rs-search-template-03 .rs-t03-actions > .rs_ai_actions,
 .rs-search-template-03 .rs-t03-actions > .rs_reset_button {
   flex: 0 0 auto;
   min-width: auto;
@@ -582,6 +586,7 @@ button.rs-more-filters-btn--active:hover {
 }
 
 /* Reset button — small icon only */
+.rs-search-template-04 .rs-t04-action .rs_ai_actions,
 .rs-search-template-04 .rs-t04-action .rs_reset_button {
   flex-shrink: 0;
 }
@@ -816,6 +821,7 @@ button.rs-more-filters-btn--active:hover {
 }
 
 .rs-search-full__main > .rs_search_button,
+.rs-search-full__main > .rs_ai_actions,
 .rs-search-full__main > .rs_reset_button {
   flex: 0 0 auto;
   min-width: auto;
@@ -919,6 +925,19 @@ button.rs-more-filters-btn--active:hover {
   padding: 8px 10px 8px 0;
 }
 
+/* AI + voice icons after Search, inside the pill. */
+.rs-search-template-06 .rs-search-minimal > .rs_ai_actions {
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 8px 10px 8px 0;
+}
+
+.rs-search-template-06 .rs-search-minimal > .rs_ai_actions button.rs-reset-btn--icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
 .rs-search-template-06 .rs-search-minimal > .rs_search_button .rs-search-btn {
   height: 40px;
   min-width: 40px;
@@ -961,6 +980,7 @@ button.rs-more-filters-btn--active:hover {
 
   .rs-search-template-01 .rs-search-row > *,
   .rs-search-template-01 .rs-search-row > .rs_search_button,
+  .rs-search-template-01 .rs-search-row > .rs_ai_actions,
   .rs-search-template-01 .rs-search-row > .rs_reset_button,
   .rs-search-template-01 .rs-search-row > .rs_features {
     flex: none;
@@ -994,6 +1014,7 @@ button.rs-more-filters-btn--active:hover {
   }
 
   .rs-search-template-01 .rs-search-row > .rs_search_button,
+  .rs-search-template-01 .rs-search-row > .rs_ai_actions,
   .rs-search-template-01 .rs-search-row > .rs_reset_button {
     display: none;
   }
@@ -1011,6 +1032,7 @@ button.rs-more-filters-btn--active:hover {
     width: 100%;
   }
 
+  .rs-search-template-01 .rs-t01-mobile-actions .rs_ai_actions,
   .rs-search-template-01 .rs-t01-mobile-actions .rs_reset_button {
     flex: 1;
     display: flex;
@@ -1065,6 +1087,11 @@ button.rs-more-filters-btn--active:hover {
     width: 100%;
   }
 
+  .rs-search-template-06 .rs-search-minimal > .rs_ai_actions {
+    justify-content: center;
+    padding: 0 10px 10px;
+  }
+
   .rs-search-minimal {
     flex-direction: column;
     max-width: 100%;
@@ -1089,6 +1116,7 @@ button.rs-more-filters-btn--active:hover {
   }
 
   .rs-search-template-02 .rs-search-row--inline > .rs_search_button,
+  .rs-search-template-02 .rs-search-row--inline > .rs_ai_actions,
   .rs-search-template-02 .rs-search-row--inline > .rs_reset_button {
     display: none;
   }
@@ -1107,6 +1135,7 @@ button.rs-more-filters-btn--active:hover {
     width: 100%;
   }
 
+  .rs-search-template-02 .rs-t02-mobile-actions .rs_ai_actions,
   .rs-search-template-02 .rs-t02-mobile-actions .rs_reset_button {
     flex: 1;
     display: flex;
@@ -1189,6 +1218,7 @@ button.rs-more-filters-btn--active:hover {
     width: 100%;
   }
 
+  .rs-search-template-03 .rs-t03-actions > .rs_ai_actions,
   .rs-search-template-03 .rs-t03-actions > .rs_reset_button {
     flex: 1;
     min-width: 0;
@@ -1273,6 +1303,7 @@ button.rs-more-filters-btn--active:hover {
     line-height: 22px;
   }
 
+  .rs-search-template-04 .rs-t04-action .rs_ai_actions,
   .rs-search-template-04 .rs-t04-action .rs_reset_button {
     flex: 1;
     min-width: 0;

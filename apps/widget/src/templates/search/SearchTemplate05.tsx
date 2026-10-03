@@ -9,13 +9,14 @@ import RsFeatures from '@/components/search/RsFeatures';
 import RsSearchButton from '@/components/search/RsSearchButton';
 import RsResetButton from '@/components/search/RsResetButton';
 import RsAiSearch from '@/components/search/RsAiSearch';
+import RsAiActions from '@/components/search/RsAiActions';
 
 export default function SearchTemplate05() {
   const { t } = useLabels();
 
   return (
     <div class="rs-search-template-05">
-      <RsAiSearch />
+      <RsAiSearch badge={false} />
       <div class="rs-t05-card">
         <div class="rs-t05-header">
           <RsListingType variation={1} />
@@ -55,6 +56,7 @@ export default function SearchTemplate05() {
 
         <div class="rs-t05-footer">
           <RsResetButton variation={2} />
+          <RsAiActions />
           <RsSearchButton />
         </div>
       </div>

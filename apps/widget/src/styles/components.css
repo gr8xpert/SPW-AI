@@ -8195,11 +8195,18 @@ a.rs-map-results-card:hover .rs-map-results-card__image img {
 
 /* button.… so it outranks the [data-spm-widget] button reset in base.css,
    which otherwise strips the background and padding. */
-button.rs-ai__badge {
+/* Floating AI (+ mic) buttons, only where the component is placed on its own;
+   the search templates show RsAiActions beside Reset instead. */
+.rs-ai__badges {
   position: absolute;
   top: -14px;
   right: -10px;
   z-index: 6;
+  display: flex;
+  gap: 6px;
+}
+
+button.rs-ai__badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -8319,25 +8326,182 @@ button.rs-ai__mic:disabled {
   cursor: progress;
 }
 
-button.rs-ai__mic--listening {
+@keyframes rs-mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  100% { box-shadow: 0 0 0 14px rgba(220, 38, 38, 0); }
+}
+
+@media (max-width: 480px) {
+  .rs-ai__actions { flex-direction: column; align-items: stretch; }
+  .rs-ai__actions button.rs-ai__go { align-self: stretch; }
+}
+
+/* ── AI + voice buttons in the search bar, beside Reset ──
+   They reuse .rs-reset-btn--icon so each template's icon-button shape
+   (square, round, small) applies; only the colour marks them as AI. */
+.rs_ai_actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A light tint of the site colour, so they stand out from Reset and get
+   noticed; never squeezed narrower than their icon. */
+[data-spm-widget] .rs_ai_actions button.rs-ai-btn.rs-reset-btn--icon {
+  flex-shrink: 0;
+  color: var(--rs-primary);
+  background: color-mix(in srgb, var(--rs-primary) 7%, var(--rs-bg));
+  border-color: color-mix(in srgb, var(--rs-primary) 35%, var(--rs-border));
+}
+
+[data-spm-widget] .rs_ai_actions button.rs-ai-btn.rs-reset-btn--icon:hover {
+  background: color-mix(in srgb, var(--rs-primary) 14%, var(--rs-bg));
+  border-color: var(--rs-primary);
+  color: var(--rs-primary);
+}
+
+/* The reset arrow turns on hover; these icons shouldn't. */
+[data-spm-widget] .rs_ai_actions button.rs-ai-btn.rs-reset-btn--icon:hover svg {
+  transform: none;
+}
+
+[data-spm-widget] .rs_ai_actions button.rs-ai-btn.rs-reset-btn--icon.rs-ai-btn--listening,
+button.rs-ai__badge--listening {
   border-color: #dc2626;
   background: #dc2626;
   color: #fff;
   animation: rs-mic-pulse 1.4s ease-out infinite;
 }
 
-@keyframes rs-mic-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
-  100% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+/* ── Voice view: a big mic you can't miss ── */
+.rs-ai__voice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+button.rs-ai__voice-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 2px solid var(--rs-primary);
+  background: var(--rs-bg);
+  color: var(--rs-primary);
+  cursor: pointer;
+}
+
+button.rs-ai__voice-mic--listening {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #fff;
+  animation: rs-mic-pulse 1.4s ease-out infinite;
+}
+
+button.rs-ai__voice-mic:disabled {
+  cursor: progress;
+}
+
+.rs-ai__spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid color-mix(in srgb, var(--rs-primary) 25%, transparent);
+  border-top-color: var(--rs-primary);
+  border-radius: 50%;
+  animation: rs-spin 0.8s linear infinite;
+}
+
+.rs-ai__voice-status {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--rs-text);
+}
+
+.rs-ai__voice-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--rs-text-light);
+}
+
+.rs-ai__voice-actions {
+  display: flex;
+  gap: 16px;
+}
+
+button.rs-ai__link {
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  color: var(--rs-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── After a search: what was understood ── */
+.rs-ai__toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 2147483000;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 12px 10px 14px;
+  border-radius: 999px;
+  background: var(--rs-text, #1f2937);
+  color: #fff;
+  font-size: 0.875rem;
+  box-shadow: var(--rs-shadow-lg);
+  animation: rs-toast-in 0.2s ease-out;
+}
+
+.rs-ai__toast-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.rs-ai__toast-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.rs-ai__toast-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@keyframes rs-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button.rs-ai__mic--listening { animation: none; }
-}
-
-@media (max-width: 480px) {
-  .rs-ai__actions { flex-direction: column; align-items: stretch; }
-  .rs-ai__actions button.rs-ai__go { align-self: stretch; }
+  [data-spm-widget] .rs_ai_actions button.rs-ai-btn.rs-reset-btn--icon.rs-ai-btn--listening,
+  button.rs-ai__badge--listening,
+  button.rs-ai__voice-mic--listening,
+  .rs-ai__toast { animation: none; }
 }
 
 .rs-ai__examples {

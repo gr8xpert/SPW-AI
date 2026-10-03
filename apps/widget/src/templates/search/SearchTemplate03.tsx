@@ -9,11 +9,12 @@ import RsFeatures from '@/components/search/RsFeatures';
 import RsSearchButton from '@/components/search/RsSearchButton';
 import RsResetButton from '@/components/search/RsResetButton';
 import RsAiSearch from '@/components/search/RsAiSearch';
+import RsAiActions from '@/components/search/RsAiActions';
 
 export default function SearchTemplate03() {
   return (
     <div class="rs-search-template-03">
-      <RsAiSearch />
+      <RsAiSearch badge={false} />
       <RsListingType variation={1} />
       <div class="rs-search-row rs-search-row--inline rs-t03-fields">
         <RsLocation variation={4} />
@@ -27,6 +28,7 @@ export default function SearchTemplate03() {
         <RsFeatures variation={1} />
         <RsSearchButton />
         <RsResetButton />
+        <RsAiActions />
       </div>
     </div>
   );
