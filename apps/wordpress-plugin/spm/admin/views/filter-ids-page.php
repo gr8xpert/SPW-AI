@@ -5,8 +5,8 @@ if (!current_user_can('manage_options')) return;
 /**
  * Reads the cached locations / property-types / features JSON written by
  * SPM_Data_Sync and renders a searchable, hierarchical reference so an admin
- * can find the numeric IDs needed to lock a widget to specific filters
- * (e.g. `data-spm-lock-location="5"`). No API calls happen here — everything
+ * can find the numeric IDs needed to filter a widget block
+ * (e.g. `data-spm-location="5"`). No API calls happen here — everything
  * is served from the JSON cache.
  */
 
@@ -101,7 +101,7 @@ $has_any   = $locations || $types || $features;
     <div class="spm-ids-hero">
         <div>
             <h1>Filter IDs Reference</h1>
-            <p>Use these IDs to lock filters on your property pages (for example, show only Marbella properties).</p>
+            <p>Use these IDs to filter your property pages (for example, start the search on Marbella).</p>
         </div>
         <span class="spm-ids-site"><?php echo esc_html($site_host); ?></span>
     </div>
@@ -123,7 +123,7 @@ $has_any   = $locations || $types || $features;
                 <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
                     <span class="spm-acc-caret" aria-hidden="true"></span>
                     <h2>Locations <span class="spm-pill"><?php echo count($locations); ?></span></h2>
-                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-location="ID"</code></span>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-location="ID"</code></span>
                 </button>
                 <div class="spm-acc-body">
                     <div class="spm-id-list">
@@ -138,7 +138,7 @@ $has_any   = $locations || $types || $features;
                 <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
                     <span class="spm-acc-caret" aria-hidden="true"></span>
                     <h2>Property Types <span class="spm-pill"><?php echo count($types); ?></span></h2>
-                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-property-type="ID"</code></span>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-type="ID"</code></span>
                 </button>
                 <div class="spm-acc-body">
                     <div class="spm-id-list">
@@ -153,7 +153,7 @@ $has_any   = $locations || $types || $features;
                 <button type="button" class="spm-id-section-head spm-acc-head" aria-expanded="false">
                     <span class="spm-acc-caret" aria-hidden="true"></span>
                     <h2>Features <span class="spm-pill"><?php echo count($features); ?></span></h2>
-                    <span class="spm-id-section-hint">Attribute: <code>data-spm-lock-features="ID,ID,&hellip;"</code> (comma-separated)</span>
+                    <span class="spm-id-section-hint">Attribute: <code>data-spm-features="ID,ID,&hellip;"</code> (comma-separated)</span>
                 </button>
                 <div class="spm-acc-body">
                     <?php foreach ($features_by_cat as $cat => $list): ?>
@@ -189,13 +189,14 @@ $has_any   = $locations || $types || $features;
         <div class="spm-card spm-ids-howto">
             <div class="spm-card-head"><h3>How to use</h3></div>
             <div class="spm-card-body">
-                <p>Paste any of these attributes into your widget block to lock the search to a specific value. Multiple locks are AND-combined; <code>lock-features</code> is comma-separated.</p>
-<pre class="spm-snippet"><code>&lt;div data-spm-widget="listing-template-03"
-     data-spm-lock-location="5"
-     data-spm-lock-property-type="2"
-     data-spm-lock-features="10,12"
-     data-spm-sort="is_featured_desc"
-     data-spm-limit="6"&gt;&lt;/div&gt;</code></pre>
+                <p>Put these attributes on a listing block to set the search the page starts with. Visitors can still change it, and the block keeps its paging, view tabs and sort. Several filters combine (AND); <code>features</code> is comma-separated.</p>
+<pre class="spm-snippet"><code>&lt;div data-spm-widget="site-listing"
+     data-spm-for="sale"
+     data-spm-location="5"
+     data-spm-type="2"
+     data-spm-features="10,12"&gt;&lt;/div&gt;</code></pre>
+                <p><strong>Lock the filters:</strong> add <code>data-spm-fixed="yes"</code> and visitors can't change any filter on that block (e.g. a "Marbella villas" page).</p>
+                <p><strong>A short list, e.g. on the homepage:</strong> add <code>data-spm-standalone</code> (plus <code>data-spm-limit="6"</code>, <code>data-spm-featured="yes"</code> as you like). It shows just those cards, with no paging, view tabs or sort.</p>
             </div>
         </div>
     <?php endif; ?>

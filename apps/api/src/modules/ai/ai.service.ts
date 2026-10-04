@@ -171,7 +171,12 @@ export class AiService {
 
       const content = response.data?.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error('Empty response from OpenRouter');
+        const finish = response.data?.choices?.[0]?.finish_reason;
+        throw new Error(
+          finish === 'length'
+            ? 'Empty response from OpenRouter (the model used its whole token limit before answering)'
+            : 'Empty response from OpenRouter',
+        );
       }
       return content;
     } catch (err) {
@@ -304,7 +309,9 @@ export class AiService {
     const model = await this.usableModel(requested);
     try {
       const response = await this.chatCompletion(tenantId, [{ role: 'user', content: 'Reply with exactly: OK' }], {
-        maxTokens: 10,
+        // Thinking models (Gemini 3.x Flash) spend tokens reasoning before
+        // they answer; a tiny cap leaves the reply empty.
+        maxTokens: 1024,
         model,
       });
       return { ok: response.toLowerCase().includes('ok'), model, requested, retired: model !== requested };

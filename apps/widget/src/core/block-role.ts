@@ -2,12 +2,14 @@ import { elementAttributes } from './attribute-parser';
 
 // What a block on the page is for. Two kinds show properties:
 //
-//   the page's results area   a listing block with no filters of its own, on a
-//                             page built to show a search — it gets the count,
-//                             the sort chooser and the page numbers
-//   a curated list            "our featured six", "latest in Marbella" — it
-//                             carries its own filters and shows exactly that,
-//                             with no toolbar and no paging
+//   the page's results area   a listing block on a page built to show a search,
+//                             with at most plain search filters as a starting
+//                             point — it gets the count, the sort chooser and
+//                             the page numbers
+//   a curated list            "our featured six", "six of ours" — it picks a
+//                             selection (featured, own, limit, ref) or is
+//                             standalone, and shows exactly that, with no
+//                             toolbar and no paging
 //
 // Telling them apart is what stops a homepage carousel swallowing a search,
 // and what keeps page furniture off a block that is only decoration.
@@ -19,10 +21,13 @@ export const RESULT_COMPONENTS = new Set([
 ]);
 const RESULT_BLOCK_RE = /^(site-listing|site-map|listing-template-\d+|map-template-\d+)$/;
 
-// Attributes that say how a block looks, not what it holds.
-const PRESENTATION_ATTRS = new Set([
-  'widget', 'template', 'variation', 'currency', 'lang', 'language', 'standalone', 'columns',
-]);
+// Attributes that pick a hand-chosen selection rather than describe a search:
+// "our featured six", "our own listings", one reference. Plain search filters
+// (for, location, type, beds, price, sort…) don't — for="sale" on a results
+// page is that page's starting search, which the visitor can change, and the
+// block keeps its toolbar and paging. Until 10-05 any filter made a block
+// curated, so the only way to keep paging was lock-*, which also froze it.
+const CURATED_ATTRS = new Set(['featured', 'own', 'own-only', 'limit', 'reference', 'ref']);
 
 export function isCurated(el: HTMLElement): boolean {
   if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;
@@ -31,7 +36,7 @@ export function isCurated(el: HTMLElement): boolean {
   // list I chose". The search box on such a page must narrow within it, so the
   // block stays the page's results area rather than becoming a list of its own.
   if (attrs.some((name) => name === 'fixed' || name === 'locked' || name.startsWith('lock-'))) return false;
-  return attrs.some((name) => !PRESENTATION_ATTRS.has(name));
+  return attrs.some((name) => CURATED_ATTRS.has(name));
 }
 
 export function showsResults(el: HTMLElement): boolean {

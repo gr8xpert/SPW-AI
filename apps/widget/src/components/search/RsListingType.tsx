@@ -24,10 +24,11 @@ const ALL_LISTING_TYPES = [
 
 export default function RsListingType({ variation = 1 }: Props) {
   const config = useConfig();
-  const { filters, setFilter, isLocked } = useFilters();
+  const { filters, lockedFilters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
   const locked = isLocked('listingType');
-  const current = filters.listingType ?? '';
+  // A locked type isn't in the visitor's filters; show it rather than "Status".
+  const current = (locked ? lockedFilters.listingType : filters.listingType) ?? '';
   // Counts follow the search as the visitor narrows it, like the type and
   // location lists (each status counted without the status filter itself).
   const facets = useFacets();

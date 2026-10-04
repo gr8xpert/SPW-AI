@@ -219,7 +219,9 @@ export default function PropertyDetailPage() {
   ].filter((item) => item.display != null);
 
   const hasAddress = property.street || property.streetNumber || property.floor || property.postcode || property.cadastralReference;
-  const hasFinancial = property.communityFees != null || property.basuraTax != null || property.ibiFees != null || property.commission != null;
+  // A fee of 0 means nobody entered it (feeds send 0 for unknown), so it is
+  // left out like a missing one rather than shown as €0.
+  const hasFinancial = hasPrice(property.communityFees) || hasPrice(property.basuraTax) || hasPrice(property.ibiFees) || property.commission != null;
   const hasSeo = property.slug || property.metaTitle || property.metaDescription;
 
   const allLinks = [
@@ -363,9 +365,9 @@ export default function PropertyDetailPage() {
               <CardHeader><CardTitle>Fees & Taxes</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {property.communityFees != null && <div><p className="text-sm text-muted-foreground">Community Fees</p><p className="font-medium">{formatAmount(property.communityFees, property.currency)}/month</p></div>}
-                  {property.basuraTax != null && <div><p className="text-sm text-muted-foreground">Basura Tax</p><p className="font-medium">{formatAmount(property.basuraTax, property.currency)}/year</p></div>}
-                  {property.ibiFees != null && <div><p className="text-sm text-muted-foreground">IBI Fees</p><p className="font-medium">{formatAmount(property.ibiFees, property.currency)}/year</p></div>}
+                  {hasPrice(property.communityFees) && <div><p className="text-sm text-muted-foreground">Community Fees</p><p className="font-medium">{formatAmount(property.communityFees, property.currency)}/month</p></div>}
+                  {hasPrice(property.basuraTax) && <div><p className="text-sm text-muted-foreground">Basura Tax</p><p className="font-medium">{formatAmount(property.basuraTax, property.currency)}/year</p></div>}
+                  {hasPrice(property.ibiFees) && <div><p className="text-sm text-muted-foreground">IBI Fees</p><p className="font-medium">{formatAmount(property.ibiFees, property.currency)}/year</p></div>}
                   {property.commission != null && (
                     <div>
                       <p className="text-sm text-muted-foreground">Commission</p>

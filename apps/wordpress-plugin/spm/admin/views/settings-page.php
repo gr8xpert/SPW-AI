@@ -314,14 +314,14 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
                     <h3>Filter IDs Reference</h3>
                 </div>
                 <div class="spm-card-body">
-                    <p>Need to lock a page to a specific city, property type, or feature? Open the reference to browse every ID synced for <strong><?php echo esc_html(parse_url(home_url(), PHP_URL_HOST)); ?></strong> with one-click copy.</p>
+                    <p>Want a page to start on a specific city, property type, or feature? Open the reference to browse every ID synced for <strong><?php echo esc_html(parse_url(home_url(), PHP_URL_HOST)); ?></strong> with one-click copy.</p>
                     <p>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=spm-filter-ids')); ?>" class="button button-primary">
                             <span class="dashicons dashicons-list-view" style="vertical-align:middle;margin-top:-2px"></span>
                             Open Filter IDs Reference
                         </a>
                     </p>
-                    <p class="description">Example: <code>&lt;div data-spm-widget="listing-template-01" data-spm-lock-location="5"&gt;&lt;/div&gt;</code></p>
+                    <p class="description">Example: <code>&lt;div data-spm-widget="site-listing" data-spm-location="5"&gt;&lt;/div&gt;</code> &mdash; visitors can still change it. Add <code>data-spm-fixed="yes"</code> to lock every filter on that block.</p>
                 </div>
             </div>
 
@@ -332,8 +332,10 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
                     <p class="description">Want a search box or listings anywhere else on your site (e.g. the homepage)? Add a <em>Custom HTML</em> block with:</p>
 <pre class="spm-snippet"><code>&lt;div data-spm-widget="site-search"&gt;&lt;/div&gt;
 &lt;div data-spm-widget="site-listing"
-     data-spm-sort="is_featured_desc"
+     data-spm-standalone
+     data-spm-featured="yes"
      data-spm-limit="6"&gt;&lt;/div&gt;</code></pre>
+                    <p class="description"><code>data-spm-standalone</code> keeps that list to itself: no paging, view tabs or sort, and the search box above it sends visitors to your results page.</p>
                 </div>
             </div>
         </aside>

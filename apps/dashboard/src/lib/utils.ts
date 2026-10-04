@@ -81,7 +81,7 @@ export function formatAmount(
 // A property price counts as set only when it is above zero. The column is a
 // DECIMAL, so an empty price arrives as "0.00" — a truthy string — and feeds
 // send 0 for price-on-application listings.
-export function hasPrice(value: number | string | null | undefined): boolean {
+export function hasPrice(value: number | string | null | undefined): value is number | string {
   if (value == null || value === '') return false;
   const n = Number(value);
   return Number.isFinite(n) && n > 0;
