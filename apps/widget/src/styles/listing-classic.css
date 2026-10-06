@@ -1,0 +1,1893 @@
+/* Listing templates 13–17 = V3 listing templates 07–11 (rs-template-card-07..11).
+   Copied from V3 realtysoft.css; injected only when one of these cards mounts
+   (components/listing/cards/CardClassic.tsx). */
+
+.rs_card { position: relative; }
+/* base.css gives every rs_* / rs-…-template-… element the text colour; these
+   designs colour a block and let its parts inherit, as in V3. Every V3 rule
+   below starts with .rs_card so it outranks that reset. */
+.rs_card [class*="rs_"] { color: inherit; }
+.rs_card a.rs_card_link { text-decoration: none; color: inherit; }
+.rs_card .rs-spec-hidden { display: none !important; }
+
+.rs_card .rs-card__wishlist,
+.rs_card .rs_card_wishlist {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Reset any pseudo-elements from theme */
+.rs_card .rs-card__wishlist::before,
+.rs_card .rs-card__wishlist::after,
+.rs_card .rs_card_wishlist::before,
+.rs_card .rs_card_wishlist::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Default heart icon - gray outline */
+.rs_card .rs-card__wishlist svg {
+    color: #6c757d;
+    stroke: #6c757d;
+}
+
+.rs_card .rs-card__wishlist:hover {
+    background: #ffffff !important;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card .rs-card__wishlist:hover svg {
+    color: #dc3545;
+    stroke: #dc3545;
+}
+
+/* Active state - red filled heart */
+.rs_card .rs-card__wishlist--active svg {
+    color: #dc3545;
+    stroke: #dc3545;
+    fill: #dc3545;
+}
+
+/* Card Carousel */
+.rs_card .rs-card__carousel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.rs_card .rs-card__carousel-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.rs_card .rs-card__carousel-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.rs_card .rs-card__carousel-slide--active {
+    opacity: 1;
+}
+
+.rs_card .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rs_card .rs-card__carousel-prev,
+.rs_card .rs-card__carousel-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+}
+
+.rs_card:hover .rs-card__carousel-prev,
+.rs_card:hover .rs-card__carousel-next {
+    opacity: 1;
+}
+
+.rs_card .rs-card__carousel-prev { left: 8px; }
+.rs_card .rs-card__carousel-next { right: 8px; }
+
+/* Always show carousel arrows on mobile (no hover available) */
+@media (max-width: 768px) {
+    .rs_card .rs-card__carousel-prev,
+    .rs_card .rs-card__carousel-next {
+        opacity: 1 !important;
+    }
+}
+
+.rs_card .rs-card__carousel-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+}
+
+.rs_card .rs-card__carousel-dot {
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.rs_card .rs-card__carousel-dot--active {
+    background: #ffffff;
+}
+
+/* Card Tags (listing type, featured, own) */
+.rs_card .rs-card__tags {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    z-index: 4;
+    max-width: calc(100% - 50px);
+}
+
+.rs_card .rs-card__tag {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.rs_card .rs-card__tag--sale {
+    background: var(--rs-primary);
+    color: white;
+}
+
+.rs_card .rs-card__tag--development {
+    background: #8b5cf6;
+    color: white;
+}
+
+.rs_card .rs-card__tag--rental {
+    background: #f59e0b;
+    color: white;
+}
+
+.rs_card .rs-card__tag--holiday {
+    background: #10b981;
+    color: white;
+}
+
+.rs_card .rs-card__tag--offplan {
+    background: #0891b2;
+    color: white;
+}
+
+.rs_card .rs-card__tag--featured {
+    background: #fbbf24;
+    color: #1f2937;
+}
+
+.rs_card .rs-card__tag--own {
+    display: none;
+    background: #ef4444;
+    color: white;
+}
+
+
+/* ==========================================================================
+   TEMPLATE 07: Dark Overlay with Badges
+   ========================================================================== */
+
+/* Default 2 columns for Template 07 */
+.rs-listing-template-13 .rs-property-grid:not(.rs-property-grid--list) {
+    grid-template-columns: repeat(2, 1fr) !important;
+}
+
+@media (max-width: 768px) {
+    .rs-listing-template-13 .rs-property-grid:not(.rs-property-grid--list) {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Listing Template 07 Header */
+.rs-listing-template-13 .rs-template-listing-07__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rs-listing-template-13 .rs-template-listing-07__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Card Styles */
+.rs_card.rs-template-card-07 {
+    position: relative;
+    background: transparent;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: none;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rs_card.rs-template-card-07:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.rs_card .rs-template-card-07__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    padding: 0;
+}
+
+/* Image Section - fills entire card */
+.rs_card .rs-template-card-07__image-section {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 12px;
+    width: 100%;
+    height: 100%;
+}
+
+.rs_card.rs-template-card-07 .rs_card_carousel,
+.rs_card.rs-template-card-07 .rs-card__carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rs_card.rs-template-card-07 .rs-card__carousel-track {
+    height: 100%;
+    display: flex;
+}
+
+.rs_card.rs-template-card-07 .rs-card__carousel-slide {
+    height: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+}
+
+.rs_card.rs-template-card-07 .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Dark Gradient Overlay */
+.rs_card .rs-template-card-07__gradient {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 65%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Multiple Badges - Top Row */
+.rs_card .rs-template-card-07__badges {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 50px;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rs_card .rs-template-card-07__status,
+.rs_card.rs-template-card-07 .rs_card_status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: transparent;
+}
+
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag {
+    padding: 8px 16px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    border-radius: 4px;
+    color: white;
+}
+
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--sale { background: #e53935; }
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--rental { background: #2d3748; }
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--development { background: #ff9800; }
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--holiday { background: #9c27b0; }
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--offplan { background: #0891b2; }
+.rs_card.rs-template-card-07 .rs_card_status .rs-card__tag--featured { background: #e8682a; }
+
+/* Wishlist Button - Show on hover and when active */
+.rs_card .rs-template-card-07__wishlist,
+.rs_card.rs-template-card-07 .rs_card_wishlist {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(4px);
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: none;
+}
+
+/* Show wishlist button on card hover */
+.rs_card.rs-template-card-07:hover .rs_card_wishlist {
+    display: flex !important;
+}
+
+/* Always show wishlist button when active (in wishlist) */
+.rs_card.rs-template-card-07 .rs_card_wishlist.rs-card__wishlist--active {
+    display: flex !important;
+}
+
+.rs_card.rs-template-card-07 .rs_card_wishlist:hover {
+    background: rgba(0, 0, 0, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.9) !important;
+    transform: scale(1.1);
+}
+
+.rs_card.rs-template-card-07 .rs_card_wishlist svg {
+    width: 18px;
+    height: 18px;
+    stroke: #fff;
+    fill: none;
+}
+
+.rs_card.rs-template-card-07 .rs_card_wishlist:hover svg { stroke: #ff6b6b; }
+.rs_card.rs-template-card-07 .rs_card_wishlist.rs-card__wishlist--active { border-color: #ff6b6b !important; }
+.rs_card.rs-template-card-07 .rs_card_wishlist.rs-card__wishlist--active svg { fill: #ff6b6b; stroke: #ff6b6b; }
+
+/* Bottom Content */
+.rs_card .rs-template-card-07__content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px;
+    z-index: 5;
+}
+
+/* Price Row */
+.rs_card .rs-template-card-07__price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+}
+
+/* Large Price */
+.rs_card .rs-template-card-07__price,
+.rs_card.rs-template-card-07 .rs_card_price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    display: inline;
+}
+
+.rs_card .rs-template-card-07__price-suffix,
+.rs_card.rs-template-card-07 .rs_card_price_suffix {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.8);
+    margin-left: 0;
+}
+
+/* Title/Property Type */
+.rs_card .rs-template-card-07__title,
+.rs_card.rs-template-card-07 .rs_card_type {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+    margin: 6px 0 8px 0;
+    line-height: 1.3;
+}
+
+/* Specs Row - inline with spacing */
+.rs_card .rs-template-card-07__specs {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.rs_card .rs-template-card-07__spec {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
+}
+
+.rs_card .rs-template-card-07__spec svg {
+    width: 16px;
+    height: 16px;
+    stroke: rgba(255, 255, 255, 0.7);
+    flex-shrink: 0;
+}
+
+.rs_card .rs-template-card-07__spec-separator {
+    display: none;
+}
+
+/* Hide empty specs */
+.rs_card .rs-template-card-07__spec:has(.rs_card_beds:empty),
+.rs_card .rs-template-card-07__spec:has(.rs_card_baths:empty),
+.rs_card .rs-template-card-07__spec:has(.rs_card_built:empty),
+.rs_card .rs-template-card-07__spec:has(.rs_card_plot:empty) {
+    display: none;
+}
+
+/* Carousel Navigation */
+.rs_card.rs-template-card-07 .rs-card__carousel-prev,
+.rs_card.rs-template-card-07 .rs-card__carousel-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+}
+
+.rs_card.rs-template-card-07 .rs-card__carousel-prev { left: 10px; }
+.rs_card.rs-template-card-07 .rs-card__carousel-next { right: 10px; }
+.rs_card.rs-template-card-07:hover .rs-card__carousel-prev,
+.rs_card.rs-template-card-07:hover .rs-card__carousel-next { opacity: 1; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rs_card .rs-template-card-07__price,
+    .rs_card.rs-template-card-07 .rs_card_price {
+        font-size: 1.3rem;
+    }
+
+    .rs_card .rs-template-card-07__specs {
+        gap: 6px;
+    }
+
+    .rs_card .rs-template-card-07__spec {
+        font-size: 0.8rem;
+    }
+}
+
+/* List View for Template 07 */
+.rs-property-grid--list .rs_card.rs-template-card-07 {
+    display: flex;
+    flex-direction: row;
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.rs-property-grid--list .rs_card.rs-template-card-07:hover {
+    transform: translateY(-4px);
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__link {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__image-section {
+    flex: 0 0 300px;
+    aspect-ratio: auto;
+    min-height: 200px;
+    border-radius: 0;
+    position: relative;
+}
+
+/* Hide gradient overlay in list view */
+.rs-property-grid--list .rs_card .rs-template-card-07__gradient {
+    display: none;
+}
+
+/* Reposition content for list view - reset absolute positioning */
+.rs-property-grid--list .rs_card .rs-template-card-07__content {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+    text-align: left;
+    z-index: auto;
+}
+
+/* Update text colors for list view (no longer on image) */
+.rs-property-grid--list .rs_card .rs-template-card-07__price,
+.rs-property-grid--list .rs_card.rs-template-card-07 .rs_card_price {
+    color: var(--rs-primary);
+    font-size: 1.25rem;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__price-suffix,
+.rs-property-grid--list .rs_card.rs-template-card-07 .rs_card_price_suffix {
+    color: #6c757d;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__title,
+.rs-property-grid--list .rs_card.rs-template-card-07 .rs_card_type {
+    color: #212529;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__specs {
+    justify-content: flex-start;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__spec {
+    color: #6c757d;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__spec svg {
+    stroke: #9ca3af;
+}
+
+/* Keep badges and wishlist positioned on image in list view */
+.rs-property-grid--list .rs_card .rs-template-card-07__badges,
+.rs-property-grid--list .rs_card .rs-template-card-07__status,
+.rs-property-grid--list .rs_card.rs-template-card-07 .rs_card_status {
+    position: absolute;
+    z-index: 10;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-07__wishlist,
+.rs-property-grid--list .rs_card.rs-template-card-07 .rs_card_wishlist {
+    position: absolute;
+    z-index: 10;
+}
+
+@media (max-width: 768px) {
+    .rs-property-grid--list .rs_card.rs-template-card-07 {
+        flex-direction: column;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-07__link {
+        flex-direction: column;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-07__image-section {
+        flex: none;
+        aspect-ratio: 16 / 10;
+        min-height: auto;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-07__content {
+        text-align: center;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-07__specs {
+        justify-content: center;
+    }
+}
+
+/* ============================================
+   LISTING TEMPLATE 08 - Black Strip Bottom
+   ============================================ */
+
+/* Default 2 columns for Template 08 */
+.rs-listing-template-14 .rs-property-grid:not(.rs-property-grid--list) {
+    grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* Listing Template 08 Header */
+.rs-template-listing-08__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rs-template-listing-08__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Card Base */
+.rs_card.rs-template-card-08 {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rs_card.rs-template-card-08:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.rs_card .rs-template-card-08__link {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    padding: 0;
+}
+
+/* Image Section */
+.rs_card .rs-template-card-08__image-section {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+}
+
+.rs_card.rs-template-card-08 .rs_card_carousel,
+.rs_card.rs-template-card-08 .rs-card__carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rs_card.rs-template-card-08 .rs-card__carousel-track {
+    height: 100%;
+    display: flex;
+}
+
+.rs_card.rs-template-card-08 .rs-card__carousel-slide {
+    height: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+}
+
+.rs_card.rs-template-card-08 .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Status Badge - Top Left */
+.rs_card .rs-template-card-08__status,
+.rs_card.rs-template-card-08 .rs_card_status {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: transparent;
+}
+
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    color: white;
+}
+
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--sale { background: #e53935; }
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--rental { background: #1976d2; }
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--development { background: #ff9800; }
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--holiday { background: #9c27b0; }
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--offplan { background: #0891b2; }
+.rs_card.rs-template-card-08 .rs_card_status .rs-card__tag--featured { background: #43a047; }
+
+/* Wishlist Button - Top Right */
+.rs_card .rs-template-card-08__wishlist,
+.rs_card.rs-template-card-08 .rs_card_wishlist {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card.rs-template-card-08 .rs_card_wishlist:hover {
+    background: #ffffff;
+    transform: scale(1.1);
+}
+
+.rs_card.rs-template-card-08 .rs_card_wishlist svg {
+    width: 18px;
+    height: 18px;
+    stroke: #666;
+    fill: none;
+}
+
+.rs_card.rs-template-card-08 .rs_card_wishlist:hover svg { stroke: #ff6b6b; }
+.rs_card.rs-template-card-08 .rs_card_wishlist.rs-card__wishlist--active svg { fill: #ff6b6b; stroke: #ff6b6b; }
+
+/* Image Count - Bottom right of image */
+.rs_card .rs-template-card-08__image-count {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.rs_card .rs-template-card-08__image-count svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+}
+
+/* Content - Black strip below image */
+.rs_card .rs-template-card-08__content {
+    background: #1a1a1a;
+    padding: 15px 18px;
+}
+
+/* Title - Full width, bigger */
+.rs_card .rs-template-card-08__title,
+.rs_card.rs-template-card-08 .rs_card_title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+    width: 100%;
+}
+
+/* Specs Row - With price aligned right */
+.rs_card .rs-template-card-08__specs {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.rs_card .rs-template-card-08__spec {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: white;
+    font-size: 0.85rem;
+}
+
+.rs_card .rs-template-card-08__spec svg {
+    width: 14px;
+    height: 14px;
+    stroke: rgba(255, 255, 255, 0.7);
+    flex-shrink: 0;
+}
+
+/* Price - Aligned right with specs */
+.rs_card .rs-template-card-08__price,
+.rs_card.rs-template-card-08 .rs_card_price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f5c842;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+/* Hide empty specs */
+.rs_card .rs-template-card-08__spec:has(.rs_card_beds:empty),
+.rs_card .rs-template-card-08__spec:has(.rs_card_baths:empty),
+.rs_card .rs-template-card-08__spec:has(.rs_card_built:empty),
+.rs_card .rs-template-card-08__spec:has(.rs_card_plot:empty) {
+    display: none;
+}
+
+/* List View for Template 08 */
+.rs-property-grid--list .rs_card.rs-template-card-08 {
+    display: flex;
+    flex-direction: row;
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.rs-property-grid--list .rs_card.rs-template-card-08:hover {
+    transform: translateY(-4px);
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__link {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    padding: 0;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__image-section {
+    flex: 0 0 320px;
+    aspect-ratio: auto;
+    min-height: 200px;
+    border-radius: 0;
+    position: relative;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px;
+    background: #ffffff;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__title,
+.rs-property-grid--list .rs_card.rs-template-card-08 .rs_card_title {
+    color: #212529;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__price,
+.rs-property-grid--list .rs_card.rs-template-card-08 .rs_card_price {
+    color: var(--rs-primary);
+    font-size: 1.3rem;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__spec {
+    color: #6c757d;
+}
+
+.rs-property-grid--list .rs_card .rs-template-card-08__spec svg {
+    stroke: #9ca3af;
+}
+
+@media (max-width: 768px) {
+    .rs-listing-template-14 .rs-property-grid:not(.rs-property-grid--list) {
+        grid-template-columns: 1fr !important;
+    }
+
+    .rs-property-grid--list .rs_card.rs-template-card-08 {
+        flex-direction: column;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-08__link {
+        flex-direction: column;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-08__image-section {
+        flex: none;
+        aspect-ratio: 16 / 10;
+        min-height: auto;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-08__content {
+        text-align: center;
+    }
+
+    .rs-property-grid--list .rs_card .rs-template-card-08__specs {
+        justify-content: center;
+    }
+}
+
+/* ============================================
+   LISTING TEMPLATE 09 - Horizontal Detail Card
+   ============================================ */
+
+/* Force 1 column for Template 09 */
+.rs-listing-template-15 .rs-property-grid:not(.rs-property-grid--list),
+.rs-listing-template-15 .rs-property-grid {
+    grid-template-columns: 1fr !important;
+}
+
+/* Listing Template 09 Header */
+.rs-template-listing-09__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rs-template-listing-09__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Card Base */
+.rs_card.rs-template-card-09 {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rs_card.rs-template-card-09:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.rs_card .rs-template-card-09__link {
+    display: flex;
+    flex-direction: row;
+    text-decoration: none;
+    color: inherit;
+    padding: 0;
+}
+
+/* Image Section - 60% width */
+.rs_card .rs-template-card-09__image-section {
+    flex: 0 0 60%;
+    position: relative;
+    min-height: 380px;
+    overflow: hidden;
+}
+
+.rs_card.rs-template-card-09 .rs_card_carousel,
+.rs_card.rs-template-card-09 .rs-card__carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rs_card.rs-template-card-09 .rs-card__carousel-track {
+    height: 100%;
+    display: flex;
+}
+
+.rs_card.rs-template-card-09 .rs-card__carousel-slide {
+    height: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+}
+
+.rs_card.rs-template-card-09 .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Status Badge - Top Left on image */
+.rs_card .rs-template-card-09__status,
+.rs_card.rs-template-card-09 .rs_card_status {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: transparent;
+}
+
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    color: white;
+}
+
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--sale { background: #e53935; }
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--rental { background: #1976d2; }
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--development { background: #ff9800; }
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--holiday { background: #9c27b0; }
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--offplan { background: #0891b2; }
+.rs_card.rs-template-card-09 .rs_card_status .rs-card__tag--featured { background: #43a047; }
+
+/* Wishlist Button - Top Right on image */
+.rs_card .rs-template-card-09__wishlist,
+.rs_card.rs-template-card-09 .rs_card_wishlist {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card.rs-template-card-09 .rs_card_wishlist:hover {
+    background: #ffffff;
+    transform: scale(1.1);
+}
+
+.rs_card.rs-template-card-09 .rs_card_wishlist svg {
+    width: 18px;
+    height: 18px;
+    stroke: #666;
+    fill: none;
+}
+
+.rs_card.rs-template-card-09 .rs_card_wishlist:hover svg { stroke: #ff6b6b; }
+.rs_card.rs-template-card-09 .rs_card_wishlist.rs-card__wishlist--active svg { fill: #ff6b6b; stroke: #ff6b6b; }
+
+/* Image Count - Bottom right on image */
+.rs_card .rs-template-card-09__image-count {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.rs_card .rs-template-card-09__image-count svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+}
+
+/* Content Section - 40% width */
+.rs_card .rs-template-card-09__content {
+    flex: 1;
+    padding: 25px 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Location Row - Own line */
+.rs_card .rs-template-card-09__location-row {
+    margin-bottom: 4px;
+}
+
+.rs_card .rs-template-card-09__location {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Reference Row - Own line */
+.rs_card .rs-template-card-09__ref-row {
+    margin-bottom: 12px;
+}
+
+.rs_card .rs-template-card-09__ref {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+/* Title - Serif, large */
+.rs_card .rs-template-card-09__title,
+.rs_card.rs-template-card-09 .rs_card_title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+}
+
+/* Description */
+.rs_card .rs-template-card-09__description,
+.rs_card.rs-template-card-09 .rs_card_description {
+    font-size: 0.85rem;
+    color: #6c757d;
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Specs - Icon based layout */
+.rs_card .rs-template-card-09__specs {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+.rs_card .rs-template-card-09__spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.rs_card .rs-template-card-09__spec svg {
+    width: 18px;
+    height: 18px;
+    stroke: #9ca3af;
+    flex-shrink: 0;
+}
+
+/* Price */
+.rs_card .rs-template-card-09__price,
+.rs_card.rs-template-card-09 .rs_card_price {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #212529;
+    margin-top: auto;
+}
+
+/* Hide empty specs */
+.rs_card .rs-template-card-09__spec:has(.rs_card_beds:empty),
+.rs_card .rs-template-card-09__spec:has(.rs_card_baths:empty),
+.rs_card .rs-template-card-09__spec:has(.rs_card_built:empty),
+.rs_card .rs-template-card-09__spec:has(.rs_card_plot:empty) {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .rs_card .rs-template-card-09__link {
+        flex-direction: column;
+    }
+
+    .rs_card .rs-template-card-09__image-section {
+        flex: none;
+        min-height: 220px;
+    }
+
+    .rs_card .rs-template-card-09__content {
+        padding: 20px;
+    }
+
+    .rs_card .rs-template-card-09__title,
+    .rs_card.rs-template-card-09 .rs_card_title {
+        font-size: 1.2rem;
+    }
+
+    .rs_card .rs-template-card-09__specs {
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+}
+
+/* ============================================
+   LISTING TEMPLATE 10 - Development/Large Card
+   ============================================ */
+
+/* Force 1 column for Template 10 */
+.rs-listing-template-16 .rs-property-grid:not(.rs-property-grid--list),
+.rs-listing-template-16 .rs-property-grid {
+    grid-template-columns: 1fr !important;
+}
+
+/* Listing Template 10 Header */
+.rs-template-listing-10__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rs-template-listing-10__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Card Base */
+.rs_card.rs-template-card-10 {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rs_card.rs-template-card-10:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Link wrapper */
+.rs_card .rs-template-card-10__link {
+    display: flex;
+    flex-direction: row;
+    text-decoration: none;
+    color: inherit;
+    padding: 0;
+}
+
+/* Image Section - 50% width */
+.rs_card .rs-template-card-10__image-section {
+    flex: 0 0 50%;
+    position: relative;
+    min-height: 320px;
+    overflow: hidden;
+}
+
+.rs_card.rs-template-card-10 .rs_card_carousel,
+.rs_card.rs-template-card-10 .rs-card__carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rs_card.rs-template-card-10 .rs-card__carousel-track {
+    height: 100%;
+    display: flex;
+}
+
+.rs_card.rs-template-card-10 .rs-card__carousel-slide {
+    height: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+}
+
+.rs_card.rs-template-card-10 .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Status Badge - Top left on image */
+.rs_card .rs-template-card-10__status,
+.rs_card.rs-template-card-10 .rs_card_status {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    background: transparent;
+}
+
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag {
+    padding: 10px 18px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 0;
+    color: white;
+    background: #e53935;
+}
+
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--sale { background: #e53935; }
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--rental { background: #1976d2; }
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--development { background: #e53935; }
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--holiday { background: #9c27b0; }
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--offplan { background: #0891b2; }
+.rs_card.rs-template-card-10 .rs_card_status .rs-card__tag--featured { background: #43a047; }
+
+/* Wishlist Button - Top Right on image */
+.rs_card .rs-template-card-10__wishlist,
+.rs_card.rs-template-card-10 .rs_card_wishlist {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card .rs-template-card-10__wishlist:hover {
+    background: #ffffff;
+    transform: scale(1.1);
+}
+
+.rs_card .rs-template-card-10__wishlist svg {
+    width: 18px;
+    height: 18px;
+    stroke: #666;
+    fill: none;
+}
+
+.rs_card .rs-template-card-10__wishlist:hover svg { stroke: #ff6b6b; }
+.rs_card .rs-template-card-10__wishlist.rs-card__wishlist--active svg { fill: #ff6b6b; stroke: #ff6b6b; }
+
+/* Image Count - Bottom left */
+.rs_card .rs-template-card-10__image-count {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.rs_card .rs-template-card-10__image-count svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+}
+
+/* Content Section - 50% width */
+.rs_card .rs-template-card-10__content {
+    flex: 1;
+    padding: 30px 35px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Title - Large bold */
+.rs_card .rs-template-card-10__title,
+.rs_card.rs-template-card-10 .rs_card_title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 12px 0;
+    line-height: 1.3;
+}
+
+/* Description */
+.rs_card .rs-template-card-10__description,
+.rs_card.rs-template-card-10 .rs_card_description {
+    font-size: 0.9rem;
+    color: #6c757d;
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Price Row */
+.rs_card .rs-template-card-10__price-row {
+    margin-bottom: 16px;
+}
+
+.rs_card .rs-template-card-10__price,
+.rs_card.rs-template-card-10 .rs_card_price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
+}
+
+/* Specs with icons */
+.rs_card .rs-template-card-10__specs {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.rs_card .rs-template-card-10__spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+.rs_card .rs-template-card-10__spec svg {
+    width: 18px;
+    height: 18px;
+    stroke: #9ca3af;
+    flex-shrink: 0;
+}
+
+/* Hide empty specs */
+.rs_card .rs-template-card-10__spec:has(.rs_card_beds:empty),
+.rs_card .rs-template-card-10__spec:has(.rs_card_baths:empty),
+.rs_card .rs-template-card-10__spec:has(.rs_card_built:empty),
+.rs_card .rs-template-card-10__spec:has(.rs_card_plot:empty) {
+    display: none;
+}
+
+/* Actions */
+.rs_card .rs-template-card-10__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.rs_card .rs-template-card-10__ref-btn {
+    padding: 10px 20px;
+    border: 2px solid #e91e63;
+    border-radius: 4px;
+    color: #e91e63;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rs_card .rs-template-card-10__ref-btn:hover {
+    background: #e91e63;
+    color: white;
+}
+
+.rs_card .rs-template-card-10__view-details {
+    padding: 10px 24px;
+    border: 2px solid #e91e63;
+    border-radius: 4px;
+    color: #e91e63;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.rs_card .rs-template-card-10__view-details:hover {
+    background: #e91e63;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .rs_card .rs-template-card-10__link {
+        flex-direction: column;
+    }
+
+    .rs_card .rs-template-card-10__image-section {
+        flex: none;
+        min-height: 220px;
+    }
+
+    .rs_card .rs-template-card-10__content {
+        padding: 20px;
+    }
+
+    .rs_card .rs-template-card-10__title,
+    .rs_card.rs-template-card-10 .rs_card_title {
+        font-size: 1.3rem;
+    }
+
+    .rs_card .rs-template-card-10__price-specs-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .rs_card .rs-template-card-10__price-range {
+        gap: 25px;
+    }
+
+    .rs_card .rs-template-card-10__actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* ============================================
+   LISTING TEMPLATE 11 - Alternating Dark Content
+   ============================================ */
+
+/* Force 1 column for Template 11 */
+.rs-listing-template-17 .rs-property-grid:not(.rs-property-grid--list),
+.rs-listing-template-17 .rs-property-grid {
+    grid-template-columns: 1fr !important;
+}
+
+/* Listing Template 11 Header */
+.rs-template-listing-11__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.rs-template-listing-11__controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Card Base */
+.rs_card.rs-template-card-11 {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rs_card.rs-template-card-11:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card .rs-template-card-11__link {
+    display: flex;
+    flex-direction: row;
+    text-decoration: none;
+    color: inherit;
+    padding: 0;
+}
+
+/* Alternating layout: even cards reverse */
+.rs_card.rs-template-card-11:nth-child(even) .rs_card .rs-template-card-11__link {
+    flex-direction: row-reverse;
+}
+
+/* Image Section - 50% width */
+.rs_card .rs-template-card-11__image-section {
+    flex: 0 0 50%;
+    position: relative;
+    min-height: 320px;
+    overflow: hidden;
+}
+
+.rs_card.rs-template-card-11 .rs_card_carousel,
+.rs_card.rs-template-card-11 .rs-card__carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rs_card.rs-template-card-11 .rs-card__carousel-track {
+    height: 100%;
+    display: flex;
+}
+
+.rs_card.rs-template-card-11 .rs-card__carousel-slide {
+    height: 100%;
+    min-width: 100%;
+    flex-shrink: 0;
+}
+
+.rs_card.rs-template-card-11 .rs-card__carousel-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Wishlist Button - Top Right on image */
+.rs_card .rs-template-card-11__wishlist,
+.rs_card.rs-template-card-11 .rs_card_wishlist {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rs_card .rs-template-card-11__wishlist:hover {
+    background: #ffffff;
+    transform: scale(1.1);
+}
+
+.rs_card .rs-template-card-11__wishlist svg {
+    width: 18px;
+    height: 18px;
+    stroke: #666;
+    fill: none;
+}
+
+.rs_card .rs-template-card-11__wishlist:hover svg { stroke: #ff6b6b; }
+.rs_card .rs-template-card-11__wishlist.rs-card__wishlist--active svg { fill: #ff6b6b; stroke: #ff6b6b; }
+
+/* Image Count - Bottom left */
+.rs_card .rs-template-card-11__image-count {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: var(--rs-spacing-1_5) 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.rs_card .rs-template-card-11__image-count svg {
+    width: 14px;
+    height: 14px;
+    stroke: white;
+}
+
+/* Content Section - 50% width, dark blue background */
+.rs_card .rs-template-card-11__content {
+    flex: 1;
+    padding: 35px 40px;
+    display: flex;
+    flex-direction: column;
+    background: #1a2b4a;
+    color: white;
+}
+
+/* Status Badge - positioned on image */
+.rs_card .rs-template-card-11__status,
+.rs_card.rs-template-card-11 .rs_card_status {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: transparent;
+}
+
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--sale { background: #e53935; border: none; }
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--rental { background: #1976d2; border: none; }
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--development { background: #ff9800; border: none; }
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--holiday { background: #9c27b0; border: none; }
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--offplan { background: #0891b2; border: none; }
+.rs_card.rs-template-card-11 .rs_card_status .rs-card__tag--featured { background: #43a047; border: none; }
+
+/* Title */
+.rs_card .rs-template-card-11__title,
+.rs_card.rs-template-card-11 .rs_card_title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 12px 0;
+    line-height: 1.3;
+}
+
+/* Description */
+.rs_card .rs-template-card-11__description,
+.rs_card.rs-template-card-11 .rs_card_description {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Specs - With Icons */
+.rs_card .rs-template-card-11__specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 20px;
+}
+
+.rs_card .rs-template-card-11__spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: white;
+}
+
+.rs_card .rs-template-card-11__spec svg {
+    width: 16px;
+    height: 16px;
+    stroke: rgba(255, 255, 255, 0.7);
+    flex-shrink: 0;
+}
+
+/* Price Section */
+.rs_card .rs-template-card-11__price-section {
+    margin-bottom: 20px;
+}
+
+.rs_card .rs-template-card-11__price-label {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.rs_card .rs-template-card-11__price,
+.rs_card.rs-template-card-11 .rs_card_price {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* Actions */
+.rs_card .rs-template-card-11__actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: auto;
+}
+
+.rs_card .rs-template-card-11__details-btn {
+    padding: 10px 24px;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.rs_card .rs-template-card-11__details-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: white;
+}
+
+.rs_card .rs-template-card-11__ref {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Hide empty specs */
+.rs_card .rs-template-card-11__spec:has(.rs_card_beds:empty),
+.rs_card .rs-template-card-11__spec:has(.rs_card_baths:empty),
+.rs_card .rs-template-card-11__spec:has(.rs_card_built:empty),
+.rs_card .rs-template-card-11__spec:has(.rs_card_plot:empty) {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .rs_card .rs-template-card-11__link,
+    .rs_card.rs-template-card-11:nth-child(even) .rs_card .rs-template-card-11__link {
+        flex-direction: column;
+    }
+
+    .rs_card .rs-template-card-11__image-section {
+        flex: none;
+        min-height: 220px;
+    }
+
+    .rs_card .rs-template-card-11__content {
+        padding: 25px;
+    }
+
+    .rs_card .rs-template-card-11__title,
+    .rs_card.rs-template-card-11 .rs_card_title {
+        font-size: 1.3rem;
+    }
+
+    .rs_card .rs-template-card-11__specs {
+        gap: 15px;
+    }
+
+    .rs_card .rs-template-card-11__price,
+    .rs_card.rs-template-card-11 .rs_card_price {
+        font-size: 1.4rem;
+    }
+}

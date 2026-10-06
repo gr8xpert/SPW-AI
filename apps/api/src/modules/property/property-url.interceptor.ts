@@ -3,12 +3,15 @@ import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { propertyUrlSegment } from './property-url';
+import type { SiteMinPrices } from './site-limits';
 
 // The controller puts the tenant's slug format here once it has resolved the key.
 export interface PropertyUrlRequest extends Request {
   spwSlugFormat?: unknown;
   // The client's enabled listing types (null = all).
   spwListingTypes?: string[] | null;
+  // The client's "Hide properties below" prices (null = none).
+  spwMinPrices?: SiteMinPrices | null;
 }
 
 // Adds `urlSegment` to every property in a public response. Must run AFTER

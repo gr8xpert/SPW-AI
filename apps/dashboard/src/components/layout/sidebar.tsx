@@ -67,8 +67,8 @@ export const useSidebarStore = create<SidebarState>()(
 );
 
 // Nav items annotated with minTier. Rule of thumb:
-//   Tier 1 (support-only): Dashboard, Support Tickets, Credit Hours, Settings
-//   Tier 2 (+ property mgmt): the Main + Marketing + Integrations + Management + Analytics blocks
+//   Tier 1 (support-only): Dashboard, Support Tickets, Credit Hours, Analytics, Settings
+//   Tier 2 (+ property mgmt): the Main + Marketing + Integrations + Management blocks
 //   Tier 3 (+ premium AI): Email Campaigns, AI Chat, AI Translation (translation is inside pages)
 // Items without minTier are always visible.
 const navigation: NavItem[] = [
@@ -99,7 +99,8 @@ const management: NavItem[] = [
 ];
 
 const other: NavItem[] = [
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, minTier: 2 },
+  // Every tier: Tier 1 (support) clients see their website's visitors too (2026-10-06).
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat', minTier: 3 },
   { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
   { name: 'Credit Hours', href: '/dashboard/billing', icon: CreditCard },

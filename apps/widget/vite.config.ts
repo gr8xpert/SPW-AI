@@ -8,18 +8,25 @@ import { readFileSync, writeFileSync } from 'fs';
 // dist/version.json = hash of the bundle. The API reports it (sync-meta,
 // widget-config) and the WordPress plugin loads spm-widget.umd.js?ver=<hash>,
 // so a new widget reaches client sites without purging the CDN cache.
+// `build` is also baked into the bundle (__SPM_BUILD__): a copy loaded without
+// ?ver= compares the two and fetches the current build when they differ —
+// /widget/*.js is cached in browsers for 30 days (2026-10-06, benkunst).
+const BUILD_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 function widgetVersionFile() {
   return {
     name: 'spm-widget-version',
     closeBundle() {
       const dist = resolve(__dirname, 'dist');
       const hash = createHash('sha256').update(readFileSync(resolve(dist, 'spm-widget.umd.js'))).digest('hex').slice(0, 12);
-      writeFileSync(resolve(dist, 'version.json'), JSON.stringify({ version: hash, builtAt: new Date().toISOString() }));
+      writeFileSync(resolve(dist, 'version.json'), JSON.stringify({ version: hash, build: BUILD_ID, builtAt: new Date().toISOString() }));
     },
   };
 }
 
 export default defineConfig(({ command }) => ({
+  define: {
+    __SPM_BUILD__: JSON.stringify(command === 'build' ? BUILD_ID : 'dev'),
+  },
   plugins: [
     ...(command === 'build' ? [preact(), cssInjectedByJsPlugin(), widgetVersionFile()] : []),
   ],

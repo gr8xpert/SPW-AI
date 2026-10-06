@@ -26,6 +26,28 @@ class SPM_I18n {
         // property itself, so theirs are dropped there.
         add_filter('pll_rel_hreflang_attributes', [$this, 'drop_plugin_hreflang']);
         add_filter('wpml_hreflangs', [$this, 'drop_plugin_hreflang']);
+        // Same for their language switchers: on a property page they linked to
+        // the empty detail page (/es/propiedad-detail/), so changing language
+        // there lost the property (10-05, Cristi Homes). They now link to this
+        // property in that language.
+        add_filter('pll_the_language_link', [$this, 'switcher_link_polylang'], 10, 2);
+        add_filter('pll_translation_url', [$this, 'switcher_link_polylang'], 10, 2);
+        add_filter('icl_ls_languages', [$this, 'switcher_links_wpml']);
+    }
+
+    public function switcher_link_polylang($url, $lang) {
+        if (!SPM_Rewrite::is_property_detail()) return $url;
+        $urls = $this->property_language_urls();
+        return isset($urls[$lang]) ? $urls[$lang] : $url;
+    }
+
+    public function switcher_links_wpml($languages) {
+        if (!is_array($languages) || !SPM_Rewrite::is_property_detail()) return $languages;
+        $urls = $this->property_language_urls();
+        foreach ($languages as $code => $l) {
+            if (is_array($l) && isset($urls[$code])) $languages[$code]['url'] = $urls[$code];
+        }
+        return $languages;
     }
 
     public function drop_plugin_hreflang($hreflangs) {
@@ -185,22 +207,9 @@ class SPM_I18n {
      */
     public function render_hreflang() {
         if (!SPM_Rewrite::is_property_detail()) return;
-        $ref = SPM_Rewrite::current_ref();
-        if (!$ref) return;
         $info = $this->detect();
-        if ($info['plugin'] === 'none' || empty($info['all_languages'])) return;
-
-        // Each language's own address for this property (its title, and so its
-        // URL, is translated), i.e. the canonical of that language's page.
-        $og = SPM_OG_Tags::instance();
-        $current = $og->current_property();
-        $urls = [];
-        foreach ($info['all_languages'] as $l) {
-            $code = $l['code'] ?? '';
-            if (!$code) continue;
-            $p = ($current && $code === $this->current_lang()) ? $current : $og->fetch($current['reference'] ?? $ref, $code);
-            $urls[$code] = SPM_OG_Tags::property_url($p ?: ['reference' => $ref], $code);
-        }
+        $urls = $this->property_language_urls();
+        if (!$urls) return;
         echo "\n<!-- SPM hreflang -->\n";
         foreach ($urls as $code => $url) {
             printf('<link rel="alternate" hreflang="%s" href="%s" />' . "\n", esc_attr($code), esc_url($url));
@@ -208,6 +217,32 @@ class SPM_I18n {
         if ($info['default_lang'] && isset($urls[$info['default_lang']])) {
             printf('<link rel="alternate" hreflang="x-default" href="%s" />' . "\n", esc_url($urls[$info['default_lang']]));
         }
+    }
+
+    private $property_urls = null;
+
+    /**
+     * This property's address in each language (its title, and so its URL, is
+     * translated): the canonical of that language's page. Language code =>
+     * URL; empty off a property page or without a translation plugin.
+     */
+    public function property_language_urls() {
+        if ($this->property_urls !== null) return $this->property_urls;
+        $this->property_urls = [];
+        if (!SPM_Rewrite::is_property_detail()) return $this->property_urls;
+        $ref = SPM_Rewrite::current_ref();
+        $info = $this->detect();
+        if (!$ref || $info['plugin'] === 'none' || empty($info['all_languages'])) return $this->property_urls;
+
+        $og = SPM_OG_Tags::instance();
+        $current = $og->current_property();
+        foreach ($info['all_languages'] as $l) {
+            $code = $l['code'] ?? '';
+            if (!$code) continue;
+            $p = ($current && $code === $this->current_lang()) ? $current : $og->fetch($current['reference'] ?? $ref, $code);
+            $this->property_urls[$code] = SPM_OG_Tags::property_url($p ?: ['reference' => $ref], $code);
+        }
+        return $this->property_urls;
     }
 
     private function short_from_locale($locale) {

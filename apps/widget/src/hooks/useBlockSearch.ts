@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { getDataLoader } from '@/core/data-loader';
 import { filtersFromAttributes } from '@/core/filter-attributes';
-import { elementAttributes } from '@/core/attribute-parser';
+import { elementAttributes, isStandalone } from '@/core/attribute-parser';
 import type { SearchFilters, SearchResults } from '@/types';
 
 export interface BlockSearch {
@@ -15,7 +15,8 @@ export interface BlockSearch {
 // several different lists ("Latest in Marbella", "New developments", …). The
 // filters come from the block's own data-spm-* attributes; the page's search
 // form does not affect it.
-export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
+// `limit` is how many it shows when the block doesn't say (data-spm-limit).
+export function useBlockSearch(props: Record<string, unknown>, limit = 6): BlockSearch {
   // Read the block's own attributes rather than its props: a few names (`ref`,
   // `key`) belong to the view layer and never reach props, and the element is
   // the thing the author actually wrote.
@@ -24,7 +25,7 @@ export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
     () => (element ? elementAttributes(element) : props),
     [element, props],
   );
-  const enabled = attrs.standalone !== undefined && attrs.standalone !== 'false';
+  const enabled = (attrs.standalone !== undefined && attrs.standalone !== 'false') || (!!element && isStandalone(element));
   const key = useMemo(() => {
     if (!enabled) return '';
     const { filters } = filtersFromAttributes(attrs);
@@ -35,7 +36,7 @@ export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
   // at once; the live answer replaces it.
   const [state, setState] = useState<{ results: SearchResults | null; loading: boolean }>(() => {
     if (!enabled) return { results: null, loading: false };
-    const saved = getDataLoader()?.peekSearch({ page: 1, limit: 6, ...(JSON.parse(key) as SearchFilters) }) ?? null;
+    const saved = getDataLoader()?.peekSearch({ page: 1, limit, ...(JSON.parse(key) as SearchFilters) }) ?? null;
     return { results: saved, loading: !saved };
   });
 
@@ -44,7 +45,7 @@ export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
     const loader = getDataLoader();
     if (!loader) return;
     let cancelled = false;
-    const filters: SearchFilters = { page: 1, limit: 6, ...(JSON.parse(key) as SearchFilters) };
+    const filters: SearchFilters = { page: 1, limit, ...(JSON.parse(key) as SearchFilters) };
     const saved = loader.peekSearch(filters);
     setState((s) => (saved ? { results: saved, loading: false } : { ...s, loading: true }));
     loader
@@ -59,7 +60,7 @@ export function useBlockSearch(props: Record<string, unknown>): BlockSearch {
     return () => {
       cancelled = true;
     };
-  }, [enabled, key]);
+  }, [enabled, key, limit]);
 
   return { enabled, results: state.results, loading: state.loading };
 }

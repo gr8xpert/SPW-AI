@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.1
+Stable tag: 2.9.4
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,19 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.4 =
+* SPM → Blocks now shows the WordPress shortcode for every block (`[spm_listing]`, `[spm_listing template="13"]`, `[spm block="detail_gallery"]`) beside the HTML line, both click to copy, and each option in both spellings.
+* New: hand-picked properties. `[spm_listing ref="R1234,R2345,R3456"]` shows exactly those properties, in that order (up to 50); it works with any listing design and with carousels.
+* Listing designs 13–17 (the old widget's listing templates 07–11) are listed.
+
+= 2.9.3 =
+* Fixed: on a property page, the language switcher (Polylang or WPML) linked to the empty property page of the other language, so changing language lost the property. It now opens the same property in that language.
+* Needs the widget released with it, which shows each page in that page's language (before, it followed the visitor's browser language).
+
+= 2.9.2 =
+* New: property carousels, the six designs from the old widget (centre focus, 3D perspective, coverflow, full width, tilted, dark numbered cards). `[spm_carousel]` shows the design chosen in the SPM dashboard → Website Design → Carousel; `template="2"` pins one. Each carousel shows its own properties from its filters, e.g. `[spm_carousel template="3" featured="yes" limit="8" autoplay="yes"]`, and never changes the page's search. Listed under SPM → Blocks.
+* This needs the widget released with it; the plugin loads it automatically.
 
 = 2.9.1 =
 * The Filter IDs and Settings pages now show the plain filter attributes, e.g. `data-spm-location="5"`. These set the search a page starts with: visitors can still change them, and the list keeps its paging, view tabs and sort. Add `data-spm-fixed="yes"` to lock every filter on a block. The old examples used `data-spm-lock-…`, which also locked the search.

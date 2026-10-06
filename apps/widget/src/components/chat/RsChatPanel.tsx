@@ -7,6 +7,7 @@ import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
+import { navigateTo } from '@/core/navigate';
 
 interface ChatMessage {
   id: string;
@@ -170,7 +171,7 @@ export default function RsChatPanel() {
         config.onPropertyClick(property);
       } else {
         const url = buildPropertyUrl(property, config);
-        if (url) window.location.href = url;
+        if (url) navigateTo(url);
       }
     },
     [config],

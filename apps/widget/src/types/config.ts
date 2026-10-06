@@ -65,6 +65,9 @@ export interface WidgetConfig {
   bedroomOptions?: number[];
   bathroomOptions?: number[];
   priceOptions?: Record<string, number[]>;
+  /** "Hide properties below" per listing type: the API already leaves those
+   *  listings out; the price choices below it are dropped here too. */
+  minPrices?: Record<string, number>;
   defaultListingType?: string;
   enabledListingTypes?: string[];
   enabledSortOptions?: string[];
@@ -75,7 +78,7 @@ export interface WidgetConfig {
   slugFormat?: 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
   // Templates chosen in the dashboard gallery; data-spm-widget="site-search"
   // (site-listing, site-detail, site-map) renders the chosen one.
-  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string; wishlist?: string };
+  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string; wishlist?: string; carousel?: string };
   geocodingProvider?: 'nominatim' | 'google';
   googleMapsKey?: string;
   quickFeatureIds?: number[];
@@ -112,6 +115,10 @@ export interface RealtySoftConfig {
   enabledListingTypes?: string[];
   resultsPage?: string;
   wishlistPage?: string;
+  /** Local data files folder (WordPress plugin); false = none, use the API. */
+  dataPath?: string | false;
+  /** false = send no visitor analytics. */
+  enableTracking?: boolean;
   dataBundleUrl?: string;
   pageResults?: { key: string; url: string };
   reportSearch?: { url: string; page: number };

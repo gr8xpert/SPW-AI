@@ -28,6 +28,14 @@ const TOAST_MS = 7000;
  * which keeps it working whatever shape the chosen search template is. It
  * opens for typing, or — from the mic button — straight into listening.
  */
+// The API's own message (a rate limit, "AI search not configured") is worth
+// showing; a timeout or dropped connection is not (10-06: visitors saw
+// "signal is aborted without reason"), so those fall back to the label.
+function visibleError(err: unknown): string {
+  const message = err instanceof Error ? err.message : '';
+  return /^(timeout|network error)$|abort|failed to fetch|networkerror|load failed/i.test(message) ? '' : message;
+}
+
 export default function RsAiSearch({ badge = true }: Props) {
   const { t } = useLabels();
   const config = useConfig();
@@ -125,7 +133,7 @@ export default function RsAiSearch({ badge = true }: Props) {
       if (result?.heard) setQuery(result.heard);
       apply(result, true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : '';
+      const message = visibleError(err);
       if (message !== 'cancelled') {
         setError(message || t('ai_voice_error', 'That could not be understood. Please try again or type your search.'));
       }
@@ -156,7 +164,7 @@ export default function RsAiSearch({ badge = true }: Props) {
     try {
       apply(await loader.aiSearch(text, config.language || 'en'), false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : '';
+      const message = visibleError(err);
       setError(message || t('ai_search_error', 'That search could not be understood. Please try again.'));
     } finally {
       setBusy(false);

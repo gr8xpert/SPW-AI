@@ -110,7 +110,7 @@ export class AiChatService {
             },
           };
 
-          const toolResult = await this.toolsService.executeTool(tenantId, toolCall);
+          const toolResult = await this.toolsService.executeTool(tenantId, toolCall, settings);
 
           yield {
             type: 'tool_result',

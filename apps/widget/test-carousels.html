@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPM Widget — Carousel templates</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1300px; margin: 0 auto; padding: 1rem; background: #f5f5f5; }
+    h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; }
+    .panel { background: #fff; border: 1px solid #ddd; padding: 1rem; border-radius: 6px; }
+  </style>
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://localhost:3001',
+      apiKey: 'spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      propertyPageSlug: 'detail',
+    };
+  </script>
+</head>
+<body>
+  <h1>Carousel templates 01–06 (API on :3001)</h1>
+
+  <h2>Page search + results (carousels must not change these)</h2>
+  <div class="panel"><div data-spm-widget="search-template-01"></div></div>
+  <div class="panel"><div data-spm-widget="listing-template-01" data-spm-for="sale"></div></div>
+
+  <h2>01 — Centre focus (autoplay)</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-01" data-spm-autoplay="yes" data-spm-interval="3000"></div></div>
+  <h2>02 — 3D perspective</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-02" data-spm-limit="8"></div></div>
+  <h2>03 — Coverflow</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-03"></div></div>
+  <h2>04 — Full width</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-04" data-spm-beds="2"></div></div>
+  <h2>05 — Tilted</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-05"></div></div>
+  <h2>06 — Dark numbered</h2>
+  <div class="panel"><div data-spm-widget="carousel-template-06"></div></div>
+
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

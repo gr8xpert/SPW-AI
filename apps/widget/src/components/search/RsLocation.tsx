@@ -7,7 +7,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Location } from '@/types';
-import { useFacets, facetCount } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -55,6 +55,26 @@ function buildTree(locations: Location[]): Location[] {
   walk(undefined);
   if (!result.length) return [...locations].sort((a, b) => a.name.localeCompare(b.name));
   return result;
+}
+
+interface DropdownLevels { levels?: string[]; visible?: boolean }
+interface DropdownConfig { dropdown1?: DropdownLevels; dropdown2?: DropdownLevels; dropdown3?: DropdownLevels }
+
+/**
+ * The levels picked in Locations → Website Search Dropdowns. Only the
+ * cascading dropdown (style 2) used to read them, so the tree (search designs
+ * 03, 04) always started at Region and the search box offered every level
+ * (10-05, solobanus picked Municipality). `top` starts the tree; `below` are
+ * the visible later dropdowns' levels, shown under them. Null: nothing picked.
+ */
+function pickedLevels(config?: DropdownConfig): { top: Set<string>; below: Set<string> } | null {
+  const top = new Set(config?.dropdown1?.levels ?? []);
+  if (!top.size) return null;
+  const below = new Set<string>();
+  for (const d of [config?.dropdown2, config?.dropdown3]) {
+    if (d && d.visible !== false) for (const l of d.levels ?? []) if (!top.has(l)) below.add(l);
+  }
+  return { top, below };
 }
 
 function getDescendantIds(locations: Location[], parentIds: Set<number>): Set<number> {
@@ -271,9 +291,9 @@ function Typeahead({ locations, value, onChange, placeholder, locked }: {
                       <span>{loc.name}</span>
                       <span class="rs-dropdown__meta">
                         <LevelBadge level={loc.level} />
-                        {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
-                          <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
-                        )}
+                        {facetCount(facets, 'locations', loc.id, loc.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'locations', loc.id, loc.propertyCount))}>{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
+)}
                       </span>
                     </li>
                   ))
@@ -620,9 +640,9 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
                           <span class="rs-cascading-v2__label">{loc.name}</span>
                           <span class="rs-dropdown__meta">
                             <LevelBadge level={loc.level} />
-                            {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
-                              <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
-                            )}
+                            {facetCount(facets, 'locations', loc.id, loc.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'locations', loc.id, loc.propertyCount))}>{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
+)}
                           </span>
                         </li>
                       ))}
@@ -710,9 +730,9 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
                   <span>{loc.name}</span>
                   <span class="rs-dropdown__meta">
                     <LevelBadge level={loc.level} />
-                    {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
-                      <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
-                    )}
+                    {facetCount(facets, 'locations', loc.id, loc.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'locations', loc.id, loc.propertyCount))}>{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
+)}
                   </span>
                 </li>
               ))}
@@ -727,8 +747,9 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
 
 /* ── Variation 4: Collapsible tree dropdown ── */
 
-function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeholder }: {
+function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked, placeholder }: {
   locations: Location[];
+  picked: { top: Set<string>; below: Set<string> } | null;
   value: number | undefined;
   onChange: (id: number | undefined) => void;
   allLabel: string;
@@ -742,22 +763,34 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
   const scroll = useScrollArrows();
   const selected = locations.find(l => l.id === value);
 
-  const roots = useMemo(
-    () => locations.filter(l => !l.parentId).sort((a, b) => a.name.localeCompare(b.name)),
-    [locations],
-  );
-
-  const childrenOf = useMemo(() => {
+  // Without picked levels: the whole tree from its roots. With them: the top
+  // levels as roots, each with the picked lower levels found under it (at any
+  // depth); a lower place with no picked ancestor becomes a root itself.
+  const { roots, childrenOf } = useMemo(() => {
+    const byName = (a: Location, b: Location) => a.name.localeCompare(b.name);
     const map = new Map<number, Location[]>();
-    for (const loc of locations) {
-      if (loc.parentId) {
-        if (!map.has(loc.parentId)) map.set(loc.parentId, []);
-        map.get(loc.parentId)!.push(loc);
+    const add = (parent: number, loc: Location) => {
+      if (!map.has(parent)) map.set(parent, []);
+      map.get(parent)!.push(loc);
+    };
+    let top: Location[];
+    if (!picked) {
+      top = locations.filter(l => !l.parentId);
+      for (const loc of locations) if (loc.parentId) add(loc.parentId, loc);
+    } else {
+      const byId = new Map(locations.map((l) => [l.id, l]));
+      top = locations.filter((l) => picked.top.has(l.level));
+      for (const loc of locations) {
+        if (!picked.below.has(loc.level)) continue;
+        let p = loc.parentId != null ? byId.get(loc.parentId) : undefined;
+        while (p && !picked.top.has(p.level) && !picked.below.has(p.level)) p = p.parentId != null ? byId.get(p.parentId) : undefined;
+        if (p) add(p.id, loc);
+        else top.push(loc);
       }
     }
-    for (const children of map.values()) children.sort((a, b) => a.name.localeCompare(b.name));
-    return map;
-  }, [locations]);
+    for (const children of map.values()) children.sort(byName);
+    return { roots: top.sort(byName), childrenOf: map };
+  }, [locations, picked]);
 
   const toggleExpand = (e: MouseEvent, id: number) => {
     e.stopPropagation();
@@ -816,9 +849,9 @@ function CollapsibleTree({ locations, value, onChange, allLabel, locked, placeho
           <span>{loc.name}</span>
           <span class="rs-dropdown__meta">
             <LevelBadge level={loc.level} />
-            {!!facetCount(facets, 'locations', loc.id, loc.propertyCount) && (
-              <span class="rs-dropdown__count">{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
-            )}
+            {facetCount(facets, 'locations', loc.id, loc.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'locations', loc.id, loc.propertyCount))}>{facetCount(facets, 'locations', loc.id, loc.propertyCount)}</span>
+)}
           </span>
         </div>
         {children && isExpanded && (
@@ -888,13 +921,14 @@ export default function RsLocation({ variation = 1 }: Props) {
   }, [setFilter]);
 
   const label = t('location_placeholder', 'Location');
+  const picked = useMemo(() => pickedLevels(widgetConfig.locationSearchConfig), [widgetConfig.locationSearchConfig]);
 
   return (
     <div class="rs_location">
       {variation !== 1 && variation !== 2 && <label class="rs-field__label">{label}</label>}
       {variation === 1 && (
         <Typeahead
-          locations={locations}
+          locations={picked ? locations.filter((l) => picked.top.has(l.level) || picked.below.has(l.level)) : locations}
           value={filters.locationId}
           onChange={handleChange}
           placeholder={placeholder}
@@ -924,6 +958,7 @@ export default function RsLocation({ variation = 1 }: Props) {
       {variation === 4 && (
         <CollapsibleTree
           locations={locations}
+          picked={picked}
           value={filters.locationId}
           onChange={handleChange}
           allLabel={allLabel}

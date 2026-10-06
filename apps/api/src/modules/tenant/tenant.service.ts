@@ -10,6 +10,8 @@ import { isSlugFormat } from '../property/property-url';
 import { widgetVersion } from './widget-version';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
+import { siteMinPrices } from '../property/site-limits';
+import { isRecaptchaKey } from '../../common/security/recaptcha-key';
 
 export interface CacheClearResult {
   tenantId: number;
@@ -135,8 +137,15 @@ export class TenantService {
       if (trimmed === '') {
         tenant.recaptchaSecretKey = null;
       } else if (!trimmed.includes('••••')) {
+        if (!isRecaptchaKey(trimmed)) {
+          throw new BadRequestException('The reCAPTCHA secret key is not valid: it is 40 characters and starts with "6L".');
+        }
         tenant.recaptchaSecretKey = trimmed;
       }
+    }
+    const siteKey = (publicSettings as { recaptchaSiteKey?: unknown }).recaptchaSiteKey;
+    if (typeof siteKey === 'string' && siteKey.trim() !== '' && !isRecaptchaKey(siteKey)) {
+      throw new BadRequestException('The reCAPTCHA site key is not valid: it is 40 characters and starts with "6L".');
     }
 
     if (openRouterApiKey !== undefined) {
@@ -179,6 +188,10 @@ export class TenantService {
     tenant.settings = merged as TenantSettings;
 
     await this.tenantRepository.save(tenant);
+    // Settings reach the website (design choice, brand colour, currency…), and
+    // the WP plugin only rebuilds its saved copy when syncVersion moves. Until
+    // 10-05 it didn't, so a new Website Design never showed on plugin sites.
+    await this.bumpSyncVersionSafely(tenantId, 'settings update');
 
     return this.toPublic(tenant);
   }
@@ -301,6 +314,8 @@ export class TenantService {
     if (s.bedroomOptions) config.bedroomOptions = s.bedroomOptions;
     if (s.bathroomOptions) config.bathroomOptions = s.bathroomOptions;
     if (s.priceOptions) config.priceOptions = s.priceOptions;
+    const minPrices = siteMinPrices(s);
+    if (minPrices) config.minPrices = minPrices;
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
     const tiles = publicMapTiles(s.mapTiles);
@@ -311,7 +326,9 @@ export class TenantService {
     const templates = publicSiteTemplates(s.siteTemplates);
     if (templates) config.siteTemplates = templates;
     config.locationSearchConfig = publicLocationSearchConfig(s.locationSearchConfig);
-    if (s.recaptchaSiteKey) config.recaptchaSiteKey = s.recaptchaSiteKey;
+    // A malformed key would put Google's "Invalid site key" box on the form
+    // and block every inquiry: no key, no captcha.
+    if (isRecaptchaKey(s.recaptchaSiteKey)) config.recaptchaSiteKey = s.recaptchaSiteKey.trim();
     // Site display currency. A currency set on the embedding page itself
     // (RealtySoftConfig.currency / data-spm-currency) still wins in the widget.
     if (typeof s.baseCurrency === 'string' && /^[A-Z]{3}$/.test(s.baseCurrency)) {
@@ -516,6 +533,7 @@ export class TenantService {
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
+      ownEmailDomain: tenant.featureFlags?.ownEmailDomain === true,
     };
   }
 }
@@ -557,11 +575,12 @@ export function publicMapTiles(value: TenantSettings['mapTiles']): TenantSetting
 
 // Templates the widget has, per page type. Keep in step with the widget's
 // component registry.
-export const SITE_TEMPLATE_IDS: Record<'search' | 'listing' | 'detail' | 'map', string[]> = {
+export const SITE_TEMPLATE_IDS: Record<'search' | 'listing' | 'detail' | 'map' | 'carousel', string[]> = {
   search: ['01', '02', '03', '04', '05', '06'].map((n) => `search-template-${n}`),
-  listing: Array.from({ length: 12 }, (_, i) => `listing-template-${String(i + 1).padStart(2, '0')}`),
+  listing: Array.from({ length: 17 }, (_, i) => `listing-template-${String(i + 1).padStart(2, '0')}`),
   detail: ['detail-template-01'],
   map: ['map-template-01', 'map-template-02', 'map-template-03'],
+  carousel: Array.from({ length: 6 }, (_, i) => `carousel-template-${String(i + 1).padStart(2, '0')}`),
 };
 
 // The levels the hierarchy actually uses. Keep in step with the dashboard's

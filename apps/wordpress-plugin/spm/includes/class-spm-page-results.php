@@ -35,7 +35,7 @@ class SPM_Page_Results {
         'listingType', 'locationId', 'locationIds', 'propertyTypeId', 'propertyTypeIds',
         'minPrice', 'maxPrice', 'minBedrooms', 'maxBedrooms', 'minBathrooms', 'maxBathrooms',
         'minBuildSize', 'maxBuildSize', 'minPlotSize', 'maxPlotSize', 'minTerraceSize', 'maxTerraceSize',
-        'reference', 'isFeatured', 'isOwnProperty', 'sortBy', 'page', 'limit', 'lat', 'lng', 'radius', 'features',
+        'reference', 'references', 'isFeatured', 'isOwnProperty', 'sortBy', 'page', 'limit', 'lat', 'lng', 'radius', 'features',
     ];
     // Left out of the dropdown counts, as the widget's getFacets does.
     const NOT_FOR_FACETS = ['page', 'limit', 'sortBy', 'bounds'];

@@ -1,6 +1,6 @@
 import type { SearchFilters, SearchResults, Property, Location, PropertyType, Feature, WidgetConfig } from '@/types';
 import type { Labels } from '@/types/labels';
-import { ApiClient } from './api-client';
+import { AI_TIMEOUT_MS, ApiClient } from './api-client';
 import { getCached, setCache, clearCache as clearIDB } from './idb-cache';
 import { store } from './store';
 import { actions } from './actions';
@@ -63,10 +63,10 @@ export class DataLoader {
   constructor(config: WidgetConfig) {
     this.config = config;
     this.snapshot = new SnapshotCache(config.apiKey, config.language || 'en');
-    this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey });
+    this.api = new ApiClient({ apiUrl: config.apiUrl, apiKey: config.apiKey, language: config.language });
     this.apiKey = config.apiKey;
     this.cdnUrl = config.cdnUrl || 'https://data.smartpropertywidget.com';
-    this.dataPath = config.dataPath || '/spm-data';
+    this.dataPath = config.dataPath ?? '/spm-data';
     // Module-level "current loader" handle, not a closure alias.
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     activeLoader = this;
@@ -266,7 +266,7 @@ export class DataLoader {
   private async loadLocalFileOrAPI<T>(filename: string, apiEndpoint: string): Promise<T | null> {
     // Skip local probe entirely if a prior probe already 404'd — keeps the
     // browser console clean on WP installs that don't pre-render /spm-data/*.json.
-    if (this.localDataAvailable !== false) {
+    if (this.dataPath && this.localDataAvailable !== false) {
       try {
         const res = await fetch(`${this.dataPath}/${filename}`);
         if (res.ok) {
@@ -288,8 +288,9 @@ export class DataLoader {
     await setCache(this.cacheKey(), data, data.syncVersion);
   }
 
+  // One saved copy per language: names and labels differ between them.
   private cacheKey(): string {
-    return `spm:${this.apiKey.slice(-8)}`;
+    return `spm:${this.apiKey.slice(-8)}:${this.config.language || 'en'}`;
   }
 
   async checkFreshnessInBackground(): Promise<void> {
@@ -369,7 +370,7 @@ export class DataLoader {
   // the client's own OpenRouter account to turn it into filters. Never cached
   // — each sentence is different, and the answer costs the client money.
   async aiSearch(query: string, language: string): Promise<{ filters: Record<string, unknown>; interpretation?: string }> {
-    return this.api.post('/v1/ai-search', { query, language });
+    return this.api.post('/v1/ai-search', { query, language }, AI_TIMEOUT_MS);
   }
 
   // The same search, spoken: a short WAV goes up and the client's AI turns it
@@ -528,7 +529,7 @@ export class DataLoader {
     } catch { /* fire and forget */ }
   }
 
-  startSyncPolling(intervalMs = 60_000, onChange?: () => void): void {
+  startSyncPolling(intervalMs = 60_000, onChange?: (fresh: BundleData) => void): void {
     this.stopSyncPolling();
 
     const tick = async () => {
@@ -540,9 +541,13 @@ export class DataLoader {
         if (meta.syncVersion > current) {
           await clearIDB(this.cacheKey());
           this.memoryCache.clear();
-          const fresh = await this.tryCDNBundle() ?? await this.loadFromAPI();
+          const cdn = await this.tryCDNBundle();
+          // A copy older than the version just announced would set the
+          // store's version back, and the next tick would reload again.
+          const fresh = cdn && cdn.syncVersion >= meta.syncVersion ? cdn : await this.loadFromAPI();
           this.hydrateStore(fresh);
-          onChange?.();
+          actions.setSyncVersion(Math.max(fresh.syncVersion || 0, meta.syncVersion));
+          onChange?.(fresh);
         }
       } catch { /* poll failed */ }
     };
@@ -700,6 +705,7 @@ function searchParams(filters: SearchFilters): Record<string, string | number | 
   if (filters.minTerraceSize) params.minTerraceSize = filters.minTerraceSize;
   if (filters.maxTerraceSize) params.maxTerraceSize = filters.maxTerraceSize;
   if (filters.reference) params.reference = filters.reference;
+  if (filters.references?.length) params.references = filters.references.join(',');
   if (filters.isFeatured) params.isFeatured = true;
   if (filters.isOwnProperty) params.isOwnProperty = true;
   if (filters.sortBy) params.sortBy = filters.sortBy;

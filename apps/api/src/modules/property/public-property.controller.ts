@@ -12,20 +12,9 @@ import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.intercept
 import { PropertyUrlInterceptor, PropertyUrlRequest } from './property-url.interceptor';
 import { withWidgetCache } from '../../common/http/widget-http-cache';
 import type { Tenant } from '../../database/entities';
+import { siteListingTypes, siteMinPrices } from './site-limits';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
-
-const LISTING_TYPES = ['sale', 'rent', 'holiday_rent', 'development'];
-
-// Settings -> Widget -> Listing Types. Unticking one (say both rentals) means
-// the site has none: not in search, lists, map, similar, nor at its own URL.
-// Nothing set, or nothing valid, means every type.
-function siteListingTypes(settings: unknown): string[] | null {
-  const raw = (settings as { enabledListingTypes?: unknown } | null)?.enabledListingTypes;
-  if (!Array.isArray(raw)) return null;
-  const types = raw.filter((t): t is string => typeof t === 'string' && LISTING_TYPES.includes(t));
-  return types.length && types.length < LISTING_TYPES.length ? types : null;
-}
 
 // Public widget/property API. Rate limits are scoped per tenant API key
 // (not per IP) so one tenant's hot widget can't consume another tenant's
@@ -56,7 +45,13 @@ export class PublicPropertyController {
     }
     req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
     req.spwListingTypes = siteListingTypes(tenant.settings);
+    req.spwMinPrices = siteMinPrices(tenant.settings);
     return tenant;
+  }
+
+  // Settings -> Widget limits, set by the server only (see SearchPropertyDto).
+  private siteLimits(req: PropertyUrlRequest): Pick<SearchPropertyDto, 'siteListingTypes' | 'siteMinPrices'> {
+    return { siteListingTypes: req.spwListingTypes ?? undefined, siteMinPrices: req.spwMinPrices ?? undefined };
   }
 
   // Every route below answers a revalidation with a 304 and no listing query
@@ -91,7 +86,7 @@ export class PublicPropertyController {
   ) {
     const tenant = await this.getTenantFromApiKey(apiKey, req);
     return this.cached(req, res, tenant, 'search', () =>
-      this.propertyService.search(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+      this.propertyService.search(tenant.id, { ...dto, ...this.siteLimits(req) }),
     );
   }
 
@@ -109,7 +104,7 @@ export class PublicPropertyController {
   ) {
     const tenant = await this.getTenantFromApiKey(apiKey, req);
     return this.cached(req, res, tenant, 'areas', () =>
-      this.propertySearchService.areas(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+      this.propertySearchService.areas(tenant.id, { ...dto, ...this.siteLimits(req) }),
     );
   }
 
@@ -124,7 +119,7 @@ export class PublicPropertyController {
   ) {
     const tenant = await this.getTenantFromApiKey(apiKey, req);
     return this.cached(req, res, tenant, 'facets', () =>
-      this.propertySearchService.facets(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+      this.propertySearchService.facets(tenant.id, { ...dto, ...this.siteLimits(req) }),
     );
   }
 
@@ -138,7 +133,7 @@ export class PublicPropertyController {
   ) {
     const tenant = await this.getTenantFromApiKey(apiKey, req);
     return this.cached(req, res, tenant, 'map', () =>
-      this.propertySearchService.mapPoints(tenant.id, { ...dto, siteListingTypes: req.spwListingTypes ?? undefined }),
+      this.propertySearchService.mapPoints(tenant.id, { ...dto, ...this.siteLimits(req) }),
     );
   }
 
@@ -161,7 +156,7 @@ export class PublicPropertyController {
       res,
       tenant,
       'similar',
-      () => this.propertySearchService.findSimilar(tenant.id, reference, limit, req.spwListingTypes),
+      () => this.propertySearchService.findSimilar(tenant.id, reference, limit, req.spwListingTypes, req.spwMinPrices),
       { reference },
     );
   }

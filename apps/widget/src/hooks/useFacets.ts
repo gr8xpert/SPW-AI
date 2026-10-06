@@ -54,9 +54,15 @@ export function useFacets(): Facets | null {
   return facets;
 }
 
-// The number to show beside a choice: the live count once known (0 hides it),
-// otherwise the count the list arrived with.
-export function facetCount(facets: Facets | null, dimension: 'types' | 'locations', id: number, fallback?: number): number {
-  if (!facets) return fallback ?? 0;
+// The number to show beside a choice: the live count once known — 0 included,
+// so a narrowed search shows which choices would find nothing (10-06) —
+// otherwise the count the list arrived with. Undefined = nothing to show yet.
+export function facetCount(facets: Facets | null, dimension: 'types' | 'locations', id: number, fallback?: number): number | undefined {
+  if (!facets) return fallback && fallback > 0 ? fallback : undefined;
   return facets[dimension][id] ?? 0;
+}
+
+/** Class for a count badge: zero is drawn fainter. */
+export function countClass(base: string, count: number | undefined): string {
+  return count === 0 ? `${base} ${base}--zero` : base;
 }

@@ -30,12 +30,17 @@ export default function RsPrice({ variation = 1 }: Props) {
   const minLabel = t('price_min', 'Min. Price');
   const maxLabel = t('price_max', 'Max. Price');
 
+  const lt = filters.listingType || 'sale';
+  // Nothing cheaper than the client's "Hide properties below" exists on the
+  // site, so no choice below it either.
+  const floor = Number(config.minPrices?.[lt] ?? (lt === 'development' ? config.minPrices?.sale : 0)) || 0;
   const priceOptions = useMemo(() => {
     const opts = config.priceOptions;
-    if (!opts || typeof opts !== 'object') return DEFAULT_SALE_PRICES;
-    const lt = filters.listingType || 'sale';
-    return opts[lt] || opts['sale'] || DEFAULT_SALE_PRICES;
-  }, [config.priceOptions, filters.listingType]);
+    const own = opts && typeof opts === 'object' ? opts[lt] : undefined;
+    // An empty list (e.g. New Development never filled in) uses the Sale prices.
+    const list = own?.length ? own : opts?.sale?.length ? opts.sale : DEFAULT_SALE_PRICES;
+    return floor > 0 ? list.filter((v) => v >= floor) : list;
+  }, [config.priceOptions, lt, floor]);
 
   const handleMin = useCallback((value: string) => {
     const num = value ? Number(value) : undefined as unknown as number;
@@ -93,11 +98,11 @@ export default function RsPrice({ variation = 1 }: Props) {
     const currentKey = `${filters.minPrice ?? 0}-${filters.maxPrice ?? 0}`;
     const rangeOptions = useMemo(() => [
       { value: '0-0', label: t('price_min', 'Any Price') },
-      ...PRICE_RANGES.map(r => ({
+      ...PRICE_RANGES.filter(r => !(floor > 0 && r.max > 0 && r.max <= floor)).map(r => ({
         value: `${r.min}-${r.max}`,
         label: `${formatPrice(r.min)} – ${r.max > 0 ? formatPrice(r.max) : `${formatPrice(r.min)}+`}`,
       })),
-    ], [formatPrice, t]);
+    ], [formatPrice, t, floor]);
 
     return (
       <div class={`rs_price rs-field${locked ? ' rs-field--locked' : ''}`}>

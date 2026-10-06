@@ -21,7 +21,7 @@ const SELECTOR = [
   'location', 'area', 'town', 'type', 'property-type', 'features', 'feature',
   'for', 'listing-type', 'beds', 'bedrooms', 'baths', 'bathrooms', 'price',
   'under', 'over', 'from', 'built', 'built-area', 'plot', 'plot-size',
-  'terrace', 'terrace-size', 'reference', 'ref', 'featured', 'own', 'own-only',
+  'terrace', 'terrace-size', 'reference', 'ref', 'references', 'refs', 'featured', 'own', 'own-only',
   'own-first', 'sort', 'order', 'limit', 'page',
   'min-price', 'max-price', 'min-bedrooms', 'max-bedrooms', 'min-bathrooms', 'max-bathrooms',
   'min-build-size', 'max-build-size', 'min-plot-size', 'max-plot-size', 'min-terrace-size', 'max-terrace-size',
@@ -29,8 +29,18 @@ const SELECTOR = [
   .flatMap((name) => [`[data-spm-${name}]`, `[data-spm-lock-${name}]`])
   .join(', ');
 
-function isStandalone(el: HTMLElement): boolean {
-  return el.hasAttribute('data-spm-standalone') || !!el.closest('[data-spm-standalone]');
+// Carousels always search on their own, as the V3 carousels did: a homepage
+// slider of featured villas never becomes the page's search.
+const OWN_SEARCH_BLOCK_RE = /^(site-carousel|carousel-template-\d+)$/;
+const REF_ATTRS = ['data-spm-ref', 'data-spm-reference', 'data-spm-refs', 'data-spm-references'];
+
+export function isStandalone(el: HTMLElement): boolean {
+  if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;
+  const block = el.closest<HTMLElement>('[data-spm-widget], [data-spm-template]');
+  const name = block?.getAttribute('data-spm-widget') || block?.getAttribute('data-spm-template') || '';
+  // A hand-picked list of references is always its own list.
+  if (block && REF_ATTRS.some((a) => block.hasAttribute(a))) return true;
+  return OWN_SEARCH_BLOCK_RE.test(name);
 }
 
 /** data-spm-* attributes of one element, keyed without the prefix. */

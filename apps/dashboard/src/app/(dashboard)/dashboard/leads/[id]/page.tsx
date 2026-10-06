@@ -533,7 +533,7 @@ export default function LeadDetailPage() {
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">{lead.notes}</p>
+                <p className="text-sm whitespace-pre-wrap">{lead.notes}</p>
               </CardContent>
             </Card>
           )}

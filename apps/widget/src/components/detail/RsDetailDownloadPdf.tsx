@@ -1,6 +1,7 @@
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { trackPdf } from '@/core/tracker';
 
 /**
  * Triggers a server-rendered property brochure download. Variant (branded vs
@@ -18,6 +19,7 @@ export default function RsDetailDownloadPdf() {
     const lang = config.language || 'en';
     const url = `${base}/api/v1/properties/${encodeURIComponent(property.reference)}/brochure.pdf?lang=${encodeURIComponent(lang)}&apiKey=${encodeURIComponent(config.apiKey)}`;
     window.open(url, '_blank', 'noopener');
+    trackPdf(property.id);
   };
 
   return (

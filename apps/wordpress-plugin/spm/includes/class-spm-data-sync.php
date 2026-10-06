@@ -201,7 +201,7 @@ class SPM_Data_Sync {
         $color = (isset($data['primaryColor']) && is_string($data['primaryColor']) && preg_match('/^#[0-9a-f]{6}$/i', $data['primaryColor'])) ? $data['primaryColor'] : '';
         $templates = [];
         foreach ((array) ($data['siteTemplates'] ?? []) as $kind => $id) {
-            if (in_array($kind, ['search', 'listing', 'detail', 'map'], true) && is_string($id) && preg_match('/^[a-z]+-template-\d{2}$/', $id)) {
+            if (in_array($kind, ['search', 'listing', 'detail', 'map', 'carousel'], true) && is_string($id) && preg_match('/^[a-z]+-template-\d{2}$/', $id)) {
                 $templates[$kind] = $id;
             }
         }

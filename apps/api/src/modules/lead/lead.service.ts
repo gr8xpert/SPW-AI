@@ -73,12 +73,16 @@ export class LeadService {
       budgetCurrency: dto.budgetCurrency || 'EUR',
       preferredLocations: dto.preferredLocations,
       preferredTypes: dto.preferredTypes,
+      // A website visitor (userId 0) is not a user, and lead_activities.userId
+      // must be one: logging their message as an activity failed every
+      // website inquiry that had a message (2026-10-06). It goes on the lead.
+      notes: !userId && dto.message ? dto.message : null,
     });
 
     const savedLead = await this.leadRepository.save(lead);
 
-    // Create initial activity if message provided
-    if (dto.message) {
+    // A team member's first note is an activity.
+    if (dto.message && userId) {
       await this.addActivity(tenantId, savedLead.id, userId, {
         type: 'note',
         description: `Initial inquiry: ${dto.message}`,

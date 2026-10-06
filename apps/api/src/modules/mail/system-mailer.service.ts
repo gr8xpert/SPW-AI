@@ -32,6 +32,11 @@ export interface SystemMailMessage {
   text: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  /** Display name instead of SMTP_FROM_NAME (a client's company on form mail). */
+  fromName?: string;
+  /** Address instead of SMTP_FROM. Only one on a domain verified in the SMTP
+   *  provider: anything else is rejected or lands in spam. */
+  fromEmail?: string;
 }
 
 interface MailTransport {
@@ -60,6 +65,7 @@ export class SystemMailerService {
   private readonly logger = new Logger(SystemMailerService.name);
   private transporter: MailTransport | null = null;
   private from: string | null = null;
+  private fromEmail: string | null = null;
   private readonly host: string | undefined;
 
   constructor(private readonly config: ConfigService) {
@@ -83,6 +89,7 @@ export class SystemMailerService {
       }
 
       const fromName = this.config.get<string>('SMTP_FROM_NAME');
+      this.fromEmail = fromEmail;
       this.from = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail;
 
       const dkim = this.getOperatorDkimOptions();
@@ -126,7 +133,7 @@ export class SystemMailerService {
 
     try {
       const result = await this.transporter.sendMail({
-        from: this.from,
+        from: this.fromFor(message),
         to: message.to,
         subject: message.subject,
         html: message.html,
@@ -142,12 +149,21 @@ export class SystemMailerService {
     }
   }
 
+  private fromFor(message: SystemMailMessage): string {
+    if (!message.fromName && !message.fromEmail) return this.from as string;
+    // Quotes and line breaks would break out of the header.
+    const name = (message.fromName ?? '').replace(/["\r\n\\]/g, '').trim();
+    const address = message.fromEmail || this.fromEmail || '';
+    return name ? `"${name}" <${address}>` : address;
+  }
+
   // Test-only seam. Never used in production code paths — keeps the
   // SystemMailerService boot contract without forcing tests to set real
   // SMTP env vars or spin up a fake server.
   __setTransporterForTests(transport: MailTransport, from: string): void {
     this.transporter = transport;
     this.from = from;
+    this.fromEmail = from.match(/<([^>]+)>/)?.[1] ?? from;
   }
 
   // Returns the DKIM options we'd pass to nodemailer.createTransport for

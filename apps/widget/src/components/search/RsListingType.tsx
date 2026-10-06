@@ -78,7 +78,7 @@ export default function RsListingType({ variation = 1 }: Props) {
     LISTING_TYPES.map(lt => ({
       value: lt.value,
       label: lt.value === '' ? t('listing_type_placeholder', 'Status') : t(lt.labelKey, lt.fallback),
-      count: lt.value === '' ? undefined : facets?.listingTypes?.[lt.value],
+      count: lt.value === '' || !facets ? undefined : facets.listingTypes?.[lt.value] ?? 0,
     })),
   [t, LISTING_TYPES, facets]);
 

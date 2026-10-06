@@ -6,6 +6,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
 import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import type { Property } from '@/types';
+import { buildPropertyUrl } from '@/core/url-utils';
 
 interface Props {
   showCompare?: boolean;
@@ -97,12 +98,25 @@ function generateQR(url: string): void {
   window.open(qrUrl, '_blank', 'width=300,height=300');
 }
 
+// A property link as a path on this site ("/property/villa_R1"), or nothing
+// when it points elsewhere.
+function sitePath(url: string): string | undefined {
+  try {
+    const u = new URL(url, window.location.origin);
+    return u.origin === window.location.origin ? u.pathname + u.search : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function EmailModal() {
   const { t } = useLabels();
   const { favorites } = useFavorites();
+  const { properties: saved } = useWishlistProperties();
   const config = useConfig();
   const [to, setTo] = useState('');
   const [from, setFrom] = useState('');
+  const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
@@ -118,11 +132,16 @@ function EmailModal() {
           'X-API-Key': config.apiKey,
         },
         body: JSON.stringify({
-          type: 'email',
-          recipientEmail: to,
-          senderEmail: from || undefined,
-          message: message || undefined,
-          propertyIds: favorites,
+          recipientEmail: to.trim(),
+          senderEmail: from.trim() || undefined,
+          senderName: name.trim() || undefined,
+          message: message.trim() || undefined,
+          // Each property with its page on this site, for the "View property"
+          // links in the email (the API only links to the client's own sites).
+          items: favorites.slice(0, 50).map((id) => {
+            const p = saved.find((s) => s.id === id);
+            return { id, path: p ? sitePath(buildPropertyUrl(p, config)) : undefined };
+          }),
         }),
       });
       if (res.ok) {
@@ -134,7 +153,7 @@ function EmailModal() {
     } catch {
       setStatus('error');
     }
-  }, [to, from, message, favorites, config]);
+  }, [to, from, name, message, favorites, saved, config]);
 
   return (
     <>
@@ -156,6 +175,16 @@ function EmailModal() {
                 onInput={(e) => setTo((e.target as HTMLInputElement).value)}
                 placeholder="recipient@example.com"
                 required
+              />
+            </div>
+            <div class="rs-field">
+              <label class="rs-field__label">{t('your_name_optional', 'Your name (optional):')}</label>
+              <input
+                class="rs-input"
+                type="text"
+                value={name}
+                maxLength={200}
+                onInput={(e) => setName((e.target as HTMLInputElement).value)}
               />
             </div>
             <div class="rs-field">

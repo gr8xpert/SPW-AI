@@ -1,6 +1,7 @@
 import { IsOptional, IsNumber, IsIn, IsArray, IsBoolean, IsString, Min, Max, Matches, MaxLength, ArrayMaxSize } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ListingType } from '../../../database/entities/property.entity';
+import type { SiteMinPrices } from '../site-limits';
 
 // Splits a CSV string of integers (locationIds=1,2,3) into number[] so the
 // widget can pass list-shaped filters via the GET query string. Anything that
@@ -16,6 +17,15 @@ const toIntArray = ({ value }: { value: unknown }): number[] | undefined => {
   return out.length ? out : undefined;
 };
 
+// Hand-picked references (references=R1,R2,R3): a list of property refs, kept
+// in the order given. Blank entries and duplicates are dropped.
+const toRefList = ({ value }: { value: unknown }): string[] | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parts = Array.isArray(value) ? value : String(value).split(',');
+  const out = [...new Set(parts.map((v) => String(v).trim()).filter(Boolean))];
+  return out.length ? out : undefined;
+};
+
 export class SearchPropertyDto {
   @IsOptional()
   @IsString()
@@ -26,6 +36,16 @@ export class SearchPropertyDto {
   @IsString()
   @MaxLength(64)
   reference?: string;
+
+  // Several references, for a hand-picked list (data-spm-ref="R1,R2,R3").
+  // Matches the property reference or the agency's own reference.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  @Transform(toRefList)
+  references?: string[];
 
   // Exact property ids (ids=12,45,78). The widget's wishlist page uses this to
   // load saved properties directly — filtering the current search results
@@ -65,6 +85,8 @@ export class SearchPropertyDto {
   // `declare`: a plain field would exist (undefined) on every instance and the
   // whitelist would reject every search.
   declare siteListingTypes?: string[];
+  // Same rule: the client's "Hide properties below" price per listing type.
+  declare siteMinPrices?: SiteMinPrices;
 
   // Latitude/longitude/radius are used by the map view to search a circular
   // region. Bounds is a SW/NE box "swLat,swLng,neLat,neLng" used by the map's

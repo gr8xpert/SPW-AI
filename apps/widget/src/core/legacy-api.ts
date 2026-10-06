@@ -26,6 +26,8 @@ export interface RealtySoftAPI {
   removeFavorite: (id: number) => void;
   getFavorites: () => number[];
   on: (event: string, callback: (...args: unknown[]) => void) => () => void;
+  /** A single-page app changed route: draw the new page's blocks. */
+  refresh: () => Promise<void>;
 }
 
 export interface SearchOptions {
@@ -33,6 +35,11 @@ export interface SearchOptions {
 }
 
 let searchHandler: ((filters: SearchFilters, options?: SearchOptions) => void) | null = null;
+let refreshHandler: (() => Promise<void>) | null = null;
+
+export function setRefreshHandler(handler: () => Promise<void>): void {
+  refreshHandler = handler;
+}
 
 export function setSearchHandler(handler: (filters: SearchFilters, options?: SearchOptions) => void): void {
   searchHandler = handler;
@@ -79,6 +86,8 @@ export function installLegacyAPI(): void {
         callback(store.getState());
       });
     },
+
+    refresh: () => refreshHandler?.() ?? Promise.resolve(),
   };
 
   window.RealtySoft = api;

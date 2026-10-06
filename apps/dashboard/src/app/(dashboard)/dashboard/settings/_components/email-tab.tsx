@@ -27,6 +27,9 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
     setInquiryWebhookUrl,
     inquiryAutoReplyEnabled,
     setInquiryAutoReplyEnabled,
+    formSenderEmail,
+    setFormSenderEmail,
+    ownEmailDomain,
     savingInquiry,
     onSaveInquiry,
     addInquiryEmail,
@@ -69,6 +72,9 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 <Label htmlFor="smtpUser">SMTP Username</Label>
                 <Input
                   id="smtpUser"
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
                   {...emailForm.register('smtpUser')}
                 />
               </div>
@@ -150,6 +156,27 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="formSenderEmail">Your email address on form emails</Label>
+            <Input
+              id="formSenderEmail"
+              type="email"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              placeholder="info@yourdomain.com"
+              value={formSenderEmail}
+              onChange={(e) => setFormSenderEmail(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Emails to your visitors (inquiry confirmation, shared wishlists) show your company name, and their
+              replies come to this address.{' '}
+              {ownEmailDomain
+                ? 'They are sent from this address.'
+                : 'To have them sent from this address too, ask support to verify your domain for sending.'}
+            </p>
+          </div>
+
           <div className="space-y-3">
             <Label>Notification Recipients</Label>
             <p className="text-xs text-muted-foreground">

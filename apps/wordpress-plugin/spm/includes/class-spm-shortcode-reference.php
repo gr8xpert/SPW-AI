@@ -7,6 +7,35 @@ if (!defined('ABSPATH')) exit;
  */
 class SPM_Shortcode_Reference {
 
+    /** Page aliases => their [spm_*] shortcode (see SPM_Shortcode::PAGES). */
+    const PAGE_SHORTCODES = [
+        'site-search'   => 'spm_search',
+        'site-listing'  => 'spm_listing',
+        'site-detail'   => 'spm_detail',
+        'site-map'      => 'spm_map',
+        'site-wishlist' => 'spm_wishlist',
+        'site-carousel' => 'spm_carousel',
+    ];
+
+    /**
+     * The WordPress shortcode for a block: [spm_listing] for a page alias,
+     * [spm_listing template="3"] for a fixed design, [spm block="…"] otherwise.
+     * Attributes on the div (data-spm-x="y") become x="y".
+     */
+    public static function shortcode($html) {
+        if (!preg_match('/data-spm-widget="([^"]+)"/', $html, $m)) return '';
+        $name = $m[1];
+        $atts = '';
+        if (preg_match_all('/data-spm-(?!widget)([a-z0-9-]+)(?:="([^"]*)")?/', $html, $all, PREG_SET_ORDER)) {
+            foreach ($all as $a) $atts .= ' ' . $a[1] . '="' . (isset($a[2]) && $a[2] !== '' ? $a[2] : 'yes') . '"';
+        }
+        if (isset(self::PAGE_SHORTCODES[$name])) return '[' . self::PAGE_SHORTCODES[$name] . $atts . ']';
+        if (preg_match('/^(search|listing|detail|map|carousel)-template-(\d+)$/', $name, $t)) {
+            return '[spm_' . $t[1] . ' template="' . (int) $t[2] . '"' . $atts . ']';
+        }
+        return '[spm block="' . $name . '"' . $atts . ']';
+    }
+
     public static function groups() {
         return [
             [
@@ -18,6 +47,7 @@ class SPM_Shortcode_Reference {
                     '<div data-spm-widget="site-detail"></div>'   => 'Property page — on the SPM property page only',
                     '<div data-spm-widget="site-map"></div>'      => 'Map search',
                     '<div data-spm-widget="site-wishlist"></div>' => 'Saved properties page (heading, buttons, list)',
+                    '<div data-spm-widget="site-carousel"></div>' => 'Property carousel — any page; add data-spm-featured="yes" etc. to pick its properties',
                 ],
             ],
             [
@@ -28,10 +58,32 @@ class SPM_Shortcode_Reference {
                     'site-listing'  => 'Property results — the design chosen in your dashboard',
                     'site-detail'   => 'Property page — the design chosen in your dashboard',
                     'site-map'      => 'Map search — the design chosen in your dashboard',
+                    'site-carousel' => 'Property carousel — the design chosen in your dashboard',
                     'search-template-01' => 'Search form, fixed design 1 (…-02 to -06 also exist)',
-                    'listing-template-01' => 'Property results, fixed design 1 (…-02 to -12 also exist)',
+                    'listing-template-01' => 'Property results, fixed design 1 (…-02 to -17 also exist)',
                     'detail-template-01' => 'Property page, fixed design 1',
                     'map-template-01' => 'Map search, fixed design 1 (…-02, -03 also exist)',
+                ],
+            ],
+            [
+                'title' => 'Hand-picked properties',
+                'intro' => 'Show exactly the properties you choose, in the order you list their reference numbers (up to 50). Works with any listing design, and never changes the page\'s search.',
+                'shortcodes' => [
+                    '<div data-spm-widget="site-listing" data-spm-ref="R1234,R2345,R3456,R4567,R5678,R6789"></div>' => 'Six chosen properties in the listing design chosen in your dashboard',
+                    '<div data-spm-widget="listing-template-13" data-spm-ref="R1234,R2345,R3456"></div>' => 'Three chosen properties in design 13',
+                    '<div data-spm-widget="site-carousel" data-spm-ref="R1234,R2345,R3456,R4567"></div>' => 'Chosen properties in a carousel',
+                ],
+            ],
+            [
+                'title' => 'Property carousels',
+                'intro' => 'A slider of properties for any page. <code>[spm_carousel]</code> follows your SPM dashboard → Website Design → Carousel; <code>template="2"</code> pins a design. Each carousel picks its own properties from its filters, e.g. <code>[spm_carousel featured="yes" limit="8" autoplay="yes"]</code>, and never changes the page\'s search.',
+                'items' => [
+                    'carousel-template-01' => 'Centre focus — five cards, the middle one largest',
+                    'carousel-template-02' => '3D perspective — cards tilt and blur away from the centre',
+                    'carousel-template-03' => 'Coverflow — side cards turn to face the centre',
+                    'carousel-template-04' => 'Full width — one large photo with Prev / Next panels',
+                    'carousel-template-05' => 'Tilted — three slanted photos side by side',
+                    'carousel-template-06' => 'Dark numbered cards — three cards with large numbers',
                 ],
             ],
             [
@@ -163,6 +215,7 @@ class SPM_Shortcode_Reference {
             'data-spm-own-first="yes"'      => 'Everything, with your own listings at the top.',
             'data-spm-sort="newest"'        => 'newest, oldest, price_asc, price_desc, featured or updated',
             'data-spm-limit="6"'            => 'How many properties to show',
+            'data-spm-ref="R1234,R2345"'  => 'Only these properties, in this order (reference numbers, comma separated, up to 50). One reference shows just that property.',
             'data-spm-template="3"'         => 'Pin one design instead of the dashboard one',
             'data-spm-fixed="yes"'          => 'The visitor cannot change these filters (for a page like "Marbella villas")',
             'data-spm-standalone'           => 'This block searches on its own — use it when one page holds several different lists (e.g. "Latest in Marbella" and "New developments"). Without it, the page\'s search form drives the list.',

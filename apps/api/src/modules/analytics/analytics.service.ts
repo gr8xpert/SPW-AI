@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, Between } from 'typeorm';
+import { Repository, MoreThanOrEqual, Between, IsNull } from 'typeorm';
 import { PropertyView, SearchLog, Favorite, SavedSearch, Property, Lead } from '../../database/entities';
 import { TrackViewDto, TrackSearchDto } from './dto';
 import * as crypto from 'crypto';
@@ -32,6 +32,9 @@ export class AnalyticsService {
     ip: string,
     userAgent: string,
   ): Promise<void> {
+    // Only this client's own listings (a stale or foreign id would fail the
+    // insert or count another client's property).
+    if (!(await this.ownsProperty(tenantId, dto.propertyId))) return;
     const view = this.propertyViewRepository.create({
       tenantId,
       propertyId: dto.propertyId,
@@ -60,34 +63,42 @@ export class AnalyticsService {
     await this.searchLogRepository.save(log);
   }
 
-  async markInquiry(
-    tenantId: number,
-    propertyId: number,
-    sessionId: string,
-  ): Promise<void> {
-    await this.propertyViewRepository.update(
-      { tenantId, propertyId, sessionId },
-      { inquiryMade: true },
-    );
+  async markInquiry(tenantId: number, propertyId: number, sessionId: string): Promise<void> {
+    await this.markOnView(tenantId, propertyId, sessionId, { inquiryMade: true });
   }
 
-  async markPdfDownload(
+  async markPdfDownload(tenantId: number, propertyId: number, sessionId: string): Promise<void> {
+    await this.markOnView(tenantId, propertyId, sessionId, { pdfDownloaded: true });
+  }
+
+  // Inquiries and PDFs are counted on the visit's view row. When that row is
+  // missing (view beacon blocked, session from another tab) one is added, so
+  // the inquiry or download still counts.
+  private async markOnView(
     tenantId: number,
     propertyId: number,
     sessionId: string,
+    flag: { inquiryMade: true } | { pdfDownloaded: true },
   ): Promise<void> {
-    await this.propertyViewRepository.update(
-      { tenantId, propertyId, sessionId },
-      { pdfDownloaded: true },
-    );
+    if (!propertyId || !sessionId || !(await this.ownsProperty(tenantId, propertyId))) return;
+    const result = await this.propertyViewRepository.update({ tenantId, propertyId, sessionId }, flag);
+    if (!result.affected) {
+      await this.propertyViewRepository.save(this.propertyViewRepository.create({ tenantId, propertyId, sessionId, ...flag }));
+    }
+  }
+
+  private async ownsProperty(tenantId: number, propertyId: number): Promise<boolean> {
+    if (!Number.isInteger(propertyId) || propertyId <= 0) return false;
+    return (await this.propertyRepository.count({ where: { id: propertyId, tenantId } })) > 0;
   }
 
   async getOverview(
     tenantId: number,
     dateRange: { start: Date; end: Date },
   ) {
+    // Card clicks are search_logs rows too (clickedPropertyId set): not searches.
     const searches = await this.searchLogRepository.count({
-      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
+      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start), clickedPropertyId: IsNull() },
     });
 
     const views = await this.propertyViewRepository.count({
@@ -128,7 +139,7 @@ export class AnalyticsService {
 
       const [searchCount, viewCount, inquiryCount] = await Promise.all([
         this.searchLogRepository.count({
-          where: { tenantId, searchedAt: Between(dayStart, dayEnd) },
+          where: { tenantId, searchedAt: Between(dayStart, dayEnd), clickedPropertyId: IsNull() },
         }),
         this.propertyViewRepository.count({
           where: { tenantId, viewedAt: Between(dayStart, dayEnd) },
@@ -157,7 +168,7 @@ export class AnalyticsService {
   ) {
     const [searches, views, cardClicks, wishlistAdds, inquiries] = await Promise.all([
       this.searchLogRepository.count({
-        where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
+        where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start), clickedPropertyId: IsNull() },
       }),
       this.propertyViewRepository.count({
         where: { tenantId, viewedAt: MoreThanOrEqual(dateRange.start) },
@@ -263,7 +274,7 @@ export class AnalyticsService {
     dateRange: { start: Date; end: Date },
   ) {
     const searches = await this.searchLogRepository.find({
-      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start) },
+      where: { tenantId, searchedAt: MoreThanOrEqual(dateRange.start), clickedPropertyId: IsNull() },
     });
 
     const locationCounts: Record<number, number> = {};
@@ -278,9 +289,9 @@ export class AnalyticsService {
     for (const search of searches) {
       const filters = search.filters || {};
 
-      if (filters.locationId) {
-        locationCounts[filters.locationId] = (locationCounts[filters.locationId] || 0) + 1;
-      }
+      // The widget sends one location or several (locationIds).
+      const locs = new Set<number>([filters.locationId, ...(Array.isArray(filters.locationIds) ? filters.locationIds : [])].map(Number).filter((n) => n > 0));
+      for (const id of locs) locationCounts[id] = (locationCounts[id] || 0) + 1;
 
       const maxPrice = filters.maxPrice || filters.priceMax;
       if (maxPrice) {
@@ -310,11 +321,24 @@ export class AnalyticsService {
       .limit(10)
       .getRawMany();
 
+    const topLocations = Object.entries(locationCounts)
+      .map(([id, count]) => ({ locationId: parseInt(id), count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    const names = new Map<number, string>();
+    if (topLocations.length) {
+      const rows: { id: number; name: unknown }[] = await this.propertyRepository.manager.query(
+        'SELECT id, name FROM locations WHERE tenantId = ? AND id IN (?)',
+        [tenantId, topLocations.map((l) => l.locationId)],
+      );
+      for (const r of rows) {
+        const n = typeof r.name === 'string' ? safeJson(r.name) : r.name;
+        names.set(Number(r.id), typeof n === 'string' ? n : (n as Record<string, string>)?.en || Object.values((n as Record<string, string>) || {})[0] || '');
+      }
+    }
+
     return {
-      popularLocations: Object.entries(locationCounts)
-        .map(([id, count]) => ({ locationId: parseInt(id), name: '', count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10),
+      popularLocations: topLocations.map((l) => ({ ...l, name: names.get(l.locationId) || '' })),
       popularTypes: typeViews.map((t) => ({
         name: t.typeName || 'Unknown',
         count: parseInt(t.count),
@@ -368,7 +392,9 @@ export class AnalyticsService {
     propertyId: number,
     sessionId?: string,
     contactId?: number,
-  ): Promise<Favorite> {
+  ): Promise<Favorite | null> {
+    propertyId = Number(propertyId);
+    if (!(await this.ownsProperty(tenantId, propertyId))) return null;
     const existing = await this.favoriteRepository.findOne({
       where: contactId
         ? { tenantId, propertyId, contactId }
@@ -454,5 +480,13 @@ export class AnalyticsService {
       tenantId,
       contactId,
     });
+  }
+}
+
+function safeJson(v: string): unknown {
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
   }
 }

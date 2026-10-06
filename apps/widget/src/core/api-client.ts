@@ -1,18 +1,27 @@
 export interface ApiClientConfig {
   apiUrl: string;
   apiKey: string;
+  // The page's language. Sent with every request: until 10-05 it wasn't, so
+  // the API answered in the visitor's browser language, and a Spanish page
+  // showed English to an English browser (and switching language changed
+  // nothing).
+  language?: string;
 }
 
 const REQUEST_TIMEOUT_MS = 8_000;
+/** AI search (text or voice): the model can take 15s+ on a busy moment. */
+export const AI_TIMEOUT_MS = 45_000;
 const GET_ATTEMPTS = 3;
 
 export class ApiClient {
   private apiUrl: string;
   private apiKey: string;
+  private language: string;
 
   constructor(config: ApiClientConfig) {
     this.apiUrl = config.apiUrl.replace(/\/$/, '');
     this.apiKey = config.apiKey;
+    this.language = /^[a-z]{2}(-[A-Za-z]{2})?$/.test(config.language || '') ? (config.language as string) : '';
   }
 
   async get<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
@@ -24,21 +33,27 @@ export class ApiClient {
         }
       }
     }
+    // Labels are chosen by ?lang only. Elsewhere the Accept-Language header
+    // (below) does it: the search, facets and map endpoints reject unknown
+    // query fields ("property lang should not exist").
+    if (this.language && endpoint === '/v1/labels' && !url.searchParams.has('lang')) url.searchParams.set('lang', this.language);
     return this.request<T>(url.toString(), { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, body: unknown): Promise<T> {
+  // timeoutMs: longer for an answer that comes from an AI model (10-06: a
+  // text AI search took 15s and the 8s read limit cut it off).
+  async post<T>(endpoint: string, body: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
     return this.request<T>(`${this.apiUrl}/api${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }, timeoutMs);
   }
 
   // A file upload (a voice search). Sent once, with a longer wait than a
   // read: the answer comes from an AI model, not the database. The browser
   // sets the multipart Content-Type itself.
-  async postForm<T>(endpoint: string, form: FormData, timeoutMs = 30_000): Promise<T> {
+  async postForm<T>(endpoint: string, form: FormData, timeoutMs = AI_TIMEOUT_MS): Promise<T> {
     return this.request<T>(`${this.apiUrl}/api${endpoint}`, { method: 'POST', body: form }, timeoutMs);
   }
 
@@ -49,6 +64,7 @@ export class ApiClient {
   private async request<T>(url: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set('X-API-Key', this.apiKey);
+    if (this.language) headers.set('Accept-Language', this.language);
 
     const res = await this.fetchWithRetry(url, { ...init, headers }, timeoutMs);
 
@@ -81,7 +97,8 @@ export class ApiClient {
       try {
         return await fetch(url, { ...init, signal: controller.signal });
       } catch (err) {
-        lastError = err;
+        // A timeout surfaces as "signal is aborted without reason": never show that.
+        lastError = controller.signal.aborted ? new Error('timeout') : err;
         if (i < attempts - 1) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
       } finally {
         clearTimeout(timer);

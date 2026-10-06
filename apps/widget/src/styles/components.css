@@ -272,6 +272,12 @@ button.rs-custom-select__trigger:focus-visible {
   margin-left: auto;
 }
 
+/* A narrowed search that would find nothing for this choice. */
+.rs-dropdown__count--zero,
+.rs-type-icon__count--zero {
+  opacity: 0.55;
+}
+
 .rs-dropdown__empty {
   padding: 12px;
   text-align: center;

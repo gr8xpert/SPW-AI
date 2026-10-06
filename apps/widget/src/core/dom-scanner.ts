@@ -10,14 +10,14 @@ export interface ScanEntry {
 }
 
 const TEMPLATE_RE = /^([a-z]+-template-\d{2})$/;
-const SITE_ALIAS_RE = /^site-(search|listing|detail|map|wishlist)$/;
+const SITE_ALIAS_RE = /^site-(search|listing|detail|map|wishlist|carousel)$/;
 
 // "site-listing" -> the listing template picked in the dashboard gallery, or
 // template 01 until one is picked.
-function resolveSiteAlias(name: string): string {
+export function resolveSiteAlias(name: string): string {
   const m = SITE_ALIAS_RE.exec(name);
   if (!m) return name;
-  const kind = m[1] as 'search' | 'listing' | 'detail' | 'map' | 'wishlist';
+  const kind = m[1] as 'search' | 'listing' | 'detail' | 'map' | 'wishlist' | 'carousel';
   const chosen = store.getState().config.siteTemplates?.[kind];
   return chosen && TEMPLATE_RE.test(chosen) && chosen.startsWith(`${kind}-template-`) ? chosen : `${kind}-template-01`;
 }

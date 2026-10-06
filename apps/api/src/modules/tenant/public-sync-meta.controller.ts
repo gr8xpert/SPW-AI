@@ -38,9 +38,16 @@ export class PublicSyncMetaController {
   @Get()
   async getSyncMeta(
     @Headers('x-api-key') apiKey: string,
-    @Headers('x-spw-site') site?: string,
-    @Headers('x-spw-plugin') pluginVersion?: string,
+    @Headers('x-spm-site') site?: string,
+    @Headers('x-spm-plugin') pluginVersion?: string,
+    // Plugins before 2.8 (named SPW) send these. 2.8 renamed them to x-spm-*
+    // while this read only x-spw-*, so from 09-30 no site checked in and
+    // Website Health said "plugin last connected N days ago".
+    @Headers('x-spw-site') legacySite?: string,
+    @Headers('x-spw-plugin') legacyPluginVersion?: string,
   ) {
+    site = site || legacySite;
+    pluginVersion = pluginVersion || legacyPluginVersion;
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }

@@ -7,6 +7,8 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
+import { trackCardClick } from '@/core/tracker';
+import { navigateTo } from '@/core/navigate';
 
 export interface CardProps {
   property: Property;
@@ -58,6 +60,7 @@ export function useCardState(property: Property) {
   const propertyUrl = useMemo(() => buildPropertyUrl(property, config) || '#', [property, config]);
 
   const handleClick = useCallback((e?: MouseEvent) => {
+    trackCardClick(property.id);
     // Ctrl / Cmd / Shift / middle click on the card: new tab, like a link.
     if (e && (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) && !config.onPropertyClick) {
       window.open(propertyUrl, '_blank', 'noopener');
@@ -74,7 +77,7 @@ export function useCardState(property: Property) {
     if (config.onPropertyClick) {
       config.onPropertyClick(property);
     } else {
-      if (propertyUrl !== '#') window.location.href = propertyUrl;
+      if (propertyUrl !== '#') navigateTo(propertyUrl);
     }
   }, [config, property, currentPage, propertyUrl]);
 

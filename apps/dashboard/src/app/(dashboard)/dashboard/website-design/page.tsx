@@ -11,14 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 
-type Kind = 'search' | 'listing' | 'detail' | 'map';
+type Kind = 'search' | 'listing' | 'detail' | 'map' | 'carousel';
 type SiteTemplates = Partial<Record<Kind, string>>;
 
 const WIDGET_URL = (process.env.NEXT_PUBLIC_WIDGET_URL || 'https://spw-ai.com/widget').replace(/\/$/, '');
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 const PREVIEW_WIDTH = 1280;
 
-const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; templates: Array<{ id: string; name: string }> }> = [
+// `wp` replaces the WordPress note for blocks the plugin's pages don't carry.
+const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; wp?: string; templates: Array<{ id: string; name: string }> }> = [
   {
     kind: 'search',
     tab: 'Search box',
@@ -51,6 +52,11 @@ const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; te
       ['10', 'Metro band'],
       ['11', 'Classic card (variant)'],
       ['12', 'Location first'],
+      ['13', 'Dark overlay, price first'],
+      ['14', 'Dark overlay with photo count'],
+      ['15', 'Wide card with details'],
+      ['16', 'Large development card'],
+      ['17', 'Dark content card'],
     ].map(([n, name]) => ({ id: `listing-template-${n}`, name })),
   },
   {
@@ -71,15 +77,37 @@ const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; te
     snippet: '<div data-spm-widget="site-detail"></div>',
     templates: [{ id: 'detail-template-01', name: 'Standard property page' }],
   },
+  {
+    kind: 'carousel',
+    tab: 'Carousel',
+    intro: 'A slider of properties for your homepage or any other page. Each carousel shows its own properties (for example your featured ones) and never changes the search.',
+    snippet: '<div data-spm-widget="site-carousel" data-spm-featured="yes"></div>',
+    wp: 'WordPress: add [spm_carousel] (for example [spm_carousel featured="yes" limit="8"]) where it should appear.',
+    templates: [
+      ['01', 'Centre focus'],
+      ['02', '3D perspective'],
+      ['03', 'Coverflow'],
+      ['04', 'Full width'],
+      ['05', 'Tilted'],
+      ['06', 'Dark numbered cards'],
+    ].map(([n, name]) => ({ id: `carousel-template-${n}`, name })),
+  },
 ];
 
 const COLOR_PRESETS = ['#2563eb', '#0f766e', '#15803d', '#b45309', '#c89a3c', '#b91c1c', '#7c3aed', '#1e293b'];
 const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v);
 
+// preview.html is served without cache headers, so a browser may keep an old
+// copy for days after a widget release (10-05: new carousel designs showed
+// "Preview unavailable"). A query that changes every hour fetches it again.
+function previewRevision() {
+  return Math.floor(Date.now() / 36e5);
+}
+
 function previewUrl(template: string, token: string, color: string) {
   const hash = new URLSearchParams({ t: template, k: token, api: API_URL });
   if (isHex(color)) hash.set('color', color);
-  return `${WIDGET_URL}/preview.html#${hash.toString()}`;
+  return `${WIDGET_URL}/preview.html?v=${previewRevision()}#${hash.toString()}`;
 }
 
 // A desktop-width render of the template, scaled down to fit its card.
@@ -319,7 +347,7 @@ export default function WebsiteDesignPage() {
               <CardContent className="space-y-1 py-4 text-sm">
                 <div className="font-medium">Where does this show?</div>
                 <p className="text-muted-foreground">
-                  WordPress: the pages created by the SPM plugin follow your choice automatically. Other websites: paste{' '}
+                  {k.wp ?? 'WordPress: the pages created by the SPM plugin follow your choice automatically.'} Other websites: paste{' '}
                   <code className="rounded bg-background px-1 py-0.5 text-xs">{k.snippet}</code> where it should appear.
                 </p>
               </CardContent>

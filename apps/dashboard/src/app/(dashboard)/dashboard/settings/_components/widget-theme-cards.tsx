@@ -93,6 +93,13 @@ export function WidgetThemeCards({ widget }: { widget: WidgetSettings }) {
               <Label htmlFor="recaptchaSiteKey">Site Key</Label>
               <Input
                 id="recaptchaSiteKey"
+                // Never the browser's saved login (10-06: an email address and
+                // password were auto-filled here and blocked every inquiry).
+                autoComplete="off"
+                name="spm-recaptcha-site"
+                data-1p-ignore
+                data-lpignore="true"
+                spellCheck={false}
                 placeholder="6Lc..."
                 value={recaptchaSiteKey}
                 onChange={(e) => setRecaptchaSiteKey(e.target.value)}
@@ -106,12 +113,19 @@ export function WidgetThemeCards({ widget }: { widget: WidgetSettings }) {
               <Label htmlFor="recaptchaSecretKey">Secret Key</Label>
               <Input
                 id="recaptchaSecretKey"
-                type="password"
-                autoComplete="new-password"
+                // Text masked by CSS, not type="password": password managers
+                // fill any password field with the saved login.
+                type="text"
+                autoComplete="off"
+                name="spm-recaptcha-secret"
+                data-1p-ignore
+                data-lpignore="true"
+                spellCheck={false}
                 placeholder="6Lc..."
                 value={recaptchaSecretKey}
                 onChange={(e) => setRecaptchaSecretKey(e.target.value)}
                 className="font-mono text-sm"
+                style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
               />
               <p className="text-xs text-muted-foreground">
                 The private key used for server-side verification.

@@ -1,10 +1,12 @@
 import { render, type ComponentType } from 'preact';
-import type { ScanEntry } from './dom-scanner';
+import { resolveSiteAlias, type ScanEntry } from './dom-scanner';
 import { getComponent, getTemplate } from '@/registry/component-registry';
 
 interface MountedRoot {
   element: HTMLElement;
   unmount: () => void;
+  // What was drawn, for blocks placed by scanDOM (see remountChangedSiteBlocks).
+  entry?: ScanEntry;
 }
 
 const mountedRoots: MountedRoot[] = [];
@@ -74,7 +76,51 @@ async function mountEntry(entry: ScanEntry): Promise<void> {
   mountedRoots.push({
     element,
     unmount: () => render(null, element),
+    entry,
   });
+}
+
+/**
+ * A site-* block ("site-search") is drawn with the design the settings knew at
+ * the time — often a saved copy (the WP plugin's file, this browser's cache).
+ * When the live settings name another design, redraw that block with it, so a
+ * new Website Design choice shows at once instead of after the copy refreshes.
+ */
+export async function remountChangedSiteBlocks(): Promise<void> {
+  for (const root of [...mountedRoots]) {
+    const entry = root.entry;
+    const alias = root.element.getAttribute('data-spm-widget') || '';
+    if (!entry || !alias.startsWith('site-')) continue;
+    const next = resolveSiteAlias(alias);
+    if (next === entry.templateId) continue;
+    console.log(`[SPM] Design changed: ${entry.templateId} -> ${next}`);
+    root.unmount();
+    mountedRoots.splice(mountedRoots.indexOf(root), 1);
+    await mountEntry({ ...entry, componentType: next, isTemplate: true, templateId: next });
+  }
+}
+
+export function isMounted(element: HTMLElement): boolean {
+  return mountedRoots.some((r) => r.element === element);
+}
+
+/**
+ * Unmounts blocks whose element left the page (a single-page app changed
+ * route), so their listeners and timers stop. Returns how many.
+ */
+export function releaseDetached(): number {
+  let released = 0;
+  for (const root of [...mountedRoots]) {
+    if (root.element.isConnected) continue;
+    try {
+      root.unmount();
+    } catch {
+      // already gone
+    }
+    mountedRoots.splice(mountedRoots.indexOf(root), 1);
+    released++;
+  }
+  return released;
 }
 
 export function unmountAll(): void {

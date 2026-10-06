@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPM — site blocks (live data)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    window.RealtySoftConfig = {
+      apiUrl: 'http://localhost:3001',
+      apiKey: 'spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      propertyPageSlug: 'detail',
+    };
+  </script>
+</head>
+<body style="max-width:1200px;margin:0 auto;font-family:system-ui">
+  <div data-spm-widget="site-search"></div>
+  <div data-spm-widget="site-listing"></div>
+  <div data-spm-widget="site-carousel"></div>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

@@ -1,0 +1,1908 @@
+/* Carousel templates 01–06 (carousel-template-NN), ported from the V3 widget's
+   property carousel with its class names unchanged, so CSS a site wrote for the
+   old carousels keeps matching. Loaded with the carousel module only (see
+   RsCarouselStage), so pages without a carousel don't carry it.
+
+   The V3 rules use V3's variable names; they map onto this widget's theme
+   variables here, so the dashboard's colour and corner settings apply. */
+.rs-property-carousel {
+    --rs-spacing-xs: 4px;
+    --rs-spacing-sm: 8px;
+    --rs-spacing-sm-md: 12px;
+    --rs-spacing-md: 16px;
+    --rs-spacing-md-lg: 20px;
+    --rs-spacing-lg: 24px;
+    --rs-font-size-xs: 0.75rem;
+    --rs-font-size-sm: 0.875rem;
+    --rs-font-size-base: 1rem;
+    --rs-font-size-lg: 1.125rem;
+    --rs-font-size-xl: 1.25rem;
+    --rs-font-size-2xl: 1.5rem;
+    --rs-font-size-3xl: 1.75rem;
+    --rs-transition-slow: 0.35s ease;
+    --rs-border-radius-sm: var(--rs-radius, 4px);
+    --rs-border-radius: var(--rs-radius, 8px);
+    --rs-border-radius-lg: var(--rs-radius-lg, 12px);
+    --rs-border-radius-xl: var(--rs-radius-lg, 16px);
+    --rs-border-radius-2xl: var(--rs-radius-lg, 20px);
+    --rs-border-radius-full: 50%;
+    --rs-text-primary: var(--rs-text, #212529);
+    --rs-text-secondary: var(--rs-text-light, #6c757d);
+    --rs-bg-primary: var(--rs-bg, #ffffff);
+    --rs-border-color: var(--rs-border, #dee2e6);
+    --rs-overlay-light: rgba(255, 255, 255, 0.9);
+    --rs-overlay-dark: rgba(0, 0, 0, 0.5);
+    --rs-overlay-dark-heavy: rgba(0, 0, 0, 0.85);
+}
+
+/* Page builders hide or restyle SVG icons; keep the carousel's visible. */
+.rs-property-carousel svg {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    vertical-align: middle !important;
+    flex-shrink: 0 !important;
+}
+
+/* ==========================================================================
+   Property Carousel - Template 01: Center Focus
+   Based on: https://codepen.io/andyNroses/pen/KaENLb
+   ========================================================================== */
+
+/* Container */
+.rs-property-carousel {
+    position: relative;
+    width: 100%;
+    padding: 40px 0;
+    user-select: none;
+}
+
+.rs-property-carousel__track {
+    position: relative;
+    height: 420px;
+    min-height: 420px;
+    margin: 0 auto;
+    max-width: 1200px;
+    overflow: hidden;
+}
+
+.rs-property-carousel__items {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.rs-property-carousel__items img {
+    height: 100%;
+}
+
+/* Loader */
+.rs-property-carousel__loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--rs-spacing-sm-md);
+}
+
+.rs-property-carousel__spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--rs-border-color);
+    border-top-color: var(--rs-primary);
+    border-radius: var(--rs-border-radius-full);
+    animation: rs-carousel-spin 0.8s linear infinite;
+}
+
+.rs-property-carousel__loader-text {
+    color: var(--rs-text-secondary);
+    font-size: var(--rs-font-size-sm);
+}
+
+.rs-property-carousel__empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--rs-text-secondary);
+}
+
+.rs-property-carousel__empty p {
+    margin: 0;
+    font-size: var(--rs-font-size-base);
+}
+
+@keyframes rs-carousel-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Base item styles */
+.rs-property-carousel__item {
+    position: absolute;
+    top: 50%;
+    cursor: pointer;
+    transform-origin: center center;
+}
+
+/* Level positions - Template 01: Center Focus with GAPS */
+.rs-property-carousel--v1 .rs-property-carousel__item--level-2 {
+    width: 200px;
+    height: 280px;
+    left: 20px;
+    transform: translateY(-50%);
+    opacity: 1;
+    z-index: 1;
+}
+
+.rs-property-carousel--v1 .rs-property-carousel__item--level-1 {
+    width: 240px;
+    height: 340px;
+    left: calc(50% - 400px);
+    transform: translateY(-50%);
+    opacity: 1;
+    z-index: 2;
+}
+
+.rs-property-carousel--v1 .rs-property-carousel__item--level0 {
+    width: 300px;
+    height: 400px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 1;
+    z-index: 3;
+}
+
+.rs-property-carousel--v1 .rs-property-carousel__item--level1 {
+    width: 240px;
+    height: 340px;
+    left: auto;
+    right: calc(50% - 400px);
+    transform: translateY(-50%);
+    opacity: 1;
+    z-index: 2;
+}
+
+.rs-property-carousel--v1 .rs-property-carousel__item--level2 {
+    width: 200px;
+    height: 280px;
+    left: auto;
+    right: 20px;
+    transform: translateY(-50%);
+    opacity: 1;
+    z-index: 1;
+}
+
+/* Hidden items (outside visible range) */
+.rs-property-carousel__item--hidden {
+    display: none !important;
+}
+
+/* Navigation Arrows */
+.rs-property-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: var(--rs-border-radius-full);
+    background: var(--rs-bg-primary);
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--rs-shadow-lg);
+    color: var(--rs-text-primary);
+    transition: all var(--rs-transition);
+}
+
+.rs-property-carousel__arrow:hover {
+    background: var(--rs-primary);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.rs-property-carousel__arrow:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.rs-property-carousel__arrow--left {
+    left: 20px;
+}
+
+.rs-property-carousel__arrow--right {
+    right: 20px;
+}
+
+.rs-property-carousel__arrow svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Dots */
+.rs-property-carousel__dots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--rs-spacing-sm);
+    margin-top: var(--rs-spacing-lg);
+}
+
+.rs-property-carousel__dot {
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: none;
+    border-radius: var(--rs-border-radius-full);
+    background: var(--rs-border-color);
+    cursor: pointer;
+    transition: all var(--rs-transition-slow);
+}
+
+.rs-property-carousel__dot:hover {
+    background: var(--rs-text-secondary);
+}
+
+.rs-property-carousel__dot--active {
+    background: var(--rs-primary);
+    transform: scale(1.3);
+}
+
+/* Property Card (Simplified) */
+.rs-property-carousel__card {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--rs-border-radius-lg);
+    overflow: hidden;
+    text-decoration: none;
+    color: white;
+    box-shadow: var(--rs-shadow-lg);
+}
+
+.rs-property-carousel__card-image {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.rs-property-carousel__item--level0 .rs-property-carousel__card:hover .rs-property-carousel__card-image {
+    transform: scale(1.05);
+}
+
+.rs-property-carousel__card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 60px 20px 20px 20px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, var(--rs-overlay-dark) 50%, transparent 100%);
+    color: white;
+}
+
+.rs-property-carousel__card-title {
+    font-size: var(--rs-font-size-base);
+    font-weight: 600;
+    margin: 0 0 var(--rs-spacing-sm) 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.rs-property-carousel__card-specs {
+    display: flex;
+    gap: var(--rs-spacing-md);
+    margin-bottom: var(--rs-spacing-sm);
+    font-size: var(--rs-font-size-sm);
+    opacity: 0.9;
+}
+
+.rs-property-carousel__card-spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rs-property-carousel__card-spec svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.rs-property-carousel__card-price {
+    font-size: var(--rs-font-size-2xl);
+    font-weight: 700;
+    margin: 0 0 var(--rs-spacing-sm-md) 0;
+    line-height: 1.2;
+}
+
+.rs-property-carousel__card-link {
+    display: inline-block;
+    color: white;
+    font-size: var(--rs-font-size-sm);
+    text-decoration: none;
+    opacity: 0.9;
+    transition: opacity var(--rs-transition);
+}
+
+.rs-property-carousel__item--level0 .rs-property-carousel__card:hover .rs-property-carousel__card-link {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1024px) {
+    .rs-property-carousel__track {
+        height: 380px;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level-2,
+    .rs-property-carousel--v1 .rs-property-carousel__item--level2 {
+        display: none;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level-1 {
+        width: 200px;
+        height: 300px;
+        left: 20px;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level0 {
+        width: 280px;
+        height: 380px;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level1 {
+        width: 200px;
+        height: 300px;
+        right: 20px;
+    }
+
+    .rs-property-carousel__arrow {
+        width: 40px;
+        height: 40px;
+    }
+
+    .rs-property-carousel__arrow--left {
+        left: 10px;
+    }
+
+    .rs-property-carousel__arrow--right {
+        right: 10px;
+    }
+
+    .rs-property-carousel__arrow svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 640px) {
+    .rs-property-carousel {
+        padding: 20px 0;
+    }
+
+    .rs-property-carousel__track {
+        height: 360px;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level-2,
+    .rs-property-carousel--v1 .rs-property-carousel__item--level2,
+    .rs-property-carousel--v1 .rs-property-carousel__item--level-1,
+    .rs-property-carousel--v1 .rs-property-carousel__item--level1 {
+        display: none;
+    }
+
+    .rs-property-carousel--v1 .rs-property-carousel__item--level0 {
+        width: calc(100% - 100px);
+        max-width: 300px;
+        height: 360px;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .rs-property-carousel__arrow {
+        width: 36px;
+        height: 36px;
+    }
+
+    .rs-property-carousel__arrow--left {
+        left: 5px;
+    }
+
+    .rs-property-carousel__arrow--right {
+        right: 5px;
+    }
+
+    .rs-property-carousel__arrow svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-sm);
+    }
+
+    .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-lg);
+    }
+
+    .rs-property-carousel__card-specs {
+        font-size: var(--rs-font-size-xs);
+        gap: var(--rs-spacing-sm-md);
+    }
+
+    .rs-property-carousel__dots {
+        margin-top: var(--rs-spacing-md);
+    }
+
+    .rs-property-carousel__dot {
+        width: 8px;
+        height: 8px;
+    }
+}
+
+/* ==========================================================================
+   Property Carousel - Template 02: 3D Perspective
+   Based on: https://codepen.io/hexagoncircle/pen/wvmjomb
+   ========================================================================== */
+
+/* Main container - centered layout */
+.rs-property-carousel--v2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    min-height: 550px;
+}
+
+/* Track acts as the 3D stage - MUST have perspective */
+.rs-property-carousel--v2 .rs-property-carousel__track {
+    position: relative;
+    width: 350px;
+    height: 450px;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+/* Items container - preserve 3D */
+.rs-property-carousel--v2 .rs-property-carousel__items {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    overflow: visible;
+}
+
+/* Each card container - positioned absolutely, transforms applied via JS */
+.rs-property-carousel--v2 .rs-property-carousel__item {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                filter 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                z-index 0s;
+    transform-style: preserve-3d;
+}
+
+/* Card styling - fills the item container */
+.rs-property-carousel--v2 .rs-property-carousel__card {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+    background: var(--rs-bg-primary);
+    text-decoration: none;
+    color: white;
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__card-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 80px 20px 20px 20px;
+    background: linear-gradient(to top, var(--rs-overlay-dark-heavy) 0%, var(--rs-overlay-dark) 60%, transparent 100%);
+    color: white;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Navigation arrows - simple chevrons outside the cards */
+.rs-property-carousel--v2 .rs-property-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 10;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    color: #9CA3AF;
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__arrow:hover {
+    color: var(--rs-primary);
+    background: transparent;
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__arrow--left {
+    left: 20px;
+    transform: translateY(-50%);
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__arrow--right {
+    right: 20px;
+    transform: translateY(-50%);
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__arrow:hover {
+    transform: translateY(-50%) scale(1.1);
+}
+
+.rs-property-carousel--v2 .rs-property-carousel__arrow svg {
+    width: 32px;
+    height: 32px;
+    stroke-width: 2;
+}
+
+/* Dots below carousel */
+.rs-property-carousel--v2 .rs-property-carousel__dots {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: var(--rs-spacing-sm);
+}
+
+/* Responsive - Template 02 Tablet */
+@media (max-width: 900px) {
+    .rs-property-carousel--v2 {
+        padding: 50px 60px;
+        min-height: 500px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__track {
+        width: 280px;
+        height: 380px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--left {
+        left: 15px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--right {
+        right: 15px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow svg {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* Responsive - Template 02 Mobile */
+@media (max-width: 600px) {
+    .rs-property-carousel--v2 {
+        padding: 30px 15px 60px;
+        min-height: 420px;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__track {
+        width: calc(100vw - 80px);
+        max-width: 280px;
+        height: 340px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--left {
+        left: 5px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--right {
+        right: 5px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow svg {
+        width: 28px;
+        height: 28px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-sm);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-lg);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-overlay {
+        padding: 40px 15px 15px 15px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__dots {
+        bottom: -30px;
+    }
+}
+
+/* Responsive - Template 02 Small Mobile */
+@media (max-width: 400px) {
+    .rs-property-carousel--v2 {
+        padding: 20px 10px 50px;
+        min-height: 380px;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__track {
+        width: calc(100vw - 60px);
+        max-width: 240px;
+        height: 300px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--left {
+        left: 2px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow--right {
+        right: 2px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__arrow svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-xs);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-specs {
+        font-size: var(--rs-font-size-xs);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-link {
+        font-size: var(--rs-font-size-xs);
+    }
+
+    .rs-property-carousel--v2 .rs-property-carousel__card-overlay {
+        padding: 30px 12px 12px 12px;
+    }
+}
+
+/* ===========================================
+   Template 03: Coverflow Carousel
+   Cards rotate to face center with greyscale effect
+   =========================================== */
+
+.rs-property-carousel--v3 {
+    padding: 60px 0;
+    background: transparent;
+    overflow-x: clip;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__track {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    height: 420px;
+    padding-bottom: 60px;
+    perspective: 1200px;
+    transform-style: preserve-3d;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+/* Items container - preserve 3D */
+.rs-property-carousel--v3 .rs-property-carousel__items {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    overflow: visible;
+}
+
+/* Individual items */
+.rs-property-carousel--v3 .rs-property-carousel__item {
+    position: absolute;
+    width: 280px;
+    height: 380px;
+    left: 50%;
+    top: 50%;
+    margin-left: -140px;
+    margin-top: -190px;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                filter 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+/* Card styling */
+.rs-property-carousel--v3 .rs-property-carousel__card {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--rs-border-radius-2xl);
+    overflow: hidden;
+    text-decoration: none;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+    background: var(--rs-bg-primary);
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-image {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 60px 20px 20px 20px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+    color: white;
+    transition: opacity 0.4s ease;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-title {
+    font-size: var(--rs-font-size-lg);
+    font-weight: 700;
+    margin: 0 0 var(--rs-spacing-sm) 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-specs {
+    display: flex;
+    gap: var(--rs-spacing-md);
+    margin-bottom: var(--rs-spacing-sm);
+    font-size: var(--rs-font-size-sm);
+    opacity: 0.9;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-spec svg {
+    width: 16px;
+    height: 16px;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-price {
+    font-size: var(--rs-font-size-2xl);
+    font-weight: 700;
+    margin: 0 0 var(--rs-spacing-sm-md) 0;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-link {
+    color: white;
+    font-size: var(--rs-font-size-sm);
+    text-decoration: none;
+    opacity: 0.9;
+    transition: opacity 0.3s;
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__card-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* Arrows - inside container */
+.rs-property-carousel--v3 .rs-property-carousel__arrow {
+    position: absolute;
+    top: calc(50% - 30px);
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: var(--rs-border-radius-full);
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    color: var(--rs-text-primary);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__arrow:hover {
+    background: var(--rs-primary);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__arrow--left {
+    left: 20px;
+    transform: translateY(-50%);
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__arrow--right {
+    right: 20px;
+    transform: translateY(-50%);
+}
+
+.rs-property-carousel--v3 .rs-property-carousel__arrow svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Dots styling - hidden for V3 */
+.rs-property-carousel--v3 .rs-property-carousel__dots {
+    display: none;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 900px) {
+    .rs-property-carousel--v3 .rs-property-carousel__track {
+        height: 380px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__item {
+        width: 250px;
+        height: 340px;
+        margin-left: -125px;
+        margin-top: -170px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow--left {
+        left: 15px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow--right {
+        right: 15px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow {
+        width: 44px;
+        height: 44px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 600px) {
+    .rs-property-carousel--v3 {
+        padding: 40px 0;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__track {
+        height: 340px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__item {
+        width: 220px;
+        height: 300px;
+        margin-left: -110px;
+        margin-top: -150px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow--left {
+        left: 10px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow--right {
+        right: 10px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow {
+        width: 40px;
+        height: 40px;
+        background: var(--rs-overlay-light);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__arrow svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-sm);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-lg);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-specs {
+        font-size: var(--rs-font-size-xs);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-overlay {
+        padding: 40px 15px 15px 15px;
+    }
+}
+
+/* Responsive - Small Mobile */
+@media (max-width: 400px) {
+    .rs-property-carousel--v3 .rs-property-carousel__track {
+        height: 280px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__item {
+        width: 180px;
+        height: 260px;
+        margin-left: -90px;
+        margin-top: -130px;
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card {
+        border-radius: var(--rs-border-radius-xl);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-sm);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-link {
+        font-size: var(--rs-font-size-xs);
+    }
+
+    .rs-property-carousel--v3 .rs-property-carousel__card-overlay {
+        padding: 30px 12px 12px 12px;
+    }
+}
+
+/* ===========================================
+   Template 04: Fullwidth Image Carousel
+   Large image with side navigation panels
+   =========================================== */
+
+.rs-property-carousel--v4 {
+    position: relative;
+    background: transparent;
+    max-width: 100%;
+    padding: 30px 0 50px 0;
+    min-height: 350px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__track {
+    position: relative;
+    width: 75%;
+    max-width: 900px;
+    height: 350px;
+    margin: 0 auto;
+    z-index: 2;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__items {
+    width: 100%;
+    height: 100%;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__item {
+    width: 100%;
+    height: 100%;
+    top: 0;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-image {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card:hover .rs-property-carousel__card-image {
+    transform: scale(1.03);
+}
+
+/* Overlay - always visible */
+.rs-property-carousel--v4 .rs-property-carousel__card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 40px 30px 30px 30px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, var(--rs-overlay-dark) 60%, transparent 100%);
+    color: white;
+    opacity: 1;
+    transform: translateY(0);
+    text-align: center;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-title {
+    font-size: var(--rs-font-size-2xl);
+    font-weight: 700;
+    margin: 0 0 var(--rs-spacing-sm-md) 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-specs {
+    display: flex;
+    justify-content: center;
+    gap: var(--rs-spacing-md-lg);
+    margin-bottom: var(--rs-spacing-sm-md);
+    font-size: var(--rs-font-size-base);
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-spec {
+    display: flex;
+    align-items: center;
+    gap: var(--rs-spacing-sm);
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-spec svg {
+    width: 18px;
+    height: 18px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-price {
+    font-size: var(--rs-font-size-3xl);
+    font-weight: 700;
+    margin: 0 0 15px 0;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-link {
+    display: inline-block;
+    color: white;
+    font-size: var(--rs-font-size-sm);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    border: 2px solid white;
+    transition: all var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__card-link:hover {
+    background: var(--rs-bg-primary);
+    color: #1a2744;
+}
+
+/* Navigation panels - positioned behind image visually but clickable */
+.rs-property-carousel--v4 .rs-property-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 140px;
+    height: 220px;
+    background: #1a2744;
+    border: none;
+    border-radius: 0;
+    color: white;
+    cursor: pointer;
+    transition: background var(--rs-transition-slow);
+    padding: var(--rs-spacing-md-lg);
+    gap: var(--rs-spacing-sm);
+    z-index: 3;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow--left {
+    left: 20px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow--right {
+    right: 20px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow:hover {
+    background: #2a3a5a;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow-label {
+    font-size: var(--rs-font-size-sm);
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow-text {
+    font-size: var(--rs-font-size-xl);
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__arrow svg {
+    width: 30px;
+    height: 30px;
+    margin-top: var(--rs-spacing-sm);
+    stroke: var(--rs-primary, #4a9b8c);
+}
+
+/* Page counter */
+.rs-property-carousel--v4 .rs-property-carousel__counter {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--rs-font-size-lg);
+    color: var(--rs-text-primary);
+    background: transparent;
+    padding: 8px 20px;
+    z-index: 5;
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__counter-current {
+    font-weight: 700;
+    font-size: var(--rs-font-size-2xl);
+}
+
+.rs-property-carousel--v4 .rs-property-carousel__counter-total {
+    opacity: 0.5;
+    font-size: var(--rs-font-size-lg);
+}
+
+/* Responsive - Tablet */
+@media (max-width: 900px) {
+    .rs-property-carousel--v4 .rs-property-carousel__arrow {
+        width: 110px;
+        height: 180px;
+        left: 10px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow--right {
+        left: auto;
+        right: 10px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow-text {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__track {
+        width: 70%;
+        height: 300px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-xl);
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-2xl);
+    }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 600px) {
+    .rs-property-carousel--v4 {
+        padding: 20px 0 60px 0;
+        min-height: 300px;
+    }
+
+    /* Room for the two 50px panels, which covered the title's ends at 90%. */
+    .rs-property-carousel--v4 .rs-property-carousel__track {
+        width: calc(100% - 110px);
+        height: 250px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow {
+        width: 50px;
+        height: 100px;
+        padding: 10px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow--left {
+        left: 0;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow--right {
+        right: 0;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow-label,
+    .rs-property-carousel--v4 .rs-property-carousel__arrow-text {
+        display: none;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__arrow svg {
+        margin-top: 0;
+        width: 20px;
+        height: 20px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-overlay {
+        padding: 30px 20px 20px 20px;
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-lg);
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-xl);
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__card-specs {
+        font-size: var(--rs-font-size-sm);
+    }
+
+    .rs-property-carousel--v4 .rs-property-carousel__counter {
+        bottom: 15px;
+    }
+}
+
+/* ===========================================
+   Template 05: Tilted/Skewed Images Carousel
+   3 tall parallelogram-shaped images
+   =========================================== */
+
+.rs-property-carousel--v5 {
+    position: relative;
+    padding: 40px 60px;
+    background: transparent;
+    overflow: hidden;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__track {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__items {
+    display: flex !important;
+    gap: var(--rs-spacing-sm);
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    height: auto;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__item {
+    position: relative;
+    top: 0;
+    flex: 1;
+    max-width: 380px;
+    height: 400px;
+    overflow: hidden;
+    transition: transform 0.4s ease;
+    clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__item:hover {
+    transform: scale(1.02);
+    z-index: 2;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card {
+    display: block;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    position: relative;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-inner {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-image {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card:hover .rs-property-carousel__card-image {
+    transform: scale(1.1);
+}
+
+/* Overlay - always visible */
+.rs-property-carousel--v5 .rs-property-carousel__card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    padding: 20px 50px 25px 30px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    text-align: center;
+    opacity: 1;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-title {
+    font-size: var(--rs-font-size-sm);
+    font-weight: 700;
+    margin: 0 0 var(--rs-spacing-sm) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-specs {
+    display: flex;
+    justify-content: center;
+    gap: var(--rs-spacing-sm-md);
+    margin-bottom: var(--rs-spacing-sm);
+    font-size: var(--rs-font-size-xs);
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-spec {
+    display: flex;
+    align-items: center;
+    gap: var(--rs-spacing-xs);
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-spec svg {
+    width: 14px;
+    height: 14px;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-price {
+    font-size: var(--rs-font-size-lg);
+    font-weight: 700;
+    margin: 0 0 10px 0;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-link {
+    display: inline-block;
+    color: white;
+    font-size: var(--rs-font-size-xs);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: var(--rs-spacing-sm) var(--rs-spacing-md);
+    border: 1px solid white;
+    transition: all var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__card-link:hover {
+    background: var(--rs-bg-primary);
+    color: var(--rs-text-primary);
+}
+
+/* Navigation arrows */
+.rs-property-carousel--v5 .rs-property-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: var(--rs-border-radius-full);
+    cursor: pointer;
+    color: var(--rs-text-primary);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transition: all var(--rs-transition-slow);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__arrow:hover {
+    background: var(--rs-primary, #333);
+    color: white;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__arrow--left {
+    left: 10px;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__arrow--right {
+    right: 10px;
+}
+
+.rs-property-carousel--v5 .rs-property-carousel__arrow svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Hide dots for V5 */
+.rs-property-carousel--v5 .rs-property-carousel__dots {
+    display: none;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 900px) {
+    .rs-property-carousel--v5 {
+        padding: 30px 40px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__item {
+        max-width: 280px;
+        height: 380px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-xl);
+    }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 600px) {
+    .rs-property-carousel--v5 {
+        padding: 20px 15px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__items {
+        flex-direction: row;
+        justify-content: center;
+        gap: 0;
+    }
+
+    /* Show only first item on mobile */
+    .rs-property-carousel--v5 .rs-property-carousel__item {
+        max-width: 100%;
+        width: 100%;
+        height: 400px;
+        clip-path: none;
+        flex: none;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__item:nth-child(2),
+    .rs-property-carousel--v5 .rs-property-carousel__item:nth-child(3) {
+        display: none;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__item:hover {
+        transform: none;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__arrow {
+        width: 40px;
+        height: 40px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__arrow--left {
+        left: 5px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__arrow--right {
+        right: 5px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__arrow svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__card-overlay {
+        padding: 20px 20px;
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v5 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-xl);
+    }
+}
+
+/* ===========================================
+   Template 06: Dark Cards with Numbers
+   4 cards with large numbers, dark background
+   =========================================== */
+
+.rs-property-carousel--v6 {
+    position: relative;
+    padding: 40px 20px;
+    overflow: hidden;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__track {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-right: 100px;
+    height: 500px;
+    min-height: 500px;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__items {
+    display: flex !important;
+    gap: var(--rs-spacing-md-lg);
+    position: relative;
+    width: 100%;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item {
+    position: relative;
+    top: 0;
+    flex: 0 0 calc(33.333% - 15px);
+    min-width: 280px;
+    max-width: 350px;
+    background: #1a1f3c;
+    border-radius: var(--rs-border-radius-lg);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-number {
+    font-size: 48px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.2);
+    line-height: 1;
+    transition: color var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item--active .rs-property-carousel__card-number {
+    color: var(--rs-overlay-light);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-heart {
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: var(--rs-border-radius-full);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.5);
+    transition: all var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-heart:hover {
+    border-color: var(--rs-primary, #a855f7);
+    color: var(--rs-primary, #a855f7);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-title {
+    font-size: var(--rs-font-size-xl);
+    font-weight: 700;
+    color: white;
+    margin: 0 0 5px 0;
+    line-height: 1.3;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-location {
+    font-size: var(--rs-font-size-xs);
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 0 15px 0;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card {
+    display: block;
+    text-decoration: none;
+    margin-bottom: 15px;
+    height: 180px;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    border-radius: var(--rs-border-radius-lg);
+    overflow: hidden;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-image {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card:hover .rs-property-carousel__card-image {
+    transform: scale(1.05);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: #6366f1;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 5px 12px;
+    border-radius: var(--rs-border-radius-sm);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-info {
+    margin-top: 10px;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-price {
+    font-size: var(--rs-font-size-xl);
+    font-weight: 700;
+    color: white;
+    margin: 0 0 var(--rs-spacing-sm) 0;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--rs-spacing-sm-md);
+    font-size: var(--rs-font-size-xs);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-spec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-spec svg {
+    opacity: 0.6;
+}
+
+/* Property type */
+.rs-property-carousel--v6 .rs-property-carousel__card-type {
+    font-size: var(--rs-font-size-lg);
+    font-weight: 700;
+    color: white;
+    margin: 10px 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: color var(--rs-transition-slow);
+    height: 50px;
+}
+
+/* View Detail button */
+.rs-property-carousel--v6 .rs-property-carousel__card-view-btn {
+    display: inline-block;
+    padding: var(--rs-spacing-sm) var(--rs-spacing-md);
+    margin-top: 10px;
+    background: var(--rs-primary, #a855f7);
+    color: white;
+    border: none;
+    border-radius: var(--rs-border-radius);
+    font-size: var(--rs-font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__card-view-btn:hover {
+    background: var(--rs-primary-hover, #9333ea);
+}
+
+/* Hover effect - card turns white with dark text */
+.rs-property-carousel--v6 .rs-property-carousel__item {
+    padding: var(--rs-spacing-md-lg);
+    border-radius: var(--rs-border-radius-lg);
+    transition: background var(--rs-transition-slow);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover {
+    background: #f1f1f1;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover .rs-property-carousel__card-number {
+    color: rgba(26, 31, 60, 0.3);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover .rs-property-carousel__card-type {
+    color: #1a1f3c;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover .rs-property-carousel__card-location {
+    color: rgba(26, 31, 60, 0.6);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover .rs-property-carousel__card-price {
+    color: #1a1f3c;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__item:hover .rs-property-carousel__card-specs {
+    color: rgba(26, 31, 60, 0.7);
+}
+
+/* Navigation arrows - vertical style on right */
+.rs-property-carousel--v6 .rs-property-carousel__arrow {
+    position: absolute;
+    right: 20px !important;
+    left: auto !important;
+    width: 50px;
+    height: 50px;
+    background: var(--rs-primary, #a855f7);
+    border: none;
+    border-radius: var(--rs-border-radius-full);
+    cursor: pointer;
+    color: white;
+    transition: background var(--rs-transition-slow), transform 0.3s ease;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow:hover {
+    background: var(--rs-primary-hover, #9333ea);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow--left {
+    top: calc(50% - 35px);
+    right: 20px !important;
+    left: auto !important;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow--right {
+    top: calc(50% + 35px);
+    right: 20px !important;
+    left: auto !important;
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow--left svg {
+    transform: rotate(0deg);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow--right svg {
+    transform: rotate(0deg);
+}
+
+.rs-property-carousel--v6 .rs-property-carousel__arrow svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Hide dots for V6 */
+.rs-property-carousel--v6 .rs-property-carousel__dots {
+    display: none;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1100px) {
+    .rs-property-carousel--v6 .rs-property-carousel__items {
+        gap: 15px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__item {
+        min-width: 220px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-number {
+        font-size: 40px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-lg);
+    }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 768px) {
+    .rs-property-carousel--v6 {
+        padding: 30px 15px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__track {
+        padding-right: 0;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__items {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 10px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__items::-webkit-scrollbar {
+        display: none;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__item {
+        flex: 0 0 calc(100% - 30px);
+        max-width: 100%;
+        scroll-snap-align: center;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__arrow {
+        display: none;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-image-wrapper {
+        height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .rs-property-carousel--v6 .rs-property-carousel__item {
+        flex: 0 0 calc(100% - 20px);
+        max-width: 100%;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-number {
+        font-size: 36px;
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-title {
+        font-size: var(--rs-font-size-base);
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-price {
+        font-size: var(--rs-font-size-xl);
+    }
+
+    .rs-property-carousel--v6 .rs-property-carousel__card-specs {
+        font-size: var(--rs-font-size-xs);
+        gap: 10px;
+    }
+}
+
+/* A listing without photos keeps its slide's shape. */
+.rs-property-carousel__card-image--empty {
+    display: block;
+    background: var(--rs-bg-secondary, #e5e7eb);
+}

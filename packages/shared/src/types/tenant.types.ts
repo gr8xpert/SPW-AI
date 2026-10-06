@@ -157,6 +157,9 @@ export interface TenantSettings {
   bedroomOptions?: number[];
   bathroomOptions?: number[];
   priceOptions?: Record<string, number[]>;
+  // "Hide properties below" per listing type (sale, development, rent,
+  // holiday_rent): cheaper listings never show on the website.
+  minPrices?: Partial<Record<'sale' | 'rent' | 'holiday_rent' | 'development', number>>;
   enabledListingTypes?: string[];
   mapVariation?: 'auto' | '0' | '1' | '2';
   similarPropertiesLimit?: number;
@@ -166,10 +169,13 @@ export interface TenantSettings {
   // Template picked in the dashboard gallery for each page type. Pages built
   // with data-spm-widget="site-search" (etc.) follow it, so a change here
   // restyles the client's website without editing pages.
-  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string };
+  siteTemplates?: { search?: string; listing?: string; detail?: string; map?: string; carousel?: string };
 
   // Inquiry notifications
   inquiryNotificationEmails?: string[];  // Recipients for new inquiry alerts
+  // The client's address on website form emails: replies go to it, and it is
+  // the sender once featureFlags.ownEmailDomain is on.
+  formSenderEmail?: string;
   // Monday summary email (views, enquiries, feed, website health). On unless
   // switched off; recipients default to the account's admins.
   weeklyReportEnabled?: boolean;
@@ -221,6 +227,8 @@ export interface TenantPublic {
   recaptchaSecretKeyConfigured: boolean;
   openRouterApiKeyConfigured: boolean;
   inquiryWebhookUrlConfigured: boolean;
+  // Form emails are sent from settings.formSenderEmail (Super Admin switch).
+  ownEmailDomain?: boolean;
 }
 
 export interface TenantWithApiKey extends TenantPublic {
@@ -357,6 +365,11 @@ export interface TenantFeatureFlags {
   // Speak-your-search mic in the AI search panel. Needs aiSearch too: same
   // client key, same daily ceiling.
   aiVoiceSearch?: boolean;
+  // Form emails (inquiry, wishlist) are sent FROM settings.formSenderEmail.
+  // Only switch on once that address's domain is verified in SMTP2GO;
+  // until then they come from the platform address under the client's name.
+  // Never part of "all enabled".
+  ownEmailDomain?: boolean;
   aiChatbot: boolean;
   mortgageCalculator: boolean;
   currencyConverter: boolean;

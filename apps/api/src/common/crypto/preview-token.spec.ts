@@ -51,7 +51,10 @@ describe('publicSiteTemplates', () => {
     expect(
       publicSiteTemplates({ search: 'search-template-03', listing: 'listing-template-12', detail: 'nope', map: 'search-template-01' }),
     ).toEqual({ search: 'search-template-03', listing: 'listing-template-12' });
-    expect(publicSiteTemplates({ listing: 'listing-template-13' })).toBeNull();
+    expect(publicSiteTemplates({ listing: 'listing-template-17' })).toEqual({ listing: 'listing-template-17' });
+    expect(publicSiteTemplates({ listing: 'listing-template-18' })).toBeNull();
+    expect(publicSiteTemplates({ carousel: 'carousel-template-06' })).toEqual({ carousel: 'carousel-template-06' });
+    expect(publicSiteTemplates({ carousel: 'carousel-template-07' })).toBeNull();
     expect(publicSiteTemplates(undefined)).toBeNull();
   });
 });

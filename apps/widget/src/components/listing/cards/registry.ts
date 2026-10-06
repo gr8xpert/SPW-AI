@@ -25,6 +25,11 @@ const loaders: Record<number, () => Promise<{ default: CardComponent }>> = {
   9: () => import('./CardRustic'),
   10: () => import('./CardMetro'),
   12: () => import('./CardLocationFirst'),
+  13: () => import('./CardClassic').then((m) => ({ default: m.Card13 })),
+  14: () => import('./CardClassic').then((m) => ({ default: m.Card14 })),
+  15: () => import('./CardClassic').then((m) => ({ default: m.Card15 })),
+  16: () => import('./CardClassic').then((m) => ({ default: m.Card16 })),
+  17: () => import('./CardClassic').then((m) => ({ default: m.Card17 })),
 };
 
 const loaded = new Map<number, CardComponent>();

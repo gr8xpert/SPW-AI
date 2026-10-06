@@ -5,6 +5,7 @@ import { Property, Location, PropertyType, LocationBoundary } from '../../databa
 import { SearchPropertyDto } from './dto';
 import { fenceFor, resolveLocationPoints } from '../location/location-points';
 import { locationKey } from '../location-template/location-name';
+import { applySiteMinPrices, type SiteMinPrices } from './site-limits';
 
 // Where a listing is for map and area searches: its own GPS, else its
 // location's point (filled from the location template). Feeds such as Resales
@@ -123,6 +124,14 @@ export class PropertySearchService {
     const limit = dto.limit || 20;
 
     const data = await query.skip((page - 1) * limit).take(limit).getMany();
+    // A hand-picked list keeps the order it was written in, unless a sort was asked for.
+    if (dto.references?.length && !dto.sortBy) {
+      const rank = (p: Property) => {
+        const i = dto.references!.findIndex((r) => r === p.reference || r === p.agentReference);
+        return i < 0 ? dto.references!.length : i;
+      };
+      data.sort((x, y) => rank(x) - rank(y));
+    }
 
     return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
@@ -198,6 +207,7 @@ export class PropertySearchService {
     reference: string,
     limit: number,
     siteListingTypes?: string[] | null,
+    siteMinPrices?: SiteMinPrices | null,
   ): Promise<Property[]> {
     const source = await this.propertyRepository.findOne({
       where: { tenantId, reference },
@@ -218,6 +228,7 @@ export class PropertySearchService {
     if (siteListingTypes?.length) {
       qb.andWhere('p.listingType IN (:...siteListingTypes)', { siteListingTypes });
     }
+    applySiteMinPrices(qb, siteMinPrices);
 
     if (source.locationId || source.propertyTypeId) {
       qb.andWhere('(p.locationId = :locationId OR p.propertyTypeId = :propertyTypeId)', {
@@ -297,12 +308,16 @@ export class PropertySearchService {
     if (dto.reference) {
       query.andWhere('p.reference = :reference', { reference: dto.reference });
     }
+    if (dto.references?.length) {
+      query.andWhere('(p.reference IN (:...refList) OR p.agentReference IN (:...refList))', { refList: dto.references });
+    }
     if (dto.ids?.length) {
       query.andWhere('p.id IN (:...ids)', { ids: dto.ids });
     }
     if (dto.siteListingTypes?.length) {
       query.andWhere('p.listingType IN (:...siteListingTypes)', { siteListingTypes: dto.siteListingTypes });
     }
+    applySiteMinPrices(query, dto.siteMinPrices);
     // Multi-location: union of expanded subtrees so picking several cities
     // returns properties across all of them.
     if (dto.locationIds?.length) {

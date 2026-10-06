@@ -234,7 +234,14 @@ export function filtersFromAttributes(attrs: Record<string, unknown>): Attribute
       case 'max_plot_size': set('maxPlotSize', num(value)); break;
       case 'min_terrace_size': set('minTerraceSize', num(value)); break;
       case 'max_terrace_size': set('maxTerraceSize', num(value)); break;
-      case 'reference': case 'ref': set('reference', value); break;
+      // One reference, or a hand-picked list: ref="R1, R2, R3" shows those
+      // properties in that order.
+      case 'reference': case 'ref': case 'references': case 'refs': {
+        const refs = [...new Set(value.split(/[\s,;]+/).filter(Boolean))];
+        if (refs.length > 1) set('references', refs.slice(0, 50));
+        else set('reference', refs[0]);
+        break;
+      }
       // featured="yes" shows only the listings marked featured in the
       // dashboard; own="yes" only the agency's own, as opposed to ones shared
       // from a feed. Anything falsy leaves the filter off rather than asking
@@ -263,6 +270,8 @@ export function filtersFromAttributes(attrs: Record<string, unknown>): Attribute
     }
   }
 
+  // A hand-picked list shows every property on it unless limit says otherwise.
+  if (filters.references && !filters.limit) filters.limit = filters.references.length;
   return { filters, fixed };
 }
 

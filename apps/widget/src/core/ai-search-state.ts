@@ -86,9 +86,15 @@ export function onOpenAi(open: (mode: AiMode) => void, rootOf: () => Element | n
 
 export function useAiState(): AiState {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const drawnWith = state;
   useEffect(() => {
-    listeners.add(rerender as () => void);
-    return () => { listeners.delete(rerender as () => void); };
+    const listener = rerender as () => void;
+    listeners.add(listener);
+    // The panel and the buttons start up one after the other: whichever
+    // switched AI on first did so before the other was listening, which then
+    // stayed hidden (10-05: AI buttons there on one load, gone on the next).
+    if (state !== drawnWith) listener();
+    return () => { listeners.delete(listener); };
   }, []);
   return state;
 }

@@ -6,7 +6,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import type { PropertyType } from '@/types';
-import { useFacets, facetCount } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -250,9 +250,9 @@ function Typeahead({ types, value, onChange, placeholder, locked }: {
                     onClick={() => { onChange(pt.id); setOpen(false); setQuery(''); }}
                   >
                     <span>{pt.name}</span>
-                    {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
-                      <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
-                    )}
+                    {facetCount(facets, 'types', pt.id, pt.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'types', pt.id, pt.propertyCount))}>{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
+)}
                   </li>
                 ))
               )}
@@ -355,9 +355,9 @@ function MultiSelectDropdown({ types, selected, onChange, allLabel, locked, t }:
                     {selected.has(pt.id) && <CheckIcon />}
                   </span>
                   <span>{pt.name}</span>
-                  {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
-                    <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
-                  )}
+                  {facetCount(facets, 'types', pt.id, pt.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'types', pt.id, pt.propertyCount))}>{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
+)}
                 </li>
               ))}
               {filtered.length === 0 && (
@@ -435,9 +435,9 @@ function CheckboxDropdown({ types, value, onChange, allLabel, locked }: {
                     {pt.id === value && <CheckIcon />}
                   </span>
                   <span>{pt.name}</span>
-                  {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
-                    <span class="rs-dropdown__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
-                  )}
+                  {facetCount(facets, 'types', pt.id, pt.propertyCount) !== undefined && (
+<span class={countClass('rs-dropdown__count', facetCount(facets, 'types', pt.id, pt.propertyCount))}>{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
+)}
                 </li>
               ))}
             </ul>
@@ -521,9 +521,9 @@ function IconsMultiSelect({ types, selected, onChange, locked }: {
         >
           <TypeLineIcon slug={pt.slug} />
           <span>{pt.name}</span>
-          {!!facetCount(facets, 'types', pt.id, pt.propertyCount) && (
-            <span class="rs-type-icon__count">{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
-          )}
+          {facetCount(facets, 'types', pt.id, pt.propertyCount) !== undefined && (
+<span class={countClass('rs-type-icon__count', facetCount(facets, 'types', pt.id, pt.propertyCount))}>{facetCount(facets, 'types', pt.id, pt.propertyCount)}</span>
+)}
           {selected.has(pt.id) && (
             <span class="rs-type-icon__check">
               <CheckIcon />

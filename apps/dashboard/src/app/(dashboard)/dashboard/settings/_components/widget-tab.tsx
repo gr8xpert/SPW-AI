@@ -19,6 +19,8 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
     setBathroomOptions,
     priceOptions,
     setPriceOptions,
+    minPrices,
+    setMinPrices,
     enabledListingTypes,
     setEnabledListingTypes,
     wishlistIcon,
@@ -317,16 +319,39 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
               <Label>Price Dropdown Options</Label>
               <p className="text-xs text-muted-foreground">
                 Configure price dropdown values per listing type. The widget automatically shows the right prices based on the selected listing type.
+                &ldquo;Hide properties below&rdquo; keeps cheaper listings of that type off your website altogether (search, lists, map, carousels, AI chat); properties without a price still show.
               </p>
               {[
                 { key: 'sale', label: 'Sale' },
+                { key: 'development', label: 'New Development', hint: 'Empty uses the Sale prices' },
                 { key: 'rent', label: 'Long-term Rent' },
                 { key: 'holiday_rent', label: 'Holiday Rent' },
-              ].map(({ key, label }) => {
+              ].map(({ key, label, hint }: { key: string; label: string; hint?: string }) => {
                 const values = priceOptions[key] || [];
                 return (
                   <div key={key} className="rounded-md border p-3 space-y-2">
-                    <p className="text-sm font-medium">{label}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">
+                        {label}
+                        {hint && values.length === 0 && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">{hint}</span>
+                        )}
+                      </p>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        Hide properties below
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="No minimum"
+                          className="w-32 h-8 text-sm"
+                          value={minPrices[key] > 0 ? minPrices[key] : ''}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setMinPrices({ ...minPrices, [key]: val > 0 ? val : 0 });
+                          }}
+                        />
+                      </label>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {values.map((n) => (
                         <span

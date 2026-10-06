@@ -168,6 +168,11 @@ export function registerAllComponents(): void {
   registerTemplate('listing-template-10', () => import('@/templates/listing/ListingTemplate10'));
   registerTemplate('listing-template-11', () => import('@/templates/listing/ListingTemplate11'));
   registerTemplate('listing-template-12', () => import('@/templates/listing/ListingTemplate12'));
+  registerTemplate('listing-template-13', () => import('@/templates/listing/ListingTemplate13'));
+  registerTemplate('listing-template-14', () => import('@/templates/listing/ListingTemplate14'));
+  registerTemplate('listing-template-15', () => import('@/templates/listing/ListingTemplate15'));
+  registerTemplate('listing-template-16', () => import('@/templates/listing/ListingTemplate16'));
+  registerTemplate('listing-template-17', () => import('@/templates/listing/ListingTemplate17'));
 
   // Detail templates
   registerTemplate('detail-template-01', () => import('@/templates/detail/DetailTemplate01'));
@@ -176,4 +181,12 @@ export function registerAllComponents(): void {
   registerTemplate('map-template-01', () => import('@/templates/map/MapTemplate01'));
   registerTemplate('map-template-02', () => import('@/templates/map/MapTemplate02'));
   registerTemplate('map-template-03', () => import('@/templates/map/MapTemplate03'));
+
+  // Carousel templates (each searches on its own; see RsCarouselStage)
+  registerTemplate('carousel-template-01', () => import('@/templates/carousel/CarouselTemplate01'));
+  registerTemplate('carousel-template-02', () => import('@/templates/carousel/CarouselTemplate02'));
+  registerTemplate('carousel-template-03', () => import('@/templates/carousel/CarouselTemplate03'));
+  registerTemplate('carousel-template-04', () => import('@/templates/carousel/CarouselTemplate04'));
+  registerTemplate('carousel-template-05', () => import('@/templates/carousel/CarouselTemplate05'));
+  registerTemplate('carousel-template-06', () => import('@/templates/carousel/CarouselTemplate06'));
 }

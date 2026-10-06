@@ -66,6 +66,7 @@ export interface TenantSettings {
   bedroomOptions?: number[];
   bathroomOptions?: number[];
   priceOptions?: { sale?: number[]; rent?: number[] };
+  minPrices?: Record<string, number | null>;
   enabledListingTypes?: string[];
   primaryColor?: string;
   wishlistIcon?: 'heart' | 'star' | 'bookmark' | 'save';

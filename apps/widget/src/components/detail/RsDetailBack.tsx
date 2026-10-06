@@ -2,6 +2,7 @@ import { useCallback } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { actions } from '@/core/actions';
+import { navigateTo } from '@/core/navigate';
 
 export default function RsDetailBack() {
   const { t } = useLabels();
@@ -22,7 +23,7 @@ export default function RsDetailBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       window.history.back();
     } else if (config.resultsPage) {
-      window.location.href = config.resultsPage;
+      navigateTo(config.resultsPage);
     }
   }, [config]);
 

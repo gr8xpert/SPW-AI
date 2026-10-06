@@ -5,6 +5,7 @@ import { LocationService } from '../location/location.service';
 import { FeatureService } from '../feature/feature.service';
 import { ToolDefinition, ToolCall } from '../ai/ai.service';
 import { TenantSettings } from '@spm/shared';
+import { siteListingTypes, siteMinPrices } from '../property/site-limits';
 
 const SEARCH_PROPERTIES_TOOL: ToolDefinition = {
   type: 'function',
@@ -127,6 +128,7 @@ export class AiChatToolsService {
   async executeTool(
     tenantId: number,
     toolCall: ToolCall,
+    settings?: TenantSettings,
   ): Promise<{ name: string; result: any }> {
     const name = toolCall.function.name;
     let args: any;
@@ -139,7 +141,7 @@ export class AiChatToolsService {
     try {
       switch (name) {
         case 'search_properties':
-          return { name, result: await this.executeSearch(tenantId, args) };
+          return { name, result: await this.executeSearch(tenantId, args, settings) };
         case 'get_property':
           return { name, result: await this.executeGetProperty(tenantId, args) };
         case 'get_locations':
@@ -157,7 +159,7 @@ export class AiChatToolsService {
     }
   }
 
-  private async executeSearch(tenantId: number, args: any) {
+  private async executeSearch(tenantId: number, args: any, settings?: TenantSettings) {
     const dto = {
       locationId: args.locationId,
       propertyTypeId: args.propertyTypeId,
@@ -177,6 +179,9 @@ export class AiChatToolsService {
       sortBy: args.sortBy,
       page: args.page || 1,
       limit: Math.min(args.limit || 10, 20),
+      // The website's own limits (Settings -> Widget), as in the widget's search.
+      siteListingTypes: siteListingTypes(settings) ?? undefined,
+      siteMinPrices: siteMinPrices(settings) ?? undefined,
     };
     const result = await this.searchService.search(tenantId, dto);
     return {

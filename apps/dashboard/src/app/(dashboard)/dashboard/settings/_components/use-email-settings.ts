@@ -23,6 +23,9 @@ export function useEmailSettings(accessToken: string | undefined) {
   const [inquiryEmailInput, setInquiryEmailInput] = useState('');
   const [inquiryWebhookUrl, setInquiryWebhookUrl] = useState('');
   const [inquiryAutoReplyEnabled, setInquiryAutoReplyEnabled] = useState(true);
+  // The client's own address on form emails (replies go there).
+  const [formSenderEmail, setFormSenderEmail] = useState('');
+  const [ownEmailDomain, setOwnEmailDomain] = useState(false);
   const [savingInquiry, setSavingInquiry] = useState(false);
 
   const emailForm = useForm({
@@ -60,6 +63,8 @@ export function useEmailSettings(accessToken: string | undefined) {
     if (Array.isArray(settings?.inquiryNotificationEmails)) setInquiryNotificationEmails(settings.inquiryNotificationEmails);
     if (tenantData.inquiryWebhookUrlConfigured) setInquiryWebhookUrl('••••••••');
     if (typeof settings?.inquiryAutoReplyEnabled === 'boolean') setInquiryAutoReplyEnabled(settings.inquiryAutoReplyEnabled);
+    if (typeof settings?.formSenderEmail === 'string') setFormSenderEmail(settings.formSenderEmail);
+    setOwnEmailDomain((res.data as unknown as { ownEmailDomain?: boolean }).ownEmailDomain === true);
   };
 
   const onEmailSubmit = async (data: z.infer<typeof emailSchema>) => {
@@ -106,12 +111,18 @@ export function useEmailSettings(accessToken: string | undefined) {
   };
 
   const onSaveInquiry = async () => {
+    const sender = formSenderEmail.trim().toLowerCase();
+    if (sender && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sender)) {
+      toast({ title: 'Invalid email', description: 'Enter a valid address for your form emails, or leave it empty.', variant: 'destructive' });
+      return;
+    }
     setSavingInquiry(true);
     try {
       await apiPut('/api/dashboard/tenant/settings', {
         inquiryNotificationEmails,
         inquiryWebhookUrl: inquiryWebhookUrl.trim() || undefined,
         inquiryAutoReplyEnabled,
+        formSenderEmail: sender,
       });
       toast({ title: 'Inquiry settings saved', description: 'Notification and webhook settings have been updated.' });
     } catch (err) {
@@ -153,6 +164,9 @@ export function useEmailSettings(accessToken: string | undefined) {
     setInquiryWebhookUrl,
     inquiryAutoReplyEnabled,
     setInquiryAutoReplyEnabled,
+    formSenderEmail,
+    setFormSenderEmail,
+    ownEmailDomain,
     savingInquiry,
     onSaveInquiry,
     addInquiryEmail,

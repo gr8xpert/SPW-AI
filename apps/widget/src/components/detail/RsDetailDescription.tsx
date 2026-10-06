@@ -33,6 +33,31 @@ function sanitizeHTML(html: string): string {
   return doc.body.innerHTML;
 }
 
+const HTML_BLOCK_RE = /<(p|br|div|ul|ol|li|h[1-6]|table)\b/i;
+
+/**
+ * Most descriptions are plain text (feeds, the dashboard's text box, AI): its
+ * line breaks were lost when it was inserted as HTML, so a whole description
+ * ran together as one block, and the AI's **bold** showed its asterisks
+ * (10-05, Cristi Homes). Plain text becomes paragraphs and line breaks;
+ * HTML descriptions are left as they are.
+ */
+function textToHtml(text: string): string {
+  if (HTML_BLOCK_RE.test(text)) return text;
+  const escaped = text
+    .replace(/&(?!(#\d+|#x[0-9a-f]+|[a-z]+);)/gi, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+  return escaped
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 const WORD_LIMIT = 80;
 const LINE_CLAMP = 10;
 
@@ -45,7 +70,7 @@ export default function RsDetailDescription({ description: descProp }: Props) {
   const property = useSelector(selectors.getSelectedProperty);
   const rawDescription = descProp ?? property?.description;
   const description = useMemo(
-    () => (rawDescription ? sanitizeHTML(rawDescription) : ''),
+    () => (rawDescription ? sanitizeHTML(textToHtml(rawDescription)) : ''),
     [rawDescription],
   );
   const contentRef = useRef<HTMLDivElement>(null);

@@ -69,6 +69,7 @@ interface ClientDetail {
     mapView: boolean;
     aiSearch: boolean;
     aiVoiceSearch?: boolean;
+    ownEmailDomain?: boolean;
     aiChatbot: boolean;
     mortgageCalculator: boolean;
     currencyConverter: boolean;
@@ -425,6 +426,7 @@ export default function ClientDetailPage() {
                   { key: 'aiSearch', label: 'AI Search' },
                   { key: 'aiVoiceSearch', label: 'AI Voice Search' },
                   { key: 'aiChatbot', label: 'AI Chatbot' },
+                  { key: 'ownEmailDomain', label: 'Emails From Client Address' },
                   { key: 'mortgageCalculator', label: 'Mortgage Calculator' },
                   { key: 'currencyConverter', label: 'Currency Converter' },
                 ].map(({ key, label }) => (

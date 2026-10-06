@@ -18,12 +18,20 @@ interface SpecRow {
   suffix?: string;
 }
 
-const LISTING_TYPE_LABEL: Record<string, string> = {
-  sale: 'For Sale',
-  rent: 'For Rent',
-  holiday_rent: 'Holiday Rent',
-  development: 'Development',
-  offplan: 'Off Plan',
+// The listing type in the page's language (the same labels the cards use).
+const LISTING_TYPE_LABEL: Record<string, [string, string]> = {
+  sale: ['card_for_sale', 'For Sale'],
+  rent: ['card_for_rent', 'For Rent'],
+  holiday_rent: ['card_holiday_rent', 'Holiday Rent'],
+  development: ['card_development', 'Development'],
+  offplan: ['card_offplan', 'Off Plan'],
+};
+
+// Only sold / rented tell a visitor something; every listing on the site is
+// active, and the raw word "active" showed on Spanish pages (10-05).
+const STATUS_LABEL: Record<string, [string, string]> = {
+  sold: ['detail_status_sold', 'Sold'],
+  rented: ['detail_status_rented', 'Rented'],
 };
 
 function m2(n: number | undefined): string | undefined {
@@ -43,11 +51,12 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
     return [
       { labelKey: 'detail_ref', fallback: 'Reference', value: getDisplayReference(property, config) },
       { labelKey: 'detail_property_type', fallback: 'Property Type', value: property.propertyType?.name },
-      { labelKey: 'detail_listing_type', fallback: 'Listing Type', value: property.listingType ? (LISTING_TYPE_LABEL[property.listingType] || property.listingType) : undefined },
-      { labelKey: 'card_bedrooms', fallback: 'Beds', value: property.bedrooms },
-      { labelKey: 'card_bathrooms', fallback: 'Baths', value: property.bathrooms },
-      { labelKey: 'card_build_size', fallback: 'Built Area', value: m2(property.buildSize) },
-      { labelKey: 'card_plot_size', fallback: 'Plot Size', value: m2(property.plotSize) },
+      { labelKey: 'detail_listing_type', fallback: 'Listing Type', value: property.listingType ? (LISTING_TYPE_LABEL[property.listingType] ? t(...LISTING_TYPE_LABEL[property.listingType]) : property.listingType) : undefined },
+      // The detail labels, not the cards' short ones ("hab.", "baños").
+      { labelKey: 'detail_bedrooms', fallback: 'Bedrooms', value: property.bedrooms },
+      { labelKey: 'detail_bathrooms', fallback: 'Bathrooms', value: property.bathrooms },
+      { labelKey: 'detail_built_area', fallback: 'Built Area', value: m2(property.buildSize) },
+      { labelKey: 'detail_plot_size', fallback: 'Plot Size', value: m2(property.plotSize) },
       { labelKey: 'detail_terrace', fallback: 'Terrace', value: m2(property.terraceSize) },
       { labelKey: 'detail_garden', fallback: 'Garden', value: m2(property.gardenSize) },
       { labelKey: 'detail_year_built', fallback: 'Year Built', value: property.year },
@@ -55,7 +64,7 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
       { labelKey: 'detail_orientation', fallback: 'Orientation', value: property.orientation },
       { labelKey: 'detail_parking', fallback: 'Parking', value: property.parking },
       { labelKey: 'detail_energy_rating', fallback: 'Energy Rating', value: property.energyRating },
-      { labelKey: 'detail_status', fallback: 'Status', value: property.status },
+      { labelKey: 'detail_status', fallback: 'Status', value: property.status && STATUS_LABEL[property.status] ? t(...STATUS_LABEL[property.status]) : undefined },
       { labelKey: 'detail_address', fallback: 'Address', value: property.address },
       { labelKey: 'detail_zip', fallback: 'Zip Code', value: property.zipCode },
       { labelKey: 'detail_community_fees', fallback: 'Community Fees',

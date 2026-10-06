@@ -27,7 +27,7 @@ const RESULT_BLOCK_RE = /^(site-listing|site-map|listing-template-\d+|map-templa
 // page is that page's starting search, which the visitor can change, and the
 // block keeps its toolbar and paging. Until 10-05 any filter made a block
 // curated, so the only way to keep paging was lock-*, which also froze it.
-const CURATED_ATTRS = new Set(['featured', 'own', 'own-only', 'limit', 'reference', 'ref']);
+const CURATED_ATTRS = new Set(['featured', 'own', 'own-only', 'limit', 'reference', 'ref', 'references', 'refs']);
 
 export function isCurated(el: HTMLElement): boolean {
   if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;

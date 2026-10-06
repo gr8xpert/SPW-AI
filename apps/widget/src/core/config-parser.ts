@@ -65,6 +65,11 @@ function parseLegacyConfig(): Partial<WidgetConfig> {
   if (rc.resultsPage) config.resultsPage = rc.resultsPage;
   if (rc.wishlistPage) config.wishlistPage = rc.wishlistPage;
   if (rc.dataBundleUrl) config.dataBundleUrl = rc.dataBundleUrl;
+  // false / '' = no local data files (any site without the WordPress plugin):
+  // the lists come straight from the API, without four 404s first.
+  if (rc.dataPath === false || rc.dataPath === '') config.dataPath = '';
+  else if (typeof rc.dataPath === 'string') config.dataPath = rc.dataPath;
+  if (rc.enableTracking === false) config.enableTracking = false;
   if (rc.pageResults && typeof rc.pageResults.key === 'string' && typeof rc.pageResults.url === 'string') {
     config.pageResults = { key: rc.pageResults.key, url: rc.pageResults.url };
   }

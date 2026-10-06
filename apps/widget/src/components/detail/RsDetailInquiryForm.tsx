@@ -4,74 +4,26 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Property } from '@/types';
+import { countryCodes, guessCountry, isCountry } from './country-codes';
+import { trackingSession } from '@/core/tracker';
 
-const COUNTRY_CODES = [
-  { code: '+34', flag: '\u{1F1EA}\u{1F1F8}', country: 'ES' },
-  { code: '+44', flag: '\u{1F1EC}\u{1F1E7}', country: 'GB' },
-  { code: '+1', flag: '\u{1F1FA}\u{1F1F8}', country: 'US' },
-  { code: '+33', flag: '\u{1F1EB}\u{1F1F7}', country: 'FR' },
-  { code: '+49', flag: '\u{1F1E9}\u{1F1EA}', country: 'DE' },
-  { code: '+31', flag: '\u{1F1F3}\u{1F1F1}', country: 'NL' },
-  { code: '+39', flag: '\u{1F1EE}\u{1F1F9}', country: 'IT' },
-  { code: '+351', flag: '\u{1F1F5}\u{1F1F9}', country: 'PT' },
-  { code: '+46', flag: '\u{1F1F8}\u{1F1EA}', country: 'SE' },
-  { code: '+47', flag: '\u{1F1F3}\u{1F1F4}', country: 'NO' },
-  { code: '+45', flag: '\u{1F1E9}\u{1F1F0}', country: 'DK' },
-  { code: '+358', flag: '\u{1F1EB}\u{1F1EE}', country: 'FI' },
-  { code: '+48', flag: '\u{1F1F5}\u{1F1F1}', country: 'PL' },
-  { code: '+7', flag: '\u{1F1F7}\u{1F1FA}', country: 'RU' },
-  { code: '+971', flag: '\u{1F1E6}\u{1F1EA}', country: 'AE' },
-  { code: '+966', flag: '\u{1F1F8}\u{1F1E6}', country: 'SA' },
-  { code: '+91', flag: '\u{1F1EE}\u{1F1F3}', country: 'IN' },
-  { code: '+86', flag: '\u{1F1E8}\u{1F1F3}', country: 'CN' },
-  { code: '+81', flag: '\u{1F1EF}\u{1F1F5}', country: 'JP' },
-  { code: '+61', flag: '\u{1F1E6}\u{1F1FA}', country: 'AU' },
-  { code: '+55', flag: '\u{1F1E7}\u{1F1F7}', country: 'BR' },
-  { code: '+27', flag: '\u{1F1FF}\u{1F1E6}', country: 'ZA' },
-  { code: '+90', flag: '\u{1F1F9}\u{1F1F7}', country: 'TR' },
-  { code: '+30', flag: '\u{1F1EC}\u{1F1F7}', country: 'GR' },
-  { code: '+41', flag: '\u{1F1E8}\u{1F1ED}', country: 'CH' },
-  { code: '+43', flag: '\u{1F1E6}\u{1F1F9}', country: 'AT' },
-  { code: '+32', flag: '\u{1F1E7}\u{1F1EA}', country: 'BE' },
-  { code: '+353', flag: '\u{1F1EE}\u{1F1EA}', country: 'IE' },
-  { code: '+52', flag: '\u{1F1F2}\u{1F1FD}', country: 'MX' },
-  { code: '+212', flag: '\u{1F1F2}\u{1F1E6}', country: 'MA' },
-];
-
-const TIMEZONE_TO_COUNTRY: Record<string, string> = {
-  'Europe/Madrid': 'ES', 'Europe/London': 'GB', 'America/New_York': 'US',
-  'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
-  'Europe/Paris': 'FR', 'Europe/Berlin': 'DE', 'Europe/Amsterdam': 'NL',
-  'Europe/Rome': 'IT', 'Europe/Lisbon': 'PT', 'Europe/Stockholm': 'SE',
-  'Europe/Oslo': 'NO', 'Europe/Copenhagen': 'DK', 'Europe/Helsinki': 'FI',
-  'Europe/Warsaw': 'PL', 'Europe/Moscow': 'RU', 'Asia/Dubai': 'AE',
-  'Asia/Riyadh': 'SA', 'Asia/Kolkata': 'IN', 'Asia/Shanghai': 'CN',
-  'Asia/Tokyo': 'JP', 'Australia/Sydney': 'AU', 'America/Sao_Paulo': 'BR',
-  'Africa/Johannesburg': 'ZA', 'Europe/Istanbul': 'TR', 'Europe/Athens': 'GR',
-  'Europe/Zurich': 'CH', 'Europe/Vienna': 'AT', 'Europe/Brussels': 'BE',
-  'Europe/Dublin': 'IE', 'America/Mexico_City': 'MX', 'Africa/Casablanca': 'MA',
-  'America/Toronto': 'US', 'Pacific/Auckland': 'AU', 'Asia/Singapore': 'IN',
-  'Asia/Hong_Kong': 'CN', 'Europe/Prague': 'DE', 'Europe/Budapest': 'DE',
-  'Europe/Bucharest': 'RU', 'Europe/Kiev': 'RU',
-};
-
-function detectCountryCode(): string {
+// The visitor's country from the API (Cloudflare knows it from their IP),
+// asked once per browser session. Undefined until known.
+let visitorCountry: Promise<string | null> | null = null;
+function askVisitorCountry(apiUrl: string): Promise<string | null> {
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const country = TIMEZONE_TO_COUNTRY[tz];
-    if (country) {
-      const entry = COUNTRY_CODES.find((c) => c.country === country);
-      if (entry) return entry.code;
-    }
-
-    const locale = navigator.language || '';
-    const region = locale.split('-')[1]?.toUpperCase();
-    if (region) {
-      const entry = COUNTRY_CODES.find((c) => c.country === region);
-      if (entry) return entry.code;
-    }
-  } catch { /* detection unavailable */ }
-  return COUNTRY_CODES[0].code;
+    const saved = sessionStorage.getItem('spm_country');
+    if (saved) return Promise.resolve(isCountry(saved) ? saved : null);
+  } catch { /* storage blocked */ }
+  visitorCountry ??= fetch(`${apiUrl.replace(/\/$/, '')}/api/v1/visitor-country`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      const c = (j?.data?.country ?? j?.country ?? '').toUpperCase();
+      try { sessionStorage.setItem('spm_country', c || '-'); } catch { /* storage blocked */ }
+      return isCountry(c) ? c : null;
+    })
+    .catch(() => null);
+  return visitorCountry;
 }
 
 interface Props {
@@ -117,7 +69,18 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [countryCode, setCountryCode] = useState(() => detectCountryCode());
+  const countries = countryCodes(config.language || 'en');
+  const [country, setCountry] = useState(() => guessCountry() || 'ES');
+  const countryPicked = useRef(false);
+  useEffect(() => {
+    let live = true;
+    void askVisitorCountry(config.apiUrl).then((c) => {
+      if (live && c && !countryPicked.current) setCountry(c);
+    });
+    return () => { live = false; };
+  }, [config.apiUrl]);
+  const selected = countries.find((c) => c.country === country) || countries.find((c) => c.country === 'ES') || countries[0];
+  const countryCode = selected.code;
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -193,6 +156,10 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
           email,
           phone: fullPhone,
           message,
+          // The agency's email links to the page it was sent from.
+          pageUrl: window.location.href.slice(0, 1000),
+          // Ties the inquiry to this visit's property view in Analytics.
+          sessionId: trackingSession(),
         };
         if (siteKey && recaptchaToken) {
           body.recaptchaToken = recaptchaToken;
@@ -229,7 +196,6 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
 
   if (!property) return null;
 
-  const selected = COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES[0];
 
   return (
     <div class="rs-detail-inquiry">
@@ -299,12 +265,16 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
               <div class="rs-detail-inquiry__phone-code">
                 <select
                   class="rs-detail-inquiry__phone-select"
-                  value={countryCode}
-                  onChange={(e) => setCountryCode((e.target as HTMLSelectElement).value)}
+                  value={selected.country}
+                  aria-label={t('inquiry_phone', 'Your Phone')}
+                  onChange={(e) => {
+                    countryPicked.current = true;
+                    setCountry((e.target as HTMLSelectElement).value);
+                  }}
                 >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.flag} {c.code}
+                  {countries.map((c) => (
+                    <option key={c.country} value={c.country}>
+                      {c.flag} {c.name} {c.code}
                     </option>
                   ))}
                 </select>

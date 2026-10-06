@@ -63,6 +63,7 @@ const createClientSchema = z.object({
     mapView: z.boolean(),
     aiSearch: z.boolean(),
     aiVoiceSearch: z.boolean(),
+    ownEmailDomain: z.boolean(),
     aiChatbot: z.boolean(),
     mortgageCalculator: z.boolean(),
     currencyConverter: z.boolean(),
@@ -143,6 +144,7 @@ export default function CreateClientPage() {
         mapView: false,
         aiSearch: false,
         aiVoiceSearch: false,
+        ownEmailDomain: false,
         aiChatbot: false,
         mortgageCalculator: false,
         currencyConverter: false,
@@ -556,6 +558,7 @@ export default function CreateClientPage() {
                     { name: 'featureFlags.aiSearch' as const, label: 'AI Search', description: 'AI-powered natural language property search' },
                     { name: 'featureFlags.aiVoiceSearch' as const, label: 'AI Voice Search', description: 'Mic in the AI search box: visitors speak their search (needs AI Search on; uses the client’s key)' },
                     { name: 'featureFlags.aiChatbot' as const, label: 'AI Chatbot', description: 'Conversational AI assistant on the widget' },
+                    { name: 'featureFlags.ownEmailDomain' as const, label: 'Send Emails From Client Address', description: 'Website form emails come from the address in the client’s Settings → Email. Only after that domain is verified in SMTP2GO (Sending → Verified Senders), otherwise mail is rejected' },
                     { name: 'featureFlags.mortgageCalculator' as const, label: 'Mortgage Calculator', description: 'Mortgage calculator on property pages' },
                     { name: 'featureFlags.currencyConverter' as const, label: 'Currency Converter', description: 'Currency conversion on the widget' },
                   ].map((feature) => (

@@ -16,15 +16,19 @@ const WIDGET_URL = (process.env.NEXT_PUBLIC_WIDGET_URL || 'https://spw-ai.com/wi
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 const PREVIEW_WIDTH = 1280;
 
-type Kind = 'search' | 'listing' | 'detail' | 'map' | 'wishlist';
+type Kind = 'search' | 'listing' | 'detail' | 'map' | 'wishlist' | 'carousel';
 
 const BLOCKS: Array<{ kind: Kind; label: string; block: string; shortcode: string; filters: boolean; templates: number }> = [
   { kind: 'search', label: 'Search form', block: 'site-search', shortcode: '[spm_search]', filters: false, templates: 6 },
-  { kind: 'listing', label: 'Property results', block: 'site-listing', shortcode: '[spm_listing]', filters: true, templates: 12 },
+  { kind: 'listing', label: 'Property results', block: 'site-listing', shortcode: '[spm_listing]', filters: true, templates: 17 },
   { kind: 'map', label: 'Map search', block: 'site-map', shortcode: '[spm_map]', filters: true, templates: 3 },
   { kind: 'detail', label: 'Property page', block: 'site-detail', shortcode: '[spm_detail]', filters: false, templates: 1 },
   { kind: 'wishlist', label: 'Saved properties', block: 'wishlist_grid', shortcode: '[spm_wishlist]', filters: false, templates: 0 },
+  { kind: 'carousel', label: 'Carousel', block: 'site-carousel', shortcode: '[spm_carousel]', filters: true, templates: 6 },
 ];
+
+// The carousel designs by name (Website Design → Carousel).
+const CAROUSEL_DESIGNS = ['Centre focus', '3D perspective', 'Coverflow', 'Full width', 'Tilted', 'Dark numbered cards'];
 
 const SORTS = [
   { value: '', label: 'Default' },
@@ -61,7 +65,7 @@ export default function AddToWebsitePage() {
   const [features, setFeatures] = useState<Named[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState('');
-  const [f, setF] = useState({ location: '', type: '', for: '', beds: '', baths: '', under: '', over: '', features: [] as number[], sort: '', limit: '', fixed: false, own: false });
+  const [f, setF] = useState({ location: '', type: '', for: '', beds: '', baths: '', under: '', over: '', features: [] as number[], sort: '', limit: '', refs: '', fixed: false, own: false, autoplay: false });
 
   useEffect(() => {
     if (!session?.accessToken) return;
@@ -88,11 +92,19 @@ export default function AddToWebsitePage() {
       if (f.under) out.under = f.under;
       if (f.sort) out.sort = f.sort;
       if (f.limit) out.limit = f.limit;
-      if (f.fixed) out.fixed = 'yes';
-      if (f.own) out.standalone = 'yes';
+      // Hand-picked: exactly these properties, in this order.
+      const refs = f.refs.split(/[\s,;]+/).filter(Boolean);
+      if (refs.length) out.ref = refs.join(',');
+      // A carousel always searches on its own, so the switches don't apply.
+      if (kind === 'carousel') {
+        if (f.autoplay) out.autoplay = 'yes';
+      } else {
+        if (f.fixed) out.fixed = 'yes';
+        if (f.own) out.standalone = 'yes';
+      }
     }
     return out;
-  }, [current.filters, f]);
+  }, [current.filters, f, kind]);
 
   const blockName = template || current.block;
   const html = useMemo(() => {
@@ -117,7 +129,7 @@ export default function AddToWebsitePage() {
 </script>`;
 
   const previewSrc = token
-    ? `${WIDGET_URL}/preview.html#${new URLSearchParams({ t: template || defaultTemplate(kind), k: token, api: API_URL, a: JSON.stringify(attrs) }).toString()}`
+    ? `${WIDGET_URL}/preview.html?v=${Math.floor(Date.now() / 36e5)}#${new URLSearchParams({ t: template || defaultTemplate(kind), k: token, api: API_URL, a: JSON.stringify(attrs) }).toString()}`
     : '';
 
   const copy = (what: string, text: string) => {
@@ -166,8 +178,8 @@ export default function AddToWebsitePage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="dashboard">The one chosen in Website Design</SelectItem>
-                      {Array.from({ length: current.templates }, (_, i) => `${current.kind === 'listing' ? 'listing' : current.kind}-template-${String(i + 1).padStart(2, '0')}`).map((id, i) => (
-                        <SelectItem key={id} value={id}>Design {i + 1}</SelectItem>
+                      {Array.from({ length: current.templates }, (_, i) => `${current.kind}-template-${String(i + 1).padStart(2, '0')}`).map((id, i) => (
+                        <SelectItem key={id} value={id}>Design {i + 1}{kind === 'carousel' ? ` — ${CAROUSEL_DESIGNS[i]}` : ''}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -206,6 +218,11 @@ export default function AddToWebsitePage() {
                   <Num label="Price up to" value={f.under} onChange={(v) => setF({ ...f, under: v })} placeholder="500000" />
                   <Num label="How many to show" value={f.limit} onChange={(v) => setF({ ...f, limit: v })} placeholder="6" />
                 </div>
+                <div className="space-y-1">
+                  <Label>Hand-picked properties (reference numbers)</Label>
+                  <Input value={f.refs} placeholder="R1234, R2345, R3456" onChange={(e) => setF({ ...f, refs: e.target.value })} data-testid="filter-refs" />
+                  <p className="text-xs text-muted-foreground">Shows exactly these properties in this order (up to 50), as their own list. The other filters still apply, so leave them empty to show every one.</p>
+                </div>
                 {features.length > 0 && (
                   <div className="space-y-1">
                     <Label>Features</Label>
@@ -223,16 +240,26 @@ export default function AddToWebsitePage() {
                     </div>
                   </div>
                 )}
-                <div className="space-y-2 pt-1">
-                  <label className="flex items-center gap-3 text-sm">
-                    <Switch checked={f.fixed} onCheckedChange={(v) => setF({ ...f, fixed: v })} />
-                    Visitors cannot change these filters
-                  </label>
-                  <label className="flex items-center gap-3 text-sm">
-                    <Switch checked={f.own} onCheckedChange={(v) => setF({ ...f, own: v })} />
-                    This block searches on its own (for several different lists on one page)
-                  </label>
-                </div>
+                {kind === 'carousel' ? (
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-center gap-3 text-sm">
+                      <Switch checked={f.autoplay} onCheckedChange={(v) => setF({ ...f, autoplay: v })} />
+                      Turn by itself every 5 seconds
+                    </label>
+                    <p className="text-xs text-muted-foreground">A carousel shows its own properties and never changes the page&apos;s search.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-center gap-3 text-sm">
+                      <Switch checked={f.fixed} onCheckedChange={(v) => setF({ ...f, fixed: v })} />
+                      Visitors cannot change these filters
+                    </label>
+                    <label className="flex items-center gap-3 text-sm">
+                      <Switch checked={f.own} onCheckedChange={(v) => setF({ ...f, own: v })} />
+                      This block searches on its own (for several different lists on one page)
+                    </label>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -284,19 +311,44 @@ export default function AddToWebsitePage() {
                 </TabsContent>
 
                 <TabsContent value="react" className="space-y-3 pt-3">
-                  <CopyBox id="react" note="React / Next.js component:" text={`export function Properties() {
-  useEffect(() => {
-    window.RealtySoftConfig = { apiUrl: "${API_URL}", apiKey: process.env.NEXT_PUBLIC_SPM_KEY, propertyPageSlug: "property" };
-    const s = document.createElement("script");
-    s.src = "${WIDGET_URL}/spm-widget.umd.js";
-    document.body.appendChild(s);
-    return () => { s.remove(); };
-  }, []);
+                  <p className="text-sm text-muted-foreground">
+                    Next.js (App Router): ask us for the SPM Next.js kit — property pages with full SEO (titles, Google
+                    preview, structured data, sitemap) and instant page changes. Without it, this is the minimum:
+                  </p>
+                  <CopyBox id="react" note="1. app/spm.tsx — then put <Spm /> once at the end of <body> in app/layout.tsx:" text={`"use client";
+import Script from "next/script";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
+export function Spm() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const first = useRef(pathname);
+  // A <Link> to another page: draw that page's blocks.
+  useEffect(() => {
+    if (pathname === first.current) return;
+    first.current = pathname;
+    requestAnimationFrame(() => (window as any).RealtySoft?.refresh?.());
+  }, [pathname]);
+  // Cards and Search use the Next.js router instead of a full reload.
+  useEffect(() => {
+    const go = (e: Event) => {
+      const url = new URL((e as CustomEvent).detail.url, location.href);
+      if (url.origin !== location.origin) return;
+      e.preventDefault();
+      router.push(url.pathname + url.search);
+    };
+    document.addEventListener("spm:navigate", go);
+    return () => document.removeEventListener("spm:navigate", go);
+  }, [router]);
   return (
-    ${html.replace(/\n/g, '\n    ')}
+    <>
+      <script dangerouslySetInnerHTML={{ __html: 'window.RealtySoftConfig = { apiUrl: "${API_URL}", apiKey: "' + process.env.NEXT_PUBLIC_SPM_KEY + '", propertyPageSlug: "property", dataPath: false };' }} />
+      <Script src="${WIDGET_URL}/spm-widget.umd.js" strategy="afterInteractive" />
+    </>
   );
 }`} />
+                  <CopyBox id="react-2" note="2. In any page, where the properties should appear (property pages: app/property/[slug]/page.tsx):" text={html} />
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -378,7 +430,7 @@ function Preview({ src }: { src: string }) {
 function Guides() {
   const rows: Array<{ platform: string; steps: string; seo: string }> = [
     { platform: 'WordPress (best)', steps: 'Install the SPM plugin, run Setup, then place shortcodes like [spm_listing].', seo: 'Full: tidy property addresses, page titles, Google preview tags and a property sitemap, all from your SEO fields.' },
-    { platform: 'Next.js / Node', steps: 'Add the script and the block to a page; use a dynamic route for /property/[ref].', seo: 'Full, if your developer renders the title and description server-side. Ask us for the helper.' },
+    { platform: 'Next.js', steps: 'Use the SPM Next.js kit (ask us): one component in the layout, blocks in any page, a property page at /property/[slug].', seo: 'Full: per-property titles, descriptions, Google preview tags, structured data and a property sitemap, all rendered on the server.' },
     { platform: 'Wix', steps: 'Add → Embed code → Embed HTML, paste the snippet. One page per block; property pages read ?ref= from the address.', seo: 'Partial: properties are found and indexed, but Wix does not allow per-property titles in the page source.' },
     { platform: 'Squarespace / Webflow', steps: 'Add a Code block (Squarespace) or an Embed element (Webflow) and paste the snippet.', seo: 'Partial, as with Wix.' },
   ];

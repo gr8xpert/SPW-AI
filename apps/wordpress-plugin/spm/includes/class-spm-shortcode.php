@@ -11,6 +11,8 @@ if (!defined('ABSPATH')) exit;
  *   [spm_detail]     property page
  *   [spm_map]        map search
  *   [spm_wishlist]   saved properties (all its parts)
+ *   [spm_carousel]   a property carousel; searches on its own, e.g.
+ *                    featured="yes" limit="8" autoplay="yes"
  * They follow the design picked in the SPM dashboard → Website Design.
  * Pin one design instead with template="3" (or "listing-template-03").
  *
@@ -38,6 +40,7 @@ class SPM_Shortcode {
         'spm_detail'   => ['site-detail', 'detail-template-'],
         'spm_property' => ['site-detail', 'detail-template-'],
         'spm_map'      => ['site-map', 'map-template-'],
+        'spm_carousel' => ['site-carousel', 'carousel-template-'],
     ];
 
     private function __construct() {
