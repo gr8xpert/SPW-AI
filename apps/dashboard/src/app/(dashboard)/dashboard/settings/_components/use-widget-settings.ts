@@ -32,6 +32,8 @@ export function useWidgetSettings() {
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState('');
   const [recaptchaSecretKey, setRecaptchaSecretKey] = useState('');
   const [similarPropertiesLimit, setSimilarPropertiesLimit] = useState(6);
+  // Mortgage calculator's starting rate (%); empty = the widget's 3.5.
+  const [mortgageInterestRate, setMortgageInterestRate] = useState('');
   const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [savingWidget, setSavingWidget] = useState(false);
 
@@ -72,6 +74,7 @@ export function useWidgetSettings() {
     if (settings?.recaptchaSiteKey && RECAPTCHA_KEY_RE.test(settings.recaptchaSiteKey)) setRecaptchaSiteKey(settings.recaptchaSiteKey);
     if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
     if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
+    setMortgageInterestRate(typeof settings?.mortgageInterestRate === 'number' ? String(settings.mortgageInterestRate) : '');
     if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
   };
 
@@ -114,6 +117,8 @@ export function useWidgetSettings() {
         recaptchaSiteKey: site,
         recaptchaSecretKey: secret,
         similarPropertiesLimit,
+        // null clears it (back to the widget default).
+        mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
         baseCurrency,
       });
       toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
@@ -149,6 +154,8 @@ export function useWidgetSettings() {
     setRecaptchaSecretKey,
     similarPropertiesLimit,
     setSimilarPropertiesLimit,
+    mortgageInterestRate,
+    setMortgageInterestRate,
     baseCurrency,
     setBaseCurrency,
     savingWidget,

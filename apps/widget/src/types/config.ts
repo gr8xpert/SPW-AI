@@ -68,6 +68,8 @@ export interface WidgetConfig {
   /** "Hide properties below" per listing type: the API already leaves those
    *  listings out; the price choices below it are dropped here too. */
   minPrices?: Record<string, number>;
+  // Interest rate (%) the mortgage calculator starts with (dashboard setting).
+  mortgageInterestRate?: number;
   defaultListingType?: string;
   enabledListingTypes?: string[];
   enabledSortOptions?: string[];

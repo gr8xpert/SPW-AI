@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useEffect } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { useConfig } from '@/hooks/useConfig';
+
+const DEFAULT_RATE = 3.5;
 
 interface Props {
   price?: number;
@@ -17,11 +20,15 @@ export default function RsMortgageCalculator({ price: priceProp, currency: curre
   const price = priceProp ?? property?.price ?? 0;
   const currency = currencyProp ?? property?.currency ?? 'EUR';
 
-  if (!price || price <= 0) return null;
+  // The client's rate from the dashboard (Settings → Widget), else 3.5%.
+  const config = useConfig();
+  const clientRate = typeof config.mortgageInterestRate === 'number' ? config.mortgageInterestRate : DEFAULT_RATE;
 
   const [downPaymentPct, setDownPaymentPct] = useState(20);
-  const [interestRate, setInterestRate] = useState(3.5);
+  const [interestRate, setInterestRate] = useState(clientRate);
   const [years, setYears] = useState(25);
+  // Live settings can arrive after the first draw.
+  useEffect(() => setInterestRate(clientRate), [clientRate]);
 
   const monthlyPayment = useMemo(() => {
     const principal = price * (1 - downPaymentPct / 100);
@@ -39,6 +46,8 @@ export default function RsMortgageCalculator({ price: priceProp, currency: curre
       (Math.pow(1 + monthlyRate, numPayments) - 1)
     );
   }, [price, downPaymentPct, interestRate, years]);
+
+  if (!price || price <= 0) return null;
 
   return (
     <div class="rs-mortgage-calc">

@@ -75,6 +75,7 @@ export interface TenantSettings {
   recaptchaSiteKey?: string;
   recaptchaSecretKey?: string;
   similarPropertiesLimit?: number;
+  mortgageInterestRate?: number | null;
   baseCurrency?: string;
   inquiryNotificationEmails?: string[];
   inquiryWebhookUrl?: string;

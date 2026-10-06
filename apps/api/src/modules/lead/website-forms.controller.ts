@@ -45,6 +45,36 @@ function language(acceptLanguage?: string): string {
   return /^[a-z]{2}$/.test(tag) ? tag : 'en';
 }
 
+/**
+ * A website form's reCAPTCHA (inquiry and wishlist email), when the client
+ * set a key pair. The encrypted column is authoritative; settings.
+ * recaptchaSecretKey is a pre-migration legacy fallback. Only a real key pair
+ * turns the captcha on — the same rule decides whether the widget shows the
+ * box (getPublicWidgetConfig), so a malformed key can never demand a token
+ * the form couldn't get.
+ */
+async function requireRecaptcha(tenant: Tenant, token: string | undefined): Promise<void> {
+  const settings = (tenant.settings || {}) as TenantSettings;
+  const secretKey = tenant.recaptchaSecretKey || settings.recaptchaSecretKey;
+  if (!isRecaptchaKey(secretKey) || !isRecaptchaKey(settings.recaptchaSiteKey)) return;
+  if (!token) throw new BadRequestException('reCAPTCHA verification required');
+  if (!(await verifyRecaptcha(secretKey, token))) throw new BadRequestException('reCAPTCHA verification failed');
+}
+
+async function verifyRecaptcha(secretKey: string, token: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`,
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
 @Controller('api/v1/inquiry')
 @UseGuards(ApiKeyThrottlerGuard)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
@@ -60,20 +90,6 @@ export class InquiryController {
     private readonly analytics: AnalyticsService,
   ) {}
 
-  private async verifyRecaptcha(secretKey: string, token: string): Promise<boolean> {
-    try {
-      const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`,
-      });
-      const data = await res.json();
-      return data.success === true;
-    } catch {
-      return false;
-    }
-  }
-
   @Public()
   @Post()
   async createInquiry(
@@ -82,19 +98,7 @@ export class InquiryController {
     @Body() dto: InquiryDto,
   ) {
     const tenant = await widgetTenant(this.tenantService, apiKey);
-    const settings = (tenant.settings || {}) as TenantSettings;
-    // Encrypted column is authoritative; settings.recaptchaSecretKey is a
-    // pre-migration legacy fallback.
-    // Only a real key pair turns the captcha on — the same rule decides
-    // whether the widget shows the box (getPublicWidgetConfig), so a
-    // malformed key can never demand a token the form couldn't get.
-    const secretKey = tenant.recaptchaSecretKey || settings.recaptchaSecretKey;
-    if (isRecaptchaKey(secretKey) && isRecaptchaKey(settings.recaptchaSiteKey)) {
-      if (!dto.recaptchaToken) throw new BadRequestException('reCAPTCHA verification required');
-      if (!(await this.verifyRecaptcha(secretKey, dto.recaptchaToken))) {
-        throw new BadRequestException('reCAPTCHA verification failed');
-      }
-    }
+    await requireRecaptcha(tenant, dto.recaptchaToken);
 
     // Only this client's own listing: a property deleted since the page
     // loaded (or another client's id) used to fail the whole inquiry.
@@ -189,6 +193,7 @@ export class ShareFavoritesController {
     @Body() dto: ShareFavoritesDto,
   ) {
     const tenant = await widgetTenant(this.tenantService, apiKey);
+    await requireRecaptcha(tenant, dto.recaptchaToken);
     const key = `${tenant.id}|${dto.recipientEmail.toLowerCase()}`;
     const now = Date.now();
     for (const [k, at] of this.recentRecipients) if (at < now - DEDUPE_WINDOW_MS) this.recentRecipients.delete(k);

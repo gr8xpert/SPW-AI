@@ -31,6 +31,8 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
     setMapTiles,
     similarPropertiesLimit,
     setSimilarPropertiesLimit,
+    mortgageInterestRate,
+    setMortgageInterestRate,
     baseCurrency,
     setBaseCurrency,
     savingWidget,
@@ -218,6 +220,25 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
                 max={20}
                 value={similarPropertiesLimit}
                 onChange={(e) => setSimilarPropertiesLimit(Number(e.target.value))}
+                className="w-28"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mortgage-rate">Mortgage Interest Rate (%)</Label>
+              <p className="text-xs text-muted-foreground">
+                The rate the mortgage calculator on the property page starts with. Visitors can still change it there. Leave empty for 3.5%.
+              </p>
+              <Input
+                id="mortgage-rate"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={30}
+                step={0.01}
+                placeholder="3.5"
+                value={mortgageInterestRate}
+                onChange={(e) => setMortgageInterestRate(e.target.value)}
                 className="w-28"
               />
             </div>

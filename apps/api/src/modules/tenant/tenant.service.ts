@@ -143,6 +143,10 @@ export class TenantService {
         tenant.recaptchaSecretKey = trimmed;
       }
     }
+    const rateIn = (publicSettings as { mortgageInterestRate?: unknown }).mortgageInterestRate;
+    if (rateIn != null && rateIn !== '' && mortgageRate(rateIn) == null) {
+      throw new BadRequestException('The mortgage interest rate must be a number from 0 to 30.');
+    }
     const siteKey = (publicSettings as { recaptchaSiteKey?: unknown }).recaptchaSiteKey;
     if (typeof siteKey === 'string' && siteKey.trim() !== '' && !isRecaptchaKey(siteKey)) {
       throw new BadRequestException('The reCAPTCHA site key is not valid: it is 40 characters and starts with "6L".');
@@ -316,6 +320,8 @@ export class TenantService {
     if (s.priceOptions) config.priceOptions = s.priceOptions;
     const minPrices = siteMinPrices(s);
     if (minPrices) config.minPrices = minPrices;
+    const rate = mortgageRate(s.mortgageInterestRate);
+    if (rate != null) config.mortgageInterestRate = rate;
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
     const tiles = publicMapTiles(s.mapTiles);
@@ -571,6 +577,14 @@ export function publicMapTiles(value: TenantSettings['mapTiles']): TenantSetting
     return { provider: 'custom', url: value.url.trim(), ...(attribution ? { attribution } : {}) };
   }
   return null;
+}
+
+// The mortgage calculator's starting interest rate (%), or null when unset
+// or not a sensible rate.
+export function mortgageRate(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 && n <= 30 ? Math.round(n * 100) / 100 : null;
 }
 
 // Templates the widget has, per page type. Keep in step with the widget's

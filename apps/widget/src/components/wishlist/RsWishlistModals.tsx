@@ -7,6 +7,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import type { Property } from '@/types';
 import { buildPropertyUrl } from '@/core/url-utils';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 interface Props {
   showCompare?: boolean;
@@ -119,9 +120,12 @@ function EmailModal() {
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  // Same checkbox as the property inquiry form, when the client set reCAPTCHA keys.
+  const captcha = useRecaptcha();
 
   const handleSubmit = useCallback(async (e: Event) => {
     e.preventDefault();
+    if (!captcha.ready) return;
     setStatus('sending');
     try {
       const apiUrl = config.apiUrl.replace(/\/$/, '');
@@ -136,6 +140,7 @@ function EmailModal() {
           senderEmail: from.trim() || undefined,
           senderName: name.trim() || undefined,
           message: message.trim() || undefined,
+          recaptchaToken: captcha.token || undefined,
           // Each property with its page on this site, for the "View property"
           // links in the email (the API only links to the client's own sites).
           items: favorites.slice(0, 50).map((id) => {
@@ -149,11 +154,13 @@ function EmailModal() {
         setTimeout(() => wishlistActions.closeModal(), 1500);
       } else {
         setStatus('error');
+        captcha.reset();
       }
     } catch {
       setStatus('error');
+      captcha.reset();
     }
-  }, [to, from, name, message, favorites, saved, config]);
+  }, [to, from, name, message, favorites, saved, config, captcha]);
 
   return (
     <>
@@ -207,6 +214,7 @@ function EmailModal() {
                 placeholder={t('add_personal_note', 'Add a personal note...')}
               />
             </div>
+            {captcha.siteKey && <div class="rs-wishlist-email__recaptcha" ref={captcha.ref} />}
             {status === 'error' && (
               <p class="rs-wishlist-email__error">{t('email_error', 'Failed to send. Please try again.')}</p>
             )}
@@ -214,7 +222,7 @@ function EmailModal() {
               <button type="button" class="rs-reset-btn" onClick={() => wishlistActions.closeModal()}>
                 {t('cancel', 'Cancel')}
               </button>
-              <button type="submit" class="rs-search-btn" disabled={status === 'sending'}>
+              <button type="submit" class="rs-search-btn" disabled={status === 'sending' || !captcha.ready}>
                 {status === 'sending' ? t('sending', 'Sending...') : t('send_email', 'Send Email')}
               </button>
             </div>

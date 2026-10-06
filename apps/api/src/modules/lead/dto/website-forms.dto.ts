@@ -78,6 +78,11 @@ export class ShareItemDto {
 
 /** Wishlist "Email your wishlist" form. */
 export class ShareFavoritesDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  recaptchaToken?: string;
+
   @IsEmail()
   @MaxLength(254)
   recipientEmail: string;

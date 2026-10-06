@@ -160,6 +160,8 @@ export interface TenantSettings {
   // "Hide properties below" per listing type (sale, development, rent,
   // holiday_rent): cheaper listings never show on the website.
   minPrices?: Partial<Record<'sale' | 'rent' | 'holiday_rent' | 'development', number>>;
+  // Interest rate (%) the property page's mortgage calculator starts with.
+  mortgageInterestRate?: number | null;
   enabledListingTypes?: string[];
   mapVariation?: 'auto' | '0' | '1' | '2';
   similarPropertiesLimit?: number;

@@ -6,6 +6,7 @@ import { selectors } from '@/core/selectors';
 import type { Property } from '@/types';
 import { countryCodes, guessCountry, isCountry } from './country-codes';
 import { trackingSession } from '@/core/tracker';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 // The visitor's country from the API (Cloudflare knows it from their IP),
 // asked once per browser session. Undefined until known.
@@ -28,16 +29,6 @@ function askVisitorCountry(apiUrl: string): Promise<string | null> {
 
 interface Props {
   property?: Property;
-}
-
-declare global {
-  interface Window {
-    grecaptcha?: {
-      ready: (cb: () => void) => void;
-      render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number;
-      reset: (widgetId: number) => void;
-    };
-  }
 }
 
 function buildDefaultMessage(property: Property, t: (k: string, fb: string) => string): string {
@@ -85,57 +76,15 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
   const [message, setMessage] = useState('');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-
-  const recaptchaRef = useRef<HTMLDivElement>(null);
-  const recaptchaWidgetId = useRef<number | null>(null);
-  const recaptchaLoaded = useRef(false);
-
-  const siteKey = (config as any).recaptchaSiteKey as string | undefined;
+  const captcha = useRecaptcha();
+  const siteKey = captcha.siteKey;
+  const recaptchaToken = captcha.token;
 
   useEffect(() => {
     if (property && !message) {
       setMessage(buildDefaultMessage(property, t));
     }
   }, [property]);
-
-  useEffect(() => {
-    if (!siteKey || recaptchaLoaded.current) return;
-    recaptchaLoaded.current = true;
-
-    const existing = document.querySelector('script[src*="recaptcha/api.js"]');
-    if (existing) {
-      renderRecaptcha();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => renderRecaptcha();
-    document.head.appendChild(script);
-  }, [siteKey]);
-
-  function renderRecaptcha() {
-    if (!siteKey || !recaptchaRef.current || recaptchaWidgetId.current != null) return;
-
-    const tryRender = () => {
-      if (!window.grecaptcha?.render) {
-        setTimeout(tryRender, 200);
-        return;
-      }
-      window.grecaptcha.ready(() => {
-        if (!recaptchaRef.current || recaptchaWidgetId.current != null) return;
-        recaptchaWidgetId.current = window.grecaptcha!.render(recaptchaRef.current, {
-          sitekey: siteKey!,
-          callback: (token: string) => setRecaptchaToken(token),
-          'expired-callback': () => setRecaptchaToken(null),
-        });
-      });
-    };
-    tryRender();
-  }
 
   const handleSubmit = useCallback(
     async (e: Event) => {
@@ -183,10 +132,7 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
         setPhone('');
         setMessage('');
         setPrivacyAccepted(false);
-        setRecaptchaToken(null);
-        if (recaptchaWidgetId.current != null && window.grecaptcha) {
-          window.grecaptcha.reset(recaptchaWidgetId.current);
-        }
+        captcha.reset();
       } catch {
         setStatus('error');
       }
@@ -326,7 +272,7 @@ export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
           </label>
 
           {siteKey && (
-            <div class="rs-detail-inquiry__recaptcha" ref={recaptchaRef} />
+            <div class="rs-detail-inquiry__recaptcha" ref={captcha.ref} />
           )}
 
           <button

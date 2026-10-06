@@ -6036,7 +6036,8 @@ img.rs-detail-agent__photo {
   text-decoration: underline;
 }
 
-.rs-detail-inquiry__recaptcha {
+.rs-detail-inquiry__recaptcha,
+.rs-wishlist-email__recaptcha {
   display: flex;
   justify-content: center;
 }
@@ -8569,4 +8570,8 @@ button.rs-ai__chip:hover {
   .rs-ai__panel {
     padding: 16px;
   }
+}
+
+.rs-wishlist-email__recaptcha {
+  margin: 12px 0 4px;
 }
