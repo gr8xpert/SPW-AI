@@ -5,6 +5,8 @@ import {
   Get,
   Header,
   Headers,
+  HttpException,
+  HttpStatus,
   Logger,
   Post,
   UnauthorizedException,
@@ -102,7 +104,9 @@ export class InquiryController {
     const existing = await this.leadService.findRecentDuplicateInquiry(tenant.id, dto.email, propertyId ?? null, DEDUPE_WINDOW_MS);
     if (existing) {
       this.logger.log(`Inquiry dedup tenant=${tenant.id} property=${propertyId ?? 'null'} → lead ${existing.id}`);
-      return existing;
+      // Same answer as a new inquiry: never hand a stored lead (someone's
+      // name, phone, notes) to a caller who only knows an email address.
+      return { success: true };
     }
 
     const lead = await this.leadService.create(tenant.id, 0, {
@@ -147,12 +151,16 @@ export class InquiryController {
       this.logger.warn(`Inquiry webhook emit failed: ${err.message}`),
     );
 
-    return lead;
+    return { success: true };
   }
 }
 
 // Wishlist "Email your wishlist": the list goes to the address the visitor
 // gave, from the client; the agency gets a lead when the visitor left theirs.
+// Wishlist emails a client's site may send per day (per API worker).
+const WISHLIST_EMAILS_PER_DAY = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 @Controller('api/v1/share-favorites')
 @UseGuards(ApiKeyThrottlerGuard)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
@@ -162,6 +170,9 @@ export class ShareFavoritesController {
   // recipient → last send, so a double click or a hostile loop can't flood
   // one inbox from the client's name. Per API worker; the window is short.
   private readonly recentRecipients = new Map<string, number>();
+  // tenant → send times in the last day: the form is public, so a script
+  // could otherwise mail any address list in the client's name. Per worker.
+  private readonly tenantSends = new Map<number, number[]>();
 
   constructor(
     private readonly leadService: LeadService,
@@ -184,6 +195,12 @@ export class ShareFavoritesController {
     if (this.recentRecipients.has(key)) {
       return { success: true, message: 'Wishlist already sent' };
     }
+    const sends = (this.tenantSends.get(tenant.id) ?? []).filter((at) => at > now - DAY_MS);
+    if (sends.length >= WISHLIST_EMAILS_PER_DAY) {
+      this.logger.warn(`Wishlist email cap reached for tenant=${tenant.id}`);
+      throw new HttpException('Too many wishlist emails today, please try again later', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    this.tenantSends.set(tenant.id, [...sends, now]);
     this.recentRecipients.set(key, now);
 
     const refs = await this.formMail.wishlist(tenant, dto, origin, language(acceptLanguage));
