@@ -5,6 +5,7 @@ import {
   FeedExportLog,
   Property,
   Location,
+  LocationTemplateNode,
   PropertyType,
   Feature,
   Tenant,
@@ -14,6 +15,11 @@ import {
   FeedExportConfigController,
   FeedExportController,
 } from './feed-export.controller';
+import { IdealistaFeedService } from './idealista-feed.service';
+import {
+  IdealistaConfigController,
+  IdealistaFeedController,
+} from './idealista-feed.controller';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
@@ -23,13 +29,19 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
       FeedExportLog,
       Property,
       Location,
+      LocationTemplateNode,
       PropertyType,
       Feature,
       Tenant,
     ]),
   ],
-  controllers: [FeedExportConfigController, FeedExportController],
-  providers: [FeedExportService, DashboardAddonGuard],
+  controllers: [
+    FeedExportConfigController,
+    IdealistaConfigController,
+    FeedExportController,
+    IdealistaFeedController,
+  ],
+  providers: [FeedExportService, IdealistaFeedService, DashboardAddonGuard],
   exports: [FeedExportService],
 })
 export class FeedExportModule {}

@@ -29,8 +29,8 @@ import { TabsContent } from '@/components/ui/tabs';
 import type { MediaFileItem } from './types';
 
 function SortableImage({
-  image, index, onRemove,
-}: { image: MediaFileItem; index: number; onRemove: (id: number) => void; }) {
+  image, isMain, onRemove,
+}: { image: MediaFileItem; isMain: boolean; onRemove: (id: number) => void; }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -51,7 +51,7 @@ function SortableImage({
               <X className="h-4 w-4" />
             </Button>
           </div>
-          {index === 0 && (
+          {isMain && (
             <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">Main</div>
           )}
         </>
@@ -62,11 +62,13 @@ function SortableImage({
 
 export function ImagesTab({
   images,
+  feedImages,
   onUpload,
   onRemove,
   onDragEnd,
 }: {
   images: MediaFileItem[];
+  feedImages: Array<{ url: string; alt?: string }>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemove: (id: number) => void;
   onDragEnd: (event: DragEndEvent) => void;
@@ -94,20 +96,43 @@ export function ImagesTab({
               <input type="file" className="hidden" accept="image/*" multiple onChange={onUpload} />
             </label>
 
-            {images.length > 0 ? (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                <SortableContext items={images.map((img) => img.id)} strategy={rectSortingStrategy}>
-                  <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
-                    {images.map((image, index) => (
-                      <SortableImage key={image.tempId || image.id} image={image} index={index} onRemove={onRemove} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            ) : (
+            {feedImages.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  From the feed ({feedImages.length}) <span className="font-normal text-muted-foreground">— kept in step with the feed, shown first</span>
+                </p>
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+                  {feedImages.map((img, index) => (
+                    <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden border">
+                      <img src={img.url} alt={img.alt || ''} loading="lazy" className="object-cover w-full h-full" />
+                      {index === 0 && (
+                        <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">Main</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div className="space-y-2">
+                {feedImages.length > 0 && <p className="text-sm font-medium">Uploaded here ({images.length})</p>}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  <SortableContext items={images.map((img) => img.id)} strategy={rectSortingStrategy}>
+                    <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+                      {images.map((image, index) => (
+                        <SortableImage key={image.tempId || image.id} image={image} isMain={index === 0 && feedImages.length === 0} onRemove={onRemove} />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            )}
+
+            {images.length === 0 && feedImages.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No images uploaded yet</p>
+                <p>No photos yet</p>
               </div>
             )}
           </div>

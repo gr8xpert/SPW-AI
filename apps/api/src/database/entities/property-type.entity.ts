@@ -68,6 +68,11 @@ export class PropertyType {
   @Column({ type: 'json', nullable: true })
   feedKeys: string[] | null;
 
+  // The idealista type this row is exported as (`flat`, `house_semidetached`,
+  // …). NULL = inherit from the parent type, else guessed from the name.
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  idealistaType: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

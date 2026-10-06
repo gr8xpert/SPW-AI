@@ -33,6 +33,7 @@ import { ImagesTab } from './_components/images-tab';
 import { MediaTab } from './_components/media-tab';
 import { SeoTab } from './_components/seo-tab';
 import { SettingsTab } from './_components/settings-tab';
+import { FeedLocksNotice } from './_components/feed-locks-notice';
 
 export default function EditPropertyPage() {
   const params = useParams();
@@ -49,6 +50,7 @@ export default function EditPropertyPage() {
   const [useCustomSchema, setUseCustomSchema] = useState(false);
   const [tenantLanguages, setTenantLanguages] = useState<string[]>([]);
   const [propertySource, setPropertySource] = useState<string>('manual');
+  const [lockedFields, setLockedFields] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('basic');
   const [contentLang, setContentLang] = useState('en');
   const [seoLang, setSeoLang] = useState('en');
@@ -97,6 +99,7 @@ export default function EditPropertyPage() {
 
         if (property) {
           setPropertySource(property.source || 'manual');
+          setLockedFields(Array.isArray(property.lockedFields) ? property.lockedFields : []);
           setFormData(propertyToForm(property));
           setUseCustomSchema(!!(property.seoSchemaJson && String(property.seoSchemaJson).trim().length > 0));
         }
@@ -199,6 +202,10 @@ export default function EditPropertyPage() {
         </div>
       </div>
 
+      {propertySource !== 'manual' && (
+        <FeedLocksNotice api={api} toast={toast} propertyId={propertyId} lockedFields={lockedFields} onChange={setLockedFields} />
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -229,6 +236,7 @@ export default function EditPropertyPage() {
         <FeaturesTab selected={formData.features} allFeatures={allFeatures} onToggle={handleFeatureToggle} />
         <ImagesTab
           images={photos.images}
+          feedImages={photos.feedImages}
           onUpload={photos.handleImageUpload}
           onRemove={photos.handleRemoveImage}
           onDragEnd={photos.handleDragEnd}

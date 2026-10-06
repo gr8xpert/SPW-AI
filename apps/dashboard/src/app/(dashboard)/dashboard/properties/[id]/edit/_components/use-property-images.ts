@@ -29,6 +29,8 @@ export function usePropertyImages({
   const [images, setImages] = useState<MediaFileItem[]>([]);
   const feedImagesRef = useRef<Array<{ url: string; order?: number; alt?: string }>>([]);
   const imagesChangedRef = useRef(false);
+  // Same list as feedImagesRef, for display (the feed's photos, read-only here).
+  const [feedImages, setFeedImages] = useState<Array<{ url: string; order?: number; alt?: string }>>([]);
 
   /** Seed from the property row and its uploaded files (GET /upload/property/:id). */
   const load = (propertyImages: PropertyImage[] | null | undefined, files: unknown) => {
@@ -44,6 +46,7 @@ export function usePropertyImages({
     const uploadedUrls = new Set(fileList.map((f) => f.url));
     feedImagesRef.current = (Array.isArray(propertyImages) ? propertyImages : [])
       .filter((img) => img?.url && !uploadedUrls.has(img.url));
+    setFeedImages(feedImagesRef.current);
   };
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,5 +121,5 @@ export function usePropertyImages({
     ];
   };
 
-  return { images, load, handleImageUpload, handleRemoveImage, handleDragEnd, imagesForSave };
+  return { images, feedImages, load, handleImageUpload, handleRemoveImage, handleDragEnd, imagesForSave };
 }

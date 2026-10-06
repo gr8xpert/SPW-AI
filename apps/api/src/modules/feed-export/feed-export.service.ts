@@ -61,8 +61,27 @@ export class FeedExportService {
   ) {}
 
   // ============ Config Management ============
-  async getConfig(tenantId: number): Promise<FeedExportConfig | null> {
-    return this.configRepository.findOne({ where: { tenantId } });
+  // `apiKey` / `tenantSlug` are what the dashboard page reads to show the key
+  // and build the feed URLs.
+  async getConfig(
+    tenantId: number,
+  ): Promise<(FeedExportConfig & { apiKey: string; tenantSlug: string }) | null> {
+    const config = await this.configRepository.findOne({ where: { tenantId } });
+    if (!config) return null;
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'slug'],
+    });
+    return { ...config, apiKey: config.exportKey, tenantSlug: tenant?.slug ?? '' };
+  }
+
+  // The client's config row, created (with a fresh export key) on first use.
+  async ensureConfig(tenantId: number): Promise<FeedExportConfig> {
+    const existing = await this.configRepository.findOne({ where: { tenantId } });
+    if (existing) return existing;
+    return this.configRepository.save(
+      this.configRepository.create({ tenantId, exportKey: this.generateExportKey() }),
+    );
   }
 
   async createOrUpdateConfig(
@@ -116,6 +135,19 @@ export class FeedExportService {
     tenantSlug: string,
     exportKey: string,
   ): Promise<{ config: FeedExportConfig; tenantId: number }> {
+    const found = await this.findConfigByKey(tenantSlug, exportKey);
+    if (!found.config.isEnabled) {
+      throw new UnauthorizedException('Invalid export key');
+    }
+    return found;
+  }
+
+  // Slug + export key → the client's config, whichever feed is asked for.
+  // Each feed checks its own on/off switch.
+  async findConfigByKey(
+    tenantSlug: string,
+    exportKey: string,
+  ): Promise<{ config: FeedExportConfig; tenantId: number; tenant: Tenant }> {
     const tenant = await this.tenantRepository.findOne({
       where: { slug: tenantSlug },
     });
@@ -128,13 +160,13 @@ export class FeedExportService {
       where: { tenantId: tenant.id },
     });
 
-    if (!config || !config.isEnabled) {
+    if (!config) {
       throw new UnauthorizedException('Invalid export key');
     }
 
     // Use timing-safe comparison to prevent timing attacks
     const storedKeyBuffer = Buffer.from(config.exportKey);
-    const providedKeyBuffer = Buffer.from(exportKey);
+    const providedKeyBuffer = Buffer.from(exportKey || '');
 
     // Keys must be same length for timingSafeEqual
     if (
@@ -144,7 +176,7 @@ export class FeedExportService {
       throw new UnauthorizedException('Invalid export key');
     }
 
-    return { config, tenantId: tenant.id };
+    return { config, tenantId: tenant.id, tenant };
   }
 
   async exportProperties(

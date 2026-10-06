@@ -991,7 +991,20 @@ export class FeedService {
         }
       }
 
-      if (imagesChanged && !lockedFields.includes('images')) {
+      // A photo lock on a listing with NO photos is the trace of the pre-10-03
+      // save bug (the form emptied the gallery and the save locked it). Nobody
+      // locks "no photos" on purpose, so the feed's photos come back and the
+      // lock goes. A feed-level protection is still honoured.
+      const emptyPhotoLock =
+        (existing.lockedFields || []).includes('images') &&
+        !feedProtectedFields.includes('images') &&
+        !(existing.images?.length) &&
+        feedProperty.images.length > 0;
+      if (emptyPhotoLock) {
+        updateData.lockedFields = (existing.lockedFields || []).filter((f) => f !== 'images');
+      }
+
+      if (imagesChanged && (!lockedFields.includes('images') || emptyPhotoLock)) {
         updateData.images = await this.processImages(
           tenantId,
           existing.reference,

@@ -42,6 +42,8 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { IdealistaCard } from '@/components/feed-export/idealista-card';
+import { API_URL } from '@/components/feed-export/idealista-api';
 
 interface ExportConfig {
   id?: number;
@@ -149,7 +151,7 @@ function FeedExportPageInner() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const apiBaseUrl = typeof window !== 'undefined' ? window.location.origin.replace(':3000', ':3001') : '';
+  const apiBaseUrl = API_URL;
   const tenantSlug = config?.tenantSlug || 'my-agency';
   const xmlUrl = `${apiBaseUrl}/api/feed/${tenantSlug}/properties.xml`;
   const jsonUrl = `${apiBaseUrl}/api/feed/${tenantSlug}/properties.json`;
@@ -160,7 +162,7 @@ function FeedExportPageInner() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Feed Export</h1>
-          <p className="page-description mt-1">Export your properties as XML (Kyero) or JSON for external portals</p>
+          <p className="page-description mt-1">Send your properties to idealista, or export them as XML (Kyero) or JSON for other portals</p>
         </div>
       </div>
 
@@ -170,6 +172,8 @@ function FeedExportPageInner() {
         </div>
       ) : (
         <>
+          <IdealistaCard />
+
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -177,7 +181,7 @@ function FeedExportPageInner() {
                   <FileCode className="h-5 w-5" />
                   XML Feed (Kyero Format)
                 </CardTitle>
-                <CardDescription>Compatible with Kyero, Idealista, and other portals</CardDescription>
+                <CardDescription>Compatible with Kyero and other portals that read Kyero XML</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -310,7 +314,6 @@ function FeedExportPageInner() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="kyero">Kyero</SelectItem>
-                      <SelectItem value="idealista">Idealista</SelectItem>
                       <SelectItem value="generic">Generic</SelectItem>
                     </SelectContent>
                   </Select>

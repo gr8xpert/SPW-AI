@@ -13,6 +13,23 @@ import { Tenant } from './tenant.entity';
 export type XmlFormat = 'kyero' | 'idealista' | 'generic';
 export type ExportFormat = 'xml' | 'json';
 
+// The client's idealista feed (customer JSON, v6). One per client.
+export interface IdealistaExportSettings {
+  enabled: boolean;
+  // Issued by idealista to the agency: "ilc" + 40 lowercase letters/digits.
+  customerCode: string;
+  country: 'Spain' | 'Portugal' | 'Italy';
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  addressVisibility: 'full' | 'street' | 'hidden';
+  // 'own' = every active published own listing; 'selected' = only propertyIds.
+  mode: 'own' | 'selected';
+  propertyIds: number[];
+  // "https://site.com/en/property/{segment}" — {segment} or {ref}. Empty = no link.
+  propertyUrlPattern: string;
+}
+
 @Entity('feed_export_configs')
 export class FeedExportConfig {
   @PrimaryGeneratedColumn()
@@ -52,6 +69,9 @@ export class FeedExportConfig {
 
   @Column({ default: 900 })
   cacheTtl: number; // Seconds
+
+  @Column({ type: 'json', nullable: true })
+  idealista: IdealistaExportSettings | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastGeneratedAt: Date;
