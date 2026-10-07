@@ -6,7 +6,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import type { PropertyType } from '@/types';
-import { useFacets, facetCount, countClass } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass, useNonEmpty } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -540,10 +540,12 @@ function IconsMultiSelect({ types, selected, onChange, locked }: {
 export default function RsPropertyType({ variation = 1 }: Props) {
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
-  const types = useSelector(selectors.getPropertyTypes);
+  const allTypes = useSelector(selectors.getPropertyTypes);
   const locked = isLocked('propertyTypeId');
   const current = filters.propertyTypeId;
   const currentIds = filters.propertyTypeIds;
+  // Types that would find nothing drop out (picked ones stay).
+  const types = useNonEmpty(allTypes, 'types', [current, ...(currentIds ?? [])]);
   const allLabel = t('property_type_all', 'Property Type');
   const placeholder = t('property_type_placeholder', 'Search type...');
   const label = t('property_type', 'Property Type');

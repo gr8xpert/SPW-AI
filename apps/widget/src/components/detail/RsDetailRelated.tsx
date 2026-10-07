@@ -6,6 +6,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { getDataLoader } from '@/core/data-loader';
 import type { Property } from '@/types';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface Props {
   limit?: number;
@@ -80,9 +81,7 @@ export default function RsDetailRelated({ limit }: Props) {
                 {p.buildSize != null && <span>{p.buildSize}m²</span>}
               </div>
               <div class="rs-detail-related__price">
-                {p.priceOnRequest
-                  ? t('price_on_request', 'Price on Request')
-                  : formatPrice(p.price, p.currency)}
+                {formatPropertyPrice(p, (n) => formatPrice(n, p.currency), t)}
               </div>
             </div>
           </a>

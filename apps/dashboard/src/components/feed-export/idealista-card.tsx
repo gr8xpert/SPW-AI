@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
 import {
   API_URL,
   errorText,
@@ -35,6 +35,8 @@ export function IdealistaCard() {
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [confirmNewUrl, setConfirmNewUrl] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const load = async () => {
     try {
@@ -93,9 +95,23 @@ export function IdealistaCard() {
   }
 
   const set = (patch: Partial<IdealistaSettings>) => setSettings({ ...settings, ...patch });
-  const feedUrl = overview.exportKey
-    ? `${API_URL}/api/feed/${overview.tenantSlug}/${overview.exportKey}/idealista.json`
+  const feedUrl = overview.feedKey
+    ? `${API_URL}/api/feed/${overview.tenantSlug}/${overview.feedKey}/idealista.json`
     : '';
+
+  const newUrl = async () => {
+    setRegenerating(true);
+    try {
+      await apiPost('/api/dashboard/feed-export/idealista/regenerate-key');
+      setConfirmNewUrl(false);
+      toast({ title: 'New feed URL created', description: 'The old URL no longer works. Send the new one to idealista.' });
+      await load();
+    } catch (err) {
+      toast({ title: 'Could not create a new URL', description: errorText(err), variant: 'destructive' });
+    } finally {
+      setRegenerating(false);
+    }
+  };
   const codeOk = /^ilc[a-z0-9]{40}$/.test(settings.customerCode.trim());
   const problems = (check?.skipped.length ?? 0) + (check?.issues?.length ?? 0);
 
@@ -155,9 +171,31 @@ export function IdealistaCard() {
               ) : (
                 <p className="text-sm text-muted-foreground">Save once to create your feed URL.</p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Keep it private — anyone with this URL can read the feed. Regenerating the export key below changes it.
-              </p>
+              {feedUrl && !confirmNewUrl && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Only give this URL to idealista — anyone who has it can read the feed. If it gets out, create a new one.
+                  </p>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setConfirmNewUrl(true)}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                    New URL
+                  </Button>
+                </div>
+              )}
+              {confirmNewUrl && (
+                <div className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm">
+                    The current URL stops working straight away. idealista can’t import until you send them the new one.
+                  </p>
+                  <div className="flex shrink-0 gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmNewUrl(false)} disabled={regenerating}>Keep current URL</Button>
+                    <Button variant="destructive" size="sm" onClick={newUrl} disabled={regenerating}>
+                      {regenerating && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
+                      Create new URL
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

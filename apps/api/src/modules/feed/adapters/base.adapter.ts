@@ -37,7 +37,11 @@ export interface FeedProperty {
   propertyTypeCode?: string;
   propertyTypeGroup?: string;
   propertyTypeGroupCode?: string;
+  // One price, or a range: price = from, priceTo = to (set only when higher).
   price: number | null;
+  priceTo?: number;
+  // Rentals: what the price covers, when the feed says.
+  rentalPeriod?: 'night' | 'week' | 'month';
   priceOnRequest?: boolean;
   currency: string;
   bedrooms?: number;

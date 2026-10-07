@@ -209,8 +209,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
       propertyTypeCode,
       propertyTypeGroup: pt.Type ? String(pt.Type) : undefined,
       propertyTypeGroupCode: pt.TypeId ? String(pt.TypeId) : undefined,
-      price: this.parsePrice(raw.Price),
-      priceOnRequest: raw.Price === 'POA' || raw.Price === '0' || raw.PriceOnApplication === 'Yes',
+      ...this.mapPrice(raw),
       currency: raw.Currency || 'EUR',
       bedrooms: this.parseInt(raw.Bedrooms),
       bathrooms: this.parseInt(raw.Bathrooms),
@@ -370,6 +369,36 @@ export class ResalesAdapter extends BaseFeedAdapter {
     }
 
     return { names, categories: featureCategoryMap };
+  }
+
+  // Sales send Price; rentals (short and long term) send RentalPrice1 (from),
+  // RentalPrice2 (to) and RentalPeriod ("Week", "Month") instead — checked
+  // live on Solobanus 2026-10-07. A single price stays single: priceTo is set
+  // only when the "to" is higher. No price at all = price on request.
+  private mapPrice(raw: any): Pick<FeedProperty, 'price' | 'priceTo' | 'rentalPeriod' | 'priceOnRequest'> {
+    const rental = raw.RentalPrice1 !== undefined || raw.RentalPrice2 !== undefined;
+    const from = rental
+      ? this.parsePrice(raw.RentalPrice1) || this.parsePrice(raw.RentalPrice2)
+      : this.parsePrice(raw.Price);
+    const to = rental ? this.parsePrice(raw.RentalPrice2) : this.parsePrice(raw.PriceTo);
+    const price = from && from > 0 ? from : null;
+
+    const out: Pick<FeedProperty, 'price' | 'priceTo' | 'rentalPeriod' | 'priceOnRequest'> = {
+      price,
+      priceOnRequest: price === null || raw.Price === 'POA' || raw.PriceOnApplication === 'Yes',
+    };
+    if (price !== null && to && to > price) out.priceTo = to;
+    const period = this.rentalPeriodOf(raw.RentalPeriod);
+    if (period) out.rentalPeriod = period;
+    return out;
+  }
+
+  private rentalPeriodOf(value: any): FeedProperty['rentalPeriod'] {
+    const v = String(value ?? '').toLowerCase();
+    if (/night|day|noche|d[ií]a/.test(v)) return 'night';
+    if (/week|semana/.test(v)) return 'week';
+    if (/month|mes/.test(v)) return 'month';
+    return undefined;
   }
 
   private parsePrice(value: any): number | null {

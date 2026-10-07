@@ -79,7 +79,7 @@ export default function RsDetail() {
         <div class="rs-detail__sidebar">
           {property.agent && <RsDetailAgent agent={property.agent} />}
           <RsDetailInquiryForm property={property} />
-          {config.enableMortgageCalculator !== false && !property.priceOnRequest && (
+          {config.enableMortgageCalculator !== false && !property.priceOnRequest && property.listingType !== 'rent' && property.listingType !== 'holiday_rent' && (
             <RsMortgageCalculator price={property.price} currency={property.currency} />
           )}
         </div>

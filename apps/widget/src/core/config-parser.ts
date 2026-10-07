@@ -63,6 +63,7 @@ function parseLegacyConfig(): Partial<WidgetConfig> {
   if (rc.defaultListingType) config.defaultListingType = rc.defaultListingType;
   if (rc.enabledListingTypes) config.enabledListingTypes = rc.enabledListingTypes;
   if (rc.resultsPage) config.resultsPage = rc.resultsPage;
+  if (rc.resultsPages && typeof rc.resultsPages === 'object') config.resultsPages = rc.resultsPages;
   if (rc.wishlistPage) config.wishlistPage = rc.wishlistPage;
   if (rc.dataBundleUrl) config.dataBundleUrl = rc.dataBundleUrl;
   // false / '' = no local data files (any site without the WordPress plugin):
@@ -127,6 +128,7 @@ const USER_PROTECTED_KEYS: (keyof WidgetConfig)[] = [
   'propertyPageUrl',
   'propertyRefPosition',
   'resultsPage',
+  'resultsPages',
   'wishlistPage',
   'enableFavorites',
   'enableInquiry',

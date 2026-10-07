@@ -224,6 +224,52 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
                     </div>
                 </div>
 
+                <?php
+                $tab_labels = [
+                    'sale'         => ['For Sale', 'properties-for-sale'],
+                    'development'  => ['New Developments', 'new-developments'],
+                    'rent'         => ['For Rent', 'long-term-rentals'],
+                    'holiday_rent' => ['Holiday Rentals', 'holiday-rentals'],
+                ];
+                ?>
+                <div class="spm-card">
+                    <div class="spm-card-head">
+                        <span class="spm-step">2b</span>
+                        <h2>Search tab pages</h2>
+                    </div>
+                    <div class="spm-card-body">
+                        <p class="description">Where the search sends visitors for each tab. <strong>All</strong> goes to the listings page above. Give a tab the slug of its own page (with its listings block set to that type) and Search on that tab goes there; leave it empty and the tab searches on the listings page. One row per language from the table above.</p>
+                        <table class="widefat spm-slug-table" id="spm-tab-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px">Language</th>
+                                    <?php foreach ($tab_labels as $label): ?>
+                                        <th><?php echo esc_html($label[0]); ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($slug_rows as $row):
+                                    $lang = $row['lang'] ?? '';
+                                    if ($lang === '') continue;
+                                ?>
+                                    <tr>
+                                        <td><code><?php echo esc_html($lang); ?></code></td>
+                                        <?php foreach ($tab_labels as $type => $label):
+                                            $value = (string) (((array) ($opts['slugs_' . $type] ?? []))[$lang] ?? '');
+                                        ?>
+                                            <td>
+                                                <input type="text" name="<?php echo SPM_OPTION; ?>[tab_slugs][<?php echo esc_attr($lang); ?>][<?php echo esc_attr($type); ?>]"
+                                                       value="<?php echo esc_attr($value); ?>" placeholder="<?php echo esc_attr($label[1]); ?>" />
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <p class="spm-save-row">
                     <?php submit_button('Save Settings', 'primary large', 'submit', false); ?>
                     <span class="description">Saves API key and slugs.</span>

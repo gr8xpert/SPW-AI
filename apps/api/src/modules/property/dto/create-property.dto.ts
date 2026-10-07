@@ -1,6 +1,6 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, IsObject, IsArray, IsIn, IsDateString, MinLength, MaxLength, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsObject, IsArray, IsIn, IsDateString, ValidateIf, MinLength, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ListingType, PropertySource, PropertyStatus } from '../../../database/entities/property.entity';
+import { ListingType, PropertySource, PropertyStatus, RENTAL_PERIODS, RentalPeriod } from '../../../database/entities/property.entity';
 
 // Array items need a class + @Type: with an interface, the global
 // enableImplicitConversion turns each object into [] and the photos are lost.
@@ -73,6 +73,12 @@ export class CreatePropertyDto {
   @IsNumber()
   @IsOptional()
   priceTo?: number;
+
+  // null clears it (a plain price)
+  @ValidateIf((_, v) => v !== null)
+  @IsIn(RENTAL_PERIODS)
+  @IsOptional()
+  rentalPeriod?: RentalPeriod | null;
 
   @IsBoolean()
   @IsOptional()

@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,6 +34,8 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
     setSimilarPropertiesLimit,
     mortgageInterestRate,
     setMortgageInterestRate,
+    hideEmptySearchOptions,
+    setHideEmptySearchOptions,
     baseCurrency,
     setBaseCurrency,
     savingWidget,
@@ -222,6 +225,16 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
                 onChange={(e) => setSimilarPropertiesLimit(Number(e.target.value))}
                 className="w-28"
               />
+            </div>
+
+            <div className="flex items-start justify-between gap-4 rounded-md border p-4">
+              <div className="space-y-1">
+                <Label htmlFor="hide-empty-options">Hide search options with no listings</Label>
+                <p className="text-xs text-muted-foreground">
+                  Locations, property types and statuses that would find nothing for the visitor&apos;s search disappear from the dropdowns and tabs as they search. Turn off to show them with a 0.
+                </p>
+              </div>
+              <Switch id="hide-empty-options" checked={hideEmptySearchOptions} onCheckedChange={setHideEmptySearchOptions} />
             </div>
 
             <div className="space-y-2">

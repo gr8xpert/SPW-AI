@@ -1,4 +1,5 @@
-import { BrochureContext } from './template-context';
+import { BrochureContext, BrochurePropertyContext } from './template-context';
+import { pricePeriod } from '../../property/price-text';
 
 /** Canonical Puppeteer page margins for the v1 layout. Top is generous to
  *  clear the branded header (logo 50px + padding + border). Service should
@@ -52,11 +53,18 @@ function decodeEntities(s: string): string {
     .replaceAll('&#39;', "'");
 }
 
-function formatPrice(value: number | null, currency: string, priceOnRequest: boolean, labels: Record<string, string>): string {
-  if (priceOnRequest) return labels.brochure_price_on_request || 'Price on request';
-  if (value == null) return '—';
+// One price or a from–to range, plus the rental period ("1,750 – 2,450 € / week").
+function formatPrice(property: BrochurePropertyContext, labels: Record<string, string>): string {
+  const { price, priceTo, currency } = property;
+  if (property.priceOnRequest || price == null || !(price > 0)) {
+    return labels.brochure_price_on_request || 'Price on request';
+  }
   const symbol = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency;
-  return `${Math.round(value).toLocaleString('en-US')} ${symbol}`;
+  const amount = (n: number) => Math.round(n).toLocaleString('en-US');
+  let text = priceTo != null && priceTo > price ? `${amount(price)} – ${amount(priceTo)} ${symbol}` : `${amount(price)} ${symbol}`;
+  const period = pricePeriod(property);
+  if (period) text += ` / ${labels[`price_per_${period}`] || period}`;
+  return text;
 }
 
 function groupFeatures(features: Array<{ category: string; name: string }>) {
@@ -114,7 +122,7 @@ export function renderLayoutV1(ctx: BrochureContext): string {
     </div>` : ''}
 
     <div class="price-strip">
-      <div class="price-value">${formatPrice(property.price, property.currency, property.priceOnRequest, labels)}</div>
+      <div class="price-value">${formatPrice(property, labels)}</div>
     </div>
 
     <div class="spec-strip">

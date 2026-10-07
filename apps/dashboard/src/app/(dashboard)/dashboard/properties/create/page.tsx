@@ -272,6 +272,7 @@ function CreatePropertyPageInner() {
     status: 'draft',
     price: '',
     priceTo: '',
+    rentalPeriod: '',
     currency: 'EUR',
     priceOnRequest: false,
     bedrooms: '',
@@ -531,6 +532,7 @@ function CreatePropertyPageInner() {
         if (val !== '' && val !== undefined) payload[f] = Number(val);
       }
 
+      if (formData.rentalPeriod) payload.rentalPeriod = formData.rentalPeriod;
       if (formData.propertyTypeId) payload.propertyTypeId = Number(formData.propertyTypeId);
       if (formData.locationId) payload.locationId = Number(formData.locationId);
       if (formData.agentId) payload.agentId = Number(formData.agentId);
@@ -758,14 +760,26 @@ function CreatePropertyPageInner() {
                     <Label htmlFor="priceOnRequest">Price on Request</Label>
                   </div>
                   {!formData.priceOnRequest && (
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-4">
                       <div className="space-y-2">
                         <Label htmlFor="price">Price From</Label>
                         <Input id="price" type="number" placeholder="250000" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="priceTo">Price To</Label>
-                        <Input id="priceTo" type="number" placeholder="500000" value={formData.priceTo} onChange={(e) => handleInputChange('priceTo', e.target.value)} />
+                        <Label htmlFor="priceTo">Price To <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                        <Input id="priceTo" type="number" placeholder="Leave empty for one price" value={formData.priceTo} onChange={(e) => handleInputChange('priceTo', e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Price per</Label>
+                        <Select value={formData.rentalPeriod || 'none'} onValueChange={(v) => handleInputChange('rentalPeriod', v === 'none' ? '' : v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">{formData.listingType === 'rent' ? 'Month (default)' : 'Whole price'}</SelectItem>
+                            <SelectItem value="night">Night</SelectItem>
+                            <SelectItem value="week">Week</SelectItem>
+                            <SelectItem value="month">Month</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Currency</Label>

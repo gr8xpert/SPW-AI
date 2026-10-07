@@ -6,6 +6,7 @@ import { Property, SiteCheckin, Tenant } from '../../database/entities';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { escapeHtml } from '../../common/security/escape-html';
 import type { InquiryDto, ShareFavoritesDto } from './dto';
+import { priceText } from '../property/price-text';
 
 // Emails from the forms on a client's website (property inquiry, wishlist).
 // They go out through the platform's SMTP account (SMTP2GO) — deliverability —
@@ -122,7 +123,7 @@ export class FormMailService {
     const ids = [...new Set(dto.items.map((i) => i.id))];
     const rows = await this.properties.find({
       where: { tenantId: tenant.id, id: In(ids), status: 'active', isPublished: true },
-      select: ['id', 'reference', 'title', 'price', 'priceOnRequest', 'currency', 'listingType', 'bedrooms', 'bathrooms', 'images'],
+      select: ['id', 'reference', 'title', 'price', 'priceTo', 'rentalPeriod', 'priceOnRequest', 'currency', 'listingType', 'bedrooms', 'bathrooms', 'images'],
     });
     if (!rows.length) return [];
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -261,14 +262,7 @@ function titleOf(title: unknown, language = 'en'): string {
 }
 
 function priceOf(p: Property, language: string): string {
-  const price = Number(p.price ?? 0);
-  if (p.priceOnRequest || !price) return 'Price on request';
-  try {
-    const amount = new Intl.NumberFormat(language || 'en', { style: 'currency', currency: p.currency || 'EUR', maximumFractionDigits: 0 }).format(price);
-    return p.listingType === 'rent' ? `${amount} / month` : p.listingType === 'holiday_rent' ? `${amount} / night` : amount;
-  } catch {
-    return `${price.toLocaleString('en')} ${p.currency || ''}`.trim();
-  }
+  return priceText(p, language);
 }
 
 function firstImage(p: Property): string | undefined {

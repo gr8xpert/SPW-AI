@@ -8,6 +8,7 @@ import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface RsMapResultsPanelProps {
   // 'list': narrow column beside a map. 'grid': full width (map hidden).
@@ -106,7 +107,7 @@ export default function RsMapResultsPanel({ layout = 'list' }: RsMapResultsPanel
 
               <div class="rs-map-results-card__body">
                 <div class="rs-map-results-card__price">
-                  {property.priceOnRequest ? t('price_on_request', 'Price on request') : formatPrice(property.price, property.currency)}
+                  {formatPropertyPrice(property, (n) => formatPrice(n, property.currency), t, t('price_on_request', 'Price on request'))}
                 </div>
                 <div class="rs-map-results-card__title">{property.title}</div>
                 {property.location?.name && <div class="rs-map-results-card__location">{property.location.name}</div>}

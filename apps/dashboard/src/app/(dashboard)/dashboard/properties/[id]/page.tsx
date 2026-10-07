@@ -290,9 +290,10 @@ export default function PropertyDetailPage() {
                   <p className="text-sm text-muted-foreground">Price</p>
                   <p className="font-medium text-lg">
                     {property.priceOnRequest ? 'Price on Request' : hasPrice(property.price) ? (
-                      hasPrice(property.priceTo)
-                        ? `${formatCurrency(Number(property.price), property.currency)} - ${formatCurrency(Number(property.priceTo), property.currency)}`
-                        : formatCurrency(Number(property.price), property.currency)
+                      (Number(property.priceTo) > Number(property.price)
+                        ? `${formatCurrency(Number(property.price), property.currency)} – ${formatCurrency(Number(property.priceTo), property.currency)}`
+                        : formatCurrency(Number(property.price), property.currency))
+                      + (property.rentalPeriod ? ` / ${property.rentalPeriod}` : property.listingType === 'rent' ? ' / month' : '')
                     ) : 'N/A'}
                   </p>
                 </div>

@@ -3,6 +3,7 @@
 import { useCardState } from '../cards/useCardState';
 import type { Property } from '@/types';
 import type { CarouselLayout, SlideStyle } from './layouts';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface SlideProps {
   property: Property;
@@ -39,9 +40,7 @@ export default function CarouselSlide({ property, layout, index, className = '',
   const { t, propertyUrl, handleLinkClick, priceFormatter } = s;
 
   const image = (property.images ?? []).slice().sort((a, b) => a.order - b.order)[0];
-  const price = property.priceOnRequest
-    ? t('card_price_on_request', 'Price on Request')
-    : priceFormatter(property.price);
+  const price = formatPropertyPrice(property, priceFormatter, t, t('card_price_on_request', 'Price on Request'));
   const iconSize = layout === 4 || layout === 5 ? 18 : 16;
   const beds = property.bedrooms != null && property.bedrooms > 0 ? property.bedrooms : 0;
   const baths = property.bathrooms != null && property.bathrooms > 0 ? property.bathrooms : 0;

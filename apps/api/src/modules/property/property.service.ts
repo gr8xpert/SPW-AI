@@ -15,6 +15,8 @@ const FEED_MANAGED_FIELDS = [
   'title',
   'description',
   'price',
+  'priceTo',
+  'rentalPeriod',
   'priceOnRequest',
   'currency',
   'bedrooms',

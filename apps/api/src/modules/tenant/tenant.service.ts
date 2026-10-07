@@ -143,6 +143,10 @@ export class TenantService {
         tenant.recaptchaSecretKey = trimmed;
       }
     }
+    const hideEmpty = (publicSettings as { hideEmptySearchOptions?: unknown }).hideEmptySearchOptions;
+    if (hideEmpty !== undefined && typeof hideEmpty !== 'boolean') {
+      delete (publicSettings as { hideEmptySearchOptions?: unknown }).hideEmptySearchOptions;
+    }
     const rateIn = (publicSettings as { mortgageInterestRate?: unknown }).mortgageInterestRate;
     if (rateIn != null && rateIn !== '' && mortgageRate(rateIn) == null) {
       throw new BadRequestException('The mortgage interest rate must be a number from 0 to 30.');
@@ -322,6 +326,8 @@ export class TenantService {
     if (minPrices) config.minPrices = minPrices;
     const rate = mortgageRate(s.mortgageInterestRate);
     if (rate != null) config.mortgageInterestRate = rate;
+    // Default on: only an explicit false shows zero-count choices.
+    if (s.hideEmptySearchOptions === false) config.hideEmptySearchOptions = false;
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
     const tiles = publicMapTiles(s.mapTiles);
@@ -623,6 +629,8 @@ export function publicLocationSearchConfig(
       ? { levels, ...(typeof dd?.visible === 'boolean' ? { visible: dd.visible } : {}) }
       : { ...fallback };
   }
+  const count = value && typeof value === 'object' ? (value as { count?: unknown }).count : undefined;
+  if (count === 1 || count === 2 || count === 3) out.count = count;
   return out;
 }
 

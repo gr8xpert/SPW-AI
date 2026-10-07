@@ -20,6 +20,7 @@ import { applyPropertySeo } from './core/seo';
 import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
 import type { Property, SearchFilters, SearchResults, WidgetConfig } from './types';
 import { navigateTo } from './core/navigate';
+import { hasTabPages, isCurrentPage, resultsPageFor } from './core/results-pages';
 
 let dataLoader: DataLoader | null = null;
 
@@ -291,12 +292,19 @@ async function runSearch(requested: SearchFilters, options?: SearchOptions): Pro
     limit: requested.limit || config.resultsPerPage || pageConfig?.resultsPerPage || 12,
   };
   const hasResultsView = !!page?.hasResultsView;
-  const resultsPage = config.resultsPage;
-  if (options?.navigate && !hasResultsView && resultsPage) {
-    const target = new URL(resultsPage, window.location.href);
-    if (target.pathname !== window.location.pathname) {
-      target.search = filtersToQuery(filters, nameLists());
-      navigateTo(target.toString());
+  if (options?.navigate) {
+    // With a page per search tab, the Search button always goes to the
+    // selected tab's page — also from another results page — so the address
+    // matches the results. Without them, only pages that show no results
+    // send the visitor to the results page.
+    const perTab = hasTabPages(config);
+    const target = resultsPageFor(filters.listingType, config);
+    if (target && (perTab || !hasResultsView) && !isCurrentPage(target.url)) {
+      const url = new URL(target.url, window.location.href);
+      // A type's own page sets the type itself; keep it out of the address.
+      const carried = target.dedicated ? { ...filters, listingType: undefined } : filters;
+      url.search = filtersToQuery(carried, nameLists());
+      navigateTo(url.toString());
       return;
     }
   }

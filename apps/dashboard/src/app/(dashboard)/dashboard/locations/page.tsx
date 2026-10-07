@@ -139,6 +139,8 @@ export default function LocationsPage() {
   const [deletingLocation, setDeletingLocation] = useState<Location | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [searchConfig, setSearchConfig] = useState<LocationSearchConfig>(defaultSearchConfig);
+  // How many location dropdowns the website search shows (boxes 2 and 3 switched on).
+  const [boxCount, setBoxCount] = useState<1 | 2 | 3>(1);
   const [savingConfig, setSavingConfig] = useState(false);
   // Lift expand state to parent so reorder/refresh doesn't collapse open branches.
   // LocationItem is defined inside this component (closes over many vars) so it
@@ -256,12 +258,21 @@ export default function LocationsPage() {
       const settings = res?.data?.settings;
       const langs = settings?.languages;
       if (langs?.length) setLanguages(langs);
-      if (settings?.locationSearchConfig) {
+      const lsc = settings?.locationSearchConfig;
+      if (lsc) {
         setSearchConfig({
-          dropdown1: { ...defaultSearchConfig.dropdown1, ...settings.locationSearchConfig.dropdown1 },
-          dropdown2: { ...defaultSearchConfig.dropdown2, ...settings.locationSearchConfig.dropdown2 },
-          dropdown3: { ...defaultSearchConfig.dropdown3, ...settings.locationSearchConfig.dropdown3 },
+          dropdown1: { ...defaultSearchConfig.dropdown1, ...lsc.dropdown1 },
+          dropdown2: { ...defaultSearchConfig.dropdown2, ...lsc.dropdown2 },
+          dropdown3: { ...defaultSearchConfig.dropdown3, ...lsc.dropdown3 },
         });
+      }
+      // Never saved: what the site shows today — search design 01 has the
+      // cascading boxes (2, or 3 with box 3 on), the other designs one field.
+      if (lsc?.count === 1 || lsc?.count === 2 || lsc?.count === 3) {
+        setBoxCount(lsc.count);
+      } else {
+        const design = settings?.siteTemplates?.search || 'search-template-01';
+        setBoxCount(design === 'search-template-01' ? (lsc?.dropdown3?.visible ? 3 : 2) : 1);
       }
     }).catch(() => {});
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -457,20 +468,20 @@ export default function LocationsPage() {
   const handleSaveSearchConfig = async () => {
     setSavingConfig(true);
     try {
-      await api.put('/api/dashboard/tenant/settings', { locationSearchConfig: searchConfig });
+      await api.put('/api/dashboard/tenant/settings', {
+        locationSearchConfig: {
+          ...searchConfig,
+          dropdown2: { ...searchConfig.dropdown2, visible: boxCount >= 2 },
+          dropdown3: { ...searchConfig.dropdown3, visible: boxCount >= 3 },
+          count: boxCount,
+        },
+      });
       toast({ title: 'Search configuration saved' });
     } catch {
       toast({ title: 'Failed to save configuration', variant: 'destructive' });
     } finally {
       setSavingConfig(false);
     }
-  };
-
-  const updateDropdownConfig = (key: 'dropdown1' | 'dropdown2' | 'dropdown3', field: string, value: any) => {
-    setSearchConfig(prev => ({
-      ...prev,
-      [key]: { ...prev[key], [field]: value },
-    }));
   };
 
   const toggleDropdownLevel = (key: 'dropdown1' | 'dropdown2' | 'dropdown3', level: string) => {
@@ -940,7 +951,7 @@ export default function LocationsPage() {
               <Settings2 className="h-5 w-5" />
               <div>
                 <CardTitle>Website Search Dropdowns</CardTitle>
-                <CardDescription>Configure which location levels appear in each dropdown on your website (Variation 2)</CardDescription>
+                <CardDescription>How many location dropdowns your website search shows, and which levels each one lists. Dropdown 2 lists places under what is picked in Dropdown 1, Dropdown 3 under Dropdown 2. Applies to every search design.</CardDescription>
               </div>
             </div>
             <Button size="sm" onClick={handleSaveSearchConfig} disabled={savingConfig}>
@@ -954,16 +965,21 @@ export default function LocationsPage() {
             {(['dropdown1', 'dropdown2', 'dropdown3'] as const).map((ddKey, ddIdx) => {
               const dd = searchConfig[ddKey];
               const ddNum = ddIdx + 1;
+              const shown = ddNum <= boxCount;
               return (
-                <div key={ddKey} className={cn('rounded-lg border p-4 space-y-3', dd.visible ? '' : 'opacity-60')}>
+                <div key={ddKey} className={cn('rounded-lg border p-4 space-y-3', shown ? '' : 'opacity-60')}>
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-sm">Dropdown {ddNum}</h4>
-                    {ddIdx === 2 && (
+                    {ddIdx === 0 ? (
+                      <span className="text-xs text-muted-foreground">Always shown</span>
+                    ) : (
                       <div className="flex items-center gap-2">
                         <Label className="text-xs text-muted-foreground">Visible</Label>
                         <Switch
-                          checked={dd.visible}
-                          onCheckedChange={(v) => updateDropdownConfig(ddKey, 'visible', v)}
+                          checked={shown}
+                          // Dropdown 3 needs Dropdown 2: it lists places under it.
+                          disabled={ddIdx === 2 && boxCount < 2}
+                          onCheckedChange={(v) => setBoxCount(ddIdx === 1 ? (v ? 2 : 1) : (v ? 3 : 2))}
                           className="scale-75"
                         />
                       </div>

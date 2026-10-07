@@ -596,6 +596,8 @@ export interface MapPoint {
   reference: string;
   title: string;
   price: number | null;
+  priceTo?: number | null;
+  rentalPeriod?: string | null;
   currency: string;
   priceOnRequest: boolean;
   listingType: string;

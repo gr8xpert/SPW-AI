@@ -1570,3 +1570,35 @@ button.rs-more-filters-btn--active:hover {
   }
 }
 
+
+/* Template 04 (capsule): 2–3 location dropdowns widen the Location segment by
+   as many slots, and sit in it borderless like the capsule's other triggers. */
+.rs-search-template-04 .rs-t04-segment--location:has(.rs_location--n2) { flex: 2; }
+.rs-search-template-04 .rs-t04-segment--location:has(.rs_location--n3) { flex: 3; }
+.rs-search-template-04 .rs-t04-segment .rs_location--multi .rs-cascading-v2__tabs { gap: 4px; }
+.rs-search-template-04 .rs-t04-segment .rs_location--multi button.rs-cascading-v2__tab {
+  height: 28px;
+  line-height: 28px;
+  padding: 0 24px 0 0;
+  border: 0;
+  background-color: transparent;
+  background-position: right 6px center;
+  color: var(--rs-text);
+  font-weight: 500;
+  box-shadow: none;
+}
+.rs-search-template-04 .rs-t04-segment .rs_location--multi button.rs-cascading-v2__tab + button.rs-cascading-v2__tab {
+  padding-left: 10px;
+  border-left: 1px solid var(--rs-border);
+  border-radius: 0;
+}
+
+/* Template 03: Reference sits on the second row, beside Features, as wide as
+   one field of the first row; full width on phones. */
+.rs-search-template-03 .rs-t03-actions > .rs_reference {
+  flex: 0 0 220px;
+  min-width: 0;
+}
+@media (max-width: 768px) {
+  .rs-search-template-03 .rs-t03-actions > .rs_reference { flex: 1 1 100%; }
+}

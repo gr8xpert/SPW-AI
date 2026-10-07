@@ -20,6 +20,8 @@ export interface MapPoint {
   reference: string;
   title: Record<string, string> | string;
   price: number | null;
+  priceTo: number | null;
+  rentalPeriod: string | null;
   currency: string;
   priceOnRequest: boolean;
   listingType: string;
@@ -144,7 +146,7 @@ export class PropertySearchService {
       .leftJoin('p.location', 'location')
       .leftJoin('p.propertyType', 'propertyType')
       .select([
-        'p.id', 'p.reference', 'p.title', 'p.slug', 'p.price', 'p.currency', 'p.priceOnRequest', 'p.listingType',
+        'p.id', 'p.reference', 'p.title', 'p.slug', 'p.price', 'p.priceTo', 'p.rentalPeriod', 'p.currency', 'p.priceOnRequest', 'p.listingType',
         'p.bedrooms', 'p.bathrooms', 'p.buildSize', 'p.lat', 'p.lng', 'p.images',
         'location.id', 'location.name', 'location.lat', 'location.lng', 'propertyType.id', 'propertyType.name',
       ])
@@ -181,6 +183,8 @@ export class PropertySearchService {
         reference: p.reference,
         title: p.title as any,
         price: p.price != null ? Number(p.price) : null,
+        priceTo: p.priceTo != null ? Number(p.priceTo) : null,
+        rentalPeriod: p.rentalPeriod ?? null,
         currency: p.currency,
         priceOnRequest: !!p.priceOnRequest,
         listingType: p.listingType,

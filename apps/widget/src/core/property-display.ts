@@ -14,3 +14,60 @@ export function getDisplayReference(
   }
   return property.reference;
 }
+
+// ── Price ────────────────────────────────────────────────────────────────
+// One rule for every listing type and every place a price shows (cards,
+// carousel, detail, related, map, wishlist, PDF, chat):
+//   "€45,000"   ·   "€1,750 – €2,450 / week"   ·   "Price on request"
+// A range shows only when priceTo is higher than price; the period comes from
+// the listing (Resales RentalPeriod, Kyero price_freq, dashboard), and a
+// long-term rental without one is taken as monthly. Mirrors the API's
+// price-text.ts (inquiry emails, brochure).
+
+export type PricePeriod = 'night' | 'week' | 'month';
+
+// Structural, so map points and other partial listings work too.
+export interface PriceFields {
+  price?: number | string | null;
+  priceTo?: number | string | null;
+  rentalPeriod?: string | null;
+  priceOnRequest?: boolean;
+  listingType?: string;
+}
+type Translate = (key: string, fallback?: string) => string;
+
+/** False when the listing shows "Price on request" instead of an amount. */
+export function hasPrice(p: PriceFields): boolean {
+  return !p.priceOnRequest && Number(p.price) > 0;
+}
+
+/** The "to" amount, only when it is a real range. */
+export function priceTo(p: PriceFields): number | null {
+  const to = Number(p.priceTo ?? 0);
+  return to > Number(p.price) ? to : null;
+}
+
+export function pricePeriod(p: PriceFields): PricePeriod | null {
+  if (p.rentalPeriod === 'night' || p.rentalPeriod === 'week' || p.rentalPeriod === 'month') return p.rentalPeriod;
+  return p.listingType === 'rent' ? 'month' : null;
+}
+
+/** " / week" in the visitor's language, or "" for a plain price. */
+export function priceSuffix(p: PriceFields, t: Translate): string {
+  const period = pricePeriod(p);
+  if (!period) return '';
+  const word = { night: t('price_per_night', 'night'), week: t('price_per_week', 'week'), month: t('price_per_month', 'month') }[period];
+  return ` / ${word}`;
+}
+
+/** The whole price as text. `money` formats one amount (currency conversion). */
+export function formatPropertyPrice(
+  p: PriceFields,
+  money: (n: number) => string,
+  t: Translate,
+  onRequest = t('price_on_request', 'Price on Request'),
+): string {
+  if (!hasPrice(p)) return onRequest;
+  const to = priceTo(p);
+  return `${money(Number(p.price))}${to ? ` – ${money(to)}` : ''}${priceSuffix(p, t)}`;
+}

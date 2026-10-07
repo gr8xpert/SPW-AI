@@ -60,6 +60,10 @@ export interface Property {
   address?: string;
   zipCode?: string;
   price: number;
+  // A range when higher than price ("€1,750 – €2,450"); null = single price.
+  priceTo?: number | string | null;
+  // What a rental price covers; null = plain price.
+  rentalPeriod?: 'night' | 'week' | 'month' | null;
   priceOnRequest: boolean;
   currency: string;
   bedrooms?: number;

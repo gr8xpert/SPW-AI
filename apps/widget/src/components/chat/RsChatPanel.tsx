@@ -8,6 +8,7 @@ import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
 import { navigateTo } from '@/core/navigate';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface ChatMessage {
   id: string;
@@ -234,9 +235,7 @@ export default function RsChatPanel() {
                     )}
                     <div class="rs-chat-property-card__body">
                       <div class="rs-chat-property-card__price">
-                        {prop.priceOnRequest
-                          ? t('price_on_request', 'Price on Request')
-                          : formatPrice(prop.price, prop.currency)}
+                        {formatPropertyPrice(prop, (n) => formatPrice(n, prop.currency), t)}
                       </div>
                       <div class="rs-chat-property-card__title">{prop.title}</div>
                       <div class="rs-chat-property-card__location">{prop.location.name}</div>

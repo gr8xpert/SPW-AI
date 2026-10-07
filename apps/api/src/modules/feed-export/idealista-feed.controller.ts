@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
 import { DashboardAddonGuard, JwtAuthGuard, TenantGuard } from '../../common/guards';
@@ -20,6 +20,11 @@ export class IdealistaConfigController {
   @Put()
   updateSettings(@CurrentTenant() tenantId: number, @Body() dto: UpdateIdealistaSettingsDto) {
     return this.service.updateSettings(tenantId, dto);
+  }
+
+  @Post('regenerate-key')
+  regenerateKey(@CurrentTenant() tenantId: number) {
+    return this.service.regenerateKey(tenantId);
   }
 
   @Put('types')
@@ -47,23 +52,23 @@ export class IdealistaConfigController {
   }
 }
 
-// Public: idealista downloads this URL. The key is in the path because
-// idealista can't send headers.
+// Public: idealista downloads this URL. Its own key (idealista.feedKey) is in
+// the path because idealista can't send headers.
 @Controller('api/feed')
 export class IdealistaFeedController {
   constructor(private readonly service: IdealistaFeedService) {}
 
   @Public()
-  @Get(':tenantSlug/:exportKey/idealista.json')
+  @Get(':tenantSlug/:feedKey/idealista.json')
   async feed(
     @Param('tenantSlug') tenantSlug: string,
-    @Param('exportKey') exportKey: string,
+    @Param('feedKey') feedKey: string,
     @Req() req: Request,
     @Res() res: Response,
   ) {
     const feed = await this.service.publicFeed(
       tenantSlug,
-      exportKey,
+      feedKey,
       req.ip || req.socket.remoteAddress || '',
       String(req.headers['user-agent'] || ''),
     );

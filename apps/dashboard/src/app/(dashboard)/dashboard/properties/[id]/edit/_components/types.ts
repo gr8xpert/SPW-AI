@@ -45,6 +45,7 @@ export interface PropertyFormData {
   status: string;
   price: string;
   priceTo: string;
+  rentalPeriod: '' | 'night' | 'week' | 'month';
   currency: string;
   priceOnRequest: boolean;
   bedrooms: string;

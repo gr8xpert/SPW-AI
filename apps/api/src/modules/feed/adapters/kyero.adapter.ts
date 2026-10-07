@@ -118,6 +118,8 @@ export class KyeroAdapter extends BaseFeedAdapter {
       propertyType: this.extractPropertyType(raw),
       price: this.parseNumber(raw.price) ?? null,
       priceOnRequest: !raw.price || raw.price === '0',
+      // Kyero price_freq: "sale", "month" or "week" (rentals).
+      ...(raw.price_freq === 'week' || raw.price_freq === 'month' ? { rentalPeriod: raw.price_freq } : {}),
       currency: String(raw.currency ?? 'EUR').toUpperCase(),
       bedrooms: this.parseNumber(raw.beds),
       bathrooms: this.parseNumber(raw.baths),

@@ -3,7 +3,7 @@
  * Plugin Name: Smart Property Manager
  * Plugin URI:  https://spw-ai.com
  * Description: One-click integration for the Smart Property Manager. Enter your API key, pick your pages, and SPM handles listings, search, property detail pages, social sharing, and SEO.
- * Version:     2.9.4
+ * Version:     2.9.5
  * Author:      RealtySoft
  * License:     GPL v2 or later
  * Text Domain: spm
@@ -13,7 +13,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('SPM_VERSION', '2.9.4');
+define('SPM_VERSION', '2.9.5');
 define('SPM_FILE', __FILE__);
 define('SPM_DIR', plugin_dir_path(__FILE__));
 define('SPM_URL', plugin_dir_url(__FILE__));

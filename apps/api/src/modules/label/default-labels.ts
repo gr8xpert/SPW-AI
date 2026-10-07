@@ -100,6 +100,10 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'card_development', category: 'card', translations: { en: 'New Development', es: 'Obra Nueva' } },
   { key: 'card_offplan', category: 'card', translations: { en: 'Off Plan', es: 'Sobre Plano' } },
   { key: 'card_price_on_request', category: 'card', translations: { en: 'Price on Request', es: 'Precio bajo consulta' } },
+  // Rental price period: "€1,750 – €2,450 / week"
+  { key: 'price_per_night', category: 'card', translations: { en: 'night', es: 'noche' } },
+  { key: 'price_per_week', category: 'card', translations: { en: 'week', es: 'semana' } },
+  { key: 'price_per_month', category: 'card', translations: { en: 'month', es: 'mes' } },
   { key: 'card_built_area', category: 'card', translations: { en: 'Built Area', es: 'Superficie' } },
 
   // ── Property Detail ──────────────────────────────────────

@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Lock, X } from 'lucide-react';
+import { Loader2, Lock, LockOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import type { useApi } from '@/hooks/use-api';
 import type { useToast } from '@/hooks/use-toast';
 
 // Plain names for the feed fields a save can lock.
 const LABELS: Record<string, string> = {
-  title: 'Title', description: 'Description', price: 'Price', priceOnRequest: 'Price on request',
+  title: 'Title', description: 'Description', price: 'Price', priceTo: 'Price to', rentalPeriod: 'Price per', priceOnRequest: 'Price on request',
   currency: 'Currency', bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', buildSize: 'Built size',
   plotSize: 'Plot size', terraceSize: 'Terrace size', gardenSize: 'Garden size', reference: 'Reference',
   agentReference: 'Agency reference', listingType: 'Listing type', propertyTypeId: 'Property type',
@@ -18,23 +19,34 @@ const LABELS: Record<string, string> = {
   status: 'Status', isPublished: 'Published', isFeatured: 'Featured',
 };
 
+const FEED_NAMES: Record<string, string> = {
+  resales: 'Resales', inmoba: 'Inmoba', infocasa: 'Infocasa', redsp: 'RedSP', kyero: 'Kyero', odoo: 'Odoo',
+};
+
 // Feed listings: fields changed in the dashboard are locked so the feed no
 // longer overwrites them. Shows which, and lets the user hand them back.
 export function FeedLocksNotice({
   api,
   toast,
   propertyId,
+  source,
   lockedFields,
   onChange,
 }: {
   api: ReturnType<typeof useApi<any>>;
   toast: ReturnType<typeof useToast>['toast'];
   propertyId: number;
+  source: string;
   lockedFields: string[];
   onChange: (locked: string[]) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   if (!lockedFields.length) return null;
+
+  const feed = FEED_NAMES[source] ?? 'the feed';
+  // lat + lng share one label; show it once.
+  const shown = lockedFields.filter((f, i) => !(f === 'lng' && lockedFields.includes('lat')) && lockedFields.indexOf(f) === i);
+  const fieldsOf = (f: string) => (f === 'lat' ? lockedFields.filter((x) => x === 'lat' || x === 'lng') : [f]);
 
   const unlock = async (fields: string[], key: string) => {
     setBusy(key);
@@ -42,47 +54,65 @@ export function FeedLocksNotice({
       const res = await api.post(`/api/dashboard/properties/${propertyId}/unlock`, { fields });
       const saved = (res?.data ?? res)?.lockedFields;
       onChange(Array.isArray(saved) ? saved : lockedFields.filter((f) => !fields.includes(f)));
-      toast({ title: 'Unlocked', description: 'The next feed sync (or Re-sync on Feed Import) updates these fields again.' });
+      const names = fields.length === lockedFields.length ? 'All fields' : (LABELS[fields[0]] ?? fields[0]);
+      toast({ title: `${names} unlocked`, description: `The next ${feed} sync updates ${fields.length > 1 ? 'them' : 'it'} again.` });
     } catch {
-      toast({ title: 'Could not unlock', variant: 'destructive' });
+      toast({ title: 'Could not unlock', description: 'Try again in a moment.', variant: 'destructive' });
     } finally {
       setBusy(null);
     }
   };
 
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex gap-3">
-          <Lock className="h-4 w-4 mt-0.5 shrink-0" />
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Locked against feed updates</p>
-            <p className="text-sm opacity-80">
-              These were changed here, so the feed no longer updates them. Unlock a field to let the feed manage it again.
+    <Card hoverEffect={false} className="relative overflow-hidden rounded-lg p-5 pl-6">
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-amber-400" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+            <Lock className="h-4 w-4" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-foreground">
+              {shown.length === 1 ? '1 field is' : `${shown.length} fields are`} locked against {feed} updates
+            </h2>
+            <p className="max-w-prose text-sm text-muted-foreground">
+              They were changed here, so {feed} no longer updates them. Unlock any you didn’t change on purpose.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {lockedFields.map((f) => (
-                <span key={f} className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium dark:bg-black/30">
-                  {LABELS[f] ?? f}
-                  <button
-                    type="button"
-                    aria-label={`Unlock ${LABELS[f] ?? f}`}
-                    className="opacity-60 hover:opacity-100 disabled:opacity-30"
-                    disabled={!!busy}
-                    onClick={() => unlock([f], f)}
-                  >
-                    {busy === f ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                  </button>
-                </span>
-              ))}
-            </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" disabled={!!busy} onClick={() => unlock(lockedFields, '__all')}>
-          {busy === '__all' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        <Button variant="outline" size="sm" className="shrink-0 self-start" disabled={!!busy} onClick={() => unlock(lockedFields, '__all')}>
+          {busy === '__all' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LockOpen className="mr-2 h-3.5 w-3.5" />}
           Unlock all
         </Button>
       </div>
-    </div>
+
+      <ul className="mt-4 flex flex-wrap gap-2 sm:pl-[3.125rem]">
+        {shown.map((f) => {
+          const label = LABELS[f] ?? f;
+          return (
+            <li key={f}>
+              <button
+                type="button"
+                title={`Unlock ${label}`}
+                aria-label={`Unlock ${label}`}
+                disabled={!!busy}
+                onClick={() => unlock(fieldsOf(f), f)}
+                className="group inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                {busy === f ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    <Lock className="h-3 w-3 text-amber-600 group-hover:hidden group-focus-visible:hidden dark:text-amber-400" />
+                    <LockOpen className="hidden h-3 w-3 group-hover:block group-focus-visible:block" />
+                  </>
+                )}
+                {label}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
   );
 }

@@ -10,6 +10,7 @@ import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import type { Property } from '@/types';
 import RsWishlistEmpty from './RsWishlistEmpty';
+import { formatPropertyPrice } from '@/core/property-display';
 
 export default function RsWishlistGrid() {
   const { t } = useLabels();
@@ -75,9 +76,7 @@ export default function RsWishlistGrid() {
             <div class="rs-wishlist-grid__body">
               <h3 class="rs-wishlist-grid__title">{property.title}</h3>
               <p class="rs-wishlist-grid__price">
-                {property.priceOnRequest
-                  ? t('price_on_request', 'Price on Request')
-                  : formatPrice(property.price, property.currency)}
+                {formatPropertyPrice(property, (n) => formatPrice(n, property.currency), t)}
               </p>
               <p class="rs-wishlist-grid__location">{property.location.name}</p>
               <div class="rs-wishlist-grid__specs">

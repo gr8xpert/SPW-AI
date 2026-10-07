@@ -43,6 +43,9 @@ export interface LocationSearchConfig {
   dropdown1: LocationDropdownConfig;
   dropdown2: LocationDropdownConfig;
   dropdown3: LocationDropdownConfig;
+  // How many location dropdowns the website search shows (every design).
+  // Unset = each design's own default: 2 on search design 01, 1 elsewhere.
+  count?: 1 | 2 | 3;
 }
 
 export const DEFAULT_LOCATION_SEARCH_CONFIG: LocationSearchConfig = {
@@ -162,6 +165,9 @@ export interface TenantSettings {
   minPrices?: Partial<Record<'sale' | 'rent' | 'holiday_rent' | 'development', number>>;
   // Interest rate (%) the property page's mortgage calculator starts with.
   mortgageInterestRate?: number | null;
+  // Search dropdowns hide locations / types / statuses with no listings for
+  // the search on screen. Default on (undefined); false shows them as 0.
+  hideEmptySearchOptions?: boolean;
   enabledListingTypes?: string[];
   mapVariation?: 'auto' | '0' | '1' | '2';
   similarPropertiesLimit?: number;

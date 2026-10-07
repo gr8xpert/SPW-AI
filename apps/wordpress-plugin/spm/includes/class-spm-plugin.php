@@ -104,6 +104,23 @@ class SPM_Plugin {
         return home_url(trailingslashit(($prefix ? $prefix . '/' : '') . self::slug($type, $lang)));
     }
 
+    /** Search tabs that can have a page of their own ("All" = the listings page). */
+    const TAB_TYPES = ['sale', 'development', 'rent', 'holiday_rent'];
+
+    /**
+     * URL of a search tab's own page in the current language, or '' when the
+     * client gave that tab none (the tab then searches on the listings page).
+     * Slugs come from Settings → Search tab pages (slugs_<type>, lang => slug).
+     */
+    public static function tab_page_url($type, $lang = null) {
+        $lang = $lang ?: (class_exists('SPM_I18n') ? (SPM_I18n::instance()->current_lang() ?: 'en') : 'en');
+        $map = (array) self::get('slugs_' . $type, []);
+        $slug = $map[$lang] ?? ($map['en'] ?? '');
+        if ($slug === '') return '';
+        $prefix = class_exists('SPM_I18n') ? SPM_I18n::instance()->language_prefix() : '';
+        return home_url(trailingslashit(($prefix ? $prefix . '/' : '') . $slug));
+    }
+
     public static function deactivate() {
         flush_rewrite_rules();
         wp_clear_scheduled_hook('spm_daily_sync');
@@ -223,6 +240,16 @@ class SPM_Plugin {
             'resultsPage'      => self::page_url('listings'),
             'wishlistPage'     => self::page_url('wishlist'),
         ];
+
+        // Search tabs with their own page (For Sale → /properties-for-sale/,
+        // Holiday Rentals → /holiday-rentals/ …): Search goes to the selected
+        // tab's page. Tabs without one search on the listings page.
+        $tab_pages = [];
+        foreach (self::TAB_TYPES as $type) {
+            $url = self::tab_page_url($type, $lang);
+            if ($url !== '') $tab_pages[$type] = $url;
+        }
+        if ($tab_pages) $config['resultsPages'] = $tab_pages;
 
         // Locations / types / features / labels for this language in one
         // cached file, so the widget skips four API calls per page view.

@@ -142,11 +142,19 @@ export class FeedExportService {
     return found;
   }
 
-  // Slug + export key → the client's config, whichever feed is asked for.
-  // Each feed checks its own on/off switch.
   async findConfigByKey(
     tenantSlug: string,
     exportKey: string,
+  ): Promise<{ config: FeedExportConfig; tenantId: number; tenant: Tenant }> {
+    return this.findConfigBySlug(tenantSlug, (config) => config.exportKey, exportKey);
+  }
+
+  // Slug + key → the client's config. `storedKey` picks which key this feed
+  // uses (the export key, or idealista's own). Each feed checks its own switch.
+  async findConfigBySlug(
+    tenantSlug: string,
+    storedKey: (config: FeedExportConfig) => string | null | undefined,
+    providedKey: string,
   ): Promise<{ config: FeedExportConfig; tenantId: number; tenant: Tenant }> {
     const tenant = await this.tenantRepository.findOne({
       where: { slug: tenantSlug },
@@ -159,14 +167,15 @@ export class FeedExportService {
     const config = await this.configRepository.findOne({
       where: { tenantId: tenant.id },
     });
+    const expected = config ? storedKey(config) : null;
 
-    if (!config) {
+    if (!config || !expected) {
       throw new UnauthorizedException('Invalid export key');
     }
 
     // Use timing-safe comparison to prevent timing attacks
-    const storedKeyBuffer = Buffer.from(config.exportKey);
-    const providedKeyBuffer = Buffer.from(exportKey || '');
+    const storedKeyBuffer = Buffer.from(expected);
+    const providedKeyBuffer = Buffer.from(providedKey || '');
 
     // Keys must be same length for timingSafeEqual
     if (
@@ -227,6 +236,10 @@ export class FeedExportService {
   }
 
   // ============ Private Methods ============
+  generateIdealistaKey(): string {
+    return `idl_${crypto.randomBytes(24).toString('hex')}`;
+  }
+
   private generateExportKey(): string {
     return `sk_export_${crypto.randomBytes(24).toString('hex')}`;
   }

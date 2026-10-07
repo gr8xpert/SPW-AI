@@ -145,6 +145,20 @@ class SPM_Settings {
             $clean[$k] = $map;
         }
 
+        // Search tab pages: tab_slugs[lang][type] = slug → slugs_<type> maps.
+        // Empty = that tab has no page of its own (no English fallback added).
+        if (array_key_exists('tab_slugs', (array)$input)) {
+            foreach (SPM_Plugin::TAB_TYPES as $type) {
+                $map = [];
+                foreach ((array)$input['tab_slugs'] as $lang => $slugs) {
+                    $lang = strtolower(sanitize_key($lang));
+                    $slug = sanitize_title(((array)$slugs)[$type] ?? '');
+                    if ($lang && $slug) $map[$lang] = $slug;
+                }
+                $clean['slugs_' . $type] = $map;
+            }
+        }
+
         if (array_key_exists('page_titles_i18n', (array)$input)) {
             $clean['page_titles_i18n'] = [];
             foreach ((array)$input['page_titles_i18n'] as $lang => $titles) {

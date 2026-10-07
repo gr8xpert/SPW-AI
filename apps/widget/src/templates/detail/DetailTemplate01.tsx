@@ -302,7 +302,7 @@ export default function DetailTemplate01() {
 
           <SidebarShare url={url} title={property.title} />
 
-          {config.enableMortgageCalculator !== false && !property.priceOnRequest && property.price > 0 && (
+          {config.enableMortgageCalculator !== false && !property.priceOnRequest && property.price > 0 && property.listingType !== 'rent' && property.listingType !== 'holiday_rent' && (
             <MortgageButton price={property.price} currency={property.currency} />
           )}
 

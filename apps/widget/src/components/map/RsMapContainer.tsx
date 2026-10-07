@@ -9,6 +9,7 @@ import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import { escapeHtml, loadLeaflet, shortPrice, tileLayerOptions, toCoord } from '@/core/map-support';
 import type { MapArea, MapPoint } from '@/core/data-loader';
+import { formatPropertyPrice, hasPrice } from '@/core/property-display';
 
 interface RsMapContainerProps {
   zoom?: number | string;
@@ -259,8 +260,10 @@ export default function RsMapContainer({
     for (const group of groups) {
       if (group.points.length === 1 && !(zonesMode && currentZoom < ZONE_ZOOM)) {
         const p = group.points[0];
-        const full = p.priceOnRequest || p.price == null ? t('price_on_request', 'Price on request') : formatPrice(p.price, p.currency);
-        const label = p.priceOnRequest || p.price == null ? t('map_price_on_request_short', 'P.O.R.') : shortPrice(full, p.price);
+        const priced = hasPrice(p);
+        const full = formatPropertyPrice(p, (n) => formatPrice(n, p.currency), t, t('price_on_request', 'Price on request'));
+        // The pin stays short: the "from" amount only.
+        const label = priced ? shortPrice(formatPrice(p.price!, p.currency), p.price!) : t('map_price_on_request_short', 'P.O.R.');
         const icon = L.divIcon({
           className: 'rs-map-marker-icon',
           html: `<div class="rs-map-marker${p.approximate ? ' rs-map-marker--approx' : ''}">${escapeHtml(label)}</div>`,

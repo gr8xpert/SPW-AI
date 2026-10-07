@@ -540,7 +540,7 @@ export default function PropertiesPage() {
                       <TableCell className="font-mono text-sm">{property.reference}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{property.title?.en || property.title?.es || '-'}</TableCell>
                       <TableCell>{property.location?.name?.en || '-'}</TableCell>
-                      <TableCell>{hasPrice(property.price) ? formatCurrency(Number(property.price), property.currency) : 'POA'}</TableCell>
+                      <TableCell>{hasPrice(property.price) ? `${formatCurrency(Number(property.price), property.currency)}${Number(property.priceTo) > Number(property.price) ? ` – ${formatCurrency(Number(property.priceTo), property.currency)}` : ''}${property.rentalPeriod ? ` / ${property.rentalPeriod}` : ''}` : 'POA'}</TableCell>
                       <TableCell>{property.bedrooms || '-'} / {property.bathrooms || '-'}</TableCell>
                       <TableCell><Badge variant={statusColors[property.status]}>{property.status}</Badge></TableCell>
                       <TableCell><Badge variant="outline" className="capitalize">{property.source}</Badge></TableCell>

@@ -203,7 +203,7 @@ export default function EditPropertyPage() {
       </div>
 
       {propertySource !== 'manual' && (
-        <FeedLocksNotice api={api} toast={toast} propertyId={propertyId} lockedFields={lockedFields} onChange={setLockedFields} />
+        <FeedLocksNotice api={api} toast={toast} propertyId={propertyId} source={propertySource} lockedFields={lockedFields} onChange={setLockedFields} />
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -5,6 +5,9 @@ export interface BrochurePropertyContext {
   title: string;
   description: string;
   price: number | null;
+  priceTo: number | null;
+  rentalPeriod: string | null;
+  listingType: string;
   currency: string;
   priceOnRequest: boolean;
   bedrooms: number | null;

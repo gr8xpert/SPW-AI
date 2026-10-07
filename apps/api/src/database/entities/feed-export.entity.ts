@@ -28,6 +28,9 @@ export interface IdealistaExportSettings {
   propertyIds: number[];
   // "https://site.com/en/property/{segment}" — {segment} or {ref}. Empty = no link.
   propertyUrlPattern: string;
+  // The idealista URL's own key (in the path). Separate from exportKey so a
+  // leaked idealista URL can be replaced without touching the other feeds.
+  feedKey?: string;
 }
 
 @Entity('feed_export_configs')

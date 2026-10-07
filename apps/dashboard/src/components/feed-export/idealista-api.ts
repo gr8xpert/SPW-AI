@@ -31,7 +31,7 @@ export interface IdealistaTypeRow {
 export interface IdealistaOverview {
   settings: IdealistaSettings;
   tenantSlug: string;
-  exportKey: string | null;
+  feedKey: string | null;
   typeOptions: IdealistaTypeOption[];
   types: IdealistaTypeRow[];
 }

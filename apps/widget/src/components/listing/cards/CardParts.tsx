@@ -3,6 +3,7 @@
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import AnimatedPrice from '@/components/common/AnimatedPrice';
 import type { CardState } from './useCardState';
+import { hasPrice, priceSuffix, priceTo } from '@/core/property-display';
 
 interface PartProps {
   s: CardState;
@@ -114,12 +115,19 @@ export function CardImageCount({ s, small = false }: PartProps & { small?: boole
   );
 }
 
-/** The price, or "price on request". `short` uses the P.O.R. fallback text. */
+/** The price ("€45,000", "€1,750 – €2,450 / week"), or "price on request".
+ *  `short` uses the P.O.R. fallback text. */
 export function CardPrice({ s, short = false }: PartProps & { short?: boolean }) {
   const { property, t, priceFormatter } = s;
-  return property.priceOnRequest
-    ? <>{t('card_price_on_request', short ? 'P.O.R.' : 'Price on Request')}</>
-    : <AnimatedPrice value={property.price} format={priceFormatter} />;
+  if (!hasPrice(property)) return <>{t('card_price_on_request', short ? 'P.O.R.' : 'Price on Request')}</>;
+  const to = priceTo(property);
+  return (
+    <>
+      <AnimatedPrice value={Number(property.price)} format={priceFormatter} />
+      {to ? ` – ${priceFormatter(to)}` : ''}
+      {priceSuffix(property, t)}
+    </>
+  );
 }
 
 /** The row of small spec icons (beds, baths, built area, terrace). */

@@ -15,6 +15,8 @@ import { User } from './user.entity';
 import { FeedConfig } from './feed-config.entity';
 
 export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development';
+export const RENTAL_PERIODS = ['night', 'week', 'month'] as const;
+export type RentalPeriod = (typeof RENTAL_PERIODS)[number];
 export type PropertyStatus = 'draft' | 'active' | 'sold' | 'rented' | 'archived';
 export type PropertySource = 'resales' | 'inmoba' | 'infocasa' | 'redsp' | 'kyero' | 'odoo' | 'manual';
 
@@ -119,6 +121,11 @@ export class Property {
 
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   priceTo: number | null;
+
+  // What a rental price covers (Resales RentalPeriod, Kyero price_freq).
+  // NULL = a plain price (sales, or a rental whose period isn't known).
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  rentalPeriod: RentalPeriod | null;
 
   @Column({ default: false })
   priceOnRequest: boolean;

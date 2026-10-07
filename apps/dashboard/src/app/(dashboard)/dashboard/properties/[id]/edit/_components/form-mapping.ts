@@ -5,7 +5,7 @@ const emptyMultilingual: Record<string, string> = {};
 
 export const EMPTY_FORM: PropertyFormData = {
   reference: '', agentReference: '', listingType: 'sale', propertyTypeId: '', locationId: '',
-  urbanization: '', status: 'draft', price: '', priceTo: '', currency: 'EUR', priceOnRequest: false,
+  urbanization: '', status: 'draft', price: '', priceTo: '', rentalPeriod: '', currency: 'EUR', priceOnRequest: false,
   bedrooms: '', bedroomsTo: '', bathrooms: '', bathroomsTo: '', buildSize: '', buildSizeTo: '',
   plotSize: '', plotSizeTo: '', terraceSize: '', terraceSizeTo: '', gardenSize: '',
   solariumSize: '', title: { ...emptyMultilingual }, description: { ...emptyMultilingual },
@@ -47,6 +47,7 @@ export function propertyToForm(property: Property): PropertyFormData {
     status: property.status || 'draft',
     price: dec(property.price),
     priceTo: dec(property.priceTo),
+    rentalPeriod: property.rentalPeriod || '',
     currency: property.currency || 'EUR',
     priceOnRequest: property.priceOnRequest || false,
     bedrooms: str(property.bedrooms),
@@ -150,6 +151,7 @@ export function buildUpdatePayload(
     listingType: formData.listingType,
     status: formData.status,
     currency: formData.currency,
+    rentalPeriod: formData.rentalPeriod || null,
     priceOnRequest: formData.priceOnRequest,
     isFeatured: formData.isFeatured,
     isPublished: formData.isPublished,

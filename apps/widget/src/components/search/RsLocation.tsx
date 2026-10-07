@@ -7,7 +7,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Location } from '@/types';
-import { useFacets, facetCount, countClass } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass, useNonEmpty } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -58,7 +58,20 @@ function buildTree(locations: Location[]): Location[] {
 }
 
 interface DropdownLevels { levels?: string[]; visible?: boolean }
-interface DropdownConfig { dropdown1?: DropdownLevels; dropdown2?: DropdownLevels; dropdown3?: DropdownLevels }
+interface DropdownConfig { dropdown1?: DropdownLevels; dropdown2?: DropdownLevels; dropdown3?: DropdownLevels; count?: number }
+
+/**
+ * How many location dropdowns this search shows: Locations → Website Search
+ * Dropdowns (count = boxes switched on), the same on every search design.
+ * Never saved: what each design did before — design 01's cascading boxes
+ * (2, or 3 when box 3 was visible), one field everywhere else.
+ */
+export function locationBoxes(config: DropdownConfig | undefined, variation: number): number {
+  const count = config?.count;
+  if (count === 1 || count === 2 || count === 3) return count;
+  if (variation === 2) return config?.dropdown3?.visible ? 3 : 2;
+  return 1;
+}
 
 /**
  * The levels picked in Locations → Website Search Dropdowns. Only the
@@ -342,7 +355,7 @@ function initialSelection(
   return sets;
 }
 
-function CascadingMultiSelect({ locations, value, onChange, locked, t, config }: {
+function CascadingMultiSelect({ locations, value, onChange, locked, t, config, visibleCount }: {
   locations: Location[];
   value: number[] | undefined;
   onChange: (ids: number[]) => void;
@@ -353,6 +366,8 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
     dropdown2: { levels: string[]; visible?: boolean };
     dropdown3: { levels: string[]; visible?: boolean };
   };
+  // How many of the three dropdowns show (1–3), see locationBoxes().
+  visibleCount: number;
 }) {
   const facets = useFacets();
   const [activeTab, setActiveTab] = useState<number | null>(null);
@@ -380,15 +395,15 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
       return [config.dropdown1, config.dropdown2, config.dropdown3].map((d, i) => ({
         levels: d.levels ?? [],
         label: labels[i],
-        visible: d.visible !== false || i < 2,
+        visible: i < visibleCount,
       }));
     }
     return [
       { levels: [], label: labels[0], visible: true },
-      { levels: [], label: labels[1], visible: true },
-      { levels: [], label: labels[2], visible: false },
+      { levels: [], label: labels[1], visible: visibleCount >= 2 },
+      { levels: [], label: labels[2], visible: visibleCount >= 3 },
     ];
-  }, [config, t]);
+  }, [config, t, visibleCount]);
 
   const hasLevelConfig = dropdowns.some(d => d.levels.length > 0);
 
@@ -562,7 +577,8 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
     return dd.label;
   };
 
-  const showTab3 = dropdowns[2].visible || items3.length > 0 || selected3.size > 0;
+  const showTab2 = dropdowns[1].visible;
+  const showTab3 = dropdowns[2].visible;
 
   return (
     <div class={`rs-cascading-v2${locked ? ' rs-field--locked' : ''}`} ref={ref}>
@@ -575,14 +591,16 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config }:
         >
           {formatTabLabel(selected1.size, dropdowns[0])}
         </button>
-        <button
-          ref={tab1Ref}
-          type="button"
-          class={`rs-cascading-v2__tab${activeTab === 1 ? ' rs-cascading-v2__tab--active' : ''}${selected2.size > 0 ? ' rs-cascading-v2__tab--has-selection' : ''}`}
-          onClick={() => toggleTab(1)}
-        >
-          {formatTabLabel(selected2.size, dropdowns[1])}
-        </button>
+        {showTab2 && (
+          <button
+            ref={tab1Ref}
+            type="button"
+            class={`rs-cascading-v2__tab${activeTab === 1 ? ' rs-cascading-v2__tab--active' : ''}${selected2.size > 0 ? ' rs-cascading-v2__tab--has-selection' : ''}`}
+            onClick={() => toggleTab(1)}
+          >
+            {formatTabLabel(selected2.size, dropdowns[1])}
+          </button>
+        )}
         {showTab3 && (
           <button
             ref={tab2Ref}
@@ -904,8 +922,10 @@ export default function RsLocation({ variation = 1 }: Props) {
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
   const widgetConfig = useConfig();
-  const locations = useSelector(selectors.getLocations);
+  const allLocations = useSelector(selectors.getLocations);
   const locked = isLocked('locationId');
+  // Places that would find nothing drop out (picked ones stay).
+  const locations = useNonEmpty(allLocations, 'locations', [filters.locationId, ...(filters.locationIds ?? [])]);
 
   const placeholder = t('location_placeholder', 'Search location...');
   const allLabel = t('location_all', 'All Locations');
@@ -922,11 +942,26 @@ export default function RsLocation({ variation = 1 }: Props) {
 
   const label = t('location_placeholder', 'Location');
   const picked = useMemo(() => pickedLevels(widgetConfig.locationSearchConfig), [widgetConfig.locationSearchConfig]);
+  // 2–3 dropdowns switch any design to the cascading boxes; one keeps the
+  // design's own field (search box, tree…).
+  const boxes = locationBoxes(widgetConfig.locationSearchConfig, variation);
+  const cascading = variation === 2 || boxes > 1;
 
   return (
-    <div class="rs_location">
-      {variation !== 1 && variation !== 2 && <label class="rs-field__label">{label}</label>}
-      {variation === 1 && (
+    <div class={`rs_location${cascading && boxes > 1 ? ` rs_location--multi rs_location--n${boxes}` : ''}`}>
+      {!cascading && variation !== 1 && <label class="rs-field__label">{label}</label>}
+      {cascading && (
+        <CascadingMultiSelect
+          locations={locations}
+          value={filters.locationIds ?? (filters.locationId != null ? [filters.locationId] : undefined)}
+          onChange={handleMultiChange}
+          locked={locked}
+          t={t}
+          config={widgetConfig.locationSearchConfig}
+          visibleCount={boxes}
+        />
+      )}
+      {!cascading && variation === 1 && (
         <Typeahead
           locations={picked ? locations.filter((l) => picked.top.has(l.level) || picked.below.has(l.level)) : locations}
           value={filters.locationId}
@@ -935,17 +970,7 @@ export default function RsLocation({ variation = 1 }: Props) {
           locked={locked}
         />
       )}
-      {variation === 2 && (
-        <CascadingMultiSelect
-          locations={locations}
-          value={filters.locationIds ?? (filters.locationId != null ? [filters.locationId] : undefined)}
-          onChange={handleMultiChange}
-          locked={locked}
-          t={t}
-          config={widgetConfig.locationSearchConfig}
-        />
-      )}
-      {variation === 3 && (
+      {!cascading && variation === 3 && (
         <Hierarchical
           locations={locations}
           value={filters.locationId}
@@ -955,7 +980,7 @@ export default function RsLocation({ variation = 1 }: Props) {
           locked={locked}
         />
       )}
-      {variation === 4 && (
+      {!cascading && variation === 4 && (
         <CollapsibleTree
           locations={locations}
           picked={picked}

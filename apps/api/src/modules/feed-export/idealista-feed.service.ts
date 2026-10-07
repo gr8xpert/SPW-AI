@@ -66,12 +66,17 @@ export class IdealistaFeedService {
 
   async getOverview(tenantId: number) {
     const config = await this.configRepository.findOne({ where: { tenantId } });
+    // Set up before idealista had its own key: give it one now.
+    if (config?.idealista && !config.idealista.feedKey) {
+      config.idealista = { ...config.idealista, feedKey: this.feedExport.generateIdealistaKey() };
+      await this.configRepository.save(config);
+    }
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'slug'] });
     const types = await this.loadTypes(tenantId);
     return {
-      settings: settingsOf(config),
+      settings: publicSettings(config),
       tenantSlug: tenant?.slug ?? '',
-      exportKey: config?.exportKey ?? null,
+      feedKey: config?.idealista?.feedKey ?? null,
       typeOptions: IDEALISTA_TYPES,
       types: [...types.values()]
         .map((t) => {
@@ -93,9 +98,18 @@ export class IdealistaFeedService {
     const config = await this.feedExport.ensureConfig(tenantId);
     const next: IdealistaExportSettings = { ...settingsOf(config), ...stripUndefined(dto) };
     next.propertyIds = [...new Set(next.propertyIds || [])];
+    next.feedKey = config.idealista?.feedKey || this.feedExport.generateIdealistaKey();
     config.idealista = next;
     await this.configRepository.save(config);
-    return { settings: next, exportKey: config.exportKey };
+    return { settings: publicSettings(config), feedKey: next.feedKey };
+  }
+
+  // A new idealista URL; the old one stops working at once.
+  async regenerateKey(tenantId: number) {
+    const config = await this.feedExport.ensureConfig(tenantId);
+    config.idealista = { ...settingsOf(config), feedKey: this.feedExport.generateIdealistaKey() };
+    await this.configRepository.save(config);
+    return { feedKey: config.idealista.feedKey };
   }
 
   async updateTypes(tenantId: number, dto: UpdateIdealistaTypesDto) {
@@ -166,9 +180,13 @@ export class IdealistaFeedService {
 
   // ============ Public feed ============
 
-  async publicFeed(tenantSlug: string, exportKey: string, ip: string, userAgent: string) {
+  async publicFeed(tenantSlug: string, feedKey: string, ip: string, userAgent: string) {
     const started = Date.now();
-    const { config, tenantId, tenant } = await this.feedExport.findConfigByKey(tenantSlug, exportKey);
+    const { config, tenantId, tenant } = await this.feedExport.findConfigBySlug(
+      tenantSlug,
+      (c) => c.idealista?.feedKey,
+      feedKey,
+    );
     const settings = settingsOf(config);
     if (!settings.enabled) throw new NotFoundException('idealista feed is not enabled');
 
@@ -262,6 +280,12 @@ export class IdealistaFeedService {
 
 function settingsOf(config: FeedExportConfig | null): IdealistaExportSettings {
   return { ...DEFAULT_SETTINGS, ...(config?.idealista || {}) };
+}
+
+// Settings for the dashboard form — the key is returned on its own.
+function publicSettings(config: FeedExportConfig | null): Omit<IdealistaExportSettings, 'feedKey'> {
+  const { feedKey: _feedKey, ...rest } = settingsOf(config);
+  return rest;
 }
 
 function stripUndefined<T extends object>(obj: T): Partial<T> {

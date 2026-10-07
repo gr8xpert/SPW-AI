@@ -22,10 +22,10 @@ export default function SearchTemplate03() {
         <RsBedrooms variation={1} />
         <RsBathrooms variation={1} />
         <RsPrice variation={1} />
-        <RsReference />
       </div>
       <div class="rs-search-row rs-t03-actions">
         <RsFeatures variation={1} />
+        <RsReference />
         <RsSearchButton />
         <RsResetButton />
         <RsAiActions />

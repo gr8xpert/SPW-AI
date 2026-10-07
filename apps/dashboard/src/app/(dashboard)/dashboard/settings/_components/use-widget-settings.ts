@@ -34,6 +34,8 @@ export function useWidgetSettings() {
   const [similarPropertiesLimit, setSimilarPropertiesLimit] = useState(6);
   // Mortgage calculator's starting rate (%); empty = the widget's 3.5.
   const [mortgageInterestRate, setMortgageInterestRate] = useState('');
+  // Hide search choices with no listings (default on).
+  const [hideEmptySearchOptions, setHideEmptySearchOptions] = useState(true);
   const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [savingWidget, setSavingWidget] = useState(false);
 
@@ -75,6 +77,7 @@ export function useWidgetSettings() {
     if (tenantData.recaptchaSecretKeyConfigured) setRecaptchaSecretKey('••••••••');
     if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
     setMortgageInterestRate(typeof settings?.mortgageInterestRate === 'number' ? String(settings.mortgageInterestRate) : '');
+    setHideEmptySearchOptions(settings?.hideEmptySearchOptions !== false);
     if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
   };
 
@@ -119,6 +122,7 @@ export function useWidgetSettings() {
         similarPropertiesLimit,
         // null clears it (back to the widget default).
         mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
+        hideEmptySearchOptions,
         baseCurrency,
       });
       toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
@@ -156,6 +160,8 @@ export function useWidgetSettings() {
     setSimilarPropertiesLimit,
     mortgageInterestRate,
     setMortgageInterestRate,
+    hideEmptySearchOptions,
+    setHideEmptySearchOptions,
     baseCurrency,
     setBaseCurrency,
     savingWidget,

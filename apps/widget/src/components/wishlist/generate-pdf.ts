@@ -1,5 +1,6 @@
 import type { Property, Feature } from '@/types';
 import { resolveFeatures } from '@/core/feature-utils';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface JsPDF {
   setFont(font: string, style?: 'normal' | 'bold' | 'italic' | 'bolditalic'): JsPDF;
@@ -154,7 +155,8 @@ async function drawPropertyPage(
   pdf.setTextColor(primary.r, primary.g, primary.b);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(20);
-  const priceText = p.priceOnRequest ? 'Price on Request' : formatPrice(p.price, p.currency);
+  // jsPDF's built-in fonts lack "–", so the range uses a plain hyphen.
+  const priceText = formatPropertyPrice(p, (n) => formatPrice(n, p.currency), (_k, f) => f ?? '', 'Price on Request').replace('–', '-');
   pdf.text(priceText, M, y);
   y += 10;
 

@@ -8,6 +8,7 @@ import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import type { Property } from '@/types';
 import { buildPropertyUrl } from '@/core/url-utils';
 import { useRecaptcha } from '@/hooks/useRecaptcha';
+import { formatPropertyPrice } from '@/core/property-display';
 
 interface Props {
   showCompare?: boolean;
@@ -256,7 +257,7 @@ function CompareModal() {
   }
 
   const rows: { label: string; getValue: (p: Property) => string }[] = [
-    { label: t('price', 'Price'), getValue: (p) => p.priceOnRequest ? t('price_on_request', 'P.O.R.') : formatPrice(p.price, p.currency) },
+    { label: t('price', 'Price'), getValue: (p) => formatPropertyPrice(p, (n) => formatPrice(n, p.currency), t, t('price_on_request', 'P.O.R.')) },
     { label: t('location', 'Location'), getValue: (p) => p.location.name },
     { label: t('type', 'Type'), getValue: (p) => p.propertyType?.name ?? '-' },
     { label: t('bedrooms', 'Bedrooms'), getValue: (p) => p.bedrooms != null ? String(p.bedrooms) : '-' },
@@ -290,7 +291,7 @@ function CompareModal() {
                     )}
                     <div class="rs-compare-table__prop-title">{p.title}</div>
                     <div class="rs-compare-table__prop-price">
-                      {p.priceOnRequest ? t('price_on_request', 'P.O.R.') : formatPrice(p.price, p.currency)}
+                      {formatPropertyPrice(p, (n) => formatPrice(n, p.currency), t, t('price_on_request', 'P.O.R.'))}
                     </div>
                   </th>
                 ))}

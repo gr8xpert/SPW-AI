@@ -8575,3 +8575,16 @@ button.rs-ai__chip:hover {
 .rs-wishlist-email__recaptcha {
   margin: 12px 0 4px;
 }
+
+/* Two or three location dropdowns take as many slots in a search row as they
+   have boxes, so each box is as wide as the other fields (every design;
+   design 01 already lays the boxes out as row items). Phones stack them. */
+.rs-search-row > .rs_location.rs_location--n2 { flex-grow: 2; }
+.rs-search-row > .rs_location.rs_location--n3 { flex-grow: 3; }
+@media (min-width: 641px) {
+  .rs_location--multi .rs-cascading-v2__tab { flex: 1 1 0; min-width: 0; }
+}
+@media (max-width: 640px) {
+  .rs_location--multi .rs-cascading-v2__tab { flex: none; width: 100%; }
+}
+.rs_location--multi .rs-cascading-v2__tab { overflow: hidden; text-overflow: ellipsis; }

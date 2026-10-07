@@ -27,6 +27,9 @@ export interface WidgetConfig {
   enableMortgageCalculator?: boolean;
   mapSearchEnabled?: boolean;
   enableMapView?: boolean;
+  // Dashboard → Settings → Widget: hide locations / types / statuses with no
+  // listings for the search on screen (default on; false = show them as 0).
+  hideEmptySearchOptions?: boolean;
   similarProperties?: boolean;
   similarPropertiesLimit?: number;
 
@@ -34,6 +37,8 @@ export interface WidgetConfig {
   propertyPageUrl?: string;
   propertyRefPosition?: 'start' | 'end';
   resultsPage?: string;
+  // Search tabs with their own page: listing type → page URL (WordPress plugin, per language).
+  resultsPages?: Partial<Record<'sale' | 'development' | 'rent' | 'holiday_rent', string>>;
   wishlistPage?: string;
 
   // Pre-built lookup bundle for this page's language (the WordPress plugin
@@ -60,6 +65,8 @@ export interface WidgetConfig {
     dropdown1: { levels: string[]; visible?: boolean };
     dropdown2: { levels: string[]; visible?: boolean };
     dropdown3: { levels: string[]; visible?: boolean };
+    // How many location dropdowns to show (any search design); unset = the design's default.
+    count?: 1 | 2 | 3;
   };
 
   bedroomOptions?: number[];
@@ -116,6 +123,8 @@ export interface RealtySoftConfig {
   defaultListingType?: string;
   enabledListingTypes?: string[];
   resultsPage?: string;
+  // Search tabs with their own page: listing type → page URL (WordPress plugin, per language).
+  resultsPages?: Partial<Record<'sale' | 'development' | 'rent' | 'holiday_rent', string>>;
   wishlistPage?: string;
   /** Local data files folder (WordPress plugin); false = none, use the API. */
   dataPath?: string | false;

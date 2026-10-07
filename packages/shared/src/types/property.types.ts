@@ -112,6 +112,8 @@ export interface Property {
   // Pricing
   price: DecimalValue | null;
   priceTo: DecimalValue | null;
+  // What a rental price covers; null = plain price.
+  rentalPeriod: 'night' | 'week' | 'month' | null;
   priceOnRequest: boolean;
   currency: string;
 

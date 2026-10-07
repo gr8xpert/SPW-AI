@@ -3,8 +3,9 @@ import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useDragScroll } from '@/hooks/useDragScroll';
-import { useFacets } from '@/hooks/useFacets';
+import { useFacets, hidesEmpty } from '@/hooks/useFacets';
 import RsCustomSelect from './RsCustomSelect';
+import { hasTabPages, isCurrentPage, resultsPageFor } from '@/core/results-pages';
 
 interface Props {
   variation?: number;
@@ -39,14 +40,29 @@ export default function RsListingType({ variation = 1 }: Props) {
     return ALL_LISTING_TYPES.filter(lt => lt.value === '' || enabled.includes(lt.value));
   }, [config.enabledListingTypes]);
 
+  // In the dropdown, statuses that would find nothing drop out ("All" and
+  // the current one stay). Tabs and radio buttons always show every enabled
+  // type — only Settings → Widget → Listing Types hides one.
+  const SHOWN_TYPES = useMemo(() => {
+    if (!hidesEmpty(config, facets) || !facets?.listingTypes) return LISTING_TYPES;
+    return LISTING_TYPES.filter(lt => lt.value === '' || lt.value === current || (facets.listingTypes![lt.value] ?? 0) > 0);
+  }, [LISTING_TYPES, config, facets, current]);
+
   const handleChange = useCallback((value: string) => {
     setFilter('listingType', value || undefined);
   }, [setFilter]);
 
   const handleTabChange = useCallback((value: string) => {
     setFilter('listingType', value || undefined);
+    // A tab with its own page elsewhere: just select it (the counts follow);
+    // Search takes the visitor there. Searching here would show, say, new
+    // developments under a /holiday-rentals/ address.
+    if (hasTabPages(config)) {
+      const target = resultsPageFor(value || undefined, config);
+      if (target && !isCurrentPage(target.url)) return;
+    }
     setTimeout(() => window.RealtySoft?.search(), 0);
-  }, [setFilter]);
+  }, [setFilter, config]);
 
   if (variation === 3) {
     return (
@@ -75,12 +91,12 @@ export default function RsListingType({ variation = 1 }: Props) {
   // In the dropdown the empty choice names the field ("Status"); the tabs and
   // radios keep "All".
   const selectOptions = useMemo(() =>
-    LISTING_TYPES.map(lt => ({
+    SHOWN_TYPES.map(lt => ({
       value: lt.value,
       label: lt.value === '' ? t('listing_type_placeholder', 'Status') : t(lt.labelKey, lt.fallback),
       count: lt.value === '' || !facets ? undefined : facets.listingTypes?.[lt.value] ?? 0,
     })),
-  [t, LISTING_TYPES, facets]);
+  [t, SHOWN_TYPES, facets]);
 
   if (variation === 2) {
     return (
