@@ -122,7 +122,7 @@ export function renderLayoutV1(ctx: BrochureContext): string {
     </div>` : ''}
 
     <div class="price-strip">
-      <div class="price-value">${formatPrice(property, labels)}</div>
+      <div class="price-value">${escapeHtml(formatPrice(property, labels))}</div>
     </div>
 
     <div class="spec-strip">
