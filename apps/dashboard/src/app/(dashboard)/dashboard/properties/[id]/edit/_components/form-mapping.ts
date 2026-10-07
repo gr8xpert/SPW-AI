@@ -12,7 +12,7 @@ export const EMPTY_FORM: PropertyFormData = {
   features: [], videoUrl: '', virtualTourUrl: '', floorPlanUrl: '', floorPlans: [], lat: '', lng: '',
   geoLocationLabel: '', isFeatured: false, isPublished: false, floor: '', street: '',
   streetNumber: '', postcode: '', cadastralReference: '', communityFees: '', basuraTax: '',
-  ibiFees: '', commission: '', sharedCommission: false, builtYear: '', energyConsumption: '', energyRating: '', brochureVariant: 'inherit',
+  ibiFees: '', commission: '', sharedCommission: false, builtYear: '', energyConsumption: '', energyRating: '', developmentName: '', keyReady: false, brochureVariant: 'inherit',
   distanceToBeach: '', externalLink: '', blogUrl: '', mapLink: '', websiteUrl: '', slug: '',
   metaTitle: { ...emptyMultilingual }, metaDescription: { ...emptyMultilingual },
   metaKeywords: { ...emptyMultilingual }, pageTitle: { ...emptyMultilingual }, seoSchemaJson: '',
@@ -91,6 +91,8 @@ export function propertyToForm(property: Property): PropertyFormData {
     builtYear: str(property.builtYear),
     energyConsumption: dec(property.energyConsumption),
     energyRating: property.energyRating || '',
+    developmentName: property.developmentName || '',
+    keyReady: !!property.keyReady,
     brochureVariant: property.brochureVariant || 'inherit',
     distanceToBeach: dec(property.distanceToBeach),
     externalLink: property.externalLink || '',
@@ -165,6 +167,8 @@ export function buildUpdatePayload(
     apartmentSelection: formData.apartmentSelection,
     syncEnabled: formData.syncEnabled,
     brochureVariant: formData.brochureVariant,
+    developmentName: formData.developmentName.trim() || null,
+    keyReady: formData.keyReady,
   };
 
   if (opts.propertySource === 'manual') payload.reference = formData.reference;

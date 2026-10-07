@@ -10,7 +10,7 @@ import { useWishlistState, wishlistActions } from '@/hooks/useWishlistState';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import type { Property } from '@/types';
 import RsWishlistEmpty from './RsWishlistEmpty';
-import { formatPropertyPrice } from '@/core/property-display';
+import { formatPropertyPrice, specRange } from '@/core/property-display';
 
 export default function RsWishlistGrid() {
   const { t } = useLabels();
@@ -83,20 +83,20 @@ export default function RsWishlistGrid() {
                 {property.bedrooms != null && (
                   <span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7"/><path d="M21 11H3V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4z"/></svg>
-                    {property.bedrooms} {t('beds', 'Beds')}
+                    {specRange(property, 'bedrooms')} {t('beds', 'Beds')}
                   </span>
                 )}
                 {property.bathrooms != null && (
                   <span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1z"/><path d="M6 12V5a2 2 0 0 1 2-2h3v2.25"/></svg>
-                    {property.bathrooms} {t('baths', 'Baths')}
+                    {specRange(property, 'bathrooms')} {t('baths', 'Baths')}
                   </span>
                 )}
                 {property.buildSize != null && (
-                  <span>{property.buildSize} m²</span>
+                  <span>{specRange(property, 'buildSize')} m²</span>
                 )}
                 {property.plotSize != null && (
-                  <span>{t('card_plot_size', 'Plot')}: {property.plotSize} m²</span>
+                  <span>{t('card_plot_size', 'Plot')}: {specRange(property, 'plotSize')} m²</span>
                 )}
               </div>
               <p class="rs-wishlist-grid__ref">

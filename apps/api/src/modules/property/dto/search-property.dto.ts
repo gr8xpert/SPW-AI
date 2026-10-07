@@ -225,6 +225,14 @@ export class SearchPropertyDto {
   @Type(() => Boolean)
   isOwnProperty?: boolean;
 
+  // New developments that are ready to move into (Key Ready). Only "on" is a
+  // filter; off shows everything.
+  @IsOptional()
+  // Read the raw query value: implicit conversion has already made 'false' true.
+  @Transform(({ obj, key }) => ['true', '1', 'yes'].includes(String(obj[key]).toLowerCase()))
+  @IsBoolean()
+  keyReady?: boolean;
+
   // Sort values the widget emits via RsSort.tsx. PropertySearchService.applySorting
   // is the source of truth — keep this list in sync with the switch cases there.
   // Unknown values would otherwise be silently rejected (forbidNonWhitelisted)

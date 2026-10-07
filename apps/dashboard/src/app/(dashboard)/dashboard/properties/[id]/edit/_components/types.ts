@@ -85,6 +85,8 @@ export interface PropertyFormData {
   builtYear: string;
   energyConsumption: string;
   energyRating: string;
+  developmentName: string;
+  keyReady: boolean;
   brochureVariant: BrochureVariant;
   distanceToBeach: string;
   externalLink: string;

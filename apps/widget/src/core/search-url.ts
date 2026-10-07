@@ -106,6 +106,7 @@ export function filtersToQuery(filters: SearchFilters, lists: NameLists = {}): s
     if (typeof one === 'number' && one > 0) params.set(param, token(one, list));
   }
   if (filters.isFeatured) params.set('featured', '1');
+  if (filters.keyReady) params.set('key_ready', '1');
   return params.toString();
 }
 
@@ -155,6 +156,7 @@ export function filtersFromQuery(search: string = window.location.search): Searc
   }
 
   if (params.get('featured') === '1' || params.get('isFeatured') === 'true') out.isFeatured = true;
+  if (params.get('key_ready') === '1' || params.get('keyReady') === 'true') out.keyReady = true;
   return out as SearchFilters;
 }
 

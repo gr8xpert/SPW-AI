@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 import type { Feature } from '@/types';
+import RsKeyReady from './RsKeyReady';
 
 interface Props {
   grouped: Map<string, Feature[]>;
@@ -54,6 +55,7 @@ export default function RsFeaturesModal({ grouped, selected, toggle, clearAll, o
           />
         </div>
         <div class="rs-modal-body">
+          <RsKeyReady />
           <div class="rs-features-modal__categories">
             {Array.from(filteredGrouped.entries()).map(([cat, feats]) => {
               const isOpen = expanded.has(cat) || search.trim().length > 0;

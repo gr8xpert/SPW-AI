@@ -63,6 +63,7 @@ export function registerAllComponents(): void {
   registerComponent('terrace', () => import('@/components/search/RsTerrace'));
   registerComponent('features', () => import('@/components/search/RsFeatures'));
   registerComponent('quick_features', () => import('@/components/search/RsQuickFeatures'));
+  registerComponent('key_ready', () => import('@/components/search/RsKeyReady'));
   registerComponent('reference', () => import('@/components/search/RsReference'));
   registerComponent('search_button', () => import('@/components/search/RsSearchButton'));
   registerComponent('ai_search', () => import('@/components/search/RsAiSearch'));
@@ -103,6 +104,7 @@ export function registerAllComponents(): void {
   registerComponent('detail_description', () => import('@/components/detail/RsDetailDescription'));
   registerComponent('detail_features', () => import('@/components/detail/RsDetailFeatures'));
   registerComponent('detail_specs', () => import('@/components/detail/RsDetailSpecs'));
+  registerComponent('detail_price_list', () => import('@/components/detail/RsDetailPriceList'));
   registerComponent('detail_resources', () => import('@/components/detail/RsDetailResources'));
   registerComponent('detail_video_embed', () => import('@/components/detail/RsDetailVideoEmbed'));
   registerComponent('detail_video_link', () => import('@/components/detail/RsDetailVideoLink'));

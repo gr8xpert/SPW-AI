@@ -988,6 +988,14 @@ button.rs-reset-btn--icon svg {
   gap: 2px;
 }
 
+/* ── Features modal: Key ready tick above the categories ── */
+.rs-modal-body > .rs_key_ready {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rs-border);
+  font-weight: 600;
+}
+
 /* ── Features modal: search ── */
 .rs-features-modal__search {
   padding: 16px 24px;
@@ -2557,6 +2565,11 @@ button.rs-property-card__arrow:hover {
 .rs-property-card__badge--own,
 .rs-property-card__badge--featured {
   background: var(--rs-primary);
+  color: #fff;
+}
+
+.rs-property-card__badge--key-ready {
+  background: #15803d;
   color: #fff;
 }
 
@@ -5649,6 +5662,151 @@ button.rs-detail-description__toggle:hover {
   font-weight: 500;
   background: #fff;
   width: 25%;
+}
+
+/* New development price list (Resales PriceList) */
+.rs-detail-price-list__summary {
+  margin: -4px 0 12px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.rs-detail-price-list__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--rs-border, #e5e7eb);
+  border-radius: var(--rs-radius, 8px);
+}
+
+.rs-detail-price-list__table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  background: #fff;
+}
+
+.rs-detail-price-list__table th,
+.rs-detail-price-list__table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--rs-border, #e5e7eb);
+  white-space: nowrap;
+}
+
+.rs-detail-price-list__table th {
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
+}
+
+.rs-detail-price-list__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.rs-detail-price-list__table .rs-detail-price-list__num {
+  text-align: right;
+}
+
+.rs-detail-price-list__price {
+  font-weight: 600;
+  color: #111827;
+}
+
+.rs-detail-price-list__row--sold td {
+  color: #9ca3af;
+}
+
+.rs-detail-price-list__status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.rs-detail-price-list__status--available {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.rs-detail-price-list__status--reserved {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rs-detail-price-list__key-ready {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+/* Phones: one small card per unit — name and type, the figures, then price and status. */
+@media (max-width: 640px) {
+  .rs-detail-price-list__scroll {
+    border: 0;
+    overflow: visible;
+  }
+
+  .rs-detail-price-list__table {
+    min-width: 0;
+    background: transparent;
+  }
+
+  .rs-detail-price-list__table thead {
+    display: none;
+  }
+
+  .rs-detail-price-list__table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--rs-border, #e5e7eb);
+    border-radius: var(--rs-radius, 8px);
+    background: #fff;
+  }
+
+  .rs-detail-price-list__table td {
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  .rs-detail-price-list__table .rs-detail-price-list__num {
+    text-align: left;
+  }
+
+  .rs-detail-price-list__name {
+    grid-column: 1 / 2;
+    font-weight: 600;
+  }
+
+  .rs-detail-price-list__type {
+    grid-column: 2 / 5;
+    color: #6b7280;
+  }
+
+  .rs-detail-price-list__table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+  }
+
+  .rs-detail-price-list__table .rs-detail-price-list__price {
+    grid-column: 1 / 3;
+    font-size: 1rem;
+  }
+
+  .rs-detail-price-list__state {
+    grid-column: 3 / 5;
+    text-align: right;
+  }
 }
 
 .rs-detail-specs-table__label--empty,

@@ -44,11 +44,18 @@ export interface FeedProperty {
   rentalPeriod?: 'night' | 'week' | 'month';
   priceOnRequest?: boolean;
   currency: string;
+  // Developments send ranges ("1 - 3"): the low end here, the high end in
+  // the matching *To field (set only when higher).
   bedrooms?: number;
+  bedroomsTo?: number;
   bathrooms?: number;
+  bathroomsTo?: number;
   buildSize?: number;
+  buildSizeTo?: number;
   plotSize?: number;
+  plotSizeTo?: number;
   terraceSize?: number;
+  terraceSizeTo?: number;
   gardenSize?: number;
   images: FeedPropertyImage[];
   features: string[];
@@ -76,6 +83,22 @@ export interface FeedProperty {
   basuraTax?: number;
   builtYear?: number;
   energyRating?: string;
+  // New developments: name, ready to move into, and the units' price list.
+  developmentName?: string;
+  keyReady?: boolean;
+  units?: FeedDevelopmentUnit[];
+}
+
+export interface FeedDevelopmentUnit {
+  name: string;
+  type: string | null;
+  price: number | null;
+  builtSize: number | null;
+  terraceSize: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  keyReady: boolean | null;
+  status: string;
 }
 
 export interface FeedImportResult {

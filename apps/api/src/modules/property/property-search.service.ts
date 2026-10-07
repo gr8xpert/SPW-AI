@@ -63,6 +63,8 @@ export class PropertySearchService {
     types: Record<number, number>;
     locations: Record<number, number>;
     listingTypes: Record<string, number>;
+    features: Record<number, number>;
+    keyReady: number;
   }> {
     const grouped = async (column: 'propertyTypeId' | 'locationId' | 'listingType', without: Partial<SearchPropertyDto>) => {
       const query = this.propertyRepository
@@ -95,17 +97,54 @@ export class PropertySearchService {
       }
       return out;
     };
-    const [types, locations, listingTypes] = await Promise.all([
+    // Features are counted with the whole search, ticked features included:
+    // they combine with AND, so the count is what ticking one more would find.
+    const featureCounts = async () => {
+      const query = this.propertyRepository
+        .createQueryBuilder('p')
+        .select('p.features', 'features')
+        .where('p.tenantId = :tenantId', { tenantId })
+        .andWhere('p.status = :status', { status: 'active' })
+        .andWhere('p.isPublished = :published', { published: true })
+        .andWhere('p.features IS NOT NULL');
+      await this.applyFilters(query, dto, tenantId);
+      const out: Record<number, number> = {};
+      for (const row of await query.getRawMany<{ features: unknown }>()) {
+        let ids = row.features;
+        if (typeof ids === 'string') {
+          try { ids = JSON.parse(ids); } catch { continue; }
+        }
+        if (!Array.isArray(ids)) continue;
+        for (const id of new Set(ids.map(Number))) {
+          if (Number.isFinite(id)) out[id] = (out[id] || 0) + 1;
+        }
+      }
+      return out;
+    };
+    const [types, locations, listingTypes, features] = await Promise.all([
       grouped('propertyTypeId', { propertyTypeId: undefined, propertyTypeIds: undefined }),
       grouped('locationId', { locationId: undefined, locationIds: undefined }),
       // Counted without the chosen status, so For Sale still shows how many
       // rentals there are. The site's own listing-type limit still applies.
       grouped('listingType', { listingType: undefined }),
+      featureCounts(),
     ]);
+    // Key-ready listings for the search without the Key Ready tick, so the
+    // checkbox shows only where there is something to narrow down to.
+    const keyReadyQuery = this.propertyRepository
+      .createQueryBuilder('p')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true })
+      .andWhere('p.keyReady = 1');
+    await this.applyFilters(keyReadyQuery, { ...dto, keyReady: undefined } as SearchPropertyDto, tenantId);
+    const keyReady = await keyReadyQuery.getCount();
     return {
       types: await rollUp(byId(types), 'property_types'),
       locations: await rollUp(byId(locations), 'locations'),
       listingTypes: Object.fromEntries(listingTypes.map((r) => [String(r.id), Number(r.count)])),
+      features,
+      keyReady,
     };
   }
 
@@ -379,15 +418,17 @@ export class PropertySearchService {
     if (dto.listingType) query.andWhere('p.listingType = :listingType', { listingType: dto.listingType });
     if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });
     if (dto.maxPrice !== undefined) query.andWhere('p.price <= :maxPrice', { maxPrice: dto.maxPrice });
-    if (dto.minBedrooms !== undefined) query.andWhere('p.bedrooms >= :minBeds', { minBeds: dto.minBedrooms });
+    // A development is a range (1–3 beds): it matches when the range overlaps
+    // the search, so 2+ beds finds it by its high end and up to 2 by its low end.
+    if (dto.minBedrooms !== undefined) query.andWhere('COALESCE(p.bedroomsTo, p.bedrooms) >= :minBeds', { minBeds: dto.minBedrooms });
     if (dto.maxBedrooms !== undefined) query.andWhere('p.bedrooms <= :maxBeds', { maxBeds: dto.maxBedrooms });
-    if (dto.minBathrooms !== undefined) query.andWhere('p.bathrooms >= :minBaths', { minBaths: dto.minBathrooms });
+    if (dto.minBathrooms !== undefined) query.andWhere('COALESCE(p.bathroomsTo, p.bathrooms) >= :minBaths', { minBaths: dto.minBathrooms });
     if (dto.maxBathrooms !== undefined) query.andWhere('p.bathrooms <= :maxBaths', { maxBaths: dto.maxBathrooms });
-    if (dto.minBuildSize !== undefined) query.andWhere('p.buildSize >= :minBuild', { minBuild: dto.minBuildSize });
+    if (dto.minBuildSize !== undefined) query.andWhere('COALESCE(p.buildSizeTo, p.buildSize) >= :minBuild', { minBuild: dto.minBuildSize });
     if (dto.maxBuildSize !== undefined) query.andWhere('p.buildSize <= :maxBuild', { maxBuild: dto.maxBuildSize });
-    if (dto.minPlotSize !== undefined) query.andWhere('p.plotSize >= :minPlot', { minPlot: dto.minPlotSize });
+    if (dto.minPlotSize !== undefined) query.andWhere('COALESCE(p.plotSizeTo, p.plotSize) >= :minPlot', { minPlot: dto.minPlotSize });
     if (dto.maxPlotSize !== undefined) query.andWhere('p.plotSize <= :maxPlot', { maxPlot: dto.maxPlotSize });
-    if (dto.minTerraceSize !== undefined) query.andWhere('p.terraceSize >= :minTerrace', { minTerrace: dto.minTerraceSize });
+    if (dto.minTerraceSize !== undefined) query.andWhere('COALESCE(p.terraceSizeTo, p.terraceSize) >= :minTerrace', { minTerrace: dto.minTerraceSize });
     if (dto.maxTerraceSize !== undefined) query.andWhere('p.terraceSize <= :maxTerrace', { maxTerrace: dto.maxTerraceSize });
     if (dto.minSolariumSize !== undefined) query.andWhere('p.solariumSize >= :minSol', { minSol: dto.minSolariumSize });
     if (dto.maxSolariumSize !== undefined) query.andWhere('p.solariumSize <= :maxSol', { maxSol: dto.maxSolariumSize });
@@ -398,6 +439,7 @@ export class PropertySearchService {
     }
     if (dto.isFeatured !== undefined) query.andWhere('p.isFeatured = :isFeatured', { isFeatured: dto.isFeatured });
     if (dto.isOwnProperty !== undefined) query.andWhere('p.isOwnProperty = :isOwnProperty', { isOwnProperty: dto.isOwnProperty });
+    if (dto.keyReady) query.andWhere('p.keyReady = 1');
   }
 
   /**

@@ -198,6 +198,16 @@ export class CreatePropertyDto {
   @MaxLength(2)
   energyRating?: string;
 
+  // New developments: the development's name and whether it is ready to move into.
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  developmentName?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  keyReady?: boolean | null;
+
   // Distance
   @IsNumber()
   @IsOptional()

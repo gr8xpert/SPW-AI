@@ -310,6 +310,8 @@ function CreatePropertyPageInner() {
     builtYear: '',
     energyConsumption: '',
     energyRating: '',
+    developmentName: '',
+    keyReady: false,
     distanceToBeach: '',
     externalLink: '',
     blogUrl: '',
@@ -514,7 +516,7 @@ function CreatePropertyPageInner() {
         'urbanization', 'floor', 'street', 'streetNumber', 'postcode',
         'cadastralReference', 'videoUrl', 'virtualTourUrl', 'externalLink',
         'blogUrl', 'mapLink', 'websiteUrl', 'slug', 'project',
-        'geoLocationLabel', 'propertyTypeReference', 'energyRating',
+        'geoLocationLabel', 'propertyTypeReference', 'energyRating', 'developmentName',
       ];
       for (const f of stringFields) {
         if (formData[f as keyof typeof formData]) payload[f] = formData[f as keyof typeof formData];
@@ -533,6 +535,7 @@ function CreatePropertyPageInner() {
       }
 
       if (formData.rentalPeriod) payload.rentalPeriod = formData.rentalPeriod;
+      if (formData.keyReady) payload.keyReady = true;
       if (formData.propertyTypeId) payload.propertyTypeId = Number(formData.propertyTypeId);
       if (formData.locationId) payload.locationId = Number(formData.locationId);
       if (formData.agentId) payload.agentId = Number(formData.agentId);
@@ -874,8 +877,8 @@ function CreatePropertyPageInner() {
                   <div key={from} className="space-y-2 md:col-span-2">
                     <Label>{label}</Label>
                     <div className="grid grid-cols-2 gap-2">
-                      <Input type="number" placeholder={`From ${phFrom}`} value={formData[from as keyof typeof formData] as string} onChange={(e) => handleInputChange(from, e.target.value)} />
-                      <Input type="number" placeholder={`To ${phTo}`} value={formData[to as keyof typeof formData] as string} onChange={(e) => handleInputChange(to, e.target.value)} />
+                      <Input type="number" step="any" placeholder={`From ${phFrom}`} value={formData[from as keyof typeof formData] as string} onChange={(e) => handleInputChange(from, e.target.value)} />
+                      <Input type="number" step="any" placeholder={`To ${phTo}`} value={formData[to as keyof typeof formData] as string} onChange={(e) => handleInputChange(to, e.target.value)} />
                     </div>
                   </div>
                 ))}
@@ -912,6 +915,16 @@ function CreatePropertyPageInner() {
                 <div className="space-y-2">
                   <Label htmlFor="completionDate">Completion Date</Label>
                   <Input id="completionDate" type="date" value={formData.completionDate} onChange={(e) => handleInputChange('completionDate', e.target.value)} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="developmentName">Development Name</Label>
+                  <Input id="developmentName" value={formData.developmentName} onChange={(e) => handleInputChange('developmentName', e.target.value)} placeholder="New developments only" />
+                </div>
+                <div className="flex items-end pb-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="keyReady" checked={formData.keyReady} onCheckedChange={(c) => handleInputChange('keyReady', !!c)} />
+                    <Label htmlFor="keyReady">Key Ready</Label>
+                  </div>
                 </div>
               </div>
             </CardContent>

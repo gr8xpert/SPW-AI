@@ -1,6 +1,7 @@
 // Listing template 05 — "showcase": everything overlaid on the photo.
 import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardBadges, CardFavorite, CardPrice } from './CardParts';
+import { specRange } from '@/core/property-display';
 
 export default function CardShowcase({ property, index = 0 }: CardProps) {
   const s = useCardState(property);
@@ -36,7 +37,7 @@ export default function CardShowcase({ property, index = 0 }: CardProps) {
                     </svg>
                   </span>
                   <span class="rs-property-card__showcase-stat-text">
-                    <span class="rs-property-card__showcase-stat-value">{property.buildSize}m²</span>
+                    <span class="rs-property-card__showcase-stat-value">{specRange(property, 'buildSize')}m²</span>
                     <span class="rs-property-card__showcase-stat-label">{t('card_built_area', 'Built')}</span>
                   </span>
                 </div>
@@ -49,7 +50,7 @@ export default function CardShowcase({ property, index = 0 }: CardProps) {
                     </svg>
                   </span>
                   <span class="rs-property-card__showcase-stat-text">
-                    <span class="rs-property-card__showcase-stat-value">{property.bedrooms}</span>
+                    <span class="rs-property-card__showcase-stat-value">{specRange(property, 'bedrooms')}</span>
                     <span class="rs-property-card__showcase-stat-label">{t('card_bedrooms', 'Beds')}</span>
                   </span>
                 </div>
@@ -62,7 +63,7 @@ export default function CardShowcase({ property, index = 0 }: CardProps) {
                     </svg>
                   </span>
                   <span class="rs-property-card__showcase-stat-text">
-                    <span class="rs-property-card__showcase-stat-value">{property.bathrooms}</span>
+                    <span class="rs-property-card__showcase-stat-value">{specRange(property, 'bathrooms')}</span>
                     <span class="rs-property-card__showcase-stat-label">{t('card_bathrooms', 'Baths')}</span>
                   </span>
                 </div>

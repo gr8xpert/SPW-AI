@@ -1,6 +1,7 @@
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { specRange } from '@/core/property-display';
 
 export default function RsDetailTerrace() {
   const { t } = useLabels();
@@ -9,7 +10,7 @@ export default function RsDetailTerrace() {
 
   return (
     <span class="rs-detail-spec rs-detail-spec--terrace">
-      <span class="rs-detail-spec__value">{property.terraceSize} m²</span>
+      <span class="rs-detail-spec__value">{specRange(property, 'terraceSize')} m²</span>
       <span class="rs-detail-spec__label">{t('detail_terrace', 'Terrace')}</span>
     </span>
   );

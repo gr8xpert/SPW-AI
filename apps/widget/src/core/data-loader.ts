@@ -661,6 +661,10 @@ export interface Facets {
   locations: Record<number, number>;
   // Optional: absent from APIs older than 2026-10-03.
   listingTypes?: Record<string, number>;
+  // Listings having each feature (ids as keys). Absent before 2026-10-07i.
+  features?: Record<number, number>;
+  // Key-ready listings for the search, the Key Ready tick left out.
+  keyReady?: number;
 }
 
 export interface MapPointsResponse {
@@ -710,6 +714,7 @@ function searchParams(filters: SearchFilters): Record<string, string | number | 
   if (filters.references?.length) params.references = filters.references.join(',');
   if (filters.isFeatured) params.isFeatured = true;
   if (filters.isOwnProperty) params.isOwnProperty = true;
+  if (filters.keyReady) params.keyReady = true;
   if (filters.sortBy) params.sortBy = filters.sortBy;
   if (filters.page) params.page = filters.page;
   if (filters.limit) params.limit = filters.limit;

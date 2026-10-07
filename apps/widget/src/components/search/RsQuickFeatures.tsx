@@ -4,6 +4,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { useNonEmpty } from '@/hooks/useFacets';
 import RsFeaturesModal from './RsFeaturesModal';
 import type { Feature } from '@/types';
 
@@ -16,9 +17,9 @@ export default function RsQuickFeatures(props: Props) {
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
   const config = useConfig();
-  const allFeatures = useSelector(selectors.getFeatures);
   const locked = isLocked('features');
   const selected = filters.features ?? [];
+  const allFeatures = useNonEmpty(useSelector(selectors.getFeatures), 'features', selected);
   const [modalOpen, setModalOpen] = useState(false);
 
   const overrideIds = props['feature-ids'];

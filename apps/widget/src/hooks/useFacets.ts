@@ -69,7 +69,7 @@ export function countClass(base: string, count: number | undefined): string {
 }
 
 // ── Hiding choices that would find nothing ───────────────────────────────
-// Once live counts are in, a location / type / status with 0 listings for the
+// Once live counts are in, a location / type / status / feature with 0 listings for the
 // search on screen drops out of the lists (Settings → Widget → "Hide search
 // options with no listings", on unless set off). Kept regardless: what the
 // visitor already picked (so it can be unticked) and the parents of anything
@@ -104,7 +104,7 @@ export function withoutEmpty<T extends { id: number; parentId?: number | null }>
 /** The list a dropdown shows: `items` minus the choices that find nothing. */
 export function useNonEmpty<T extends { id: number; parentId?: number | null }>(
   items: T[],
-  dimension: 'types' | 'locations',
+  dimension: 'types' | 'locations' | 'features',
   keep: Array<number | null | undefined>,
 ): T[] {
   const facets = useFacets();

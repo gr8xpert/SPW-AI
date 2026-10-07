@@ -4,7 +4,7 @@
 import { useEffect } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
-import { getDisplayReference } from '@/core/property-display';
+import { getDisplayReference, specRange } from '@/core/property-display';
 import css from '@/styles/listing-classic.css?inline';
 import { useCardState, type CardProps, type CardState } from './useCardState';
 import { CardPrice } from './CardParts';
@@ -49,10 +49,10 @@ function Specs({ s, n, size }: { s: CardState; n: string; size: number }) {
   // Sizes arrive as decimal strings ("0.00"), so compare as numbers.
   const n0 = (v: unknown) => Math.round(Number(v) || 0);
   const rows: [keyof typeof ICONS, string | null][] = [
-    ['beds', n0(p.bedrooms) ? `${n0(p.bedrooms)} ${t('card_bedrooms', 'Beds')}` : null],
-    ['baths', n0(p.bathrooms) ? `${n0(p.bathrooms)} ${t('card_bathrooms', 'Baths')}` : null],
-    ['built', n0(p.buildSize) ? `${n0(p.buildSize)} m²` : null],
-    ['plot', n0(p.plotSize) ? `${n0(p.plotSize)} m²` : null],
+    ['beds', n0(p.bedrooms) ? `${specRange(p, 'bedrooms')} ${t('card_bedrooms', 'Beds')}` : null],
+    ['baths', n0(p.bathrooms) ? `${specRange(p, 'bathrooms')} ${t('card_bathrooms', 'Baths')}` : null],
+    ['built', n0(p.buildSize) ? `${specRange(p, 'buildSize')} m²` : null],
+    ['plot', n0(p.plotSize) ? `${specRange(p, 'plotSize')} m²` : null],
   ];
   return (
     <>

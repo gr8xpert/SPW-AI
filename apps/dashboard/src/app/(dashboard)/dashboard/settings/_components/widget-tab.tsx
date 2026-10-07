@@ -231,7 +231,7 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
               <div className="space-y-1">
                 <Label htmlFor="hide-empty-options">Hide search options with no listings</Label>
                 <p className="text-xs text-muted-foreground">
-                  Locations, property types and statuses that would find nothing for the visitor&apos;s search disappear from the dropdowns and tabs as they search. Turn off to show them with a 0.
+                  Locations, property types, statuses and features that would find nothing for the visitor&apos;s search disappear from the dropdowns as they search. Listing-type tabs always stay. Turn off to show everything.
                 </p>
               </div>
               <Switch id="hide-empty-options" checked={hideEmptySearchOptions} onCheckedChange={setHideEmptySearchOptions} />

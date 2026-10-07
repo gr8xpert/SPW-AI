@@ -55,6 +55,7 @@ import { formatHM } from '@/lib/time';
 import { AttachmentList } from '@/components/tickets/attachment-list';
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 import { useTenantTicket, useTenantTicketMutation, useTenantTicketStats, useTenantTickets } from './use-tickets';
+import { PageNumbers } from '@/components/ui/page-numbers';
 
 interface Ticket {
   id: number;
@@ -377,10 +378,7 @@ export default function TicketsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
-                  </div>
+                  <PageNumbers page={page} pages={totalPages} onChange={setPage} />
                 </div>
               )}
             </>

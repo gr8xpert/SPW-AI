@@ -1,4 +1,4 @@
-export type { Property, PropertyImage, PropertyType, Location, Feature, Agent, SearchResults, ListingType } from './property';
+export type { Property, DevelopmentUnit, PropertyImage, PropertyType, Location, Feature, Agent, SearchResults, ListingType } from './property';
 export type { SearchFilters, LockedFilters, PrefilledFilters, SortOption } from './search';
 export type { WidgetConfig, RealtySoftConfig, ThemeVars } from './config';
 export type { Labels } from './labels';

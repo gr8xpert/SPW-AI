@@ -66,6 +66,7 @@ import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
 import { BulkSeoDialog } from '@/components/bulk-seo-dialog';
 import { useBulkJob } from '@/hooks/use-bulk-job';
 import { propertyKeys, useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
+import { PageNumbers } from '@/components/ui/page-numbers';
 
 interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
 
@@ -117,8 +118,26 @@ export default function PropertiesPage() {
     const q = new URLSearchParams(window.location.search);
     const id = q.get('locationId');
     if (id && /^\d+$/.test(id)) setLocation({ id, name: q.get('locationName') || `#${id}` });
+    const p = Number(q.get('page'));
+    if (Number.isInteger(p) && p > 1) setPage(p);
     setUrlRead(true);
   }, []);
+
+  // The page number lives in the address, so opening a listing and coming
+  // back (or a refresh) lands on the same page instead of page 1.
+  useEffect(() => {
+    if (!urlRead) return;
+    const q = new URLSearchParams(window.location.search);
+    if (page > 1) q.set('page', String(page));
+    else q.delete('page');
+    const query = q.toString();
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+  }, [page, urlRead]);
+
+  const changePage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const clearLocation = () => {
     setLocation(null);
@@ -572,15 +591,12 @@ export default function PropertiesPage() {
               </Table>
 
               {meta && meta.pages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <p className="text-sm text-muted-foreground">
                     Showing {(meta.page - 1) * meta.limit + 1} to{' '}
                     {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} results
                   </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(meta.pages, p + 1))} disabled={page === meta.pages}>Next</Button>
-                  </div>
+                  <PageNumbers page={page} pages={meta.pages} onChange={changePage} />
                 </div>
               )}
             </>

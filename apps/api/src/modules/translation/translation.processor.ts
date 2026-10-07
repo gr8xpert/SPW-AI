@@ -52,6 +52,12 @@ export class TranslationProcessor extends WorkerHost {
     }
   }
 
+  // Properties translated at once. Each is a few AI calls (one per language);
+  // one at a time an 11k catalogue took days (10-07: 3% in 30 minutes).
+  private static readonly PARALLEL = 6;
+  private static readonly BATCH = 60;
+  private static readonly FIELDS = ['title', 'description', 'metaTitle', 'metaDescription', 'metaKeywords', 'pageTitle'] as const;
+
   private async processProperties(
     job: Job,
     tenantId: number,
@@ -64,68 +70,89 @@ export class TranslationProcessor extends WorkerHost {
       where.id = In(propertyIds);
     }
 
-    const properties = await this.propertyRepository.find({ where });
-    const total = properties.length * targetLanguages.length;
+    // Ids first, rows in batches: 11k full rows (descriptions in every
+    // language) don't need to sit in memory for the whole run.
+    const ids = (await this.propertyRepository.find({ where, select: ['id'], order: { id: 'ASC' } })).map((p) => p.id);
+    const total = ids.length * targetLanguages.length;
     let completed = 0;
     let failed = 0;
     let changed = 0;
+    let lastReport = 0;
+    const report = async (force = false) => {
+      if (!force && Date.now() - lastReport < 1000) return;
+      lastReport = Date.now();
+      await job.updateProgress({ total, completed, failed });
+    };
+    await report(true);
 
-    await job.updateProgress({ total, completed, failed });
-
-    const multilingualFields = ['title', 'description', 'metaTitle', 'metaDescription', 'metaKeywords', 'pageTitle'];
-
-    for (const property of properties) {
-      const sourceLang = sourceLanguage || this.detectSourceLang(property, multilingualFields);
-
-      const sourceTexts: Record<string, string> = {};
-      for (const field of multilingualFields) {
-        const val = (property as any)[field] as Record<string, string> | null;
-        if (val?.[sourceLang]) {
-          sourceTexts[field] = val[sourceLang];
-        }
-      }
-
-      if (Object.keys(sourceTexts).length === 0) {
+    for (let i = 0; i < ids.length; i += TranslationProcessor.BATCH) {
+      const batch = await this.propertyRepository.find({
+        where: { tenantId, id: In(ids.slice(i, i + TranslationProcessor.BATCH)) },
+        select: ['id', ...TranslationProcessor.FIELDS],
+      });
+      await this.runPool(batch, TranslationProcessor.PARALLEL, async (property) => {
+        const result = await this.translateProperty(tenantId, property, targetLanguages, sourceLanguage);
         completed += targetLanguages.length;
-        await job.updateProgress({ total, completed, failed });
-        continue;
-      }
-
-      for (const targetLang of targetLanguages) {
-        if (targetLang === sourceLang) {
-          completed++;
-          await job.updateProgress({ total, completed, failed });
-          continue;
-        }
-
-        try {
-          const translations = await this.translateTexts(
-            tenantId, sourceTexts, sourceLang, targetLang, 'property',
-          );
-
-          for (const [field, translated] of Object.entries(translations)) {
-            const current = ((property as any)[field] as Record<string, string>) || {};
-            (property as any)[field] = { ...current, [targetLang]: translated };
-          }
-
-          changed++;
-          completed++;
-        } catch (err) {
-          this.logger.error(
-            `Failed to translate property ${property.id} to ${targetLang}: ${(err as Error).message}`,
-          );
-          failed++;
-          completed++;
-        }
-
-        await job.updateProgress({ total, completed, failed });
-      }
-
-      await this.propertyRepository.save(property);
+        failed += result.failed;
+        if (result.changed) changed++;
+        await report();
+      });
     }
+    await report(true);
 
     this.logger.log(`Bulk translate complete: ${completed - failed} succeeded, ${failed} failed out of ${total}`);
     return changed;
+  }
+
+  // One property into every target language. Only text the language doesn't
+  // have yet is sent, so a second run (or the run starting over after an API
+  // restart) skips what is done instead of paying for it again. Only the
+  // translated fields are written, so a feed sync running meanwhile keeps its
+  // own changes.
+  private async translateProperty(
+    tenantId: number,
+    property: Property,
+    targetLanguages: string[],
+    sourceLanguage?: string,
+  ): Promise<{ changed: boolean; failed: number }> {
+    const fields = [...TranslationProcessor.FIELDS];
+    const sourceLang = sourceLanguage || this.detectSourceLang(property, fields);
+    const updates: Record<string, Record<string, string>> = {};
+    let failed = 0;
+
+    for (const targetLang of targetLanguages) {
+      if (targetLang === sourceLang) continue;
+      const texts: Record<string, string> = {};
+      for (const field of fields) {
+        const val = ((updates[field] ?? (property as any)[field]) as Record<string, string> | null) || {};
+        if (val[sourceLang]?.trim() && !val[targetLang]?.trim()) texts[field] = val[sourceLang];
+      }
+      if (!Object.keys(texts).length) continue;
+
+      try {
+        const translations = await this.translateTexts(tenantId, texts, sourceLang, targetLang, 'property');
+        for (const [field, text] of Object.entries(translations)) {
+          if (!(field in texts) || typeof text !== 'string') continue;
+          const current = (updates[field] ?? (property as any)[field]) || {};
+          updates[field] = { ...current, [targetLang]: text };
+        }
+      } catch (err) {
+        this.logger.error(`Failed to translate property ${property.id} to ${targetLang}: ${(err as Error).message}`);
+        failed++;
+      }
+    }
+
+    if (!Object.keys(updates).length) return { changed: false, failed };
+    await this.propertyRepository.update({ id: property.id, tenantId }, updates as any);
+    return { changed: true, failed };
+  }
+
+  private async runPool<T>(items: T[], size: number, worker: (item: T) => Promise<void>): Promise<void> {
+    let next = 0;
+    const lanes = Array.from({ length: Math.min(size, items.length) }, async () => {
+      while (next < items.length) await worker(items[next++]);
+    });
+    await Promise.all(lanes);
   }
 
   private async processPropertyTypes(
@@ -236,14 +263,21 @@ export class TranslationProcessor extends WorkerHost {
     ];
 
     // Property text spends the client's key; types, features and labels the
-    // platform key from .env.
-    const response = await this.aiService.chatCompletion(tenantId, messages, {
-      temperature: 0.2,
-      keySource: context === 'property' ? 'client' : 'platform',
-    });
-
-    const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    return JSON.parse(cleaned);
+    // platform key from .env. One retry: with several calls in flight a rate
+    // limit or a reply that isn't JSON is usually gone a few seconds later.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const response = await this.aiService.chatCompletion(tenantId, messages, {
+          temperature: 0.2,
+          keySource: context === 'property' ? 'client' : 'platform',
+        });
+        const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        return JSON.parse(cleaned);
+      } catch (err) {
+        if (attempt >= 2) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
   }
 
   private detectSourceLang(property: Property, fields: string[]): string {

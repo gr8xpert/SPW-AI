@@ -9,7 +9,7 @@ import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import { escapeHtml, loadLeaflet, shortPrice, tileLayerOptions, toCoord } from '@/core/map-support';
 import type { MapArea, MapPoint } from '@/core/data-loader';
-import { formatPropertyPrice, hasPrice } from '@/core/property-display';
+import { formatPropertyPrice, hasPrice, specRange } from '@/core/property-display';
 
 interface RsMapContainerProps {
   zoom?: number | string;
@@ -311,9 +311,9 @@ export default function RsMapContainer({
   function popupHtml(p: MapPoint, price: string): string {
     const url = buildPropertyUrl({ id: p.id, reference: p.reference, title: p.title, urlSegment: p.urlSegment, slug: p.slug, location: p.location, propertyType: p.propertyType }, config) || '#';
     const specs: string[] = [];
-    if (p.bedrooms) specs.push(`${p.bedrooms} ${t('card_bedrooms', 'Beds')}`);
-    if (p.bathrooms) specs.push(`${p.bathrooms} ${t('card_bathrooms', 'Baths')}`);
-    if (p.buildSize) specs.push(`${Math.round(p.buildSize)} m²`);
+    if (p.bedrooms) specs.push(`${specRange(p, 'bedrooms')} ${t('card_bedrooms', 'Beds')}`);
+    if (p.bathrooms) specs.push(`${specRange(p, 'bathrooms')} ${t('card_bathrooms', 'Baths')}`);
+    if (p.buildSize) specs.push(`${specRange(p, 'buildSize')} m²`);
     return `
       <div class="rs-map-popup">
         ${p.image ? `<a href="${escapeHtml(url)}" class="rs-map-popup__image"><img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}" loading="lazy" /></a>` : ''}

@@ -142,6 +142,21 @@ export interface Property {
   builtYear: number | null;
   energyConsumption: DecimalValue | null;
   energyRating: string | null;
+
+  // New developments (Resales NewDevName / KeyReady / PriceList)
+  developmentName?: string | null;
+  keyReady?: boolean | null;
+  units?: Array<{
+    name: string;
+    type: string | null;
+    price: number | null;
+    builtSize: number | null;
+    terraceSize: number | null;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    keyReady: boolean | null;
+    status: string;
+  }> | null;
   distanceToBeach: DecimalValue | null;
 
   // Content

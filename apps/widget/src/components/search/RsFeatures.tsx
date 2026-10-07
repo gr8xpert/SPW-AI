@@ -3,6 +3,7 @@ import { useFilters } from '@/hooks/useFilters';
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import { useNonEmpty } from '@/hooks/useFacets';
 import RsFeaturesModal from './RsFeaturesModal';
 import type { Feature } from '@/types';
 
@@ -14,9 +15,10 @@ interface Props {
 export default function RsFeatures({ variation = 1 }: Props) {
   const { filters, setFilter, isLocked } = useFilters();
   const { t } = useLabels();
-  const features = useSelector(selectors.getFeatures);
   const locked = isLocked('features');
   const selected = filters.features ?? [];
+  // Features no listing in this search has drop out (ticked ones stay).
+  const features = useNonEmpty(useSelector(selectors.getFeatures), 'features', selected);
   const label = t('features_label', 'Features');
 
   const toggle = useCallback((id: number) => {

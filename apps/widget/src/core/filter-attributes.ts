@@ -252,6 +252,10 @@ export function filtersFromAttributes(attrs: Record<string, unknown>): Attribute
       case 'own': case 'own_only':
         if (TRUE.has(value.toLowerCase())) set('isOwnProperty', true);
         break;
+      // key-ready="yes": only new developments ready to move into.
+      case 'key_ready':
+        if (TRUE.has(value.toLowerCase())) set('keyReady', true);
+        break;
       // own-first keeps everything but puts the agency's own listings at the
       // top, so it is an order, not a filter.
       case 'own_first':

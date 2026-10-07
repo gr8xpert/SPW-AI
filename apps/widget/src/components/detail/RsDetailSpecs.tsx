@@ -4,7 +4,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
-import { getDisplayReference } from '@/core/property-display';
+import { getDisplayReference, specRange, type SpecKey } from '@/core/property-display';
 import type { Property } from '@/types';
 
 interface Props {
@@ -34,6 +34,11 @@ const STATUS_LABEL: Record<string, [string, string]> = {
   rented: ['detail_status_rented', 'Rented'],
 };
 
+function areaRange(property: Property, key: SpecKey): string | undefined {
+  const text = specRange(property, key);
+  return text ? `${text} m²` : undefined;
+}
+
 function m2(n: number | undefined): string | undefined {
   if (n == null || n <= 0) return undefined;
   return `${Math.round(n)} m²`;
@@ -52,12 +57,15 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
       { labelKey: 'detail_ref', fallback: 'Reference', value: getDisplayReference(property, config) },
       { labelKey: 'detail_property_type', fallback: 'Property Type', value: property.propertyType?.name },
       { labelKey: 'detail_listing_type', fallback: 'Listing Type', value: property.listingType ? (LISTING_TYPE_LABEL[property.listingType] ? t(...LISTING_TYPE_LABEL[property.listingType]) : property.listingType) : undefined },
+      { labelKey: 'detail_development', fallback: 'Development', value: property.developmentName ?? undefined },
+      { labelKey: 'key_ready_label', fallback: 'Key ready', value: property.keyReady ? t('yes', 'Yes') : undefined },
       // The detail labels, not the cards' short ones ("hab.", "baños").
-      { labelKey: 'detail_bedrooms', fallback: 'Bedrooms', value: property.bedrooms },
-      { labelKey: 'detail_bathrooms', fallback: 'Bathrooms', value: property.bathrooms },
-      { labelKey: 'detail_built_area', fallback: 'Built Area', value: m2(property.buildSize) },
-      { labelKey: 'detail_plot_size', fallback: 'Plot Size', value: m2(property.plotSize) },
-      { labelKey: 'detail_terrace', fallback: 'Terrace', value: m2(property.terraceSize) },
+      // Ranges on developments: "1–3", "39–107 m²".
+      { labelKey: 'detail_bedrooms', fallback: 'Bedrooms', value: specRange(property, 'bedrooms') ?? undefined },
+      { labelKey: 'detail_bathrooms', fallback: 'Bathrooms', value: specRange(property, 'bathrooms') ?? undefined },
+      { labelKey: 'detail_built_area', fallback: 'Built Area', value: areaRange(property, 'buildSize') },
+      { labelKey: 'detail_plot_size', fallback: 'Plot Size', value: areaRange(property, 'plotSize') },
+      { labelKey: 'detail_terrace', fallback: 'Terrace', value: areaRange(property, 'terraceSize') },
       { labelKey: 'detail_garden', fallback: 'Garden', value: m2(property.gardenSize) },
       { labelKey: 'detail_year_built', fallback: 'Year Built', value: property.year },
       { labelKey: 'detail_floor', fallback: 'Floor', value: property.floor },

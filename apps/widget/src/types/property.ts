@@ -35,6 +35,20 @@ export interface Feature {
   icon?: string;
 }
 
+export interface DevelopmentUnit {
+  name: string;
+  type: string | null;
+  // Null on sold units.
+  price: number | null;
+  builtSize: number | null;
+  terraceSize: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  keyReady: boolean | null;
+  // 'available' | 'reserved' | 'sold' (Resales StatusCode, lower case).
+  status: string;
+}
+
 export interface Agent {
   name: string;
   email?: string;
@@ -66,11 +80,17 @@ export interface Property {
   rentalPeriod?: 'night' | 'week' | 'month' | null;
   priceOnRequest: boolean;
   currency: string;
+  // Developments are ranges: the *To fields hold the high end when higher.
   bedrooms?: number;
+  bedroomsTo?: number | string | null;
   bathrooms?: number;
+  bathroomsTo?: number | string | null;
   buildSize?: number;
+  buildSizeTo?: number | string | null;
   plotSize?: number;
+  plotSizeTo?: number | string | null;
   terraceSize?: number;
+  terraceSizeTo?: number | string | null;
   gardenSize?: number;
   year?: number;
   floor?: string;
@@ -86,6 +106,10 @@ export interface Property {
   features: number[];
   isFeatured: boolean;
   isOwnProperty?: boolean;
+  // New developments: name, ready to move into, and the units' price list.
+  developmentName?: string | null;
+  keyReady?: boolean | null;
+  units?: DevelopmentUnit[] | null;
   lat?: number;
   lng?: number;
   videoUrl?: string;

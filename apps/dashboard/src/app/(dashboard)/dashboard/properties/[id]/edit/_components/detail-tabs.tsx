@@ -45,8 +45,8 @@ export function DetailsTab({ formData, onChange }: FormSectionProps) {
               <div key={from} className="space-y-2 md:col-span-2">
                 <Label>{label}</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input type="number" placeholder="From" value={formData[from] as string} onChange={(e) => onChange(from, e.target.value)} />
-                  <Input type="number" placeholder="To" value={formData[to] as string} onChange={(e) => onChange(to, e.target.value)} />
+                  <Input type="number" step="any" placeholder="From" value={formData[from] as string} onChange={(e) => onChange(from, e.target.value)} />
+                  <Input type="number" step="any" placeholder="To" value={formData[to] as string} onChange={(e) => onChange(to, e.target.value)} />
                 </div>
               </div>
             ))}
@@ -68,6 +68,13 @@ export function DetailsTab({ formData, onChange }: FormSectionProps) {
             </div>
             <div className="space-y-2"><Label>Delivery Date</Label><Input type="date" value={formData.deliveryDate} onChange={(e) => onChange('deliveryDate', e.target.value)} /></div>
             <div className="space-y-2"><Label>Completion Date</Label><Input type="date" value={formData.completionDate} onChange={(e) => onChange('completionDate', e.target.value)} /></div>
+            <div className="space-y-2 md:col-span-2"><Label>Development Name</Label><Input value={formData.developmentName} onChange={(e) => onChange('developmentName', e.target.value)} placeholder="New developments only" /></div>
+            <div className="flex items-end pb-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="keyReady" checked={formData.keyReady} onCheckedChange={(c) => onChange('keyReady', !!c)} />
+                <Label htmlFor="keyReady">Key Ready</Label>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -20,10 +20,15 @@ const FEED_MANAGED_FIELDS = [
   'priceOnRequest',
   'currency',
   'bedrooms',
+  'bedroomsTo',
   'bathrooms',
+  'bathroomsTo',
   'buildSize',
+  'buildSizeTo',
   'plotSize',
+  'plotSizeTo',
   'terraceSize',
+  'terraceSizeTo',
   'gardenSize',
   'reference',
   'agentReference',
@@ -40,6 +45,8 @@ const FEED_MANAGED_FIELDS = [
   'basuraTax',
   'builtYear',
   'energyRating',
+  'developmentName',
+  'keyReady',
   'images',
 ] as const;
 
@@ -340,6 +347,8 @@ export class PropertyService {
   private valuesEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (a == null && b == null) return true;
+    // An untouched tick box sends false for a yes/no the feed never set (keyReady).
+    if ((a === false && b == null) || (b === false && a == null)) return true;
     if (a == null || b == null) return false;
     // DECIMAL columns come back as strings ("399950.00") while the form sends
     // numbers; the same amount is not an edit.

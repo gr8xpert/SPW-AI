@@ -14,18 +14,25 @@ function setup() {
       events.push(`save:${row.id}`);
       return row;
     },
+    // Bulk property runs write only the translated fields.
+    update: async (where: any, patch: any) => {
+      events.push(`save:${where.id}`);
+      Object.assign(rows.find((r) => r.id === where.id), patch);
+    },
   });
+  const calls: string[] = [];
   const aiService = {
     // Echo every key back with a marker so we know a translation happened.
     chatCompletion: async (_t: number, messages: Array<{ content: string }>) => {
       const input = JSON.parse(messages[messages.length - 1].content);
+      calls.push(Object.keys(input).join(','));
       return JSON.stringify(Object.fromEntries(Object.keys(input).map((k) => [k, `es:${input[k]}`])));
     },
   };
   const tenantService = {
     bumpSyncVersionSafely: jest.fn(async () => void events.push('bump')),
   };
-  return { events, repo, aiService, tenantService };
+  return { events, repo, aiService, tenantService, calls };
 }
 
 const job = (data: any) => ({ data, updateProgress: async () => undefined }) as any;
@@ -51,8 +58,28 @@ describe('TranslationProcessor syncVersion bump', () => {
 
     expect(tenantService.bumpSyncVersionSafely).toHaveBeenCalledTimes(1);
     expect(tenantService.bumpSyncVersionSafely).toHaveBeenCalledWith(5, expect.any(String));
-    expect(events).toEqual(['save:1', 'save:2', 'save:3', 'bump']);
+    expect([...events.slice(0, 3)].sort()).toEqual(['save:1', 'save:2', 'save:3']);
+    expect(events[3]).toBe('bump');
     expect(properties[0].title).toEqual({ en: 'Villa', es: 'es:Villa' });
+  });
+
+  it('bulk property run: text already in the language is kept, not paid for again', async () => {
+    const { events, repo, aiService, tenantService, calls } = setup();
+    const properties: any[] = [
+      { id: 1, title: { en: 'Villa', es: 'Chalet (hand-written)' }, description: { en: 'Sea views' } },
+      { id: 2, title: { en: 'Flat', es: 'Piso' } },
+    ];
+    const processor = new TranslationProcessor(
+      repo(properties) as any, repo([]) as any, repo([]) as any, repo([]) as any,
+      aiService as any, tenantService as any,
+    );
+
+    await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'property' }));
+
+    expect(calls).toEqual(['description']);
+    expect(properties[0].title).toEqual({ en: 'Villa', es: 'Chalet (hand-written)' });
+    expect(properties[0].description).toEqual({ en: 'Sea views', es: 'es:Sea views' });
+    expect(events).toEqual(['save:1', 'bump']);
   });
 
   it('bulk feature run: one bump at the end', async () => {

@@ -71,3 +71,24 @@ export function formatPropertyPrice(
   const to = priceTo(p);
   return `${money(Number(p.price))}${to ? ` – ${money(to)}` : ''}${priceSuffix(p, t)}`;
 }
+
+// ── Ranges on specs ───────────────────────────────────────────────────────
+// A development is a range: 1–3 beds, 39–107 m². Each spec has a *To field,
+// shown only when higher than the from value.
+export type SpecKey = 'bedrooms' | 'bathrooms' | 'buildSize' | 'plotSize' | 'terraceSize';
+
+type SpecFields = Partial<Record<SpecKey | `${SpecKey}To`, number | string | null>>;
+
+const AREA_SPECS = new Set<SpecKey>(['buildSize', 'plotSize', 'terraceSize']);
+
+/**
+ * "3", "2.5", "1–3" or, for areas, "39–107" (rounded). Null when the listing
+ * has no value above 0, so callers can keep their `> 0` checks out.
+ */
+export function specRange(p: SpecFields, key: SpecKey): string | null {
+  const from = Number(p[key]);
+  if (!Number.isFinite(from) || from <= 0) return null;
+  const to = Number(p[`${key}To`]);
+  const show = (n: number) => String(AREA_SPECS.has(key) ? Math.round(n) : Math.round(n * 10) / 10);
+  return Number.isFinite(to) && to > from ? `${show(from)}–${show(to)}` : show(from);
+}

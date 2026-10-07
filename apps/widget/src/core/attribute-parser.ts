@@ -21,7 +21,7 @@ const SELECTOR = [
   'location', 'area', 'town', 'type', 'property-type', 'features', 'feature',
   'for', 'listing-type', 'beds', 'bedrooms', 'baths', 'bathrooms', 'price',
   'under', 'over', 'from', 'built', 'built-area', 'plot', 'plot-size',
-  'terrace', 'terrace-size', 'reference', 'ref', 'references', 'refs', 'featured', 'own', 'own-only',
+  'terrace', 'terrace-size', 'reference', 'ref', 'references', 'refs', 'featured', 'own', 'own-only', 'key-ready',
   'own-first', 'sort', 'order', 'limit', 'page',
   'min-price', 'max-price', 'min-bedrooms', 'max-bedrooms', 'min-bathrooms', 'max-bathrooms',
   'min-build-size', 'max-build-size', 'min-plot-size', 'max-plot-size', 'min-terrace-size', 'max-terrace-size',

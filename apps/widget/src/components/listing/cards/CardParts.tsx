@@ -3,7 +3,7 @@
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import AnimatedPrice from '@/components/common/AnimatedPrice';
 import type { CardState } from './useCardState';
-import { hasPrice, priceSuffix, priceTo } from '@/core/property-display';
+import { hasPrice, priceSuffix, priceTo, specRange } from '@/core/property-display';
 
 interface PartProps {
   s: CardState;
@@ -53,7 +53,7 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
   );
 }
 
-/** Listing type, "Own" and "Featured" badges. */
+/** Listing type, "Own", "Featured" and "Key Ready" badges. */
 export function CardBadges({ s, own = true }: PartProps & { own?: boolean }) {
   const { property, t, listingLabelKey, listingFallback } = s;
   return (
@@ -69,6 +69,11 @@ export function CardBadges({ s, own = true }: PartProps & { own?: boolean }) {
       {property.isFeatured && (
         <span class="rs-property-card__badge rs-property-card__badge--featured">
           {t('card_featured', 'Featured')}
+        </span>
+      )}
+      {property.keyReady && (
+        <span class="rs-property-card__badge rs-property-card__badge--key-ready">
+          {t('card_key_ready', 'Key Ready')}
         </span>
       )}
     </div>
@@ -140,7 +145,7 @@ export function CardSpecs({ s, terrace = true }: PartProps & { terrace?: boolean
           <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
           </svg>
-          {property.bedrooms}
+          {specRange(property, 'bedrooms')}
         </span>
       )}
       {property.bathrooms != null && property.bathrooms > 0 && (
@@ -148,7 +153,7 @@ export function CardSpecs({ s, terrace = true }: PartProps & { terrace?: boolean
           <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1z" /><path d="M6 12V5a2 2 0 0 1 2-2h3v2.25" /><circle cx="12" cy="7" r="1.5" />
           </svg>
-          {property.bathrooms}
+          {specRange(property, 'bathrooms')}
         </span>
       )}
       {property.buildSize != null && property.buildSize > 0 && (
@@ -156,7 +161,7 @@ export function CardSpecs({ s, terrace = true }: PartProps & { terrace?: boolean
           <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="10" y2="17" /><line x1="14" y1="12" x2="14" y2="17" />
           </svg>
-          {property.buildSize} m²
+          {specRange(property, 'buildSize')} m²
         </span>
       )}
       {terrace && property.terraceSize != null && property.terraceSize > 0 && (
@@ -164,7 +169,7 @@ export function CardSpecs({ s, terrace = true }: PartProps & { terrace?: boolean
           <svg class="rs-property-card__spec-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
           </svg>
-          {property.terraceSize} m²
+          {specRange(property, 'terraceSize')} m²
         </span>
       )}
     </div>

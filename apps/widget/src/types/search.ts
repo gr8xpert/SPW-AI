@@ -21,6 +21,8 @@ export interface SearchFilters {
   isFeatured?: boolean;
   // The agency's own listings rather than ones shared from a feed.
   isOwnProperty?: boolean;
+  // New developments ready to move into.
+  keyReady?: boolean;
   reference?: string;
   // A hand-picked list of references (data-spm-ref="R1,R2,R3"), in that order.
   references?: string[];

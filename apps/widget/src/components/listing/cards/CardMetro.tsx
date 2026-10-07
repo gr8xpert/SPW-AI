@@ -1,6 +1,7 @@
 // Listing template 10 — "metro": price band under the photo, spec chips.
 import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts';
+import { specRange } from '@/core/property-display';
 
 export default function CardMetro({ property, index = 0 }: CardProps) {
   const s = useCardState(property);
@@ -52,22 +53,22 @@ export default function CardMetro({ property, index = 0 }: CardProps) {
         <div class="rs-property-card__metro-chips">
           {property.bedrooms != null && property.bedrooms > 0 && (
             <span class="rs-property-card__metro-chip">
-              {property.bedrooms} {t('card_beds_short', 'beds')}
+              {specRange(property, 'bedrooms')} {t('card_beds_short', 'beds')}
             </span>
           )}
           {property.bathrooms != null && property.bathrooms > 0 && (
             <span class="rs-property-card__metro-chip">
-              {property.bathrooms} {t('card_baths_short', 'baths')}
+              {specRange(property, 'bathrooms')} {t('card_baths_short', 'baths')}
             </span>
           )}
           {property.buildSize != null && property.buildSize > 0 && (
             <span class="rs-property-card__metro-chip">
-              {property.buildSize} m²
+              {specRange(property, 'buildSize')} m²
             </span>
           )}
           {property.terraceSize != null && property.terraceSize > 0 && (
             <span class="rs-property-card__metro-chip">
-              {property.terraceSize} m² {t('card_terrace_short', 'terrace')}
+              {specRange(property, 'terraceSize')} m² {t('card_terrace_short', 'terrace')}
             </span>
           )}
         </div>

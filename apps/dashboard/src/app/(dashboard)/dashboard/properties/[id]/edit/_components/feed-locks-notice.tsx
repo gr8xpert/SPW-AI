@@ -15,7 +15,7 @@ const LABELS: Record<string, string> = {
   agentReference: 'Agency reference', listingType: 'Listing type', propertyTypeId: 'Property type',
   locationId: 'Location', features: 'Features', images: 'Photos', lat: 'Map position', lng: 'Map position',
   postcode: 'Postcode', videoUrl: 'Video', virtualTourUrl: 'Virtual tour', communityFees: 'Community fees',
-  ibiFees: 'IBI', basuraTax: 'Rubbish tax', builtYear: 'Year built', energyRating: 'Energy rating',
+  ibiFees: 'IBI', basuraTax: 'Rubbish tax', builtYear: 'Year built', energyRating: 'Energy rating', developmentName: 'Development name', keyReady: 'Key ready',
   status: 'Status', isPublished: 'Published', isFeatured: 'Featured',
 };
 

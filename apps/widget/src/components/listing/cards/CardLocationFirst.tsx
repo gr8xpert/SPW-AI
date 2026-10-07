@@ -5,6 +5,7 @@
 // top-right.
 import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts';
+import { specRange } from '@/core/property-display';
 
 const T12_LABELS: Record<string, string> = {
   sale: 'RESALE',
@@ -55,7 +56,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
               <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" />
               </svg>
-              <span class="rs-property-card__spec-value">{property.bedrooms} {t('card_beds_short', 'beds')}</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'bedrooms')} {t('card_beds_short', 'beds')}</span>
             </div>
           )}
           {property.bathrooms != null && property.bathrooms > 0 && (
@@ -65,7 +66,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
                 <line x1="10" x2="8" y1="5" y2="7" /><line x1="2" x2="22" y1="12" y2="12" />
                 <line x1="7" x2="7" y1="19" y2="21" /><line x1="17" x2="17" y1="19" y2="21" />
               </svg>
-              <span class="rs-property-card__spec-value">{property.bathrooms} {t('card_baths_short', 'baths')}</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'bathrooms')} {t('card_baths_short', 'baths')}</span>
             </div>
           )}
           {property.buildSize != null && property.buildSize > 0 && (
@@ -74,7 +75,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
               </svg>
-              <span class="rs-property-card__spec-value">{Math.round(property.buildSize)} m²</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'buildSize')} m²</span>
             </div>
           )}
           {property.terraceSize != null && property.terraceSize > 0 && (
@@ -82,7 +83,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
               <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" />
               </svg>
-              <span class="rs-property-card__spec-value">{Math.round(property.terraceSize)} m²</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'terraceSize')} m²</span>
             </div>
           )}
         </div>

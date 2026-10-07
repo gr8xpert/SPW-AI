@@ -958,18 +958,26 @@ export class FeedService {
           listingType: feedProperty.listingType,
           propertyTypeId,
           locationId,
-          title: feedProperty.title,
-          description: feedProperty.description,
+          // The feed replaces only the languages it sends (Resales: English);
+          // translations made here (AI or by hand) stay. They used to be
+          // wiped whenever the listing changed at the source.
+          title: this.mergeLanguages(existing.title, feedProperty.title),
+          description: this.mergeLanguages(existing.description, feedProperty.description),
           price: feedProperty.price,
           priceTo: feedProperty.priceTo ?? null,
           rentalPeriod: feedProperty.rentalPeriod ?? null,
           priceOnRequest: feedProperty.priceOnRequest || false,
           currency: feedProperty.currency,
           bedrooms: feedProperty.bedrooms,
+          bedroomsTo: feedProperty.bedroomsTo ?? null,
           bathrooms: feedProperty.bathrooms,
+          bathroomsTo: feedProperty.bathroomsTo ?? null,
           buildSize: feedProperty.buildSize,
+          buildSizeTo: feedProperty.buildSizeTo ?? null,
           plotSize: feedProperty.plotSize,
+          plotSizeTo: feedProperty.plotSizeTo ?? null,
           terraceSize: feedProperty.terraceSize,
+          terraceSizeTo: feedProperty.terraceSizeTo ?? null,
           gardenSize: feedProperty.gardenSize,
           features: featureIds,
           lat: feedProperty.lat,
@@ -983,6 +991,9 @@ export class FeedService {
           basuraTax: feedProperty.basuraTax ?? null,
           builtYear: feedProperty.builtYear ?? null,
           energyRating: feedProperty.energyRating ?? null,
+          developmentName: feedProperty.developmentName ?? null,
+          keyReady: feedProperty.keyReady ?? null,
+          units: feedProperty.units?.length ? feedProperty.units : null,
           contentHash,
         };
 
@@ -1062,10 +1073,15 @@ export class FeedService {
         priceOnRequest: feedProperty.priceOnRequest || false,
         currency: feedProperty.currency,
         bedrooms: feedProperty.bedrooms,
+        bedroomsTo: feedProperty.bedroomsTo ?? null,
         bathrooms: feedProperty.bathrooms,
+        bathroomsTo: feedProperty.bathroomsTo ?? null,
         buildSize: feedProperty.buildSize,
+        buildSizeTo: feedProperty.buildSizeTo ?? null,
         plotSize: feedProperty.plotSize,
+        plotSizeTo: feedProperty.plotSizeTo ?? null,
         terraceSize: feedProperty.terraceSize,
+        terraceSizeTo: feedProperty.terraceSizeTo ?? null,
         gardenSize: feedProperty.gardenSize,
         images,
         features: featureIds,
@@ -1080,6 +1096,9 @@ export class FeedService {
         basuraTax: feedProperty.basuraTax ?? null,
         builtYear: feedProperty.builtYear ?? null,
         energyRating: feedProperty.energyRating ?? null,
+        developmentName: feedProperty.developmentName ?? null,
+        keyReady: feedProperty.keyReady ?? null,
+        units: feedProperty.units?.length ? feedProperty.units : null,
         contentHash,
         feedLocation,
         feedType,
@@ -1094,6 +1113,16 @@ export class FeedService {
       await this.propertyRepository.save(newProperty);
       return 'created';
     }
+  }
+
+  // Multilingual text from a feed laid over what the listing already has: the
+  // feed's languages win, every other language is kept.
+  private mergeLanguages(
+    current: Record<string, string> | null | undefined,
+    incoming: Record<string, string> | null | undefined,
+  ): Record<string, string> {
+    const sent = Object.fromEntries(Object.entries(incoming || {}).filter(([, v]) => typeof v === 'string' && v.trim()));
+    return { ...(current || {}), ...sent };
   }
 
   private computeFeedHash(feedProperty: FeedProperty): string {

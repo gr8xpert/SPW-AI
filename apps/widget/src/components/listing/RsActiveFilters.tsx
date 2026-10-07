@@ -22,6 +22,7 @@ const FILTER_LABELS: Record<string, { labelKey: string; fallback: string }> = {
   maxPlotSize: { labelKey: 'filter_max_plot_size', fallback: 'Max Plot' },
   query: { labelKey: 'filter_keyword', fallback: 'Keyword' },
   reference: { labelKey: 'filter_reference', fallback: 'Reference' },
+  keyReady: { labelKey: 'key_ready_label', fallback: 'Key ready' },
 };
 
 const SKIP_KEYS = new Set(['page', 'limit', 'sortBy', 'bounds', 'lat', 'lng', 'radius']);
@@ -66,6 +67,8 @@ export default function RsActiveFilters() {
       displayValue = `${value.length} selected`;
     } else if (key === 'isFeatured') {
       displayValue = t('card_featured', 'Featured');
+    } else if (key === 'keyReady') {
+      displayValue = t('yes', 'Yes');
     }
 
     activeFilters.push({ key: key as keyof SearchFilters, label, value: displayValue });

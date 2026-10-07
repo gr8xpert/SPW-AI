@@ -8,7 +8,7 @@ import { selectors } from '@/core/selectors';
 import { actions } from '@/core/actions';
 import { buildPropertyUrl } from '@/core/url-utils';
 import type { Property } from '@/types';
-import { formatPropertyPrice } from '@/core/property-display';
+import { formatPropertyPrice, specRange } from '@/core/property-display';
 
 interface RsMapResultsPanelProps {
   // 'list': narrow column beside a map. 'grid': full width (map hidden).
@@ -112,9 +112,9 @@ export default function RsMapResultsPanel({ layout = 'list' }: RsMapResultsPanel
                 <div class="rs-map-results-card__title">{property.title}</div>
                 {property.location?.name && <div class="rs-map-results-card__location">{property.location.name}</div>}
                 <div class="rs-map-results-card__specs">
-                  {!!property.bedrooms && <span>{property.bedrooms} {t('card_bedrooms', 'Beds')}</span>}
-                  {!!property.bathrooms && <span>{property.bathrooms} {t('card_bathrooms', 'Baths')}</span>}
-                  {!!property.buildSize && <span>{Math.round(Number(property.buildSize))} m²</span>}
+                  {!!property.bedrooms && <span>{specRange(property, 'bedrooms')} {t('card_bedrooms', 'Beds')}</span>}
+                  {!!property.bathrooms && <span>{specRange(property, 'bathrooms')} {t('card_bathrooms', 'Baths')}</span>}
+                  {!!property.buildSize && <span>{specRange(property, 'buildSize')} m²</span>}
                 </div>
               </div>
             </a>

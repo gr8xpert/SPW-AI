@@ -14,6 +14,23 @@ import { Location } from './location.entity';
 import { User } from './user.entity';
 import { FeedConfig } from './feed-config.entity';
 
+export interface DevelopmentUnit {
+  name: string;
+  type: string | null;
+  price: number | null;
+  builtSize: number | null;
+  terraceSize: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  keyReady: boolean | null;
+  status: 'available' | 'reserved' | 'sold' | string;
+}
+
+const decimalNumber = {
+  to: (value: number | null | undefined) => value,
+  from: (value: string | number | null) => (value == null ? null : Number(value)),
+};
+
 export type ListingType = 'sale' | 'rent' | 'holiday_rent' | 'development';
 export const RENTAL_PERIODS = ['night', 'week', 'month'] as const;
 export type RentalPeriod = (typeof RENTAL_PERIODS)[number];
@@ -140,10 +157,12 @@ export class Property {
   @Column({ type: 'tinyint', unsigned: true, nullable: true })
   bedroomsTo: number | null;
 
-  @Column({ type: 'tinyint', unsigned: true, nullable: true })
+  // Decimal so half baths survive (2.5). mysql2 returns DECIMAL as a string;
+  // the transformer hands back a number (2.0 → 2).
+  @Column({ type: 'decimal', precision: 4, scale: 1, nullable: true, transformer: decimalNumber })
   bathrooms: number | null;
 
-  @Column({ type: 'tinyint', unsigned: true, nullable: true })
+  @Column({ type: 'decimal', precision: 4, scale: 1, nullable: true, transformer: decimalNumber })
   bathroomsTo: number | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
@@ -317,6 +336,18 @@ export class Property {
 
   @Column({ type: 'date', nullable: true })
   completionDate: Date | null;
+
+  // New developments (Resales NewDevName / KeyReady / PriceList).
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  developmentName: string | null;
+
+  // Ready to move into. NULL = not known (not a development, or not sent).
+  @Column({ type: 'boolean', nullable: true })
+  keyReady: boolean | null;
+
+  // The development's units with their current prices. Sold units carry no price.
+  @Column({ type: 'json', nullable: true })
+  units: DevelopmentUnit[] | null;
 
   // Status flags
   @Column({

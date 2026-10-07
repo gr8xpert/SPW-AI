@@ -143,6 +143,12 @@ export class ResalesAdapter extends BaseFeedAdapter {
           P_RefId: listProperty.Reference,
           P_Lang: 'EN',
           P_Dimension: 1,
+          // New Developments API: the units' price list, the development's
+          // name, half baths (2.5) and the GPS the agent entered (own listings).
+          p_pricelist: 'TRUE',
+          P_shownewdevname: 'TRUE',
+          P_DecimalBaths: 1,
+          P_ShowGPSCoords: 'TRUE',
         },
         timeout: 15000,
       });
@@ -211,11 +217,12 @@ export class ResalesAdapter extends BaseFeedAdapter {
       propertyTypeGroupCode: pt.TypeId ? String(pt.TypeId) : undefined,
       ...this.mapPrice(raw),
       currency: raw.Currency || 'EUR',
-      bedrooms: this.parseInt(raw.Bedrooms),
-      bathrooms: this.parseInt(raw.Bathrooms),
-      buildSize: this.parseFloat(raw.Built ?? raw.BuiltArea),
-      plotSize: this.parseFloat(raw.GardenPlot ?? raw.Plot),
-      terraceSize: this.parseFloat(raw.Terrace),
+      // "2", "2.5", or "1 - 3" on a development (low end, high end in *To).
+      ...this.range('bedrooms', raw.Bedrooms, true),
+      ...this.range('bathrooms', raw.Bathrooms),
+      ...this.range('buildSize', raw.Built ?? raw.BuiltArea),
+      ...this.range('plotSize', raw.GardenPlot ?? raw.Plot),
+      ...this.range('terraceSize', raw.Terrace),
       // raw.Garden is a boolean flag (has garden), not a size — skip
       images: this.mapImages(raw.Pictures?.Picture),
       features: featureNames,
@@ -234,8 +241,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
         country,
         externalId: locationExternalId,
       },
-      lat: this.parseFloat(raw.Latitude),
-      lng: this.parseFloat(raw.Longitude),
+      ...this.mapGps(raw),
       // Resales spells this differently depending on the response; take any
       // of them rather than guess which one this account gets.
       // "OwnProperty": "1" on the agency's own stock, "0" on shared listings.
@@ -251,7 +257,71 @@ export class ResalesAdapter extends BaseFeedAdapter {
       basuraTax: this.parseMoney(raw.Basura_Tax_Year ?? raw.Basura),
       builtYear: this.parseInt(raw.BuiltYear),
       energyRating: this.parseEnergyRating(raw.EnergyRating ?? raw.EnergyRatingConsumption),
+      ...(isNewDevelopment ? this.mapDevelopment(raw) : {}),
     };
+  }
+
+  // "39 - 107" → { buildSize: 39, buildSizeTo: 107 }; "60" → { buildSize: 60 }.
+  // The To end is kept only when higher.
+  private range<K extends 'bedrooms' | 'bathrooms' | 'buildSize' | 'plotSize' | 'terraceSize'>(
+    key: K,
+    value: any,
+    whole = false,
+  ): Partial<FeedProperty> {
+    if (value === null || value === undefined || value === '') return {};
+    const [lowText, highText] = String(value).split(/\s*-\s*/);
+    const parse = (v: string | undefined) => (whole ? this.parseInt(v) : this.parseFloat(v));
+    const low = parse(lowText);
+    const high = parse(highText);
+    const out: Partial<FeedProperty> = { [key]: low };
+    if (low !== undefined && high !== undefined && high > low) (out as any)[`${key}To`] = high;
+    return out;
+  }
+
+  // NewDevName, KeyReady and PriceList (PropertyDetails with p_pricelist).
+  // A unit: { Name, Type, Price, BuiltSize, Terrace, Beds, Baths, KeyReady,
+  // StatusText, StatusCode }; sold units come with Price null.
+  private mapDevelopment(raw: any): Pick<FeedProperty, 'developmentName' | 'keyReady' | 'units'> {
+    const list = Array.isArray(raw.PriceList) ? raw.PriceList : raw.PriceList ? [raw.PriceList] : [];
+    const units = list
+      .filter((u: any) => u && typeof u === 'object')
+      .map((u: any) => ({
+        name: this.text(u.Name) || '',
+        type: this.text(u.Type) || null,
+        price: this.parsePrice(u.Price),
+        builtSize: this.parseFloat(u.BuiltSize) ?? null,
+        terraceSize: this.parseFloat(u.Terrace) ?? null,
+        bedrooms: this.parseInt(u.Beds) ?? null,
+        bathrooms: this.parseFloat(u.Baths) ?? null,
+        keyReady: u.KeyReady == null || u.KeyReady === '' ? null : this.truthy(u.KeyReady) ?? null,
+        status: String(u.StatusCode || u.StatusText || 'Available').trim().toLowerCase(),
+      }));
+    const keyReady = raw.KeyReady == null || raw.KeyReady === '' ? undefined : this.truthy(raw.KeyReady);
+    return {
+      developmentName: this.text(raw.NewDevName) || undefined,
+      keyReady,
+      units,
+    };
+  }
+
+  // P_ShowGPSCoords: Latitude/Longitude on some responses, GpsX/GpsY on
+  // others, which Resales doesn't document the order of. Spain's coordinates
+  // tell them apart: latitude 27–44, longitude −19–5. 0/0 = not entered.
+  private mapGps(raw: any): { lat?: number; lng?: number } {
+    let lat = this.parseFloat(raw.Latitude ?? raw.GPS_Latitude);
+    let lng = this.parseFloat(raw.Longitude ?? raw.GPS_Longitude);
+    if (lat === undefined || lng === undefined) {
+      const x = this.parseFloat(raw.GpsX);
+      const y = this.parseFloat(raw.GpsY);
+      if (x !== undefined && y !== undefined) {
+        const isLat = (v: number) => v >= 27 && v <= 44;
+        if (isLat(y) && !isLat(x)) { lat = y; lng = x; }
+        else if (isLat(x) && !isLat(y)) { lat = x; lng = y; }
+      }
+    }
+    if (lat === undefined || lng === undefined || (lat === 0 && lng === 0)) return {};
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return {};
+    return { lat, lng };
   }
 
   // A new-development listing, however the feed marks it. For a Resales filter
@@ -377,10 +447,14 @@ export class ResalesAdapter extends BaseFeedAdapter {
   // only when the "to" is higher. No price at all = price on request.
   private mapPrice(raw: any): Pick<FeedProperty, 'price' | 'priceTo' | 'rentalPeriod' | 'priceOnRequest'> {
     const rental = raw.RentalPrice1 !== undefined || raw.RentalPrice2 !== undefined;
+    // A development sends its range in one string: "Price": "96091 - 234530".
+    const range = !rental && typeof raw.Price === 'string' ? raw.Price.match(/^\s*([\d.,]+)\s*-\s*([\d.,]+)\s*$/) : null;
     const from = rental
       ? this.parsePrice(raw.RentalPrice1) || this.parsePrice(raw.RentalPrice2)
-      : this.parsePrice(raw.Price);
-    const to = rental ? this.parsePrice(raw.RentalPrice2) : this.parsePrice(raw.PriceTo);
+      : this.parsePrice(range ? range[1] : raw.Price);
+    const to = rental
+      ? this.parsePrice(raw.RentalPrice2)
+      : this.parsePrice(range ? range[2] : raw.PriceTo);
     const price = from && from > 0 ? from : null;
 
     const out: Pick<FeedProperty, 'price' | 'priceTo' | 'rentalPeriod' | 'priceOnRequest'> = {
