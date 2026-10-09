@@ -1593,12 +1593,20 @@ button.rs-more-filters-btn--active:hover {
   border-radius: 0;
 }
 
-/* Template 03: Reference sits on the second row, beside Features, as wide as
-   one field of the first row; full width on phones. */
-.rs-search-template-03 .rs-t03-actions > .rs_reference {
-  flex: 0 0 220px;
+/* Template 03: row 1 Reference, Type, Location, Beds, Baths; row 2 Min and
+   Max price (each as wide as Features), Features, then the buttons. On phones
+   the price pair takes a full row of its own. */
+.rs-search-template-03 .rs-t03-actions > .rs_price .rs-custom-select {
+  flex: 1 1 0;
   min-width: 0;
+  width: 0;
 }
 @media (max-width: 768px) {
-  .rs-search-template-03 .rs-t03-actions > .rs_reference { flex: 1 1 100%; }
+  .rs-search-template-03 .rs-t03-actions > .rs_price {
+    width: 100%;
+    flex: none;
+  }
+  .rs-search-template-03 .rs-t03-actions > .rs_price .rs-custom-select {
+    width: auto;
+  }
 }

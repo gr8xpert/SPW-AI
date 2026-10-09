@@ -45,16 +45,45 @@ function buildTree(locations: Location[]): Location[] {
     byParent.get(pid)!.push(loc);
   }
   const result: Location[] = [];
+  // Children stay in the order the API sent them: the dashboard's order.
   function walk(parentId: number | undefined) {
     const children = byParent.get(parentId ?? 0) ?? [];
-    for (const child of children.sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const child of children) {
       result.push(child);
       walk(child.id);
     }
   }
   walk(undefined);
-  if (!result.length) return [...locations].sort((a, b) => a.name.localeCompare(b.name));
+  if (!result.length) return [...locations];
   return result;
+}
+
+/**
+ * Each place's position in the dashboard's order (Locations: drag, or the Sort
+ * menu). The API sends the list in that order per parent, but flat, so a
+ * place's rank is where it falls walking the tree. The dropdowns sort by it;
+ * they used to sort A–Z and ignore the dashboard.
+ */
+function dashboardRank(locations: Location[]): Map<number, number> {
+  const known = new Set(locations.map((l) => l.id));
+  const byParent = new Map<number, Location[]>();
+  for (const loc of locations) {
+    // A place whose parent isn't in the list ranks as a root.
+    const pid = loc.parentId != null && known.has(loc.parentId) ? loc.parentId : 0;
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid)!.push(loc);
+  }
+  const rank = new Map<number, number>();
+  const walk = (pid: number) => {
+    for (const loc of byParent.get(pid) ?? []) {
+      if (rank.has(loc.id)) continue; // a cycle in the data must not hang the page
+      rank.set(loc.id, rank.size);
+      walk(loc.id);
+    }
+  };
+  walk(0);
+  for (const loc of locations) if (!rank.has(loc.id)) rank.set(loc.id, rank.size);
+  return rank;
 }
 
 interface DropdownLevels { levels?: string[]; visible?: boolean }
@@ -406,10 +435,12 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config, v
   }, [config, t, visibleCount]);
 
   const hasLevelConfig = dropdowns.some(d => d.levels.length > 0);
+  const rank = useMemo(() => dashboardRank(locations), [locations]);
 
   const getItemsForDropdown = useCallback((ddIndex: number): Location[] => {
     const dd = dropdowns[ddIndex];
     if (!dd) return [];
+    const inOrder = (list: Location[]) => list.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
 
     if (hasLevelConfig) {
       const levelSet = new Set(dd.levels);
@@ -420,27 +451,27 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config, v
       // way in. The top of its own tree is the honest starting point.
       if (ddIndex === 0) {
         const first = byLevel.length ? byLevel : locations.filter(l => !l.parentId);
-        return first.sort((a, b) => a.name.localeCompare(b.name));
+        return inOrder(first);
       }
 
       const prevSelected = ddIndex === 1 ? selected1 : selected2;
       if (prevSelected.size === 0) return [];
 
       const descendantIds = getDescendantIds(locations, prevSelected);
-      return byLevel.filter(l =>
+      return inOrder(byLevel.filter(l =>
         l.parentId != null && (prevSelected.has(l.parentId) || descendantIds.has(l.parentId))
-      ).sort((a, b) => a.name.localeCompare(b.name));
+      ));
     }
 
-    if (ddIndex === 0) return locations.filter(l => !l.parentId).sort((a, b) => a.name.localeCompare(b.name));
+    if (ddIndex === 0) return inOrder(locations.filter(l => !l.parentId));
 
     const prevSelected = ddIndex === 1 ? selected1 : selected2;
     if (prevSelected.size === 0) return [];
     const descendantIds = getDescendantIds(locations, prevSelected);
-    return locations.filter(l =>
+    return inOrder(locations.filter(l =>
       l.parentId != null && (prevSelected.has(l.parentId) || descendantIds.has(l.parentId))
-    ).sort((a, b) => a.name.localeCompare(b.name));
-  }, [locations, dropdowns, hasLevelConfig, selected1, selected2]);
+    ));
+  }, [locations, rank, dropdowns, hasLevelConfig, selected1, selected2]);
 
   const items1 = useMemo(() => getItemsForDropdown(0), [getItemsForDropdown]);
   const items2 = useMemo(() => getItemsForDropdown(1), [getItemsForDropdown]);
@@ -785,7 +816,8 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
   // levels as roots, each with the picked lower levels found under it (at any
   // depth); a lower place with no picked ancestor becomes a root itself.
   const { roots, childrenOf } = useMemo(() => {
-    const byName = (a: Location, b: Location) => a.name.localeCompare(b.name);
+    const rank = dashboardRank(locations);
+    const byRank = (a: Location, b: Location) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0);
     const map = new Map<number, Location[]>();
     const add = (parent: number, loc: Location) => {
       if (!map.has(parent)) map.set(parent, []);
@@ -806,8 +838,8 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
         else top.push(loc);
       }
     }
-    for (const children of map.values()) children.sort(byName);
-    return { roots: top.sort(byName), childrenOf: map };
+    for (const children of map.values()) children.sort(byRank);
+    return { roots: top.sort(byRank), childrenOf: map };
   }, [locations, picked]);
 
   const toggleExpand = (e: MouseEvent, id: number) => {

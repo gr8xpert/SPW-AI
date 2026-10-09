@@ -7,6 +7,7 @@ interface FeedImportJobData {
   configId: number;
   importLogId: number;
   tenantId: number;
+  confirmRemoval?: boolean;
 }
 
 @Processor('feed-import', { concurrency: 2 })
@@ -18,12 +19,12 @@ export class FeedImportProcessor extends WorkerHost {
   }
 
   async process(job: Job<FeedImportJobData>): Promise<void> {
-    const { configId, importLogId, tenantId } = job.data;
+    const { configId, importLogId, tenantId, confirmRemoval } = job.data;
 
     this.logger.log(`Starting feed import for config ${configId}, tenant ${tenantId}`);
 
     try {
-      await this.feedService.processImport(configId, importLogId);
+      await this.feedService.processImport(configId, importLogId, { confirmRemoval });
       this.logger.log(`Feed import completed for config ${configId}`);
     } catch (error) {
       this.logger.error(`Feed import failed for config ${configId}`, error);

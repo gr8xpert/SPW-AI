@@ -311,11 +311,11 @@ Do NOT include any markdown formatting or code fences in your response`;
       { role: 'user', content: userContent },
     ];
 
-    // Property text spends the client's key; types, features and labels the
-    // platform key from .env.
+    // Property text spends only the client's key; types, features and labels
+    // the client's key when set, else the platform key from .env.
     const response = await this.aiService.chatCompletion(tenantId, messages, {
       temperature: 0.2,
-      keySource: context === 'property' ? 'client' : 'platform',
+      keySource: context === 'property' ? 'client' : 'client-first',
     });
 
     try {

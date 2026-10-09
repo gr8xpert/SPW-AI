@@ -28,7 +28,7 @@ export default function RsDetailEnergyRating() {
       <div
         class={`rs-detail-energy__chart${isNA ? ' rs-detail-energy__chart--na' : ''}`}
         role="img"
-        aria-label={isNA ? 'Energy rating not available' : `Energy rating ${rawValue}`}
+        aria-label={isNA ? t('detail_energy_not_available', 'Energy rating not available') : t('detail_energy_rating_value', 'Energy rating {rating}').replace('{rating}', String(rawValue))}
       >
         {RATINGS.map((r, i) => {
           const isActive = !isNA && i === activeIndex;

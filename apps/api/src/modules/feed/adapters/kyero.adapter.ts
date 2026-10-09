@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import { Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import {
   BaseFeedAdapter,
@@ -9,6 +8,7 @@ import {
   FeedValidationResult,
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
+import { loadXmlFeedPage, probeXml, toEnergyRating, toNumber } from './xml-feed';
 
 // Kyero XML feed adapter. Reads the standard Kyero feed format
 // (https://www.kyero.com/en/feeds) which most Spanish real-estate
@@ -24,8 +24,6 @@ export class KyeroAdapter extends BaseFeedAdapter {
   readonly provider = 'kyero';
   readonly displayName = 'Kyero';
 
-  private readonly logger = new Logger(KyeroAdapter.name);
-
   private readonly parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -36,32 +34,10 @@ export class KyeroAdapter extends BaseFeedAdapter {
   });
 
   async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
-    const url = credentials.endpoint;
-    if (!url) {
+    if (!credentials.endpoint) {
       return { valid: false, error: 'Kyero: feed URL is required' };
     }
-    try {
-      const response = await axios.get(url, {
-        timeout: 15000,
-        // Kyero feeds can be huge; HEAD often works to validate.
-        responseType: 'text',
-        maxContentLength: 50 * 1024 * 1024,
-      });
-      if (response.status !== 200) {
-        return { valid: false, error: `Kyero: HTTP ${response.status}` };
-      }
-      const body = String(response.data ?? '').slice(0, 4096);
-      if (!body.includes('<kyero') && !body.includes('<property')) {
-        return { valid: false, error: 'Kyero: response is not a Kyero XML feed' };
-      }
-      return { valid: true };
-    } catch (error: any) {
-      this.logger.error('Kyero credential validation failed', error);
-      const msg = error.response?.status
-        ? `HTTP ${error.response.status}`
-        : error.message || 'Connection failed';
-      return { valid: false, error: `Kyero: ${msg}` };
-    }
+    return probeXml(credentials.endpoint, ['<kyero', '<property'], 'Kyero');
   }
 
   async fetchProperties(
@@ -74,34 +50,21 @@ export class KyeroAdapter extends BaseFeedAdapter {
       throw new Error('Kyero: feed URL is required');
     }
 
-    const response = await axios.get(url, {
-      timeout: 120000,
-      responseType: 'text',
-      maxContentLength: 200 * 1024 * 1024,
+    // Downloaded and mapped once per run; later pages reuse it (xml-feed.ts).
+    const { items, totalCount, hasMore } = await loadXmlFeedPage(url, page, limit, (xml) => {
+      const parsed = this.parser.parse(xml);
+      const root =
+        parsed?.root?.kyero ?? parsed?.kyero ?? parsed?.root ?? parsed;
+      const propsContainer = root?.properties ?? root;
+      const rawProperties: any[] = Array.isArray(propsContainer?.property)
+        ? propsContainer.property
+        : propsContainer?.property
+          ? [propsContainer.property]
+          : [];
+      return rawProperties.map((raw) => this.mapProperty(raw));
     });
 
-    const parsed = this.parser.parse(String(response.data));
-    const root =
-      parsed?.root?.kyero ?? parsed?.kyero ?? parsed?.root ?? parsed;
-    const propsContainer = root?.properties ?? root;
-    const rawProperties: any[] = Array.isArray(propsContainer?.property)
-      ? propsContainer.property
-      : propsContainer?.property
-        ? [propsContainer.property]
-        : [];
-
-    const totalCount = rawProperties.length;
-    const start = (page - 1) * limit;
-    const sliced = rawProperties.slice(start, start + limit);
-
-    const properties = sliced.map((raw) => this.mapProperty(raw));
-
-    return {
-      properties,
-      totalCount,
-      hasMore: start + limit < totalCount,
-      page,
-    };
+    return { properties: items, totalCount, hasMore, page };
   }
 
   private mapProperty(raw: any): FeedProperty {
@@ -116,16 +79,16 @@ export class KyeroAdapter extends BaseFeedAdapter {
       description: this.extractMultilingual(raw.desc ?? raw.description ?? {}),
       listingType: this.normalizeListingType(this.extractListingType(raw)),
       propertyType: this.extractPropertyType(raw),
-      price: this.parseNumber(raw.price) ?? null,
+      price: toNumber(raw.price) ?? null,
       priceOnRequest: !raw.price || raw.price === '0',
       // Kyero price_freq: "sale", "month" or "week" (rentals).
       ...(raw.price_freq === 'week' || raw.price_freq === 'month' ? { rentalPeriod: raw.price_freq } : {}),
       currency: String(raw.currency ?? 'EUR').toUpperCase(),
-      bedrooms: this.parseNumber(raw.beds),
-      bathrooms: this.parseNumber(raw.baths),
-      buildSize: this.parseNumber(raw.surface_area?.built),
-      plotSize: this.parseNumber(raw.surface_area?.plot),
-      terraceSize: this.parseNumber(raw.surface_area?.terrace),
+      bedrooms: toNumber(raw.beds),
+      bathrooms: toNumber(raw.baths),
+      buildSize: toNumber(raw.surface_area?.built),
+      plotSize: toNumber(raw.surface_area?.plot),
+      terraceSize: toNumber(raw.surface_area?.terrace),
       gardenSize: undefined,
       images: this.mapImages(raw.images),
       features: this.mapFeatures(raw.features),
@@ -136,21 +99,13 @@ export class KyeroAdapter extends BaseFeedAdapter {
         town: raw.town ? String(raw.town) : undefined,
         country: raw.country ? String(raw.country) : 'Spain',
       },
-      lat: this.parseNumber(raw.latitude),
-      lng: this.parseNumber(raw.longitude),
+      lat: toNumber(raw.latitude),
+      lng: toNumber(raw.longitude),
       videoUrl: raw.video?.url ? String(raw.video.url) : undefined,
       virtualTourUrl: raw.virtual_tour ? String(raw.virtual_tour) : undefined,
       deliveryDate: raw.delivery_date ? String(raw.delivery_date) : undefined,
-      energyRating: this.parseEnergyRating(raw.energy_rating?.consumption ?? raw.energy_rating),
+      energyRating: toEnergyRating(raw.energy_rating?.consumption ?? raw.energy_rating),
     };
-  }
-
-  // Kyero XML wraps the letter in <energy_rating><consumption>X</consumption>...</energy_rating>.
-  // Some publishers flatten it to a plain letter. Accept both; return undefined if not A-G.
-  private parseEnergyRating(value: unknown): string | undefined {
-    if (value == null) return undefined;
-    const v = String(value).trim().toUpperCase();
-    return /^[A-G]$/.test(v) ? v : undefined;
   }
 
   private extractListingType(raw: any): string {
@@ -212,11 +167,5 @@ export class KyeroAdapter extends BaseFeedAdapter {
         typeof f === 'string' ? f : f?.['#text'] ?? f?.name ?? null,
       )
       .filter((x: any): x is string => typeof x === 'string' && x.length > 0);
-  }
-
-  private parseNumber(value: unknown): number | undefined {
-    if (value == null || value === '') return undefined;
-    const n = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(n) ? n : undefined;
   }
 }

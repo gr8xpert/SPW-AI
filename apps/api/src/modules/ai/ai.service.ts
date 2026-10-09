@@ -25,14 +25,18 @@ const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL || FALLBACK_DEFAULT_M
 export const ENRICHMENT_MODEL =
   process.env.OPENROUTER_ENRICHMENT_MODEL || FALLBACK_ENRICHMENT_MODEL;
 
-// Whose OpenRouter account pays. Fixed per feature, never a fallback chain:
-//  - client:   the key the client entered in Settings → AI. Property AI, SEO,
-//              property translations, website AI search and the chatbot.
-//              No key there means the feature is off — never the platform key.
-//  - platform: OPENROUTER_API_KEY from .env. Locations, property types,
-//              features, labels (incl. their translations) and everything in
-//              the super-admin dashboard.
-export type AiKeySource = 'client' | 'platform';
+// Whose OpenRouter account pays, fixed per feature:
+//  - client:       the key the client entered in Settings → AI. Property AI,
+//                  SEO, property translations, website AI search and the
+//                  chatbot — the costly ones. No key there means the feature
+//                  is off, never the platform key.
+//  - client-first: the client's key when they have one, else the platform
+//                  key. Locations, property types, features and labels (incl.
+//                  their translations and AI organize) — cheap, and needed for
+//                  the site to work.
+//  - platform:     OPENROUTER_API_KEY from .env. Super-admin work (global
+//                  location templates).
+export type AiKeySource = 'client' | 'client-first' | 'platform';
 
 export interface ToolCall {
   id: string;
@@ -142,12 +146,15 @@ export class AiService {
       keySource?: AiKeySource;
     },
   ): Promise<string> {
-    const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(
-      tenantId,
-      options?.model,
-      options?.keySource ?? 'client',
-    );
+    const source = options?.keySource ?? 'client';
+    const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(tenantId, options?.model, source);
     const model = resolvedModel;
+    // Say whose key failed: a rejected platform key used to read "check your
+    // key in Settings → AI", sending a client without a key to the wrong place.
+    const onPlatformKey = source === 'platform' || (source === 'client-first' && !(await this.hasClientKey(tenantId)));
+    const whose = onPlatformKey
+      ? 'The platform OpenRouter key (OPENROUTER_API_KEY in the API .env)'
+      : 'Your OpenRouter API key (Settings → AI)';
 
     try {
       const response = await axios.post(
@@ -183,13 +190,19 @@ export class AiService {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
         const msg = err.response?.data?.error?.message || err.message;
+        this.logger.error(`OpenRouter API error (${status}, ${onPlatformKey ? 'platform' : 'client'} key, tenant=${tenantId}): ${msg}`);
+        // Types, features and labels: a client key OpenRouter rejects or that
+        // has run dry counts as no key, so the platform key takes over.
+        if (source === 'client-first' && !onPlatformKey && (status === 401 || status === 402) && process.env.OPENROUTER_API_KEY) {
+          this.logger.warn(`Client key of tenant=${tenantId} failed (${status}); retrying on the platform key`);
+          return this.chatCompletion(tenantId, messages, { ...options, keySource: 'platform' });
+        }
         if (status === 401) {
-          throw new BadRequestException('OpenRouter API key is invalid. Check your key in Settings → AI.');
+          throw new BadRequestException(`${whose} was rejected by OpenRouter (${msg}).`);
         }
         if (status === 402) {
-          throw new BadRequestException('OpenRouter account has insufficient credits.');
+          throw new BadRequestException(`${whose} has no OpenRouter credits left.`);
         }
-        this.logger.error(`OpenRouter API error (${status}): ${msg}`);
         throw new BadRequestException(`AI request failed: ${msg}`);
       }
       throw err;
@@ -263,20 +276,27 @@ export class AiService {
     modelOverride: string | undefined,
     source: AiKeySource,
   ): Promise<{ apiKey: string; model: string }> {
-    if (source === 'platform') {
+    const platform = async () => {
       const apiKey = process.env.OPENROUTER_API_KEY;
-      if (!apiKey) throw new BadRequestException('Platform AI key (OPENROUTER_API_KEY) is not set.');
+      if (!apiKey) {
+        throw new BadRequestException(
+          source === 'client-first'
+            ? 'No AI key: add your OpenRouter key in Settings → AI (the platform key OPENROUTER_API_KEY is not set on the server either).'
+            : 'Platform AI key (OPENROUTER_API_KEY) is not set.',
+        );
+      }
       // Our bill, our model: the client's model choice applies to their key only.
       return { apiKey, model: await this.usableModel(modelOverride || DEFAULT_MODEL) };
-    }
+    };
+    if (source === 'platform') return platform();
 
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
-      select: ['id', 'settings', 'openrouterApiKey'],
-    });
+    const tenant = tenantId
+      ? await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'settings', 'openrouterApiKey'] })
+      : null;
     // Only the key shown in Settings → AI. A legacy settings.openRouterApiKey
     // copy is hidden from the dashboard, so it is never spent.
     const apiKey = tenant?.openrouterApiKey;
+    if (!apiKey && source === 'client-first') return platform();
     if (!apiKey) {
       throw new BadRequestException(
         'OpenRouter API key not configured. Go to Settings → AI to add your key.',
@@ -288,11 +308,25 @@ export class AiService {
     };
   }
 
-  // The platform key for classification work (locations, property types,
-  // features, templates). Returns null when .env has no key.
+  // The platform key (super-admin work). Returns null when .env has no key.
   async resolvePlatformKey(modelOverride?: string): Promise<{ apiKey: string; model: string } | null> {
     try {
       return await this.resolveKeyAndModel(0, modelOverride, 'platform');
+    } catch {
+      return null;
+    }
+  }
+
+  // The client's key, else the platform key — for a client's locations,
+  // property types and features. Null when neither is set.
+  async resolveClientFirstKey(
+    tenantId: number,
+    modelOverride?: string,
+  ): Promise<{ apiKey: string; model: string; source: 'client' | 'platform' } | null> {
+    try {
+      const own = await this.hasClientKey(tenantId);
+      const resolved = await this.resolveKeyAndModel(tenantId, modelOverride, 'client-first');
+      return { ...resolved, source: own ? 'client' : 'platform' };
     } catch {
       return null;
     }

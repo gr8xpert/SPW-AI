@@ -35,6 +35,16 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  // Run onModuleDestroy on SIGINT/SIGTERM (PM2 reload/restart). Without it the
+  // brochure Chrome outlived every restart — 500 orphans on prod by 10-08.
+  app.enableShutdownHooks();
+  // ecosystem.config.js has shutdown_with_message: PM2 (cluster mode) asks for
+  // a stop with process.send('shutdown'), not a signal, then SIGKILLs after
+  // kill_timeout — so close the app on that message too.
+  process.on('message', (msg) => {
+    if (msg !== 'shutdown') return;
+    app.close().finally(() => process.exit(0));
+  });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3001;

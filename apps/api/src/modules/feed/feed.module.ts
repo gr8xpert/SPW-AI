@@ -6,7 +6,7 @@ import { FeedController } from './feed.controller';
 import { FeedService } from './feed.service';
 import { FeedSchedulerService } from './feed-scheduler.service';
 import { FeedImportProcessor } from './feed-import.processor';
-import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter } from './adapters';
+import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, RedspAdapter } from './adapters';
 import {
   FeedConfig,
   FeedImportLog,
@@ -60,6 +60,7 @@ import { PropertyTypeTemplateModule } from '../property-type-template/property-t
     InmobaAdapter,
     KyeroAdapter,
     OdooAdapter,
+    RedspAdapter,
   ],
   exports: [FeedService],
 })

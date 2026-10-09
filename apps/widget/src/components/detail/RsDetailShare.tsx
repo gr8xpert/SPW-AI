@@ -44,7 +44,7 @@ export default function RsDetailShare({ property: propertyProp }: Props) {
       <a
         class="rs-detail-share__btn"
         href={`mailto:?subject=${subject}&body=${body}`}
-        title="Email"
+        title={t('email', 'Email')}
       >
         ✉
       </a>

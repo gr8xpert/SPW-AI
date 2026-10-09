@@ -82,17 +82,17 @@ const labelCategories = [
 ];
 
 const CATEGORY_PREFIXES: Record<string, string[]> = {
-  search: ['search_', 'reset_', 'advanced_', 'location_', 'listing_type_', 'property_type', 'bedrooms_', 'bathrooms_', 'price_', 'built_area_', 'plot_size_', 'features_', 'reference_', 'active_filters', 'clear_all', 'quick_features', 'more_filters'],
+  search: ['search_', 'reset_', 'advanced_', 'location_', 'listing_type_', 'property_type', 'bedrooms_', 'bathrooms_', 'price_', 'built_area_', 'plot_size_', 'features_', 'reference_', 'active_filters', 'clear_all', 'quick_features', 'more_filters', 'filter_', 'ai_', 'terrace_', 'key_ready'],
   results: ['results_', 'sort_', 'view_', 'back_to_results'],
   card: ['card_'],
   detail: ['detail_'],
   inquiry: ['inquiry_'],
-  wishlist: ['wishlist_', 'compare', 'share_wishlist', 'email_wishlist', 'add_note', 'add_personal_note', 'note_placeholder', 'personal_message', 'your_email_optional'],
+  wishlist: ['wishlist_', 'compare', 'share_wishlist', 'email_wishlist', 'add_note', 'add_personal_note', 'note_placeholder', 'personal_message', 'your_email_optional', 'your_name_optional'],
   map: ['map_', 'zones'],
   chat: ['chat_'],
   pagination: ['pagination_'],
   mortgage: ['mortgage_'],
-  general: ['loading', 'error', 'close', 'currency_', 'language_', 'featured', 'cancel', 'clear', 'copy', 'copied', 'save', 'edit', 'share', 'send_email', 'send_to', 'sending', 'email', 'email_error', 'email_sent', 'download_pdf', 'qr_code', 'read_less', 'read_more', 'view_all', 'view_details', 'properties', 'property_singular', 'type', 'reference', 'feature', 'no_results', 'beds', 'baths', 'bedrooms', 'bathrooms', 'location', 'price', 'wishlist'],
+  general: ['loading', 'error', 'close', 'currency_', 'language_', 'featured', 'cancel', 'clear', 'copy', 'copied', 'save', 'edit', 'share', 'send_email', 'send_to', 'sending', 'email', 'email_error', 'email_sent', 'download_pdf', 'qr_code', 'read_less', 'read_more', 'view_all', 'view_details', 'properties', 'property_singular', 'type', 'reference', 'feature', 'no_results', 'beds', 'baths', 'bedrooms', 'bathrooms', 'location', 'price', 'wishlist', 'yes'],
 };
 
 function labelMatchesCategory(key: string, categoryId: string): boolean {
@@ -319,7 +319,9 @@ export default function LabelsPage() {
       Object.values(label.translations).some((t) =>
         t?.toLowerCase().includes(search.toLowerCase())
       );
-    const matchesCategory = labelMatchesCategory(label.key, activeCategory);
+    // A search looks through every tab: searching "Property Information"
+    // while Search Form was open used to find nothing.
+    const matchesCategory = search.trim() !== '' || labelMatchesCategory(label.key, activeCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -398,7 +400,9 @@ export default function LabelsPage() {
         <TabsContent value={activeCategory} className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>{labelCategories.find((c) => c.id === activeCategory)?.name} Labels</CardTitle>
+              <CardTitle>
+                {search.trim() ? `Search results in all tabs (${filteredLabels.length})` : `${labelCategories.find((c) => c.id === activeCategory)?.name} Labels`}
+              </CardTitle>
               <CardDescription>Click the edit button to manage translations</CardDescription>
             </CardHeader>
             <CardContent>

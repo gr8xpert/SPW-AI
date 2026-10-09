@@ -63,6 +63,56 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'features_search', category: 'search', translations: { en: 'Search features...', es: 'Buscar características...' } },
   { key: 'features_no_results', category: 'search', translations: { en: 'No features found', es: 'No se encontraron características' } },
   { key: 'quick_features', category: 'search', translations: { en: 'Quick Features', es: 'Características Rápidas' } },
+  { key: 'terrace_label', category: 'search', translations: { en: 'Terrace (m²)', es: 'Terraza (m²)' } },
+  { key: 'location_label', category: 'search', translations: { en: 'Location', es: 'Ubicación' } },
+  { key: 'property_type_label', category: 'search', translations: { en: 'Type', es: 'Tipo' } },
+  { key: 'price_label', category: 'search', translations: { en: 'Price', es: 'Precio' } },
+  // Active-filter chips above the results ("Min Price: €200,000 ×")
+  { key: 'filter_listing_type', category: 'search', translations: { en: 'Listing Type', es: 'Tipo de Operación' } },
+  { key: 'filter_location', category: 'search', translations: { en: 'Location', es: 'Ubicación' } },
+  { key: 'filter_locations', category: 'search', translations: { en: 'Locations', es: 'Ubicaciones' } },
+  { key: 'filter_property_type', category: 'search', translations: { en: 'Property Type', es: 'Tipo de Propiedad' } },
+  { key: 'filter_min_price', category: 'search', translations: { en: 'Min Price', es: 'Precio Mín.' } },
+  { key: 'filter_max_price', category: 'search', translations: { en: 'Max Price', es: 'Precio Máx.' } },
+  { key: 'filter_min_bedrooms', category: 'search', translations: { en: 'Min Beds', es: 'Dorm. Mín.' } },
+  { key: 'filter_max_bedrooms', category: 'search', translations: { en: 'Max Beds', es: 'Dorm. Máx.' } },
+  { key: 'filter_min_bathrooms', category: 'search', translations: { en: 'Min Baths', es: 'Baños Mín.' } },
+  { key: 'filter_max_bathrooms', category: 'search', translations: { en: 'Max Baths', es: 'Baños Máx.' } },
+  { key: 'filter_min_build_size', category: 'search', translations: { en: 'Min Build', es: 'Superficie Mín.' } },
+  { key: 'filter_max_build_size', category: 'search', translations: { en: 'Max Build', es: 'Superficie Máx.' } },
+  { key: 'filter_min_plot_size', category: 'search', translations: { en: 'Min Plot', es: 'Parcela Mín.' } },
+  { key: 'filter_max_plot_size', category: 'search', translations: { en: 'Max Plot', es: 'Parcela Máx.' } },
+  { key: 'filter_keyword', category: 'search', translations: { en: 'Keyword', es: 'Palabra clave' } },
+  { key: 'filter_reference', category: 'search', translations: { en: 'Reference', es: 'Referencia' } },
+  { key: 'filter_n_locations', category: 'search', translations: { en: '{n} locations', es: '{n} ubicaciones' } },
+  { key: 'filter_n_selected', category: 'search', translations: { en: '{n} selected', es: '{n} seleccionados' } },
+  { key: 'filter_remove', category: 'search', translations: { en: 'Remove {filter}', es: 'Quitar {filter}' } },
+  // AI + voice search (search form buttons and panel)
+  { key: 'ai_search_title', category: 'search', translations: { en: 'Search with AI', es: 'Buscar con IA' } },
+  { key: 'ai_search_panel_title', category: 'search', translations: { en: 'AI Search', es: 'Búsqueda con IA' } },
+  { key: 'ai_search_badge', category: 'search', translations: { en: 'AI', es: 'IA' } },
+  { key: 'ai_search_back', category: 'search', translations: { en: 'Back to filters', es: 'Volver a los filtros' } },
+  { key: 'ai_search_placeholder', category: 'search', translations: { en: 'Describe your dream property…', es: 'Describa la propiedad de sus sueños…' } },
+  { key: 'ai_search_thinking', category: 'search', translations: { en: 'Reading…', es: 'Leyendo…' } },
+  { key: 'ai_search_try', category: 'search', translations: { en: 'Try:', es: 'Pruebe:' } },
+  { key: 'ai_search_example_1', category: 'search', translations: { en: 'modern apartment with sea views', es: 'apartamento moderno con vistas al mar' } },
+  { key: 'ai_search_example_2', category: 'search', translations: { en: 'family villa with garden under 400k', es: 'villa familiar con jardín por menos de 400k' } },
+  { key: 'ai_search_example_3', category: 'search', translations: { en: '2 bedroom rental near the beach', es: 'alquiler de 2 dormitorios cerca de la playa' } },
+  { key: 'ai_search_nothing', category: 'search', translations: { en: 'That did not match anything we can search by. Try naming a place, a price or a number of bedrooms.', es: 'Eso no coincide con nada por lo que podamos buscar. Pruebe a indicar un lugar, un precio o un número de dormitorios.' } },
+  { key: 'ai_search_error', category: 'search', translations: { en: 'That search could not be understood. Please try again.', es: 'No se ha podido entender esa búsqueda. Inténtelo de nuevo.' } },
+  { key: 'ai_voice_title', category: 'search', translations: { en: 'Voice Search', es: 'Búsqueda por Voz' } },
+  { key: 'ai_voice_start', category: 'search', translations: { en: 'Speak your search', es: 'Diga su búsqueda' } },
+  { key: 'ai_voice_stop', category: 'search', translations: { en: 'Stop listening', es: 'Dejar de escuchar' } },
+  { key: 'ai_voice_done', category: 'search', translations: { en: 'Done speaking', es: 'He terminado' } },
+  { key: 'ai_voice_type_instead', category: 'search', translations: { en: 'Type instead', es: 'Escribir en su lugar' } },
+  { key: 'ai_voice_tap', category: 'search', translations: { en: 'Tap the mic and say what you are looking for', es: 'Pulse el micrófono y diga lo que busca' } },
+  { key: 'ai_voice_listening_now', category: 'search', translations: { en: 'Listening… speak now', es: 'Escuchando… hable ahora' } },
+  { key: 'ai_voice_understanding', category: 'search', translations: { en: 'Understanding…', es: 'Interpretando…' } },
+  { key: 'ai_voice_try_again', category: 'search', translations: { en: 'Tap the mic to try again', es: 'Pulse el micrófono para intentarlo de nuevo' } },
+  { key: 'ai_voice_example', category: 'search', translations: { en: 'For example: “3 bedroom villa with a pool under 500,000”', es: 'Por ejemplo: “villa de 3 dormitorios con piscina por menos de 500.000”' } },
+  { key: 'ai_voice_nothing', category: 'search', translations: { en: 'We couldn’t pick out a search from that. Try saying a place, a price or a number of bedrooms.', es: 'No hemos podido sacar una búsqueda de eso. Pruebe a decir un lugar, un precio o un número de dormitorios.' } },
+  { key: 'ai_voice_denied', category: 'search', translations: { en: 'The microphone could not be used. Allow it in your browser, or type your search instead.', es: 'No se pudo usar el micrófono. Permítalo en su navegador o escriba su búsqueda.' } },
+  { key: 'ai_voice_error', category: 'search', translations: { en: 'That could not be understood. Please try again or type your search.', es: 'No se ha podido entender. Inténtelo de nuevo o escriba su búsqueda.' } },
 
   // ── Search Results ───────────────────────────────────────
   { key: 'results_showing', category: 'results', translations: { en: 'Showing', es: 'Mostrando' } },
@@ -85,6 +135,7 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'view_list', category: 'results', translations: { en: 'List view', es: 'Vista lista' } },
   { key: 'view_map', category: 'results', translations: { en: 'Map view', es: 'Vista mapa' } },
   { key: 'back_to_results', category: 'results', translations: { en: 'Back to Results', es: 'Volver a Resultados' } },
+  { key: 'sort_date_desc', category: 'results', translations: { en: 'Recently Added', es: 'Añadidos Recientemente' } },
 
   // ── Property Card ────────────────────────────────────────
   { key: 'card_bedrooms', category: 'card', translations: { en: 'beds', es: 'hab.' } },
@@ -107,6 +158,14 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'price_per_week', category: 'card', translations: { en: 'week', es: 'semana' } },
   { key: 'price_per_month', category: 'card', translations: { en: 'month', es: 'mes' } },
   { key: 'card_built_area', category: 'card', translations: { en: 'Built Area', es: 'Superficie' } },
+  { key: 'card_read_more', category: 'card', translations: { en: 'READ MORE', es: 'LEER MÁS' } },
+  { key: 'card_toggle_favorite', category: 'card', translations: { en: 'Toggle favorite', es: 'Añadir o quitar de favoritos' } },
+  // Badge on the "location first" card design (capitals by design)
+  { key: 'card_badge_sale', category: 'card', translations: { en: 'RESALE', es: 'REVENTA' } },
+  { key: 'card_badge_rent', category: 'card', translations: { en: 'FOR RENT', es: 'EN ALQUILER' } },
+  { key: 'card_badge_holiday_rent', category: 'card', translations: { en: 'HOLIDAY RENT', es: 'ALQUILER VACACIONAL' } },
+  { key: 'card_badge_development', category: 'card', translations: { en: 'NEW DEVELOPMENT', es: 'OBRA NUEVA' } },
+  { key: 'card_badge_offplan', category: 'card', translations: { en: 'OFF PLAN', es: 'SOBRE PLANO' } },
 
   // ── Property Detail ──────────────────────────────────────
   { key: 'detail_description', category: 'detail', translations: { en: 'Description', es: 'Descripción' } },
@@ -152,6 +211,19 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'detail_status_rented', category: 'detail', translations: { en: 'Rented', es: 'Alquilado' } },
   { key: 'detail_ref', category: 'detail', translations: { en: 'Ref', es: 'Ref' } },
   { key: 'detail_address', category: 'detail', translations: { en: 'Address', es: 'Dirección' } },
+  { key: 'detail_property_info', category: 'detail', translations: { en: 'Property Information', es: 'Información de la Propiedad' } },
+  { key: 'detail_zip', category: 'detail', translations: { en: 'Zip Code', es: 'Código Postal' } },
+  { key: 'detail_energy_na', category: 'detail', translations: { en: 'N/A', es: 'N/D' } },
+  { key: 'detail_energy_not_available', category: 'detail', translations: { en: 'Energy rating not available', es: 'Certificado energético no disponible' } },
+  { key: 'detail_energy_rating_value', category: 'detail', translations: { en: 'Energy rating {rating}', es: 'Certificado energético {rating}' } },
+  { key: 'detail_features_general', category: 'detail', translations: { en: 'General', es: 'General' } },
+  { key: 'detail_property_video', category: 'detail', translations: { en: 'Property video', es: 'Vídeo de la propiedad' } },
+  // Listing-type badge on the property page
+  { key: 'detail_status_sale', category: 'detail', translations: { en: 'For Sale', es: 'En Venta' } },
+  { key: 'detail_status_rent', category: 'detail', translations: { en: 'For Rent', es: 'En Alquiler' } },
+  { key: 'detail_status_holiday_rent', category: 'detail', translations: { en: 'Holiday Rent', es: 'Alquiler Vacacional' } },
+  { key: 'detail_status_development', category: 'detail', translations: { en: 'Development', es: 'Promoción' } },
+  { key: 'detail_status_offplan', category: 'detail', translations: { en: 'Off Plan', es: 'Sobre Plano' } },
 
   // ── Inquiry Form ─────────────────────────────────────────
   { key: 'inquiry_title', category: 'inquiry', translations: { en: 'Contact Agent', es: 'Contactar Agente' } },
@@ -171,6 +243,7 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'inquiry_for_sale', category: 'inquiry', translations: { en: 'for sale', es: 'en venta' } },
   { key: 'inquiry_for_rent', category: 'inquiry', translations: { en: 'for rent', es: 'en alquiler' } },
   { key: 'inquiry_for_holiday_rent', category: 'inquiry', translations: { en: 'for holiday rent', es: 'en alquiler vacacional' } },
+  { key: 'inquiry_in_location', category: 'inquiry', translations: { en: 'in {location}', es: 'en {location}' } },
 
   // ── Wishlist ─────────────────────────────────────────────
   { key: 'wishlist_title', category: 'wishlist', translations: { en: 'Wishlist', es: 'Lista de Deseos' } },
@@ -195,6 +268,13 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'personal_message', category: 'wishlist', translations: { en: 'Personal Message', es: 'Mensaje Personal' } },
   { key: 'your_email_optional', category: 'wishlist', translations: { en: 'Your email (optional)', es: 'Tu email (opcional)' } },
   { key: 'your_name_optional', category: 'wishlist', translations: { en: 'Your name (optional)', es: 'Tu nombre (opcional)' } },
+  // Wishlist PDF download
+  { key: 'wishlist_pdf_title', category: 'wishlist', translations: { en: 'Property Wishlist', es: 'Lista de Propiedades Favoritas' } },
+  { key: 'wishlist_pdf_count_one', category: 'wishlist', translations: { en: '{n} Property Saved', es: '{n} Propiedad Guardada' } },
+  { key: 'wishlist_pdf_count', category: 'wishlist', translations: { en: '{n} Properties Saved', es: '{n} Propiedades Guardadas' } },
+  { key: 'wishlist_pdf_property_of', category: 'wishlist', translations: { en: 'Property {index} of {total}', es: 'Propiedad {index} de {total}' } },
+  { key: 'wishlist_pdf_page_of', category: 'wishlist', translations: { en: 'Page {index} of {total}', es: 'Página {index} de {total}' } },
+  { key: 'wishlist_pdf_collection', category: 'wishlist', translations: { en: 'Property Collection', es: 'Colección de Propiedades' } },
 
   // ── Map ──────────────────────────────────────────────────
   { key: 'map_search_address', category: 'map', translations: { en: 'Search address...', es: 'Buscar dirección...' } },
@@ -206,6 +286,17 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'map_map_view', category: 'map', translations: { en: 'Map View', es: 'Vista de Mapa' } },
   { key: 'map_unavailable', category: 'map', translations: { en: 'Map could not be loaded', es: 'No se pudo cargar el mapa' } },
   { key: 'zones', category: 'map', translations: { en: 'areas', es: 'zonas' } },
+  { key: 'map_areas', category: 'map', translations: { en: 'Areas', es: 'Zonas' } },
+  { key: 'map_show', category: 'map', translations: { en: 'Show', es: 'Mostrar' } },
+  { key: 'map_within', category: 'map', translations: { en: 'Within', es: 'En un radio de' } },
+  { key: 'map_address_not_found', category: 'map', translations: { en: 'We could not find that place', es: 'No hemos encontrado ese lugar' } },
+  { key: 'map_approximate_location', category: 'map', translations: { en: 'Approximate location', es: 'Ubicación aproximada' } },
+  { key: 'map_price_on_request_short', category: 'map', translations: { en: 'P.O.R.', es: 'Consultar' } },
+  { key: 'map_no_results', category: 'map', translations: { en: 'No properties to show on the map for this search', es: 'No hay propiedades que mostrar en el mapa para esta búsqueda' } },
+  { key: 'map_load_error', category: 'map', translations: { en: 'Properties could not be loaded on the map', es: 'No se pudieron cargar las propiedades en el mapa' } },
+  { key: 'map_search_this_area', category: 'map', translations: { en: 'Search this area', es: 'Buscar en esta zona' } },
+  { key: 'map_showing_area', category: 'map', translations: { en: 'Showing this area', es: 'Mostrando esta zona' } },
+  { key: 'map_truncated', category: 'map', translations: { en: 'Zoom in or filter to see every property', es: 'Acerque el mapa o filtre para ver todas las propiedades' } },
 
   // ── AI Chat ──────────────────────────────────────────────
   { key: 'chat_toggle', category: 'chat', translations: { en: 'Chat with AI', es: 'Chatear con IA' } },
@@ -218,6 +309,7 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'pagination_prev', category: 'pagination', translations: { en: 'Previous', es: 'Anterior' } },
   { key: 'pagination_next', category: 'pagination', translations: { en: 'Next', es: 'Siguiente' } },
   { key: 'pagination_page', category: 'pagination', translations: { en: 'Page', es: 'Página' } },
+  { key: 'pagination_label', category: 'pagination', translations: { en: 'Pagination', es: 'Paginación' } },
 
   // ── Mortgage Calculator ──────────────────────────────────
   { key: 'mortgage_title', category: 'mortgage', translations: { en: 'Mortgage Calculator', es: 'Calculadora de Hipoteca' } },
@@ -267,6 +359,7 @@ export const DEFAULT_LABELS: DefaultLabel[] = [
   { key: 'location', category: 'general', translations: { en: 'Location', es: 'Ubicación' } },
   { key: 'price', category: 'general', translations: { en: 'Price', es: 'Precio' } },
   { key: 'wishlist', category: 'general', translations: { en: 'Wishlist', es: 'Lista de Deseos' } },
+  { key: 'copy_link', category: 'general', translations: { en: 'Copy Link', es: 'Copiar Enlace' } },
 ];
 
 export const KEY_TO_CATEGORY: Record<string, string> = {};

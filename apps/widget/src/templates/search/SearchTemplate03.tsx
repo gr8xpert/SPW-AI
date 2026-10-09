@@ -17,15 +17,15 @@ export default function SearchTemplate03() {
       <RsAiSearch badge={false} />
       <RsListingType variation={1} />
       <div class="rs-search-row rs-search-row--inline rs-t03-fields">
-        <RsLocation variation={4} />
+        <RsReference />
         <RsPropertyType variation={2} />
+        <RsLocation variation={4} />
         <RsBedrooms variation={1} />
         <RsBathrooms variation={1} />
-        <RsPrice variation={1} />
       </div>
       <div class="rs-search-row rs-t03-actions">
+        <RsPrice variation={1} />
         <RsFeatures variation={1} />
-        <RsReference />
         <RsSearchButton />
         <RsResetButton />
         <RsAiActions />

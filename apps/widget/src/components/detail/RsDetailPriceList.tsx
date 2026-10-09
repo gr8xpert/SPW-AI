@@ -25,7 +25,8 @@ function num(n: number | null): string {
 /**
  * A new development's units with their current prices (Resales PriceList).
  * Sold units stay in the list, greyed, without a price. Nothing renders for
- * a listing without units.
+ * a listing without units, or with just one: its row would repeat Property
+ * Information (type, beds, baths, sizes) and the price above it.
  */
 export default function RsDetailPriceList({ property: propertyProp }: Props) {
   const { t } = useLabels();
@@ -33,7 +34,7 @@ export default function RsDetailPriceList({ property: propertyProp }: Props) {
   const storeProperty = useSelector(selectors.getSelectedProperty);
   const property = propertyProp ?? storeProperty;
   const units: DevelopmentUnit[] = Array.isArray(property?.units) ? property!.units! : [];
-  if (!property || !units.length) return null;
+  if (!property || units.length < 2) return null;
 
   const available = units.filter((u) => u.status !== 'sold').length;
   const summary = t('detail_units_available', '{count} of {total} units available')

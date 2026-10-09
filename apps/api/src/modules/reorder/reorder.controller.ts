@@ -4,34 +4,14 @@ import { ReorderDto } from './dto';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
 
+// Locations, property types and features reorder through their own
+// controllers (same paths), which also bump syncVersion so the website
+// refetches the order. Copies of those routes here used to shadow them, so a
+// drag in the dashboard never reached the website.
 @Controller('api/dashboard')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class ReorderController {
   constructor(private readonly reorderService: ReorderService) {}
-
-  @Put('locations/reorder')
-  async reorderLocations(
-    @CurrentTenant() tenantId: number,
-    @Body() dto: ReorderDto,
-  ) {
-    return this.reorderService.reorderLocations(tenantId, dto);
-  }
-
-  @Put('property-types/reorder')
-  async reorderPropertyTypes(
-    @CurrentTenant() tenantId: number,
-    @Body() dto: ReorderDto,
-  ) {
-    return this.reorderService.reorderPropertyTypes(tenantId, dto);
-  }
-
-  @Put('features/reorder')
-  async reorderFeatures(
-    @CurrentTenant() tenantId: number,
-    @Body() dto: ReorderDto,
-  ) {
-    return this.reorderService.reorderFeatures(tenantId, dto);
-  }
 
   @Put('location-groups/reorder')
   async reorderLocationGroups(

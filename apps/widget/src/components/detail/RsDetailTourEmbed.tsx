@@ -19,7 +19,7 @@ export default function RsDetailTourEmbed() {
           allow="accelerometer; gyroscope; fullscreen; vr; xr"
           allowFullScreen
           loading="lazy"
-          title="Virtual tour"
+          title={t('detail_virtual_tour', 'Virtual tour')}
         />
       </div>
     </div>

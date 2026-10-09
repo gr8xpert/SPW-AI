@@ -8,7 +8,7 @@ import type { SearchFilters } from '@/types';
 const FILTER_LABELS: Record<string, { labelKey: string; fallback: string }> = {
   listingType: { labelKey: 'filter_listing_type', fallback: 'Listing Type' },
   locationId: { labelKey: 'filter_location', fallback: 'Location' },
-  locationIds: { labelKey: 'filter_location', fallback: 'Locations' },
+  locationIds: { labelKey: 'filter_locations', fallback: 'Locations' },
   propertyTypeId: { labelKey: 'filter_property_type', fallback: 'Property Type' },
   minPrice: { labelKey: 'filter_min_price', fallback: 'Min Price' },
   maxPrice: { labelKey: 'filter_max_price', fallback: 'Max Price' },
@@ -59,12 +59,12 @@ export default function RsActiveFilters() {
       displayValue = loc ? loc.name : String(value);
     } else if (key === 'locationIds' && Array.isArray(value)) {
       const names = value.map((id: number) => locations.find(l => l.id === id)?.name).filter(Boolean);
-      displayValue = names.length <= 2 ? names.join(', ') : `${names.length} locations`;
+      displayValue = names.length <= 2 ? names.join(', ') : t('filter_n_locations', '{n} locations').replace('{n}', String(names.length));
     } else if (key === 'propertyTypeId') {
       const pt = propertyTypes.find(p => p.id === value);
       displayValue = pt ? pt.name : String(value);
     } else if (key === 'features' && Array.isArray(value)) {
-      displayValue = `${value.length} selected`;
+      displayValue = t('filter_n_selected', '{n} selected').replace('{n}', String(value.length));
     } else if (key === 'isFeatured') {
       displayValue = t('card_featured', 'Featured');
     } else if (key === 'keyReady') {
@@ -87,7 +87,7 @@ export default function RsActiveFilters() {
             <button
               class="rs-active-filters__tag-remove"
               onClick={() => removeFilter(f.key)}
-              aria-label={`Remove ${f.label}`}
+              aria-label={t('filter_remove', 'Remove {filter}').replace('{filter}', f.label)}
               type="button"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

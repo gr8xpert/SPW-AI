@@ -38,7 +38,7 @@ function buildDefaultMessage(property: Property, t: (k: string, fb: string) => s
     : property.listingType === 'holiday_rent' ? t('inquiry_for_holiday_rent', 'for holiday rent')
     : t('inquiry_for_sale', 'for sale');
 
-  const desc = [typeName, listingLabel, locationName ? `in ${locationName}` : ''].filter(Boolean).join(' ');
+  const desc = [typeName, listingLabel, locationName ? t('inquiry_in_location', 'in {location}').replace('{location}', locationName) : ''].filter(Boolean).join(' ');
   const title = property.title || desc;
 
   const template = t(

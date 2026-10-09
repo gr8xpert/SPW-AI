@@ -362,6 +362,9 @@ button.rs-typeahead__clear:hover {
 input.rs-input.rs-input {
   height: 42px;
   padding: 0 12px;
+  /* Themes size bare inputs too (one set 21px), which made Reference
+     larger than the dropdowns beside it. */
+  font-size: 0.875rem;
 }
 
 input.rs-input.rs-input--sm {

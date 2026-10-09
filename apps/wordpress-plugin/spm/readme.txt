@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.5
+Stable tag: 2.9.6
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,9 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.6 =
+* Location and property type filters take several entries: `[spm_listing location="Marbella, Estepona"]` (or IDs) shows listings in any of them. Needed for sites moved over with the SPM Converter, whose old codes often list several.
 
 = 2.9.5 =
 * New: Settings → Search tab pages. Give For Sale, New Developments, For Rent and Holiday Rentals each its own page (one slug per language); Search on a tab then goes to that tab's page, so the address always matches the results. "All" uses the listings page. Tabs left empty search on the listings page.

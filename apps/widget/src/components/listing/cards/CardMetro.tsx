@@ -53,12 +53,12 @@ export default function CardMetro({ property, index = 0 }: CardProps) {
         <div class="rs-property-card__metro-chips">
           {property.bedrooms != null && property.bedrooms > 0 && (
             <span class="rs-property-card__metro-chip">
-              {specRange(property, 'bedrooms')} {t('card_beds_short', 'beds')}
+              {specRange(property, 'bedrooms')} {t('card_bedrooms', 'beds')}
             </span>
           )}
           {property.bathrooms != null && property.bathrooms > 0 && (
             <span class="rs-property-card__metro-chip">
-              {specRange(property, 'bathrooms')} {t('card_baths_short', 'baths')}
+              {specRange(property, 'bathrooms')} {t('card_bathrooms', 'baths')}
             </span>
           )}
           {property.buildSize != null && property.buildSize > 0 && (
@@ -68,7 +68,7 @@ export default function CardMetro({ property, index = 0 }: CardProps) {
           )}
           {property.terraceSize != null && property.terraceSize > 0 && (
             <span class="rs-property-card__metro-chip">
-              {specRange(property, 'terraceSize')} m² {t('card_terrace_short', 'terrace')}
+              {specRange(property, 'terraceSize')} m² {t('card_terrace_size', 'terrace')}
             </span>
           )}
         </div>

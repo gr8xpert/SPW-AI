@@ -21,7 +21,7 @@ export default function RsPagination() {
   const pages = buildPageRange(currentPage, totalPages);
 
   return (
-    <nav class="rs-pagination" aria-label="Pagination">
+    <nav class="rs-pagination" aria-label={t('pagination_label', 'Pagination')}>
       <button
         class="rs-pagination__btn rs-pagination__btn--prev"
         onClick={() => goToPage(currentPage - 1)}

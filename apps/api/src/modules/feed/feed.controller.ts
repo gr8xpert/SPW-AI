@@ -33,7 +33,7 @@ export class FeedController {
       { id: 'odoo', name: 'Odoo', available: true },
       { id: 'inmoba', name: 'Inmoba', available: true },
       { id: 'infocasa', name: 'Infocasa', available: false },
-      { id: 'redsp', name: 'REDSP', available: false },
+      { id: 'redsp', name: 'RedSP', available: true },
     ];
   }
 
@@ -79,12 +79,15 @@ export class FeedController {
     return { success: true };
   }
 
+  // Body { confirmRemoval: true }: the admin confirmed on the feed card that
+  // the properties the last run held back really left the source.
   @Post(':id/sync')
   async triggerSync(
     @CurrentTenant() tenantId: number,
     @Param('id', ParseIntPipe) id: number,
+    @Body() body?: { confirmRemoval?: boolean },
   ) {
-    return this.feedService.triggerSync(tenantId, id);
+    return this.feedService.triggerSync(tenantId, id, { confirmRemoval: body?.confirmRemoval === true });
   }
 
   @Post(':id/wipe-and-sync')

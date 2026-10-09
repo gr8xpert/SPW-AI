@@ -8,10 +8,15 @@ interface PoolEntry {
 }
 
 /**
- * Manages a single warm Chrome instance + a small pool of reusable pages so
+ * Manages a single Chrome instance + a small pool of reusable pages so
  * brochure rendering doesn't pay Chromium startup cost (~1.2s) on every PDF
  * download. Pages are recycled after MAX_USES_PER_PAGE renders to bound
  * memory growth from script/image leaks in long-lived contexts.
+ *
+ * Chrome starts on the first brochure (not at API boot) and closes after
+ * IDLE_CLOSE_MS without one. It talks over a pipe, so if Node dies without
+ * running onModuleDestroy (SIGKILL, crash) Chrome sees the pipe close and
+ * exits too — before 10-08 every API restart left a Chrome behind (500 on prod).
  */
 @Injectable()
 export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
@@ -20,28 +25,67 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private pool: PoolEntry[] = [];
   private readonly POOL_SIZE = 4;
   private readonly MAX_USES_PER_PAGE = 50;
+  private readonly IDLE_CLOSE_MS = 10 * 60_000;
   private readonly waiters: Array<(entry: PoolEntry) => void> = [];
+  private launching: Promise<Browser> | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
+  // Last resort for exits that skip Nest's shutdown hooks (process.exit, an
+  // uncaught error): kill Chrome synchronously.
+  private readonly killOnExit = () => {
+    this.browser?.process()?.kill('SIGKILL');
+  };
 
-  async onModuleInit(): Promise<void> {
-    await this.launchBrowser();
+  onModuleInit(): void {
+    process.once('exit', this.killOnExit);
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.browser) {
-      try {
-        await this.browser.close();
-      } catch (err) {
-        this.logger.warn(`Browser close error (ignored): ${(err as Error).message}`);
-      }
-      this.browser = null;
-    }
-    this.pool = [];
+    process.removeListener('exit', this.killOnExit);
+    await this.closeBrowser();
   }
 
-  private async launchBrowser(): Promise<void> {
+  private async closeBrowser(): Promise<void> {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    const browser = this.browser;
+    this.browser = null;
+    this.pool = [];
+    if (!browser) return;
+    try {
+      await browser.close();
+    } catch (err) {
+      this.logger.warn(`Browser close error (ignored): ${(err as Error).message}`);
+      browser.process()?.kill('SIGKILL');
+    }
+  }
+
+  // Close Chrome once nothing has rendered for IDLE_CLOSE_MS.
+  private scheduleIdleClose(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      if (this.pool.some((e) => e.busy) || this.waiters.length) return this.scheduleIdleClose();
+      this.logger.log('Brochure Chrome idle — closing it');
+      void this.closeBrowser();
+    }, this.IDLE_CLOSE_MS);
+    this.idleTimer.unref();
+  }
+
+  // One launch at a time: concurrent first requests share the same Chrome.
+  private async launchBrowser(): Promise<Browser> {
+    if (this.browser) return this.browser;
+    if (!this.launching) {
+      this.launching = this.startChrome().finally(() => {
+        this.launching = null;
+      });
+    }
+    return this.launching;
+  }
+
+  private async startChrome(): Promise<Browser> {
     this.logger.log('Launching Puppeteer browser...');
-    this.browser = await puppeteer.launch({
+    const browser = await puppeteer.launch({
       headless: true,
+      pipe: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -50,11 +94,20 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         '--font-render-hinting=none',
       ],
     });
-    this.logger.log(`Puppeteer browser ready (version: ${await this.browser.version()})`);
+    // A crashed Chrome: forget it and its pages; the next brochure starts a new one.
+    browser.on('disconnected', () => {
+      if (this.browser === browser) {
+        this.browser = null;
+        this.pool = [];
+      }
+    });
+    this.browser = browser;
+    this.logger.log(`Puppeteer browser ready (version: ${await browser.version()})`);
+    return browser;
   }
 
   private async acquire(): Promise<PoolEntry> {
-    if (!this.browser) await this.launchBrowser();
+    const browser = await this.launchBrowser();
 
     // Reuse idle page
     const idle = this.pool.find((e) => !e.busy);
@@ -65,7 +118,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
 
     // Grow pool up to POOL_SIZE
     if (this.pool.length < this.POOL_SIZE) {
-      const page = await this.browser!.newPage();
+      const page = await browser.newPage();
       const entry: PoolEntry = { page, uses: 0, busy: true };
       this.pool.push(entry);
       return entry;
@@ -95,7 +148,8 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
       // Hand off to a waiter
       let target = this.pool.find((e) => !e.busy);
       if (!target && this.pool.length < this.POOL_SIZE) {
-        const page = await this.browser!.newPage();
+        const browser = await this.launchBrowser();
+        const page = await browser.newPage();
         target = { page, uses: 0, busy: true };
         this.pool.push(target);
       }
@@ -116,6 +170,7 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
    */
   async renderPdf(html: string, pdfOptions: PDFOptions = {}): Promise<Buffer> {
     const entry = await this.acquire();
+    this.scheduleIdleClose();
     try {
       await entry.page.setContent(html, { waitUntil: 'load', timeout: 30_000 });
       const buf = await entry.page.pdf({

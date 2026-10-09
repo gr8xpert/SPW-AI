@@ -63,6 +63,10 @@ export function AiTab({ ai }: { ai: AiSettings }) {
                 openrouter.ai/keys
               </a>
             </p>
+            <p className="text-xs text-muted-foreground">
+              Your key is needed for property AI: SEO, Bulk SEO, property translations, AI search and the chatbot.
+              Once added, it is also used for translating and organizing locations, types, features and labels.
+            </p>
           </div>
 
           <div className="space-y-2">

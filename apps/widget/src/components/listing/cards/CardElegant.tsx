@@ -4,7 +4,7 @@ import { CardSlides, CardBadges, CardFavorite, CardPrice, CardSpecs } from './Ca
 
 export default function CardElegant({ property, index = 0 }: CardProps) {
   const s = useCardState(property);
-  const { propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
+  const { t, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div
       class="rs-property-card rs-property-card--elegant rs-card-enter rs-card-hover"
@@ -42,7 +42,7 @@ export default function CardElegant({ property, index = 0 }: CardProps) {
         <CardSpecs s={s} />
       </div>
 
-      <button type="button" class="rs-property-card__elegant-action" onClick={handleClick} aria-label="View details">
+      <button type="button" class="rs-property-card__elegant-action" onClick={handleClick} aria-label={t('card_view_details', 'View details')}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M7 17L17 7" /><path d="M9 7h8v8" />
         </svg>

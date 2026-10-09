@@ -1,14 +1,27 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { LabelService } from './label.service';
 import { CreateLabelDto, UpdateLabelDto } from './dto';
+import { TenantService } from '../tenant/tenant.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
 import { CurrentTenant } from '../../common/decorators';
 
+// Edits bump syncVersion: the widget keeps labels in IndexedDB and the WP
+// plugin in its saved bundle, both refreshed only when syncVersion moves —
+// without it a label translated here never reached the website.
 @Controller('api/dashboard/labels')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class LabelController {
-  constructor(private readonly labelService: LabelService) {}
+  constructor(
+    private readonly labelService: LabelService,
+    private readonly tenantService: TenantService,
+  ) {}
 
+  private bump(tenantId: number, reason: string): Promise<void> {
+    return this.tenantService.bumpSyncVersionSafely(tenantId, `label ${reason}`);
+  }
+
+  // Creating the default rows changes nothing on the site (the widget already
+  // gets every default), so opening this page doesn't bump.
   @Get()
   async findAll(@CurrentTenant() tenantId: number) {
     await this.labelService.initializeDefaultLabels(tenantId);
@@ -22,7 +35,9 @@ export class LabelController {
 
   @Post()
   async create(@CurrentTenant() tenantId: number, @Body() dto: CreateLabelDto) {
-    return this.labelService.create(tenantId, dto);
+    const label = await this.labelService.create(tenantId, dto);
+    await this.bump(tenantId, `create ${label.key}`);
+    return label;
   }
 
   @Post('initialize')
@@ -33,12 +48,15 @@ export class LabelController {
 
   @Put(':id')
   async update(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLabelDto) {
-    return this.labelService.update(tenantId, id, dto);
+    const label = await this.labelService.update(tenantId, id, dto);
+    await this.bump(tenantId, `update ${label.key}`);
+    return label;
   }
 
   @Delete(':id')
   async remove(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number) {
     await this.labelService.remove(tenantId, id);
+    await this.bump(tenantId, `delete ${id}`);
     return { success: true };
   }
 }

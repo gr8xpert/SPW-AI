@@ -1,4 +1,5 @@
 import { useCallback } from 'preact/hooks';
+import { useLabels } from '@/hooks/useLabels';
 
 interface Props {
   url?: string;
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function RsShareButtons({ url = '', title = '' }: Props) {
+  const { t } = useLabels();
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
 
@@ -54,7 +56,7 @@ export default function RsShareButtons({ url = '', title = '' }: Props) {
       <a
         class="rs-share-buttons__btn rs-share-buttons__btn--email"
         href={`mailto:?subject=${encodedTitle}&body=${encodedUrl}`}
-        aria-label="Email"
+        aria-label={t('email', 'Email')}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -65,7 +67,7 @@ export default function RsShareButtons({ url = '', title = '' }: Props) {
         type="button"
         class="rs-share-buttons__btn rs-share-buttons__btn--copy"
         onClick={handleCopyLink}
-        aria-label="Copy Link"
+        aria-label={t('copy_link', 'Copy Link')}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

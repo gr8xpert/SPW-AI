@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { useSelector } from '@/hooks/useStore';
+import { useLabels } from '@/hooks/useLabels';
 import { selectors } from '@/core/selectors';
 
 function getEmbedUrl(url: string): string | null {
@@ -20,6 +21,7 @@ function getEmbedUrl(url: string): string | null {
 }
 
 export default function RsDetailVideoEmbed() {
+  const { t } = useLabels();
   const property = useSelector(selectors.getSelectedProperty);
   const embedUrl = useMemo(
     () => property?.videoUrl ? getEmbedUrl(property.videoUrl) : null,
@@ -36,7 +38,7 @@ export default function RsDetailVideoEmbed() {
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         loading="lazy"
-        title="Property video"
+        title={t('detail_property_video', 'Property video')}
       />
     </div>
   );

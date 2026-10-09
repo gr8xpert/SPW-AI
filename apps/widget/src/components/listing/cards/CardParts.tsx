@@ -15,7 +15,7 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
   arrowStroke?: string;
   dots?: boolean;
 }) {
-  const { property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide } = s;
+  const { t, property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide } = s;
   return carouselImages.length > 0 ? (
     <div class="rs-property-card__carousel">
       {carouselImages.map((img, i) => (
@@ -32,10 +32,10 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
       ))}
       {carouselImages.length > 1 && (
         <>
-          <button type="button" class="rs-property-card__arrow rs-property-card__arrow--prev" onClick={prevSlide} aria-label="Previous">
+          <button type="button" class="rs-property-card__arrow rs-property-card__arrow--prev" onClick={prevSlide} aria-label={t('pagination_prev', 'Previous')}>
             <svg width={arrowSize} height={arrowSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={arrowStroke}><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <button type="button" class="rs-property-card__arrow rs-property-card__arrow--next" onClick={nextSlide} aria-label="Next">
+          <button type="button" class="rs-property-card__arrow rs-property-card__arrow--next" onClick={nextSlide} aria-label={t('pagination_next', 'Next')}>
             <svg width={arrowSize} height={arrowSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={arrowStroke}><polyline points="9 6 15 12 9 18" /></svg>
           </button>
           {dots && (
@@ -82,13 +82,13 @@ export function CardBadges({ s, own = true }: PartProps & { own?: boolean }) {
 
 /** Wishlist heart, hidden when the site turned favourites off. */
 export function CardFavorite({ s, size }: PartProps & { size: number }) {
-  const { config, favorite, heartBounce, handleFavoriteClick } = s;
+  const { t, config, favorite, heartBounce, handleFavoriteClick } = s;
   if (config.enableFavorites === false) return null;
   return (
     <button
       class={`rs-property-card__favorite${favorite ? ' rs-property-card__favorite--active' : ''}${heartBounce ? ' rs-heart-bounce' : ''}`}
       onClick={handleFavoriteClick}
-      aria-label="Toggle favorite"
+      aria-label={t('card_toggle_favorite', 'Toggle favorite')}
       type="button"
     >
       <RsWishlistIcon size={size} filled={favorite} />

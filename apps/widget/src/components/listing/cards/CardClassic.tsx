@@ -67,7 +67,7 @@ function Specs({ s, n, size }: { s: CardState; n: string; size: number }) {
 }
 
 function Slides({ s }: { s: CardState }) {
-  const { property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide } = s;
+  const { t, property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide } = s;
   if (!carouselImages.length) return <div class="rs_card_carousel" />;
   return (
     <div class="rs_card_carousel">
@@ -86,10 +86,10 @@ function Slides({ s }: { s: CardState }) {
         </div>
         {carouselImages.length > 1 && (
           <>
-            <button class="rs-card__carousel-prev" type="button" aria-label="Previous" onClick={inLink(prevSlide)}>
+            <button class="rs-card__carousel-prev" type="button" aria-label={t('pagination_prev', 'Previous')} onClick={inLink(prevSlide)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <button class="rs-card__carousel-next" type="button" aria-label="Next" onClick={inLink(nextSlide)}>
+            <button class="rs-card__carousel-next" type="button" aria-label={t('pagination_next', 'Next')} onClick={inLink(nextSlide)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
             <div class="rs-card__carousel-dots">
@@ -116,13 +116,13 @@ function Status({ s, n }: { s: CardState; n: string }) {
 }
 
 function Wishlist({ s, n }: { s: CardState; n: string }) {
-  const { config, favorite, handleFavoriteClick } = s;
+  const { t, config, favorite, handleFavoriteClick } = s;
   if (config.enableFavorites === false) return null;
   return (
     <button
       class={`rs_card_wishlist rs-template-card-${n}__wishlist rs-card__wishlist${favorite ? ' rs-card__wishlist--active' : ''}`}
       type="button"
-      aria-label="Toggle favorite"
+      aria-label={t('card_toggle_favorite', 'Toggle favorite')}
       onClick={inLink(handleFavoriteClick)}
     >
       <RsWishlistIcon size={18} filled={favorite} />
@@ -259,7 +259,7 @@ function ClassicCard({ property, index = 0, template }: CardProps & { template: 
         {description && <p class={`rs_card_description ${c('description')}`}>{description}</p>}
         <div class={c('specs')}><Specs s={s} n={n} size={16} /></div>
         <div class={c('price-section')}>
-          <span class={c('price-label')}>{t('card_price', 'Price')}</span>
+          <span class={c('price-label')}>{t('price', 'Price')}</span>
           <span class={`rs_card_price ${c('price')}`}>{price}</span>
         </div>
         <div class={c('actions')}>

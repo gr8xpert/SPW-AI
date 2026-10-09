@@ -37,14 +37,19 @@ export function parseConfig(): WidgetConfig {
   const v2El = document.querySelector<HTMLElement>('[data-spm-widget]');
   const v2Attrs = v2El ? parseV2Attributes(v2El) : {};
 
+  const fromSite = { ...legacy, ...v2Attrs };
+  siteKeys = new Set(Object.keys(fromSite).filter((k) => (fromSite as Record<string, unknown>)[k] !== undefined));
   const merged: WidgetConfig = {
     ...DEFAULT_CONFIG,
-    ...legacy,
-    ...v2Attrs,
+    ...fromSite,
   } as WidgetConfig;
 
   return merged;
 }
+
+// Keys the page itself set (RealtySoftConfig / data-spm-* attributes), as
+// opposed to DEFAULT_CONFIG. Only these may override the dashboard.
+let siteKeys = new Set<string>();
 
 function parseLegacyConfig(): Partial<WidgetConfig> {
   const rc = window.RealtySoftConfig;
@@ -150,7 +155,10 @@ export function mergeWithDashboardConfig(
 ): WidgetConfig {
   const merged = { ...config, ...dashboardConfig };
   for (const key of USER_PROTECTED_KEYS) {
-    if ((config as unknown as Record<string, unknown>)[key] !== undefined) {
+    // Set by the page, not just a built-in default: the defaults filled every
+    // protected key, so the dashboard's price lists, bedroom/bathroom options
+    // and favorites/inquiry/chat switches never reached the website.
+    if (siteKeys.has(key) && (config as unknown as Record<string, unknown>)[key] !== undefined) {
       (merged as unknown as Record<string, unknown>)[key] = (config as unknown as Record<string, unknown>)[key];
     }
   }

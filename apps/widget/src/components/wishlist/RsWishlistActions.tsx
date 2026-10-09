@@ -36,7 +36,7 @@ export default function RsWishlistActions(_props: Props) {
   const handleDownloadPDF = async () => {
     if (!properties.length) return;
     try {
-      await generateWishlistPDF(properties, formatPrice, config.companyName || config.tenantSlug, config.primaryColor, featureCatalog);
+      await generateWishlistPDF(properties, formatPrice, config.companyName || config.tenantSlug, config.primaryColor, featureCatalog, t);
     } catch (err) {
       console.error('[SPM] PDF generation failed:', err);
     }

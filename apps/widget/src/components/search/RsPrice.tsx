@@ -20,6 +20,12 @@ const PRICE_RANGES = [
 ];
 
 const DEFAULT_SALE_PRICES = [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000];
+// Used when the client's saved lists have none for the listing type.
+const DEFAULT_PRICES: Record<string, number[]> = {
+  sale: DEFAULT_SALE_PRICES,
+  rent: [250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000],
+  holiday_rent: [150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000],
+};
 
 export default function RsPrice({ variation = 1 }: Props) {
   const config = useConfig();
@@ -37,8 +43,14 @@ export default function RsPrice({ variation = 1 }: Props) {
   const priceOptions = useMemo(() => {
     const opts = config.priceOptions;
     const own = opts && typeof opts === 'object' ? opts[lt] : undefined;
-    // An empty list (e.g. New Development never filled in) uses the Sale prices.
-    const list = own?.length ? own : opts?.sale?.length ? opts.sale : DEFAULT_SALE_PRICES;
+    // An empty list: New Development uses the client's Sale prices; rentals
+    // their own built-in steps (never sale prices for a monthly rent).
+    const isSaleLike = lt === 'sale' || lt === 'development';
+    const list = own?.length
+      ? own
+      : isSaleLike && opts?.sale?.length
+        ? opts.sale
+        : DEFAULT_PRICES[lt] ?? DEFAULT_SALE_PRICES;
     return floor > 0 ? list.filter((v) => v >= floor) : list;
   }, [config.priceOptions, lt, floor]);
 

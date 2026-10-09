@@ -78,7 +78,9 @@ function stripHtml(html: string): string {
   return tmp.textContent || tmp.innerText || '';
 }
 
-function drawCover(pdf: JsPDF, brand: string, primary: { r: number; g: number; b: number }, count: number, date: string): void {
+type Translate = (key: string, fallback: string) => string;
+
+function drawCover(pdf: JsPDF, brand: string, primary: { r: number; g: number; b: number }, count: number, date: string, t: Translate): void {
   const W = pdf.internal.pageSize.getWidth();
   const H = pdf.internal.pageSize.getHeight();
 
@@ -96,10 +98,10 @@ function drawCover(pdf: JsPDF, brand: string, primary: { r: number; g: number; b
 
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(18);
-  pdf.text('Property Wishlist', W / 2, H / 2, { align: 'center' });
+  pdf.text(t('wishlist_pdf_title', 'Property Wishlist'), W / 2, H / 2, { align: 'center' });
 
   pdf.setFontSize(12);
-  pdf.text(`${count} ${count === 1 ? 'Property' : 'Properties'} Saved`, W / 2, H / 2 + 12, { align: 'center' });
+  pdf.text((count === 1 ? t('wishlist_pdf_count_one', '{n} Property Saved') : t('wishlist_pdf_count', '{n} Properties Saved')).replace('{n}', String(count)), W / 2, H / 2 + 12, { align: 'center' });
 
   pdf.setFontSize(10);
   pdf.text(date, W / 2, H - 20, { align: 'center' });
@@ -113,6 +115,7 @@ async function drawPropertyPage(
   formatPrice: (n: number, c?: string) => string,
   primary: { r: number; g: number; b: number },
   resolvedFeatures: Feature[],
+  t: Translate,
 ): Promise<void> {
   const W = pdf.internal.pageSize.getWidth();
   const H = pdf.internal.pageSize.getHeight();
@@ -124,8 +127,8 @@ async function drawPropertyPage(
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
-  pdf.text(`Property ${index} of ${total}`, M, 8);
-  pdf.text(`Ref: ${p.reference}`, W - M, 8, { align: 'right' });
+  pdf.text(t('wishlist_pdf_property_of', 'Property {index} of {total}').replace('{index}', String(index)).replace('{total}', String(total)), M, 8);
+  pdf.text(`${t('reference', 'Ref')}: ${p.reference}`, W - M, 8, { align: 'right' });
 
   let y = 22;
 
@@ -156,7 +159,7 @@ async function drawPropertyPage(
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(20);
   // jsPDF's built-in fonts lack "–", so the range uses a plain hyphen.
-  const priceText = formatPropertyPrice(p, (n) => formatPrice(n, p.currency), (_k, f) => f ?? '', 'Price on Request').replace('–', '-');
+  const priceText = formatPropertyPrice(p, (n) => formatPrice(n, p.currency), (k, f) => t(k, f ?? ''), t('card_price_on_request', 'Price on Request')).replace('–', '-');
   pdf.text(priceText, M, y);
   y += 10;
 
@@ -178,12 +181,12 @@ async function drawPropertyPage(
 
   // Info grid (label / value pairs) — two columns
   const rows: Array<[string, string]> = [];
-  if (p.bedrooms != null) rows.push(['Bedrooms', String(p.bedrooms)]);
-  if (p.bathrooms != null) rows.push(['Bathrooms', String(p.bathrooms)]);
-  if (p.buildSize != null) rows.push(['Build Size', `${p.buildSize} m²`]);
-  if (p.plotSize != null) rows.push(['Plot Size', `${p.plotSize} m²`]);
-  if (p.terraceSize != null) rows.push(['Terrace', `${p.terraceSize} m²`]);
-  if (p.status) rows.push(['Status', String(p.status).replace(/_/g, ' ')]);
+  if (p.bedrooms != null) rows.push([t('detail_bedrooms', 'Bedrooms'), String(p.bedrooms)]);
+  if (p.bathrooms != null) rows.push([t('detail_bathrooms', 'Bathrooms'), String(p.bathrooms)]);
+  if (p.buildSize != null) rows.push([t('detail_built_area', 'Build Size'), `${p.buildSize} m²`]);
+  if (p.plotSize != null) rows.push([t('detail_plot_size', 'Plot Size'), `${p.plotSize} m²`]);
+  if (p.terraceSize != null) rows.push([t('detail_terrace', 'Terrace'), `${p.terraceSize} m²`]);
+  if (p.status) rows.push([t('detail_status', 'Status'), String(p.status).replace(/_/g, ' ')]);
 
   pdf.setFontSize(10);
   const colW = (W - M * 2) / 2;
@@ -251,7 +254,7 @@ async function drawPropertyPage(
   pdf.setTextColor(148, 163, 184);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
-  pdf.text(`Page ${index + 1} of ${total + 1}`, W / 2, H - 8, { align: 'center' });
+  pdf.text(t('wishlist_pdf_page_of', 'Page {index} of {total}').replace('{index}', String(index + 1)).replace('{total}', String(total + 1)), W / 2, H - 8, { align: 'center' });
 }
 
 export async function generateWishlistPDF(
@@ -260,20 +263,21 @@ export async function generateWishlistPDF(
   brandName?: string,
   primaryColor?: string,
   featureCatalog: Feature[] = [],
+  t: Translate = (_key, fallback) => fallback,
 ): Promise<void> {
-  const brand = brandName || document.title || 'Property Collection';
+  const brand = brandName || document.title || t('wishlist_pdf_collection', 'Property Collection');
   const primary = hexToRgb(primaryColor || '#2563eb');
   const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
   const { jsPDF } = await loadJsPdf();
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  drawCover(pdf, brand, primary, properties.length, date);
+  drawCover(pdf, brand, primary, properties.length, date, t);
 
   for (let i = 0; i < properties.length; i++) {
     pdf.addPage();
     const resolved = resolveFeatures(properties[i].features, featureCatalog);
-    await drawPropertyPage(pdf, properties[i], i + 1, properties.length, formatPrice, primary, resolved);
+    await drawPropertyPage(pdf, properties[i], i + 1, properties.length, formatPrice, primary, resolved, t);
   }
 
   pdf.save('wishlist.pdf');

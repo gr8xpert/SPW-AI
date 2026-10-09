@@ -13,7 +13,7 @@ import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities'
 import type { FeedCredentials } from '../../database/entities/feed-config.entity';
 import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
-import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
+import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, RedspAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
@@ -87,6 +87,7 @@ export class FeedService {
     private inmobaAdapter: InmobaAdapter,
     private kyeroAdapter: KyeroAdapter,
     private odooAdapter: OdooAdapter,
+    private redspAdapter: RedspAdapter,
     private readonly tenantService: TenantService,
     private readonly uploadService: UploadService,
     private readonly aiEnrichmentService: AiEnrichmentService,
@@ -98,6 +99,7 @@ export class FeedService {
       ['inmoba', this.inmobaAdapter],
       ['kyero', this.kyeroAdapter],
       ['odoo', this.odooAdapter],
+      ['redsp', this.redspAdapter],
     ]);
   }
 
@@ -260,7 +262,10 @@ export class FeedService {
   async triggerSync(
     tenantId: number,
     configId: number,
-    options?: { scheduledWindow?: string },
+    // confirmRemoval: the admin confirmed, from the feed card, that the
+    // properties the last run held back really left the source — this one
+    // run removes them past the mass-removal / empty-feed guards.
+    options?: { scheduledWindow?: string; confirmRemoval?: boolean },
   ): Promise<FeedImportLog> {
     const config = await this.findConfigWithCredentials(tenantId, configId);
 
@@ -312,6 +317,7 @@ export class FeedService {
         configId: config.id,
         importLogId: importLog.id,
         tenantId,
+        confirmRemoval: options?.confirmRemoval === true,
       },
       { jobId },
     );
@@ -488,7 +494,7 @@ export class FeedService {
     return { propertiesDeleted, locationsDeleted, propertyTypesDeleted, featuresDeleted };
   }
 
-  async processImport(configId: number, importLogId: number): Promise<void> {
+  async processImport(configId: number, importLogId: number, opts: { confirmRemoval?: boolean } = {}): Promise<void> {
     const config = await this.feedConfigRepository.findOne({ where: { id: configId } });
     if (!config) {
       throw new NotFoundException('Feed config not found');
@@ -633,7 +639,7 @@ export class FeedService {
         config.markAsFeatured &&
         tenantFeeds.some((f) => f.id !== config.id && !f.markAsFeatured && f.provider === config.provider);
       if (config.removeMissing !== false && !removalHandledElsewhere) {
-        const removal = await this.removeListingsNoLongerInFeed(config, seenExternalIds, reportedTotal);
+        const removal = await this.removeListingsNoLongerInFeed(config, seenExternalIds, reportedTotal, opts.confirmRemoval === true);
         removedCount = removal.removed;
         if (removal.skippedReason) {
           errors.push({ ref: 'removal', error: removal.skippedReason });
@@ -737,9 +743,19 @@ export class FeedService {
     config: FeedConfig,
     seenExternalIds: Set<string>,
     reportedTotal: number,
+    // The admin confirmed this removal on the feed card (see triggerSync).
+    // Lifts the empty-feed and mass-removal guards for this run only; an
+    // incomplete run is still never used to remove anything.
+    confirmed = false,
   ): Promise<{ removed: number; skippedReason?: string }> {
-    if (seenExternalIds.size === 0) {
-      return { removed: 0, skippedReason: 'Removal skipped: the feed returned no properties.' };
+    // An empty answer is only trusted when confirmed AND the feed itself
+    // reported zero (an error page reports nothing at all).
+    if (seenExternalIds.size === 0 && !(confirmed && reportedTotal === 0)) {
+      return {
+        removed: 0,
+        skippedReason:
+          'Removal skipped: the feed returned no properties. If its filter really is empty now, confirm the removal on the feed card.',
+      };
     }
     // Listings added or withdrawn while paging can shift a few between pages,
     // but a run that saw clearly fewer than the feed reported is incomplete.
@@ -761,12 +777,12 @@ export class FeedService {
 
     // A daily sync losing a large share at once is far more likely a changed
     // filter or a source-side fault than that many sales.
-    if (departed.length > FEED_MASS_REMOVAL_MIN && departed.length > owned.length * FEED_MASS_REMOVAL_RATIO) {
+    if (!confirmed && departed.length > FEED_MASS_REMOVAL_MIN && departed.length > owned.length * FEED_MASS_REMOVAL_RATIO) {
       return {
         removed: 0,
         skippedReason:
           `Removal skipped: ${departed.length} of ${owned.length} properties would be removed at once. ` +
-          `Check the feed's filter, or switch off "Remove properties that leave this feed" to keep them.`,
+          `If they really left the feed, confirm the removal on the feed card; otherwise check the feed's filter.`,
       };
     }
 

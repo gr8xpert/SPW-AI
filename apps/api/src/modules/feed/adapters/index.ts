@@ -3,3 +3,4 @@ export * from './resales.adapter';
 export * from './inmoba.adapter';
 export * from './kyero.adapter';
 export * from './odoo.adapter';
+export * from './redsp.adapter';

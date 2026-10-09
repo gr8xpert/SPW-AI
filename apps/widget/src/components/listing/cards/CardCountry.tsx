@@ -55,7 +55,7 @@ export default function CardCountry({ property, index = 0 }: CardProps) {
               <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
               </svg>
-              <span class="rs-property-card__country-spec-value">{specRange(property, 'bedrooms')} {t('card_beds_short', 'beds')}</span>
+              <span class="rs-property-card__country-spec-value">{specRange(property, 'bedrooms')} {t('card_bedrooms', 'beds')}</span>
             </div>
           )}
           {property.bathrooms != null && property.bathrooms > 0 && (
@@ -63,7 +63,7 @@ export default function CardCountry({ property, index = 0 }: CardProps) {
               <svg class="rs-property-card__country-spec-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 12h16v4a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-4z" /><path d="M6 12V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" /><path d="M6 19v2" /><path d="M18 19v2" />
               </svg>
-              <span class="rs-property-card__country-spec-value">{specRange(property, 'bathrooms')} {t('card_baths_short', 'baths')}</span>
+              <span class="rs-property-card__country-spec-value">{specRange(property, 'bathrooms')} {t('card_bathrooms', 'baths')}</span>
             </div>
           )}
           {property.buildSize != null && property.buildSize > 0 && (

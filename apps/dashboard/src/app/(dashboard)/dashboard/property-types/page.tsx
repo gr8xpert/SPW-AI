@@ -68,6 +68,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { SortOrderMenu } from '@/components/sort-order-menu';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { useBulkJob } from '@/hooks/use-bulk-job';
 
@@ -459,6 +460,7 @@ export default function PropertyTypesPage() {
           <p className="page-description mt-1">Manage property type classifications</p>
         </div>
         <div className="flex gap-2">
+          <SortOrderMenu endpoint="/api/dashboard/property-types/sort" onSorted={() => fetchTypes()} />
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             AI Organize

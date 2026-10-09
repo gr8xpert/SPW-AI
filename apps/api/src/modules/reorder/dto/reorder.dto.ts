@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, ArrayMinSize, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsNumber, ArrayMinSize, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ReorderItemDto {
@@ -15,4 +15,9 @@ export class ReorderDto {
   @ValidateNested({ each: true })
   @Type(() => ReorderItemDto)
   items: ReorderItemDto[];
+}
+
+export class SortAllDto {
+  @IsIn(['name', 'name-desc', 'count'])
+  by: 'name' | 'name-desc' | 'count';
 }

@@ -31,6 +31,23 @@ export class ResalesAdapter extends BaseFeedAdapter {
     if (!credentials.clientId || !credentials.apiKey || !credentials.filterId) {
       return { valid: false, error: 'Resales Online requires Client ID, API Key, and Filter ID.' };
     }
+    // Resales answers a busy moment (e.g. while another feed of this agency is
+    // syncing) with the same catch-all "P1 or P2 not valid; ..." text it uses
+    // for wrong keys, so a correct key can fail once and pass seconds later.
+    // Ask up to three times before calling the details wrong.
+    let result: FeedValidationResult = { valid: false };
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      result = await this.checkCredentialsOnce(credentials);
+      if (result.valid) return result;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+    return {
+      valid: false,
+      error: `${result.error} (Resales rejected 3 checks in a row. If these details worked before, wait a minute and try again.)`,
+    };
+  }
+
+  private async checkCredentialsOnce(credentials: FeedCredentials): Promise<FeedValidationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/SearchProperties`, {
         params: {

@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, U
 import { LocationService } from './location.service';
 import { LocationGeocodeService } from './location-geocode.service';
 import { CreateLocationDto, MergeLocationDto, UpdateLocationDto } from './dto';
-import { ReorderDto } from '../reorder/dto';
+import { ReorderDto, SortAllDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
 import { TenantService } from '../tenant/tenant.service';
 import { JwtAuthGuard, TenantGuard } from '../../common/guards';
@@ -59,6 +59,14 @@ export class LocationController {
   async reorder(@CurrentTenant() tenantId: number, @Body() dto: ReorderDto) {
     const result = await this.reorderService.reorderLocations(tenantId, dto);
     if (result.updated > 0) await this.bump(tenantId, 'reorder');
+    return result;
+  }
+
+  // Sort menu: A–Z (clears the manual order), Z–A or most listings first.
+  @Put('sort')
+  async sortAll(@CurrentTenant() tenantId: number, @Body() dto: SortAllDto) {
+    const result = await this.reorderService.sortAll('location', tenantId, dto.by);
+    await this.bump(tenantId, `sort ${dto.by}`);
     return result;
   }
 

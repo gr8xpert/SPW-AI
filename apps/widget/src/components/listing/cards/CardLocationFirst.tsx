@@ -7,18 +7,18 @@ import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts';
 import { specRange } from '@/core/property-display';
 
-const T12_LABELS: Record<string, string> = {
-  sale: 'RESALE',
-  rent: 'FOR RENT',
-  holiday_rent: 'HOLIDAY RENT',
-  development: 'NEW DEVELOPMENT',
-  offplan: 'OFF PLAN',
+const T12_LABELS: Record<string, [string, string]> = {
+  sale: ['card_badge_sale', 'RESALE'],
+  rent: ['card_badge_rent', 'FOR RENT'],
+  holiday_rent: ['card_badge_holiday_rent', 'HOLIDAY RENT'],
+  development: ['card_badge_development', 'NEW DEVELOPMENT'],
+  offplan: ['card_badge_offplan', 'OFF PLAN'],
 };
 
 export default function CardLocationFirst({ property, index = 0 }: CardProps) {
   const s = useCardState(property);
   const { t, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
-  const t12BadgeLabel = T12_LABELS[property.listingType] || listingFallback.toUpperCase();
+  const t12BadgeLabel = T12_LABELS[property.listingType] ? t(...T12_LABELS[property.listingType]) : listingFallback.toUpperCase();
   const t12BadgeModifier = property.listingType || 'sale';
   return (
     <div
@@ -56,7 +56,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
               <svg class="rs-property-card__spec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" />
               </svg>
-              <span class="rs-property-card__spec-value">{specRange(property, 'bedrooms')} {t('card_beds_short', 'beds')}</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'bedrooms')} {t('card_bedrooms', 'beds')}</span>
             </div>
           )}
           {property.bathrooms != null && property.bathrooms > 0 && (
@@ -66,7 +66,7 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
                 <line x1="10" x2="8" y1="5" y2="7" /><line x1="2" x2="22" y1="12" y2="12" />
                 <line x1="7" x2="7" y1="19" y2="21" /><line x1="17" x2="17" y1="19" y2="21" />
               </svg>
-              <span class="rs-property-card__spec-value">{specRange(property, 'bathrooms')} {t('card_baths_short', 'baths')}</span>
+              <span class="rs-property-card__spec-value">{specRange(property, 'bathrooms')} {t('card_bathrooms', 'baths')}</span>
             </div>
           )}
           {property.buildSize != null && property.buildSize > 0 && (

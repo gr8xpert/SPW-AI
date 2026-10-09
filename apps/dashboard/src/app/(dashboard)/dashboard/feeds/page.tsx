@@ -308,6 +308,21 @@ export default function FeedsPage() {
     }
   };
 
+  // The safety check held back a big removal (or an empty feed). When the
+  // client really shrank their filter, one confirmed sync removes them.
+  const handleConfirmRemoval = async (feed: FeedConfig, note: string) => {
+    const n = /(\d+) of \d+ properties would be removed/.exec(note)?.[1];
+    const what = n ? `${n} properties` : `every property from ${feed.name}`;
+    if (!window.confirm(`Remove ${what} that are no longer in this feed?\n\nOnly do this if you changed the feed's filter on purpose. A new sync runs now and removes them; this can't be undone.`)) return;
+    try {
+      await api.post(`/api/dashboard/feeds/${feed.id}/sync`, { confirmRemoval: true });
+      toast({ title: 'Sync started', description: `Properties no longer in ${feed.name} will be removed.` });
+      fetchFeeds();
+    } catch (e: any) {
+      toast({ title: 'Failed to sync', description: e.message, variant: 'destructive' });
+    }
+  };
+
   const handleWipeAndSync = async () => {
     if (!wipingFeed) return;
     try {
@@ -366,21 +381,26 @@ export default function FeedsPage() {
   };
 
   const showClientId = form.provider === 'resales' || form.provider === 'inmoba';
-  const showEndpoint = form.provider === 'inmoba' || form.provider === 'kyero' || form.provider === 'odoo';
-  const showUsernamePassword = form.provider === 'infocasa' || form.provider === 'redsp';
-  const showApiKey = form.provider !== 'kyero';
+  const showEndpoint = form.provider === 'inmoba' || form.provider === 'kyero' || form.provider === 'odoo' || form.provider === 'redsp';
+  const showUsernamePassword = form.provider === 'infocasa';
+  // XML-file feeds: the private URL is the only credential.
+  const showApiKey = form.provider !== 'kyero' && form.provider !== 'redsp';
   const endpointPlaceholder =
     form.provider === 'kyero'
       ? 'https://provider.example.com/feed.xml'
-      : form.provider === 'odoo'
-        ? 'https://your-odoo.example.com/api/properties'
-        : 'https://api.inmoba.com/v1';
+      : form.provider === 'redsp'
+        ? 'https://xml.redsp.net/files/…/…_v4.xml'
+        : form.provider === 'odoo'
+          ? 'https://your-odoo.example.com/api/properties'
+          : 'https://api.inmoba.com/v1';
   const endpointLabel =
     form.provider === 'kyero'
       ? 'Kyero Feed URL *'
-      : form.provider === 'odoo'
-        ? 'Odoo Endpoint URL *'
-        : 'Endpoint URL';
+      : form.provider === 'redsp'
+        ? 'RedSP Feed URL *'
+        : form.provider === 'odoo'
+          ? 'Odoo Endpoint URL *'
+          : 'Endpoint URL';
   const apiKeyLabel =
     form.provider === 'odoo' ? 'Bearer Token *' : 'API Key *';
   const apiKeyPlaceholder =
@@ -703,7 +723,19 @@ export default function FeedsPage() {
                         </div>
                       )}
                       {!isSyncing && sync?.removalNote && (
-                        <p className="text-xs text-amber-600 dark:text-amber-500">{sync.removalNote}</p>
+                        <div className="space-y-2">
+                          <p className="text-xs text-amber-600 dark:text-amber-500">{sync.removalNote}</p>
+                          {/would be removed at once|returned no properties/.test(sync.removalNote) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
+                              onClick={() => handleConfirmRemoval(feed, sync.removalNote!)}
+                            >
+                              Remove them and sync
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </>
                   )}

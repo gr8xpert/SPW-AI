@@ -118,24 +118,18 @@ class SPM_Shortcode {
         $notes = [];
 
         // attribute => which of the client's lists its value names
-        $named = [
+        // Each may name one entry or several: location="Marbella, Estepona".
+        $lists = [
             'location' => 'location', 'area' => 'location', 'town' => 'location',
             'type' => 'property type', 'property-type' => 'property type',
+            'features' => 'feature', 'feature' => 'feature',
         ];
-        $lists = ['features' => 'feature', 'feature' => 'feature'];
 
         foreach ($atts as $key => $value) {
             if (!is_string($key)) continue;
             $key = strtolower(str_replace('_', '-', trim($key)));
             $value = is_scalar($value) ? trim((string) $value) : '';
             if ($value === '') continue;
-
-            if (isset($named[$key])) {
-                $r = SPM_Filter_Resolver::resolve($named[$key], $value);
-                if ($r['id']) $out[$key] = $r['id'];
-                elseif ($r['error']) $notes[] = $r['error'];
-                continue;
-            }
 
             if (isset($lists[$key])) {
                 [$ids, $errors] = SPM_Filter_Resolver::ids($lists[$key], $value);

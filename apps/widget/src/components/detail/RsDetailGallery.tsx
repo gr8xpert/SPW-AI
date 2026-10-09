@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { useSelector } from '@/hooks/useStore';
+import { useLabels } from '@/hooks/useLabels';
 import { selectors } from '@/core/selectors';
 import type { PropertyImage } from '@/types';
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function RsDetailGallery({ images: imagesProp }: Props) {
+  const { t } = useLabels();
   const property = useSelector(selectors.getSelectedProperty);
   const images = imagesProp ?? property?.images;
 
@@ -99,7 +101,7 @@ export default function RsDetailGallery({ images: imagesProp }: Props) {
               type="button"
               class="rs-detail-gallery__arrow rs-detail-gallery__arrow--prev"
               onClick={prev}
-              aria-label="Previous"
+              aria-label={t('pagination_prev', 'Previous')}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
@@ -107,7 +109,7 @@ export default function RsDetailGallery({ images: imagesProp }: Props) {
               type="button"
               class="rs-detail-gallery__arrow rs-detail-gallery__arrow--next"
               onClick={next}
-              aria-label="Next"
+              aria-label={t('pagination_next', 'Next')}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18" /></svg>
             </button>
@@ -160,7 +162,7 @@ export default function RsDetailGallery({ images: imagesProp }: Props) {
               class="rs-detail-gallery__lightbox-close"
               onClick={closeLightbox}
               type="button"
-              aria-label="Close"
+              aria-label={t('close', 'Close')}
             >
               &times;
             </button>
@@ -169,7 +171,7 @@ export default function RsDetailGallery({ images: imagesProp }: Props) {
               class="rs-detail-gallery__lightbox-prev"
               onClick={prev}
               type="button"
-              aria-label="Previous"
+              aria-label={t('pagination_prev', 'Previous')}
             >
               &#8249;
             </button>
@@ -186,7 +188,7 @@ export default function RsDetailGallery({ images: imagesProp }: Props) {
               class="rs-detail-gallery__lightbox-next"
               onClick={next}
               type="button"
-              aria-label="Next"
+              aria-label={t('pagination_next', 'Next')}
             >
               &#8250;
             </button>

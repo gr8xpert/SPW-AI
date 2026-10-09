@@ -217,10 +217,10 @@ export default function RsAiSearch({ badge = true }: Props) {
       )}
 
       {open && (
-        <div class={`rs-ai__panel rs-ai__panel--${mode}`} role="dialog" aria-label={t('ai_search_title', 'AI Search')}>
+        <div class={`rs-ai__panel rs-ai__panel--${mode}`} role="dialog" aria-label={t('ai_search_panel_title', 'AI Search')}>
           <div class="rs-ai__head">
             <h3 class="rs-ai__title">
-              {mode === 'voice' ? t('ai_voice_title', 'Voice Search') : t('ai_search_title', 'AI Search')}
+              {mode === 'voice' ? t('ai_voice_title', 'Voice Search') : t('ai_search_panel_title', 'AI Search')}
             </h3>
             <button type="button" class="rs-ai__back" onClick={() => setOpen(false)}>
               {t('ai_search_back', 'Back to filters')}

@@ -127,6 +127,10 @@ export function resolveId(kind: ListKind, value: string): number {
   return 0;
 }
 
+function idList(kind: ListKind, value: string): number[] {
+  return [...new Set(value.split(',').map((v) => resolveId(kind, v)).filter(Boolean))];
+}
+
 function warn(message: string): void {
   // eslint-disable-next-line no-console
   console.warn(`[SPM] ${message}`);
@@ -165,18 +169,22 @@ export function filtersFromAttributes(attrs: Record<string, unknown>): Attribute
     if (value === '') continue;
 
     switch (name) {
+      // One place or type, or several: location="72, 73" shows listings in
+      // any of them (older sites' shortcodes often list several).
       case 'location': case 'area': case 'town': {
-        const id = resolveId('location', value);
-        if (id) set('locationId', id);
+        const ids = idList('location', value);
+        if (ids.length > 1) set('locationIds', ids);
+        else if (ids.length) set('locationId', ids[0]);
         break;
       }
       case 'type': case 'property_type': {
-        const id = resolveId('property type', value);
-        if (id) set('propertyTypeId', id);
+        const ids = idList('property type', value);
+        if (ids.length > 1) set('propertyTypeIds', ids);
+        else if (ids.length) set('propertyTypeId', ids[0]);
         break;
       }
       case 'features': case 'feature': {
-        const ids = value.split(',').map((v) => resolveId('feature', v)).filter(Boolean);
+        const ids = idList('feature', value);
         if (ids.length) set('features', ids);
         break;
       }

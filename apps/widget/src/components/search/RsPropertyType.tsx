@@ -36,7 +36,8 @@ function buildTypeTree(types: PropertyType[]): TypeRow[] {
   const rows: TypeRow[] = [];
   const seen = new Set<number>();
   const walk = (parentId: number, depth: number) => {
-    const children = (byParent.get(parentId) ?? []).sort((a, b) => a.name.localeCompare(b.name));
+    // In the order the API sent them: the dashboard's (Property Types: drag or Sort).
+    const children = byParent.get(parentId) ?? [];
     for (const type of children) {
       if (seen.has(type.id)) continue; // a cycle in the data must not hang the page
       seen.add(type.id);

@@ -19,12 +19,12 @@ export default function RsDetailFeatures({ features: featuresProp }: Props) {
   const grouped = useMemo(() => {
     const map = new Map<string, Feature[]>();
     for (const f of features) {
-      const cat = f.category || 'General';
+      const cat = f.category || t('detail_features_general', 'General');
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(f);
     }
     return map;
-  }, [features]);
+  }, [features, t]);
 
   if (!features.length) {
     return null;

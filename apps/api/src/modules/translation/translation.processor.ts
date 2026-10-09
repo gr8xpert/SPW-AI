@@ -262,14 +262,14 @@ export class TranslationProcessor extends WorkerHost {
       { role: 'user', content: JSON.stringify(texts) },
     ];
 
-    // Property text spends the client's key; types, features and labels the
-    // platform key from .env. One retry: with several calls in flight a rate
+    // Property text spends only the client's key; types, features and labels
+    // the client's key when set, else the platform key from .env. One retry: with several calls in flight a rate
     // limit or a reply that isn't JSON is usually gone a few seconds later.
     for (let attempt = 1; ; attempt++) {
       try {
         const response = await this.aiService.chatCompletion(tenantId, messages, {
           temperature: 0.2,
-          keySource: context === 'property' ? 'client' : 'platform',
+          keySource: context === 'property' ? 'client' : 'client-first',
         });
         const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
         return JSON.parse(cleaned);

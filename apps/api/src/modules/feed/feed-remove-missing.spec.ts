@@ -174,6 +174,38 @@ describe('removing listings that left the feed', () => {
     expect(importLog.errors[0].error).toContain('100 of 200 properties would be removed at once');
   });
 
+  it('removes them once the admin confirms the filter really shrank', async () => {
+    const owned = rows(200);
+    const { svc, deletedIds } = harness({
+      pages: [{ properties: props(owned.slice(0, 100).map((r) => r.externalId)), hasMore: false }],
+      owned,
+    });
+
+    await svc.processImport(SALES_FEED, 1, { confirmRemoval: true });
+
+    expect(deletedIds()).toHaveLength(100);
+  });
+
+  it('a confirmed run still never removes on an incomplete run', async () => {
+    const owned = rows(100);
+    const { svc } = harness({
+      pages: [{ properties: props(owned.slice(0, 80).map((r) => r.externalId)), totalCount: 100, hasMore: false }],
+      owned,
+    });
+
+    await svc.processImport(SALES_FEED, 1, { confirmRemoval: true });
+
+    expect(svc.propertyRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('a confirmed empty feed (it reports 0) removes what it owned', async () => {
+    const { svc, deletedIds } = harness({ pages: [{ properties: [], totalCount: 0, hasMore: false }], owned: rows(10) });
+
+    await svc.processImport(SALES_FEED, 1, { confirmRemoval: true });
+
+    expect(deletedIds()).toHaveLength(10);
+  });
+
   it('allows a normal day of sales on a small feed', async () => {
     const owned = rows(30);
     const { svc, deletedIds } = harness({
