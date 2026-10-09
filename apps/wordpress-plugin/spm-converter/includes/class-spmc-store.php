@@ -131,7 +131,42 @@ class SPMC_Store {
                 return [$new === $data ? $raw : wp_json_encode($new), $r];
             }
         }
-        return [spmc_carry(spmc_convert($raw, $r), $r), $r];
+        return [self::convert_text($raw, $r), $r];
+    }
+
+    // Block comment with JSON settings: <!-- wp:divi/text {"content":…} /-->.
+    // Same shape as WordPress's own block parser.
+    const BLOCK_RE = '/<!--\s+wp:([a-z][a-z0-9_-]*\/)?[a-z][a-z0-9_-]*\s+(\{(?:[^}]+|\}+(?=\})|(?!\}\s+\/?-->).)*+\})\s+\/?-->/s';
+
+    /**
+     * Page text. Divi 5 (and any block that keeps HTML in its settings) stores
+     * the module HTML inside the block comment as escaped JSON —
+     * "<div class="rs-search-template-01">" — which the
+     * HTML converter can't see. Those settings are decoded, converted with
+     * the rest of the page (so search filters can still move to the page's
+     * results block), and written back the way WordPress writes them.
+     */
+    private static function convert_text($text, SPMC_Report $r) {
+        $blocks = [];
+        $skeleton = preg_replace_callback(self::BLOCK_RE, function ($m) use (&$blocks) {
+            if (!preg_match('/rs[_-]|data-rs-|property-detail-container|realtysoft|smartpropertywidget|\[/i', $m[2])) return $m[0];
+            $attrs = json_decode($m[2], true);
+            if (!is_array($attrs)) return $m[0];
+            $blocks[] = ['raw' => $m[0], 'json' => $m[2], 'attrs' => $attrs];
+            return "\x01SPMCB" . (count($blocks) - 1) . "\x01";
+        }, $text);
+        if ($skeleton === null || !$blocks || !function_exists('serialize_block_attributes')) {
+            return spmc_carry(spmc_convert($text, $r), $r);
+        }
+
+        $data = ['text' => $skeleton, 'blocks' => array_column($blocks, 'attrs')];
+        $new = spmc_carry(self::walk($data, $r), $r);
+        $out = preg_replace_callback('/\x01SPMCB(\d+)\x01/', function ($m) use ($blocks, $new) {
+            $b = $blocks[(int) $m[1]];
+            $attrs = $new['blocks'][(int) $m[1]] ?? $b['attrs'];
+            return $attrs === $b['attrs'] ? $b['raw'] : str_replace($b['json'], serialize_block_attributes($attrs), $b['raw']);
+        }, $new['text']);
+        return $out === null ? $text : $out;
     }
 
     private static function walk($data, SPMC_Report $r) {

@@ -2,7 +2,7 @@
 Contributors: realtysoft
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 
 Moves a website to Smart Property Manager: rewrites Inmotech shortcodes and old Smart Property Widget (SPW / RealtySoft V3) codes into SPM blocks.
@@ -32,6 +32,9 @@ Things to know:
 * Old designs with an SPM port keep their look (SPW listing 01, 07–11 → SPM 12–17; carousels 1–6; search 01–06). Others use the design picked in the SPM dashboard.
 
 == Changelog ==
+
+= 1.0.2 =
+* Divi 5 and other block builders: codes kept inside block settings (Divi 5 Text and Code modules) are converted and written back correctly. Before, SPW codes there were found but left as they were.
 
 = 1.0.1 =
 * One-screen flow: scans on its own with a loader and step bar, asks only what it can't work out, then Convert and the last steps (switch off the old plugin, clear the cache). Technical details moved under Advanced.

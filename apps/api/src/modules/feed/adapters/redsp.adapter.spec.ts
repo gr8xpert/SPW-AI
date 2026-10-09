@@ -1,6 +1,13 @@
 import axios from 'axios';
 import { RedspAdapter } from './redsp.adapter';
 
+// No real DNS in tests: public hostnames pass, literal private IPs still use
+// the real check.
+jest.mock('../../webhook/webhook-target', () => {
+  const real = jest.requireActual('../../webhook/webhook-target');
+  return { ...real, validateWebhookTargetAsync: async (u: string) => real.validateWebhookTarget(u) };
+});
+
 // Trimmed from a real RedSP v4 feed (2026-10-09).
 const unit = (id: string, ref: string, extra = '') => `
 <property>
@@ -69,7 +76,7 @@ describe('RedspAdapter', () => {
   afterEach(() => get?.mockRestore());
 
   it('maps a v4 unit', async () => {
-    get = jest.spyOn(axios, 'get').mockResolvedValue({ data: feed(1) });
+    get = jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: feed(1) });
     const { properties, totalCount, hasMore } = await new RedspAdapter().fetchProperties(creds, 1, 100);
     expect(totalCount).toBe(1);
     expect(hasMore).toBe(false);
@@ -125,7 +132,7 @@ describe('RedspAdapter', () => {
   });
 
   it('downloads the file once per run, whatever the number of pages', async () => {
-    get = jest.spyOn(axios, 'get').mockResolvedValue({ data: feed(5) });
+    get = jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: feed(5) });
     const adapter = new RedspAdapter();
     const refs: string[] = [];
     let page = 1;
@@ -141,6 +148,17 @@ describe('RedspAdapter', () => {
     // The next run downloads fresh.
     await adapter.fetchProperties(creds, 1, 2);
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses internal addresses, also behind a redirect', async () => {
+    get = jest.spyOn(axios, 'get');
+    await expect(new RedspAdapter().fetchProperties({ endpoint: 'http://127.0.0.1:3001/x.xml' })).rejects.toThrow(/not allowed/);
+    await expect(new RedspAdapter().validateCredentials({ endpoint: 'http://169.254.169.254/latest' }))
+      .resolves.toEqual({ valid: false, error: 'RedSP: feed URL not allowed' });
+    expect(get).not.toHaveBeenCalled();
+    get.mockResolvedValueOnce({ status: 302, headers: { location: 'http://10.0.0.5/feed.xml' }, data: '' });
+    await expect(new RedspAdapter().fetchProperties({ endpoint: 'https://xml.redsp.net/r.xml' })).rejects.toThrow(/not allowed/);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it('needs a feed URL', async () => {

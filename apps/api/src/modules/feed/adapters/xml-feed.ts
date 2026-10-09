@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { validateWebhookTargetAsync } from '../../webhook/webhook-target';
 
 // Shared by the XML-file feeds (Kyero, RedSP). These feeds are one big file
 // with no paging at the source, while the importer asks for 100 listings at a
@@ -7,6 +8,28 @@ import axios from 'axios';
 
 const KEEP_MS = 10 * 60 * 1000;
 const kept = new Map<string, { at: number; items: unknown[] }>();
+
+// The feed URL is typed in by the client, so the server must not fetch
+// loopback/private/metadata addresses with it. Same guard as webhooks (DNS
+// checked); redirects are followed by hand so every hop is checked too.
+async function safeGet(url: string, config: AxiosRequestConfig): Promise<AxiosResponse> {
+  let current = url;
+  for (let hop = 0; hop <= 3; hop++) {
+    const check = await validateWebhookTargetAsync(current);
+    if (!check.ok) throw new Error('feed URL not allowed');
+    const response = await axios.get(current, {
+      ...config,
+      maxRedirects: 0,
+      validateStatus: (s) => (s >= 200 && s < 300) || (s >= 300 && s < 400),
+    });
+    if (response.status < 300) return response;
+    const next = response.headers?.location;
+    if (typeof response.data?.destroy === 'function') response.data.destroy();
+    if (!next) throw new Error(`HTTP ${response.status}`);
+    current = new URL(next, current).toString();
+  }
+  throw new Error('too many redirects');
+}
 
 export interface XmlFeedPage<T> {
   items: T[];
@@ -22,7 +45,7 @@ export async function loadXmlFeedPage<T>(
 ): Promise<XmlFeedPage<T>> {
   let entry = kept.get(url);
   if (page <= 1 || !entry || Date.now() - entry.at > KEEP_MS) {
-    const response = await axios.get(url, {
+    const response = await safeGet(url, {
       timeout: 180000,
       responseType: 'text',
       maxContentLength: 300 * 1024 * 1024,
@@ -47,7 +70,7 @@ export async function probeXml(
   label: string,
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    const response = await axios.get(url, { timeout: 15000, responseType: 'stream' });
+    const response = await safeGet(url, { timeout: 15000, responseType: 'stream' });
     const head = await new Promise<string>((resolve, reject) => {
       let text = '';
       const stream = response.data;
@@ -66,7 +89,7 @@ export async function probeXml(
     }
     return { valid: true };
   } catch (error: any) {
-    const msg = error.response?.status ? `HTTP ${error.response.status}` : error.message || 'Connection failed';
+    const msg = error.response?.status ? `HTTP ${error.response.status}` : error.message === 'feed URL not allowed' ? error.message : 'could not download the feed';
     return { valid: false, error: `${label}: ${msg}` };
   }
 }

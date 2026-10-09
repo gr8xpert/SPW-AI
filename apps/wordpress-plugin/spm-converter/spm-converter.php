@@ -3,7 +3,7 @@
  * Plugin Name: SPM Converter
  * Plugin URI:  https://spw-ai.com
  * Description: Moves a website to Smart Property Manager: rewrites Inmotech shortcodes and the old Smart Property Widget (SPW / RealtySoft V3) codes in pages, Elementor and widgets into SPM blocks. Shows every change first, and every run can be undone.
- * Version:     1.0.1
+ * Version:     1.0.2
  * Author:      RealtySoft
  * License:     GPL v2 or later
  * Text Domain: spm-converter
@@ -13,7 +13,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('SPMC_VERSION', '1.0.1');
+define('SPMC_VERSION', '1.0.2');
 define('SPMC_FILE', __FILE__);
 define('SPMC_DIR', plugin_dir_path(__FILE__));
 define('SPMC_URL', plugin_dir_url(__FILE__));

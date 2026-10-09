@@ -264,7 +264,7 @@ class SPMC_Admin {
         $this->guard();
         $text = (string) wp_unslash($_POST['text'] ?? '');
         $r = new SPMC_Report();
-        $out = spmc_carry(spmc_convert($text, $r), $r);
+        $out = SPMC_Store::convert_raw($text, $r)[0];
         wp_send_json_success(['output' => $out, 'notes' => $r->warnings()]);
     }
 }
