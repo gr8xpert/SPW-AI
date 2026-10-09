@@ -1,5 +1,9 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { validateWebhookTargetAsync } from '../../webhook/webhook-target';
+import {
+  isAllowedPublicUrl,
+  publicHttpAgent,
+  publicHttpsAgent,
+} from '../../../common/security/public-address';
 
 // Shared by the XML-file feeds (Kyero, RedSP). These feeds are one big file
 // with no paging at the source, while the importer asks for 100 listings at a
@@ -10,18 +14,27 @@ const KEEP_MS = 10 * 60 * 1000;
 const kept = new Map<string, { at: number; items: unknown[] }>();
 
 // The feed URL is typed in by the client, so the server must not fetch
-// loopback/private/metadata addresses with it. Same guard as webhooks (DNS
-// checked); redirects are followed by hand so every hop is checked too.
+// loopback/private/metadata addresses with it. The agents check the address
+// the socket really connects to (public-address.ts); redirects are followed
+// by hand so every hop is checked too.
 async function safeGet(url: string, config: AxiosRequestConfig): Promise<AxiosResponse> {
   let current = url;
   for (let hop = 0; hop <= 3; hop++) {
-    const check = await validateWebhookTargetAsync(current);
-    if (!check.ok) throw new Error('feed URL not allowed');
-    const response = await axios.get(current, {
-      ...config,
-      maxRedirects: 0,
-      validateStatus: (s) => (s >= 200 && s < 300) || (s >= 300 && s < 400),
-    });
+    if (!isAllowedPublicUrl(current)) throw new Error('feed URL not allowed');
+    let response: AxiosResponse;
+    try {
+      response = await axios.get(current, {
+        ...config,
+        httpAgent: publicHttpAgent,
+        httpsAgent: publicHttpsAgent,
+        proxy: false,
+        maxRedirects: 0,
+        validateStatus: (s) => (s >= 200 && s < 300) || (s >= 300 && s < 400),
+      });
+    } catch (err: any) {
+      if (err?.code === 'EADDRBLOCKED') throw new Error('feed URL not allowed');
+      throw err;
+    }
     if (response.status < 300) return response;
     const next = response.headers?.location;
     if (typeof response.data?.destroy === 'function') response.data.destroy();

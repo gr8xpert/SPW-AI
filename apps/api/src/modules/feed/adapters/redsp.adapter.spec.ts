@@ -1,13 +1,6 @@
 import axios from 'axios';
 import { RedspAdapter } from './redsp.adapter';
 
-// No real DNS in tests: public hostnames pass, literal private IPs still use
-// the real check.
-jest.mock('../../webhook/webhook-target', () => {
-  const real = jest.requireActual('../../webhook/webhook-target');
-  return { ...real, validateWebhookTargetAsync: async (u: string) => real.validateWebhookTarget(u) };
-});
-
 // Trimmed from a real RedSP v4 feed (2026-10-09).
 const unit = (id: string, ref: string, extra = '') => `
 <property>
