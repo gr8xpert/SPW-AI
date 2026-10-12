@@ -8,7 +8,7 @@ import {
   FeedValidationResult,
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
-import { loadXmlFeedPage, probeXml, toEnergyRating, toNumber } from './xml-feed';
+import { cleanMultilingual, loadXmlFeedPage, probeXml, toEnergyRating, toNumber } from './xml-feed';
 
 // RedSP XML feed, v4 (https://xml.redsp.net/files/<agency>/<key>/<name>_v4.xml).
 // New-build units on the Spanish coast: one <property> per unit, units of a
@@ -166,13 +166,7 @@ export class RedspAdapter extends BaseFeedAdapter {
   // <title><en><![CDATA[…]]></en><es>…</es>…</title>. Line breaks arrive as a
   // literal "&#13;" inside CDATA, so they are never decoded by the parser.
   private multilingual(node: any): Record<string, string> {
-    const out = this.extractMultilingual(node ?? {});
-    for (const [lang, value] of Object.entries(out)) {
-      const clean = value.replace(/&#(13|10);/g, '\n').replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-      if (clean) out[lang] = clean;
-      else delete out[lang];
-    }
-    return out;
+    return cleanMultilingual(this.extractMultilingual(node ?? {}));
   }
 
   private mapFeatures(raw: any): { names: string[]; categories: Record<string, string> } {

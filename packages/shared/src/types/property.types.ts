@@ -261,7 +261,7 @@ export interface PropertyListQuery {
   propertyTypeId?: number;
   /** A place and every place inside it. */
   locationId?: number;
-  /** NOTE: the API DTO currently only accepts manual/resales/inmoba/infocasa/redsp. */
+  /** Accepted by the API DTO: manual/resales/inmoba/infocasa/redsp/kyero/odoo. */
   source?: PropertySource;
   isFeatured?: boolean;
   isOwnProperty?: boolean;

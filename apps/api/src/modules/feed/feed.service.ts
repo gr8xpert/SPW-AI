@@ -8,12 +8,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { createHash } from 'crypto';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
 import type { FeedCredentials } from '../../database/entities/feed-config.entity';
 import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from '../../database/entities';
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, RedspAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
+import { computeFeedHash } from './feed-hash';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
@@ -844,7 +844,7 @@ export class FeedService {
       },
     });
 
-    const contentHash = this.computeFeedHash(feedProperty);
+    const contentHash = computeFeedHash(feedProperty);
     const feedLocation = this.feedLocationRecord(provider, feedProperty.location);
     const feedType = this.feedTypeRecord(provider, feedProperty);
 
@@ -1141,13 +1141,6 @@ export class FeedService {
     return { ...(current || {}), ...sent };
   }
 
-  private computeFeedHash(feedProperty: FeedProperty): string {
-    const { images, ...data } = feedProperty;
-    const keys = Object.keys(data).sort();
-    const sorted = JSON.stringify(data, keys);
-    return createHash('sha256').update(sorted).digest('hex');
-  }
-
   private haveImagesChanged(
     feedImages: FeedPropertyImage[],
     existingImages: PropertyImage[] | null,
@@ -1249,8 +1242,18 @@ export class FeedService {
 
     // Release orphaned blobs from previous syncs. Safe no-op when there
     // are no contentHashes (the toggle was OFF then, or this is a first
-    // import).
-    const config = await this.uploadService.getStorageConfig(tenantId);
+    // import). A storage config that can't be read (keys encrypted under
+    // another ENCRYPTION_KEY) only means the orphans wait for the next run;
+    // it must not fail the listing.
+    let config: Awaited<ReturnType<UploadService['getStorageConfig']>>;
+    try {
+      config = await this.uploadService.getStorageConfig(tenantId);
+    } catch (err) {
+      this.logger.warn(
+        `Feed images: could not read the storage config for tenant ${tenantId}, skipping blob release: ${(err as Error).message}`,
+      );
+      return result;
+    }
     for (const [sourceUrl, img] of existingMap) {
       if (!newSourceUrls.has(sourceUrl) && img.contentHash) {
         await this.uploadService

@@ -8,13 +8,13 @@ import {
   FeedValidationResult,
 } from './base.adapter';
 import { FeedCredentials } from '../../../database/entities/feed-config.entity';
-import { loadXmlFeedPage, probeXml, toEnergyRating, toNumber } from './xml-feed';
+import { cleanMultilingual, loadXmlFeedPage, probeXml, toEnergyRating, toNumber } from './xml-feed';
 
-// Kyero XML feed adapter. Reads the standard Kyero feed format
-// (https://www.kyero.com/en/feeds) which most Spanish real-estate
-// providers expose. Per-tenant: each client enters their feed URL in
-// credentials.endpoint. No auth header — Kyero feeds are typically
-// public URLs (the obscure URL itself is the credential).
+// Kyero XML import feed, V3 (help.kyero.com/estate-agents/xml-import-specification):
+// <root><kyero><feed_version>3</feed_version></kyero><property>…</property>…</root>
+// Per-tenant: each client enters their feed URL in credentials.endpoint; the
+// obscure URL itself is the credential. Checked against a real feed
+// (morairainvest.com, 2026-10-12).
 //
 // Image policy (Task #4): URLs from the feed are kept as-is. Since the
 // provider's CDN is already serving them publicly, we don't re-host —
@@ -27,10 +27,17 @@ export class KyeroAdapter extends BaseFeedAdapter {
   private readonly parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
-    parseAttributeValue: true,
-    parseTagValue: true,
+    // Keep values as text (ids, refs with leading zeros); numbers are parsed per field.
+    parseTagValue: false,
+    parseAttributeValue: false,
     trimValues: true,
-    isArray: (name) => ['property', 'image', 'feature'].includes(name),
+    // Feeds write accents as numeric entities (J&#xE1;vea, &#13;); the parser
+    // leaves those alone unless told to decode them, and its default cap of
+    // 1,000 expansions per document is a few listings' worth. The DOCTYPE
+    // limits (entity count, size, depth) stay at their defaults.
+    htmlEntities: true,
+    processEntities: { maxTotalExpansions: 2_000_000 },
+    isArray: (name) => ['property', 'image', 'feature', 'tag'].includes(name),
   });
 
   async validateCredentials(credentials: FeedCredentials): Promise<FeedValidationResult> {
@@ -49,123 +56,137 @@ export class KyeroAdapter extends BaseFeedAdapter {
     if (!url) {
       throw new Error('Kyero: feed URL is required');
     }
-
     // Downloaded and mapped once per run; later pages reuse it (xml-feed.ts).
     const { items, totalCount, hasMore } = await loadXmlFeedPage(url, page, limit, (xml) => {
       const parsed = this.parser.parse(xml);
-      const root =
-        parsed?.root?.kyero ?? parsed?.kyero ?? parsed?.root ?? parsed;
-      const propsContainer = root?.properties ?? root;
-      const rawProperties: any[] = Array.isArray(propsContainer?.property)
-        ? propsContainer.property
-        : propsContainer?.property
-          ? [propsContainer.property]
-          : [];
-      return rawProperties.map((raw) => this.mapProperty(raw));
+      const list: any[] = parsed?.root?.property ?? parsed?.property ?? [];
+      return list.filter((raw) => raw?.id).map((raw) => this.mapProperty(raw));
     });
-
     return { properties: items, totalCount, hasMore, page };
   }
 
   private mapProperty(raw: any): FeedProperty {
-    const id = String(raw.id ?? raw.ref ?? '');
-    const reference = String(raw.ref ?? raw.id ?? id);
+    const id = String(raw.id);
+    const price = toNumber(raw.price);
+    const freq = String(raw.price_freq ?? 'sale').toLowerCase();
+    const rental = freq === 'week' || freq === 'month';
+    const town = this.text(raw.town);
+    const type = this.text(raw.type) ?? 'Unknown';
+    const sizes = raw.surface_area ?? {};
+    const { names, categories, urbanization: featUrb, builtYear } = this.mapFeatures(raw);
+    // location_detail is a village or urbanisation; some feeds repeat the town.
+    const detail = this.text(raw.location_detail);
+    const urbanization =
+      featUrb ?? (detail && detail.toLowerCase() !== town?.toLowerCase() ? detail : undefined);
 
     return {
       externalId: id,
-      reference,
-      agentReference: raw.agent_ref ? String(raw.agent_ref) : undefined,
-      title: this.extractMultilingual(raw.title ?? raw.type ?? {}),
-      description: this.extractMultilingual(raw.desc ?? raw.description ?? {}),
-      listingType: this.normalizeListingType(this.extractListingType(raw)),
-      propertyType: this.extractPropertyType(raw),
-      price: toNumber(raw.price) ?? null,
-      priceOnRequest: !raw.price || raw.price === '0',
-      // Kyero price_freq: "sale", "month" or "week" (rentals).
-      ...(raw.price_freq === 'week' || raw.price_freq === 'month' ? { rentalPeriod: raw.price_freq } : {}),
-      currency: String(raw.currency ?? 'EUR').toUpperCase(),
+      reference: this.text(raw.ref) ?? id,
+      title: raw.title ? cleanMultilingual(this.extractMultilingual(raw.title)) : this.defaultTitle(type, town),
+      description: cleanMultilingual(this.extractMultilingual(raw.desc ?? {})),
+      listingType: rental ? 'rent' : raw.new_build === '1' ? 'development' : 'sale',
+      propertyType: type,
+      price: price && price > 0 ? price : null,
+      priceOnRequest: !price,
+      ...(rental ? { rentalPeriod: freq as 'week' | 'month' } : {}),
+      currency: String(raw.currency || 'EUR').toUpperCase(),
       bedrooms: toNumber(raw.beds),
       bathrooms: toNumber(raw.baths),
-      buildSize: toNumber(raw.surface_area?.built),
-      plotSize: toNumber(raw.surface_area?.plot),
-      terraceSize: toNumber(raw.surface_area?.terrace),
-      gardenSize: undefined,
+      buildSize: this.positive(sizes.built),
+      plotSize: this.positive(sizes.plot),
       images: this.mapImages(raw.images),
-      features: this.mapFeatures(raw.features),
+      features: names,
+      featureCategories: categories,
       location: {
-        name: String(raw.location_detail ?? raw.town ?? ''),
-        province: raw.province ? String(raw.province) : undefined,
-        municipality: raw.municipality ? String(raw.municipality) : undefined,
-        town: raw.town ? String(raw.town) : undefined,
-        country: raw.country ? String(raw.country) : 'Spain',
+        name: urbanization ?? town ?? '',
+        province: this.text(raw.province),
+        municipality: town,
+        town,
+        urbanization,
+        country: this.text(raw.country) ?? 'Spain',
       },
-      lat: toNumber(raw.latitude),
-      lng: toNumber(raw.longitude),
-      videoUrl: raw.video?.url ? String(raw.video.url) : undefined,
-      virtualTourUrl: raw.virtual_tour ? String(raw.virtual_tour) : undefined,
-      deliveryDate: raw.delivery_date ? String(raw.delivery_date) : undefined,
-      energyRating: toEnergyRating(raw.energy_rating?.consumption ?? raw.energy_rating),
+      lat: toNumber(raw.location?.latitude ?? raw.latitude),
+      lng: toNumber(raw.location?.longitude ?? raw.longitude),
+      videoUrl: this.url(raw.video_url),
+      virtualTourUrl: this.url(raw.virtual_tour_url),
+      builtYear,
+      energyRating: toEnergyRating(raw.energy_rating?.consumption),
     };
   }
 
-  private extractListingType(raw: any): string {
-    if (raw.new_build === 1 || raw.new_build === '1') return 'development';
-    if (raw.holiday_rent === 1 || raw.holiday_rent === '1') return 'holiday_rent';
-    if (raw.rent === 1 || raw.rent === '1' || raw.long_term_rent === 1) return 'rent';
-    if (raw.type?.en) {
-      const t = String(raw.type.en).toLowerCase();
-      if (t.includes('rental') || t.includes('rent')) return 'rent';
+  // The spec has no <title>; "Villa in Moraira" until the AI/merge flow fills
+  // the other languages.
+  private defaultTitle(type: string, town?: string): Record<string, string> {
+    const name = type.charAt(0).toUpperCase() + type.slice(1);
+    return { en: town ? `${name} in ${town}` : name };
+  }
+
+  // Free-text features. Some generators pack structured data in here
+  // ("urbanization: Canor", "construction year: 2016"); those become fields.
+  private mapFeatures(raw: any): {
+    names: string[];
+    categories: Record<string, string>;
+    urbanization?: string;
+    builtYear?: number;
+  } {
+    const names: string[] = [];
+    const categories: Record<string, string> = {};
+    let urbanization: string | undefined;
+    let builtYear: number | undefined;
+    for (const f of raw.features?.feature ?? []) {
+      const name = this.text(f);
+      if (!name) continue;
+      const urb = name.match(/^urbani[sz]ation:\s*(.+)$/i);
+      if (urb) {
+        urbanization ??= urb[1].trim();
+        continue;
+      }
+      const year = name.match(/^construction year:\s*(\d{4})$/i);
+      if (year) {
+        builtYear ??= Number(year[1]);
+        continue;
+      }
+      if (!names.some((n) => n.toLowerCase() === name.toLowerCase())) names.push(name);
     }
-    return 'sale';
+    if (raw.pool === '1' && !names.some((n) => n.toLowerCase().endsWith('pool'))) {
+      names.push('Pool');
+      categories['pool'] = 'community';
+    }
+    return { names, categories, urbanization, builtYear };
   }
 
-  private extractPropertyType(raw: any): string {
-    if (typeof raw.type === 'string') return raw.type;
-    if (raw.type?.en) return String(raw.type.en);
-    if (raw.type?.es) return String(raw.type.es);
-    if (raw.property_type) return String(raw.property_type);
-    return 'Unknown';
-  }
-
+  // Photos in feed order; floor plans go after the photos so the first image
+  // on a card is never a plan.
   private mapImages(images: any): FeedPropertyImage[] {
-    if (!images) return [];
-    const list: any[] = Array.isArray(images.image)
-      ? images.image
-      : images.image
-        ? [images.image]
-        : Array.isArray(images)
-          ? images
-          : [];
-    const result: FeedPropertyImage[] = [];
+    const list: any[] = images?.image ?? [];
+    const photos: FeedPropertyImage[] = [];
+    const plans: FeedPropertyImage[] = [];
     list.forEach((img, index) => {
-      const url =
-        typeof img === 'string'
-          ? img
-          : img?.url ?? img?.['#text'] ?? img?.src ?? null;
+      const url = this.url(img?.url);
       if (!url) return;
-      const out: FeedPropertyImage = {
-        url: String(url),
-        order: img?.['@_id'] ? Number(img['@_id']) : index,
-      };
-      if (img?.['@_alt']) out.alt = String(img['@_alt']);
-      result.push(out);
+      const isPlan = (img.tags?.tag ?? []).some((t: unknown) => String(t).toLowerCase() === 'floorplan');
+      (isPlan ? plans : photos).push({
+        url,
+        order: toNumber(img['@_id']) ?? index,
+        ...(isPlan ? { alt: 'Floor plan' } : {}),
+      });
     });
-    return result;
+    return [...photos, ...plans].map((img, i) => ({ ...img, order: i }));
   }
 
-  private mapFeatures(features: any): string[] {
-    if (!features) return [];
-    const list = Array.isArray(features.feature)
-      ? features.feature
-      : features.feature
-        ? [features.feature]
-        : Array.isArray(features)
-          ? features
-          : [];
-    return list
-      .map((f: any) =>
-        typeof f === 'string' ? f : f?.['#text'] ?? f?.name ?? null,
-      )
-      .filter((x: any): x is string => typeof x === 'string' && x.length > 0);
+  private text(value: unknown): string | undefined {
+    if (value == null || typeof value === 'object') return undefined;
+    const s = String(value).trim();
+    return s ? s : undefined;
+  }
+
+  private positive(value: unknown): number | undefined {
+    const n = toNumber(value);
+    return n && n > 0 ? n : undefined;
+  }
+
+  private url(value: unknown): string | undefined {
+    const s = this.text(value);
+    return s && /^https?:\/\//i.test(s) ? s : undefined;
   }
 }

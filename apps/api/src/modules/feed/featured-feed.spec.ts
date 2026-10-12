@@ -1,4 +1,5 @@
 import { FeedService } from './feed.service';
+import { computeFeedHash } from './feed-hash';
 
 // markAsFeatured: a feed that IS the agency's featured list flags what it
 // imports and unflags listings that leave it — without trampling featured
@@ -50,7 +51,7 @@ function existingRow(svc: any, fp: any, overrides: Record<string, unknown> = {})
     tenantId: TENANT_ID,
     externalId: fp.externalId,
     syncEnabled: true,
-    contentHash: svc.computeFeedHash(fp),
+    contentHash: computeFeedHash(fp),
     images: [{ url: 'https://cdn/a.jpg', sourceUrl: 'https://cdn/a.jpg' }],
     status: 'active',
     isPublished: true,

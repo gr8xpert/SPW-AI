@@ -1,4 +1,5 @@
 import { FeedService } from './feed.service';
+import { computeFeedHash } from './feed-hash';
 
 // Before the 10-03 fix a dashboard save emptied a listing's photos AND locked
 // them, so every later sync left the gallery empty (Cristi Homes R5407168).
@@ -35,7 +36,7 @@ function makeService() {
 function existingRow(svc: any, fp: any, overrides: Record<string, unknown>) {
   return {
     id: 12160, tenantId: 6, externalId: fp.externalId, syncEnabled: true,
-    contentHash: svc.computeFeedHash(fp), status: 'active', isPublished: true, publishedAt: new Date(),
+    contentHash: computeFeedHash(fp), status: 'active', isPublished: true, publishedAt: new Date(),
     propertyTypeId: 1, features: [], locationId: 1, feedConfigId: 10, isFeatured: false, featuredByFeedId: null,
     feedLocation: { provider: 'resales', province: 'Málaga', town: 'Benalmádena' },
     feedType: { provider: 'resales', name: 'Apartment' },

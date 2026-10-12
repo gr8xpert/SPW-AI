@@ -119,3 +119,20 @@ export function toEnergyRating(value: unknown): string | undefined {
   const v = String(value).trim().toUpperCase();
   return /^[A-G]$/.test(v) ? v : undefined;
 }
+
+// Per-language text as the feeds send it: "&#13;" left literal inside CDATA
+// (RedSP), decoded to "\r" (Kyero), or double-encoded and missing its ";"
+// ("&amp;#13Parcela", seen on morairainvest). Line breaks become "\n", blank
+// runs collapse, empty languages are dropped.
+export function cleanMultilingual(texts: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [lang, value] of Object.entries(texts)) {
+    const clean = String(value ?? '')
+      .replace(/&#(13|10);?/g, '\n')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    if (clean) out[lang] = clean;
+  }
+  return out;
+}

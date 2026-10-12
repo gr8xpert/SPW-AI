@@ -1,4 +1,5 @@
 import { FeedService } from './feed.service';
+import { computeFeedHash } from './feed-hash';
 
 // removeMissing: after a complete sync, properties this feed owns that the
 // feed no longer returns (sold, withdrawn) are deleted so the site mirrors the
@@ -231,7 +232,7 @@ describe('which feed owns a listing (and so may remove it)', () => {
         tenantId: TENANT_ID,
         externalId: 'X1',
         syncEnabled: true,
-        contentHash: svc.computeFeedHash(fp),
+        contentHash: computeFeedHash(fp),
         images: [{ url: 'https://cdn/a.jpg', sourceUrl: 'https://cdn/a.jpg' }],
         status: 'active',
         isPublished: true,
