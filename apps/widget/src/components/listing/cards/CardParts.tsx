@@ -1,7 +1,6 @@
 // Pieces several card designs share. Each one renders exactly the markup the
 // designs had inline before the split, so customer CSS keeps matching.
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
-import AnimatedPrice from '@/components/common/AnimatedPrice';
 import type { CardState } from './useCardState';
 import { hasPrice, priceSuffix, priceTo, specRange } from '@/core/property-display';
 
@@ -128,7 +127,7 @@ export function CardPrice({ s, short = false }: PartProps & { short?: boolean })
   const to = priceTo(property);
   return (
     <>
-      <AnimatedPrice value={Number(property.price)} format={priceFormatter} />
+      {priceFormatter(Number(property.price))}
       {to ? ` – ${priceFormatter(to)}` : ''}
       {priceSuffix(property, t)}
     </>
