@@ -10,7 +10,6 @@ import {
   ENERGY_RATINGS,
   FEATURE_KEYWORDS,
   IdealistaCategory,
-  VIDEO_FILE_RE,
   flatFlags,
   guessIdealistaType,
   idealistaCategory,
@@ -159,9 +158,8 @@ function listingIssues(p: Property, out: Record<string, unknown>, country: strin
     found.push('No energy rating (required to advertise in Spain)');
   }
 
-  if (p.videoUrl && !out.propertyVideos) {
-    found.push('Video is not a video file (e.g. a YouTube link) — idealista only takes files, so it is left out');
-  }
+  if (p.videoUrl && !out.propertyVideos) found.push('Video has no full web address, so it is left out');
+  if (p.virtualTourUrl && !out.propertyVirtualTours) found.push('Virtual tour has no full web address, so it is left out');
   return found;
 }
 
@@ -213,14 +211,15 @@ function buildProperty(p: Property, input: BuilderInput): Record<string, unknown
     .map((imageUrl, i) => ({ imageOrder: i + 1, imageUrl }));
   if (images.length) out.propertyImages = images;
 
-  if (p.videoUrl && isHttpUrl(p.videoUrl) && VIDEO_FILE_RE.test(p.videoUrl)) {
-    out.propertyVideos = [{ videoOrder: 1, videoUrl: p.videoUrl }];
+  // Same shape as the client's previous (live, accepted) idealista feed:
+  // YouTube/Vimeo links and video files both go in videoUrl, and tours —
+  // Matterport included — go in a plain virtualTour.
+  if (p.videoUrl && isHttpUrl(p.videoUrl)) {
+    out.propertyVideos = [{ videoUrl: p.videoUrl }];
   }
 
   if (p.virtualTourUrl && isHttpUrl(p.virtualTourUrl)) {
-    out.propertyVirtualTours = /matterport\.com/i.test(p.virtualTourUrl)
-      ? { virtualTour3D: { virtualTour3DType: 'matterport', virtualTourUrl: p.virtualTourUrl } }
-      : { virtualTour: { virtualTourUrl: p.virtualTourUrl } };
+    out.propertyVirtualTours = { virtualTour: { virtualTourUrl: p.virtualTourUrl } };
   }
 
   const url = propertyUrl(p, settings.propertyUrlPattern, input);

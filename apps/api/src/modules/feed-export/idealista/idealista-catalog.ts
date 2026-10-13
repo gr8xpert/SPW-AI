@@ -134,7 +134,3 @@ export function orientationKeys(featureName: string): string[] {
 }
 
 export const ENERGY_RATINGS = ['A', 'A+', 'B', 'C', 'D', 'E', 'F', 'G'];
-
-// Video files idealista downloads itself — streaming pages (YouTube, Vimeo)
-// are not accepted.
-export const VIDEO_FILE_RE = /\.(mp4|mov|avi|wmv|mpe?g|flv|m2t|3gp|rm)(\?.*)?$/i;

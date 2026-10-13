@@ -14,9 +14,15 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
   arrowStroke?: string;
   dots?: boolean;
 }) {
-  const { t, property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide } = s;
+  const { t, property, carouselImages, loadedSlides, slideIndex, prevSlide, nextSlide, handleClick } = s;
+  // A click on the photo opens the listing (the arrows stop their own clicks).
+  // stopPropagation: designs whose whole card is clickable would open it twice.
+  const openListing = (e: MouseEvent) => {
+    e.stopPropagation();
+    handleClick(e);
+  };
   return carouselImages.length > 0 ? (
-    <div class="rs-property-card__carousel">
+    <div class="rs-property-card__carousel" onClick={openListing}>
       {carouselImages.map((img, i) => (
         <img
           key={img.id}
@@ -48,7 +54,7 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
       )}
     </div>
   ) : (
-    <div class="rs-property-card__no-image" />
+    <div class="rs-property-card__no-image" onClick={openListing} />
   );
 }
 

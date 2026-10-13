@@ -121,9 +121,9 @@ describe('idealista builder', () => {
       { imageOrder: 1, imageUrl: 'https://cdn.example.com/1.jpg' },
       { imageOrder: 2, imageUrl: 'https://cdn.example.com/2.jpg' },
     ]);
-    expect(p.propertyVideos).toBeUndefined(); // YouTube isn't accepted
+    expect(p.propertyVideos).toEqual([{ videoUrl: 'https://www.youtube.com/watch?v=x' }]);
     expect(p.propertyVirtualTours).toEqual({
-      virtualTour3D: { virtualTour3DType: 'matterport', virtualTourUrl: 'https://my.matterport.com/show/?m=abc' },
+      virtualTour: { virtualTourUrl: 'https://my.matterport.com/show/?m=abc' },
     });
     expect(p.propertyDescriptions[0]).toEqual({ descriptionLanguage: 'english', descriptionText: 'Great flat\nSea views & pool' });
     expect(p.propertyUrl).toBe('https://cristihomes.com/en/property/sea-view-penthouse_R123');
@@ -137,7 +137,7 @@ describe('idealista builder', () => {
     ]);
     expect(included).toBe(3);
     const byRef = Object.fromEntries(issues.map((i) => [i.reference, i.issues]));
-    expect(byRef.OK).toEqual(['Video is not a video file (e.g. a YouTube link) — idealista only takes files, so it is left out']);
+    expect(byRef.OK).toBeUndefined();
     expect(byRef.BARE).toEqual(['No photos', 'No Spanish description', 'No energy rating (required to advertise in Spain)']);
     expect(byRef.FEW).toEqual(expect.arrayContaining(['Only 1 photo', '1 photo has no full web address and is left out']));
   });

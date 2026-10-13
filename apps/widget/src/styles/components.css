@@ -2449,6 +2449,7 @@ button.rs-share-buttons__btn {
   width: 100%;
   height: 100%;
   touch-action: pan-y pinch-zoom;
+  cursor: pointer;
 }
 
 .rs-property-card__slide {

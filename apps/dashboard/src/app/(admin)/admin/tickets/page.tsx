@@ -48,8 +48,10 @@ interface TicketItem {
   tenantId: number;
   tenantName?: string;
   clientName?: string;
+  tenant?: { id: number; name: string } | null;
   assignedTo: number | null;
   assignedToName?: string;
+  assignedToUser?: { id: number; name: string | null; email: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -291,7 +293,7 @@ export default function AdminTicketsPage() {
                         <TableCell>
                           <div>
                             <span className="text-sm">
-                              {ticket.clientName || ticket.tenantName || `Client ${ticket.tenantId}`}
+                              {ticket.clientName || ticket.tenantName || ticket.tenant?.name || `Client ${ticket.tenantId}`}
                             </span>
                           </div>
                         </TableCell>
@@ -309,7 +311,7 @@ export default function AdminTicketsPage() {
                           {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {ticket.assignedToName || (ticket.assignedTo ? `User ${ticket.assignedTo}` : <span className="text-muted-foreground">Unassigned</span>)}
+                          {ticket.assignedToName || ticket.assignedToUser?.name || ticket.assignedToUser?.email || (ticket.assignedTo ? `User ${ticket.assignedTo}` : <span className="text-muted-foreground">Unassigned</span>)}
                         </TableCell>
                       </TableRow>
                     );
