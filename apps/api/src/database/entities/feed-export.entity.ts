@@ -33,6 +33,20 @@ export interface IdealistaExportSettings {
   feedKey?: string;
 }
 
+// The client's Rightmove Overseas feed. Rightmove takes pushes only: SPM calls
+// their Real Time Datafeed with the platform certificate, one listing a call.
+export interface RightmoveExportSettings {
+  enabled: boolean;
+  // Issued by Rightmove for the agent's branch.
+  networkId: number | null;
+  branchId: number | null;
+  // 'own' = every live own sale listing; 'selected' = only propertyIds.
+  mode: 'own' | 'selected';
+  propertyIds: number[];
+  // Spanish text after the English (Rightmove wants English first).
+  includeSpanish: boolean;
+}
+
 @Entity('feed_export_configs')
 export class FeedExportConfig {
   @PrimaryGeneratedColumn()
@@ -75,6 +89,9 @@ export class FeedExportConfig {
 
   @Column({ type: 'json', nullable: true })
   idealista: IdealistaExportSettings | null;
+
+  @Column({ type: 'json', nullable: true })
+  rightmove: RightmoveExportSettings | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastGeneratedAt: Date;

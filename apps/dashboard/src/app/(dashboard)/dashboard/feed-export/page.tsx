@@ -43,6 +43,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { IdealistaCard } from '@/components/feed-export/idealista-card';
+import { RightmoveCard } from '@/components/feed-export/rightmove-card';
 import { API_URL } from '@/components/feed-export/idealista-api';
 
 interface ExportConfig {
@@ -173,6 +174,8 @@ function FeedExportPageInner() {
       ) : (
         <>
           <IdealistaCard />
+
+          <RightmoveCard />
 
           <div className="grid gap-6 md:grid-cols-2">
             <Card>

@@ -73,6 +73,11 @@ export class PropertyType {
   @Column({ type: 'varchar', length: 40, nullable: true })
   idealistaType: string | null;
 
+  // The Rightmove property type code ("27" = Villa). NULL = inherit from the
+  // parent type, else guessed from the name.
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  rightmoveType: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -9,6 +9,9 @@ import {
   PropertyType,
   Feature,
   Tenant,
+  RightmoveListing,
+  RightmoveLocation,
+  RightmovePushLog,
 } from '../../database/entities';
 import { FeedExportService } from './feed-export.service';
 import {
@@ -20,6 +23,13 @@ import {
   IdealistaConfigController,
   IdealistaFeedController,
 } from './idealista-feed.controller';
+import { RightmoveClient } from './rightmove/rightmove-client';
+import { RightmoveSyncService } from './rightmove/rightmove-sync.service';
+import { RightmoveFeedService } from './rightmove/rightmove-feed.service';
+import {
+  RightmoveConfigController,
+  RightmovePlacesAdminController,
+} from './rightmove/rightmove.controller';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
@@ -33,15 +43,27 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
       PropertyType,
       Feature,
       Tenant,
+      RightmoveListing,
+      RightmoveLocation,
+      RightmovePushLog,
     ]),
   ],
   controllers: [
     FeedExportConfigController,
     IdealistaConfigController,
+    RightmoveConfigController,
+    RightmovePlacesAdminController,
     FeedExportController,
     IdealistaFeedController,
   ],
-  providers: [FeedExportService, IdealistaFeedService, DashboardAddonGuard],
+  providers: [
+    FeedExportService,
+    IdealistaFeedService,
+    RightmoveClient,
+    RightmoveSyncService,
+    RightmoveFeedService,
+    DashboardAddonGuard,
+  ],
   exports: [FeedExportService],
 })
 export class FeedExportModule {}

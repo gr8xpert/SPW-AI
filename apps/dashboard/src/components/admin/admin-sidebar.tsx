@@ -22,6 +22,7 @@ import {
   MapPin,
   Building2,
   HeartPulse,
+  MapPinned,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -47,6 +48,7 @@ const navigation = [
   { name: 'Client Health', href: '/admin/client-health', icon: HeartPulse },
   { name: 'Location Template', href: '/admin/location-template', icon: MapPin },
   { name: 'Property Type Template', href: '/admin/property-type-template', icon: Building2 },
+  { name: 'Rightmove Places', href: '/admin/rightmove-places', icon: MapPinned },
 ];
 
 const support = [

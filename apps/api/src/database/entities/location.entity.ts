@@ -126,6 +126,11 @@ export class Location {
   @Column({ type: 'json', nullable: true })
   feedKeys: string[] | null;
 
+  // The Rightmove place (rightmove_locations.id) this location is sent as,
+  // set by hand when the names differ. NULL = matched by name.
+  @Column({ type: 'int', nullable: true })
+  rightmoveLocationId: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

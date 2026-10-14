@@ -46,6 +46,7 @@ export * from './media-blob.entity';
 
 // Feed export entities
 export * from './feed-export.entity';
+export * from './rightmove.entity';
 
 // Migration entities
 export * from './migration-job.entity';

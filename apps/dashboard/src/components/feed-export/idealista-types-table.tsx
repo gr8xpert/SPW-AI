@@ -12,16 +12,23 @@ import { errorText, type IdealistaTypeOption, type IdealistaTypeRow } from './id
 
 const AUTO = '__auto';
 
-// Each of the client's property types → the idealista type it is sent as.
-// "Automatic" = the parent type's choice, else a guess from the name.
+// Each of the client's property types → the portal type it is sent as.
+// "Automatic" = the parent type's choice, else a guess from the name. Used by
+// the idealista card and, with its own portal/save props, the Rightmove card.
 export function IdealistaTypesTable({
   types,
   options,
   onSaved,
+  portal = 'idealista',
+  saveUrl = '/api/dashboard/feed-export/idealista/types',
+  field = 'idealistaType',
 }: {
   types: IdealistaTypeRow[];
-  options: IdealistaTypeOption[];
+  options: Array<Pick<IdealistaTypeOption, 'value' | 'label'>>;
   onSaved: () => void;
+  portal?: string;
+  saveUrl?: string;
+  field?: string;
 }) {
   const { toast } = useToast();
   const [draft, setDraft] = useState<Record<number, string | null>>({});
@@ -38,8 +45,8 @@ export function IdealistaTypesTable({
   const save = async () => {
     setSaving(true);
     try {
-      await apiPut('/api/dashboard/feed-export/idealista/types', {
-        types: changed.map((t) => ({ id: t.id, idealistaType: draft[t.id] ?? null })),
+      await apiPut(saveUrl, {
+        types: changed.map((t) => ({ id: t.id, [field]: draft[t.id] ?? null })),
       });
       toast({ title: 'Property type mapping saved' });
       onSaved();
@@ -58,7 +65,7 @@ export function IdealistaTypesTable({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {unmapped ? `${unmapped} type(s) have no idealista type — their listings are left out.` : 'Every type has an idealista type.'}
+          {unmapped ? `${unmapped} type(s) have no ${portal} type — their listings are left out.` : `Every type has a${/^[aeiou]/i.test(portal) ? 'n' : ''} ${portal} type.`}
         </p>
         <Button size="sm" onClick={save} disabled={saving || !changed.length}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
@@ -70,7 +77,7 @@ export function IdealistaTypesTable({
           <TableHeader>
             <TableRow>
               <TableHead>Your property type</TableHead>
-              <TableHead>idealista type</TableHead>
+              <TableHead>{portal} type</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
