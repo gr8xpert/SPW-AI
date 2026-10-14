@@ -64,8 +64,9 @@
   overflow: visible;
 }
 
-/* Reset for widget elements inside client pages */
-[data-spm-widget] button,
+/* Reset for widget elements inside client pages. Not the site's own form
+   (RsDetailCustomForm), which keeps its theme's button styles. */
+[data-spm-widget] button:not(:where([data-spm-custom-form] *)),
 [class*="rs_"] button {
   cursor: pointer;
   font-family: inherit;

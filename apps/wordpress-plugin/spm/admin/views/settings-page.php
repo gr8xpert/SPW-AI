@@ -270,9 +270,46 @@ $sync_state = !$status['last_sync'] ? 'idle' : ($has_errors ? 'err' : 'ok');
                     </div>
                 </div>
 
+                <?php $detail_forms = (array) ($opts['detail_forms'] ?? []); ?>
+                <div class="spm-card">
+                    <div class="spm-card-head">
+                        <span class="spm-step">2c</span>
+                        <h2>Property page form</h2>
+                    </div>
+                    <div class="spm-card-body">
+                        <p class="description">Use your own form instead of the built-in inquiry form on property pages. Paste a Gravity Forms shortcode per language, e.g. <code>[gravityform id="3" title="false" ajax="true"]</code>. A language left empty uses the <code><?php echo esc_html(SPM_I18n::instance()->default_lang_code()); ?></code> form; leave them all empty to keep the built-in form.</p>
+                        <p class="description">To pass the property to the form, give fields one of these <em>Custom CSS Class</em> names (field &rarr; Appearance): <code>spm-ref</code> (reference), <code>spm-title</code>, <code>spm-url</code> (page address) &mdash; usually Hidden fields &mdash; and <code>spm-message</code> to pre-fill a Paragraph field with &ldquo;I am interested in &hellip;&rdquo;.</p>
+                        <table class="widefat spm-slug-table" id="spm-form-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px">Language</th>
+                                    <th>Form shortcode</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($slug_rows as $row):
+                                    $lang = $row['lang'] ?? '';
+                                    if ($lang === '') continue;
+                                ?>
+                                    <tr>
+                                        <td><code><?php echo esc_html($lang); ?></code></td>
+                                        <td>
+                                            <input type="text" class="large-text code" name="<?php echo SPM_OPTION; ?>[detail_forms][<?php echo esc_attr($lang); ?>]"
+                                                   value="<?php echo esc_attr((string) ($detail_forms[$lang] ?? '')); ?>" placeholder='[gravityform id="1" title="false" ajax="true"]' />
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php if (preg_grep('/^\[gravityform/i', $detail_forms) && !class_exists('GFForms')): ?>
+                            <p class="description" style="color:#b32d2e">Gravity Forms is not active &mdash; property pages show the built-in form until it is.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
                 <p class="spm-save-row">
                     <?php submit_button('Save Settings', 'primary large', 'submit', false); ?>
-                    <span class="description">Saves API key and slugs.</span>
+                    <span class="description">Saves API key, slugs and forms.</span>
                 </p>
             </form>
         </div>

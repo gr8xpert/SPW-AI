@@ -159,6 +159,16 @@ class SPM_Settings {
             }
         }
 
+        // Property page form: detail_forms[lang] = shortcode. Empty = built-in form.
+        if (array_key_exists('detail_forms', (array)$input)) {
+            $clean['detail_forms'] = [];
+            foreach ((array)$input['detail_forms'] as $lang => $sc) {
+                $lang = strtolower(sanitize_key($lang));
+                $sc = SPM_Custom_Form::sanitize_shortcode($sc);
+                if ($lang && $sc !== '') $clean['detail_forms'][$lang] = $sc;
+            }
+        }
+
         if (array_key_exists('page_titles_i18n', (array)$input)) {
             $clean['page_titles_i18n'] = [];
             foreach ((array)$input['page_titles_i18n'] as $lang => $titles) {

@@ -34,6 +34,7 @@ class SPM_Plugin {
         SPM_Sitemap::instance();
         SPM_Shortcode::instance();
         SPM_Health::instance();
+        SPM_Custom_Form::instance();
         if (is_admin()) SPM_Setup_Wizard::instance();
 
         // Rewrite flush requested by a settings save (see SPM_Settings::sanitize).
@@ -148,6 +149,8 @@ class SPM_Plugin {
             ],
             // Titles for the other languages of a multilingual site: lang => type => title.
             'page_titles_i18n' => [],
+            // Property page form shortcode per language (SPM_Custom_Form): lang => shortcode.
+            'detail_forms'     => [],
             // Auto-generated page IDs (default language) — managed by SPM_Page_Generator, not the UI.
             'detail_page_id'   => 0,
             'listings_page_id' => 0,

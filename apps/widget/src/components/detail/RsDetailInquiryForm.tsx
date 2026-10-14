@@ -7,6 +7,7 @@ import type { Property } from '@/types';
 import { countryCodes, guessCountry, isCountry } from './country-codes';
 import { trackingSession } from '@/core/tracker';
 import { useRecaptcha } from '@/hooks/useRecaptcha';
+import RsDetailCustomForm, { customFormHolder } from './RsDetailCustomForm';
 
 // The visitor's country from the API (Cloudflare knows it from their IP),
 // asked once per browser session. Undefined until known.
@@ -51,7 +52,25 @@ function buildDefaultMessage(property: Property, t: (k: string, fb: string) => s
     .replace('{ref}', property.reference || '');
 }
 
+/** The site's own form when the page brought one (see RsDetailCustomForm), else ours. */
 export default function RsDetailInquiryForm({ property: propertyProp }: Props) {
+  const { t } = useLabels();
+  const storeProperty = useSelector(selectors.getSelectedProperty);
+  const property = propertyProp ?? storeProperty;
+  const holder = customFormHolder();
+  if (!holder) return <BuiltInInquiryForm property={property ?? undefined} />;
+  if (!property) return null;
+  return (
+    <RsDetailCustomForm
+      holder={holder}
+      property={property}
+      heading={t('inquiry_title', 'Contact Agent')}
+      message={buildDefaultMessage(property, t)}
+    />
+  );
+}
+
+function BuiltInInquiryForm({ property: propertyProp }: Props) {
   const { t } = useLabels();
   const config = useConfig();
   const storeProperty = useSelector(selectors.getSelectedProperty);
