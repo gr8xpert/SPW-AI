@@ -222,25 +222,28 @@ export function isSkipped(r: RmBuilt | RmSkipped): r is RmSkipped {
 
 function buildAddress(p: Property, ctx: RmContext, issues: string[]): Record<string, unknown> {
   const a: Record<string, unknown> = { country_code: 'ES' };
+  // Region and sub-region are plain text from our own tree, as the old Odoo
+  // feed sent them; a place list that names them (Rightmove's file) wins.
+  const chain = locationChain(p.locationId, ctx.locations);
+  const name = (level: string[]) => displayName(chain.find((l) => level.includes(l.level))?.name);
+  const ownRegion = name(['region']);
+  const ownSub = name(['province']);
   const { place, tried } = resolvePlace(p.locationId, ctx);
-  if (place) {
-    a.region = place.region;
-    if (place.subRegion) a.sub_region = place.subRegion;
-    if (place.town) a.town_city = place.town;
+  const region = place?.region || ownRegion;
+  const sub = place?.region ? place.subRegion : ownSub;
+  if (region) a.region = region;
+  if (sub) a.sub_region = sub;
+  if (place?.town) {
+    a.town_city = place.town;
   } else if (!ctx.gazetteer.size) {
-    // No place list loaded yet: send our own names.
-    const chain = locationChain(p.locationId, ctx.locations);
-    const name = (level: string[]) => displayName(chain.find((l) => level.includes(l.level))?.name);
-    const region = name(['region']);
-    const sub = name(['province']);
+    // No place list loaded yet: send our own town name.
     const town = name(['town', 'municipality']) || p.feedLocation?.town || '';
-    if (region) a.region = region;
-    if (sub) a.sub_region = sub;
     if (town) a.town_city = town;
     issues.push("Rightmove's place list isn't loaded yet — the town is sent as named and may not match");
-  } else {
+  } else if (!place) {
+    // Like the old feed: no town at all, Rightmove places it by region only.
     const label = tried || p.feedLocation?.town || 'The location';
-    issues.push(`"${label}" is not in Rightmove's place list — choose it under Feed Export → Rightmove → Towns`);
+    issues.push(`"${label}" is not in Rightmove's place list — sent with region only. Choose it under Feed Export → Rightmove → Towns`);
   }
   if (validCoords(p.lat, p.lng)) {
     a.latitude = Number(p.lat);

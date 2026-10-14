@@ -241,16 +241,29 @@ export class RightmoveFeedService {
   }
 
   // Replaces the whole list. Columns are found by header (country, region,
-  // sub region, town); without a header the order is region, sub-region, town.
+  // sub region, town, alias); without a header the order is region,
+  // sub-region, town — or town names alone, one per line. Region and
+  // sub-region may be left out (the old Odoo feed's list is towns only): the
+  // listing's own names are sent then. An alias row ("La Cala Golf" → town
+  // "Mijas Golf") sends listings named by the alias as that town.
   async importPlaces(text: string) {
     const rows = parseTable(text);
     if (!rows.length) throw new BadRequestException('The file is empty');
     const header = rows[0].map((h) => placeKey(h));
     const find = (re: RegExp) => header.findIndex((h) => re.test(h));
-    let col = { country: find(/^country/), region: find(/^region$|^region name/), sub: find(/^sub ?region/), town: find(/^town|^city|^location/) };
+    let col = {
+      country: find(/^country/),
+      region: find(/^region$|^region name/),
+      sub: find(/^sub ?region/),
+      town: find(/^town|^city|^location/),
+      alias: find(/^alias|^also|^our name|^odoo/),
+    };
     let body = rows.slice(1);
-    if (col.region < 0) {
-      col = { country: -1, region: 0, sub: 1, town: 2 };
+    if (col.region < 0 && col.town < 0) {
+      const single = rows.every((r) => r.filter((f) => f.trim()).length <= 1);
+      col = single
+        ? { country: -1, region: -1, sub: -1, town: 0, alias: -1 }
+        : { country: -1, region: 0, sub: 1, town: 2, alias: -1 };
       body = rows;
     }
     const seen = new Set<string>();
@@ -259,17 +272,20 @@ export class RightmoveFeedService {
       const country = (col.country >= 0 ? r[col.country] : 'ES')?.trim().toUpperCase() || 'ES';
       const code = country.length === 2 ? country : /spain|espa/i.test(country) ? 'ES' : '';
       if (code !== 'ES') continue;
-      const region = (r[col.region] || '').trim();
+      const region = (col.region >= 0 ? r[col.region] : '')?.trim() || '';
       const subRegion = (col.sub >= 0 ? r[col.sub] : '')?.trim() || null;
       const town = (col.town >= 0 ? r[col.town] : '')?.trim() || null;
-      if (!region) continue;
-      const townKey = placeKey(town || subRegion || region);
-      const dedupe = `${placeKey(region)}|${placeKey(subRegion)}|${townKey}`;
-      if (!townKey || seen.has(dedupe)) continue;
-      seen.add(dedupe);
-      places.push({ countryCode: 'ES', region: region.slice(0, 120), subRegion: subRegion?.slice(0, 120) ?? null, town: town?.slice(0, 120) ?? null, townKey: townKey.slice(0, 120) });
+      const alias = (col.alias >= 0 ? r[col.alias] : '')?.trim() || null;
+      if (!region && !town) continue;
+      const keys = [placeKey(town || subRegion || region), ...(alias && town ? [placeKey(alias)] : [])];
+      for (const townKey of keys) {
+        const dedupe = `${placeKey(region)}|${placeKey(subRegion)}|${townKey}`;
+        if (!townKey || seen.has(dedupe)) continue;
+        seen.add(dedupe);
+        places.push({ countryCode: 'ES', region: region.slice(0, 120), subRegion: subRegion?.slice(0, 120) ?? null, town: town?.slice(0, 120) ?? null, townKey: townKey.slice(0, 120) });
+      }
     }
-    if (!places.length) throw new BadRequestException('No Spanish places found — expected columns region, sub region, town');
+    if (!places.length) throw new BadRequestException('No Spanish places found — expected columns region, sub region, town (or town names alone)');
 
     // Places already known keep their id, so towns clients linked by hand stay
     // linked; places gone from the file are deleted and their links cleared.

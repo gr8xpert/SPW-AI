@@ -1,9 +1,9 @@
 // Rightmove Real Time Datafeed (RTDF v1.4) — the fixed code lists the builder
 // maps onto. Codes come from Rightmove's JSON schema for SendPropertyDetails
 // (property_type, media_type, removal_reason, area units); the overseas call
-// shares them. Os_Status is not in a public schema: the values below follow
-// the UK `status` list and must be checked against the schema Rightmove sends
-// with the test credentials.
+// shares them. Where several codes fit, the guesses use the codes the old Odoo
+// feed sent IPP Spain's listings with (Rightmove accepted those), so the
+// switch-over changes nothing on the live listings.
 
 export interface RightmoveTypeOption {
   value: string; // the code, as a string (dashboard selects work on strings)
@@ -44,17 +44,20 @@ export const RIGHTMOVE_TYPES: RightmoveTypeOption[] = [
   { value: '20', label: 'Land (residential)' },
   { value: '107', label: 'Farm land' },
   { value: '45', label: 'Parking' },
+  { value: '196', label: 'Garage' },
   { value: '51', label: 'Garages' },
   { value: '232', label: 'Storage' },
   { value: '137', label: 'Shop' },
   { value: '178', label: 'Office' },
   { value: '80', label: 'Restaurant' },
   { value: '83', label: 'Cafe' },
+  { value: '211', label: 'Bar' },
   { value: '134', label: 'Bar / nightclub' },
   { value: '202', label: 'Hotel' },
   { value: '277', label: 'Guest house' },
   { value: '238', label: 'Warehouse' },
   { value: '253', label: 'Commercial property' },
+  { value: '268', label: 'Other' },
 ];
 
 const TYPE_CODES = new Set(RIGHTMOVE_TYPES.map((t) => t.value));
@@ -74,40 +77,42 @@ const GUESSES: Array<[RegExp, string]> = [
   [/triplex/, '59'],
   [/duplex|d[uú]plex/, '56'],
   [/studio|estudio/, '9'],
-  [/ground floor|planta baja/, '7'],
   [/semi[\s-]?detached villa|villa pareada/, '128'],
-  [/detached villa|villa independiente/, '131'],
   [/semi[\s-]?detached|pareado/, '3'],
   [/town ?house|adosad/, '22'],
   [/terraced/, '1'],
   [/bungalow/, '12'],
   [/cortijo/, '104'],
   [/finca/, '30'],
+  [/wooden|madera/, '26'],
   [/cave|cueva/, '101'],
   [/village|pueblo/, '95'],
   [/country ?house|casa de campo|r[uú]stic/, '113'],
   [/castle|castillo/, '92'],
   [/farm ?land|terreno r[uú]stico/, '107'],
   [/plot|land|terreno|parcela|solar/, '110'],
-  [/garage|garaje/, '51'],
+  [/garage|garaje/, '196'],
   [/parking|aparcamiento|plaza de/, '45'],
   [/storage|trastero/, '232'],
   [/office|oficina/, '178'],
   [/restaurant/, '80'],
   [/caf[eé]/, '83'],
-  [/\bbar\b|night ?club/, '134'],
+  [/night ?club/, '134'],
+  [/\bbar\b/, '211'],
   [/hotel/, '202'],
   [/hostel|guest ?house|b&b|hostal/, '277'],
   [/warehouse|industrial|nave/, '238'],
-  [/shop|tienda|\blocal\b|premises/, '137'],
+  [/commercial|comercial|premises|\blocal\b|business|negocio|complex|complejo/, '253'],
+  [/shop|tienda/, '137'],
   [/building|edificio|block/, '143'],
-  [/commercial|comercial|business|negocio/, '253'],
-  [/apartment|apartamento|\bflat\b|piso/, '28'],
+  // Flat, not Apartment (28): ground/middle/top floor apartments all went as 8.
+  [/apartment|apartamento|\bflat\b|piso/, '8'],
   [/villa/, '27'],
   [/detached|independiente/, '4'],
   [/chalet/, '24'],
   [/cottage/, '23'],
   [/house|casa|home|vivienda/, '26'],
+  [/^\s*(other|otros?)\s*$/, '268'],
 ];
 
 export function guessRightmoveType(...names: Array<string | null | undefined>): string | null {
@@ -119,7 +124,8 @@ export function guessRightmoveType(...names: Array<string | null | undefined>): 
   return null;
 }
 
-// Os_Status — see the note at the top: confirm with Rightmove's schema.
+// Os_Status. The old Odoo feed only ever sent 1 (Available); the others follow
+// the UK status list.
 export const OS_STATUS = { available: 1, sstc: 2, underOffer: 4, reserved: 5 } as const;
 
 export const MEDIA_TYPE = { image: 1, floorplan: 2, brochure: 3, virtualTour: 4 } as const;

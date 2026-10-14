@@ -13,11 +13,12 @@ import {
   resolveRightmoveType,
   rmDate,
 } from './rightmove-builder';
+import { guessRightmoveType } from './rightmove-catalog';
 import { parseResponse } from './rightmove-client';
 
 const types = new Map<number, RmTypeRow>([
   [1, { id: 1, parentId: null, name: { en: 'Villa' }, rightmoveType: null }],
-  [2, { id: 2, parentId: null, name: { en: 'Apartment' }, rightmoveType: '28' }],
+  [2, { id: 2, parentId: null, name: { en: 'Apartment' }, rightmoveType: '8' }],
   [3, { id: 3, parentId: 2, name: { en: 'Something odd' }, rightmoveType: null }],
   [4, { id: 4, parentId: null, name: { en: 'Thing' }, rightmoveType: null }],
 ]);
@@ -160,8 +161,14 @@ describe('rightmove builder', () => {
   it('reports towns Rightmove does not know, and honours a hand-set link', () => {
     const r = build({ locationId: 14 });
     if (isSkipped(r)) throw new Error(r.reason);
-    expect((r.payload.property as any).address).toEqual({ country_code: 'ES', latitude: 36.59, longitude: -4.56 });
-    expect(r.issues[0]).toMatch(/"Carvajal" is not in Rightmove's place list/);
+    expect((r.payload.property as any).address).toEqual({
+      country_code: 'ES',
+      region: 'Andalucía',
+      sub_region: 'Málaga',
+      latitude: 36.59,
+      longitude: -4.56,
+    });
+    expect(r.issues[0]).toMatch(/"Carvajal" is not in Rightmove's place list — sent with region only/);
 
     const linked = new Map(locations);
     linked.set(14, { ...locations.get(14)!, rightmoveLocationId: 101 });
@@ -178,6 +185,35 @@ describe('rightmove builder', () => {
     expect(r.issues[0]).toMatch(/place list isn't loaded/);
   });
 
+  it('takes region names from the tree when the place list is towns only (old Odoo list + aliases)', () => {
+    const odoo = indexGazetteer([
+      { id: 200, region: '', subRegion: null, town: 'Mijas Golf', townKey: placeKey('Mijas Golf') },
+      { id: 201, region: '', subRegion: null, town: 'Mijas Golf', townKey: placeKey('Reserva del Higuerón') },
+    ]);
+    const r = build({ locationId: 13 }, { gazetteer: odoo });
+    if (isSkipped(r)) throw new Error(r.reason);
+    expect((r.payload.property as any).address).toMatchObject({ region: 'Andalucía', sub_region: 'Málaga', town_city: 'Mijas Golf' });
+    expect(r.issues).toEqual([]);
+  });
+
+  it('guesses the codes the old Odoo feed sent', () => {
+    const t = (name: string) => guessRightmoveType(name);
+    expect(t('Ground Floor Apartment')).toBe('8');
+    expect(t('Middle Floor Apartment')).toBe('8');
+    expect(t('Ground Floor Studio')).toBe('9');
+    expect(t('Penthouse Duplex')).toBe('29');
+    expect(t('Detached Villa')).toBe('27');
+    expect(t('Finca - Cortijo')).toBe('104');
+    expect(t('Finca Rural Estate')).toBe('30');
+    expect(t('Wooden House')).toBe('26');
+    expect(t('Residential Plot')).toBe('110');
+    expect(t('Garage')).toBe('196');
+    expect(t('Bar')).toBe('211');
+    expect(t('Commercial Premises')).toBe('253');
+    expect(t('Apartment Complex')).toBe('253');
+    expect(t('Other')).toBe('268');
+  });
+
   it('leaves the plot off flats and sends English only when Spanish is off', () => {
     const r = build({ propertyTypeId: 2 }, { settings: { ...ctx().settings, includeSpanish: false } });
     if (isSkipped(r)) throw new Error(r.reason);
@@ -187,8 +223,8 @@ describe('rightmove builder', () => {
   });
 
   it('resolves types from the parent, else a guess', () => {
-    expect(resolveRightmoveType(2, types)).toEqual({ value: '28', source: 'set' });
-    expect(resolveRightmoveType(3, types)).toEqual({ value: '28', source: 'parent' });
+    expect(resolveRightmoveType(2, types)).toEqual({ value: '8', source: 'set' });
+    expect(resolveRightmoveType(3, types)).toEqual({ value: '8', source: 'parent' });
     expect(resolveRightmoveType(1, types)).toEqual({ value: '27', source: 'guess' });
     expect(resolveRightmoveType(4, types)).toEqual({ value: null, source: null });
   });

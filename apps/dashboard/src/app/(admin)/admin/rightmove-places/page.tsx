@@ -59,7 +59,7 @@ export default function RightmovePlacesPage() {
           <MapPinned className="h-6 w-6" /> Rightmove places
         </h1>
         <p className="text-muted-foreground">
-          Rightmove only places a listing when its region, sub-region and town match their own list. Every client&apos;s Rightmove feed uses this list.
+          Rightmove only places a listing in a town when the town matches their own list. Every client&apos;s Rightmove feed uses this list.
         </p>
       </div>
       <Card>
@@ -67,7 +67,9 @@ export default function RightmovePlacesPage() {
           <CardTitle>{count === null ? '…' : count.toLocaleString()} places loaded</CardTitle>
           <CardDescription>
             Get the file from Rightmove&apos;s Data Feed team (adfsupport@rightmove.co.uk). CSV or tab-separated, with columns
-            Region, Sub Region and Town (a Country column is fine — only Spain is kept). Importing a newer file keeps the places
+            Region, Sub Region and Town (a Country column is fine — only Spain is kept), or town names alone, one per line — then
+            each listing&apos;s own region and province are sent. An Alias column sends listings named by the alias as that town
+            (Alias &quot;La Cala Golf&quot;, Town &quot;Mijas Golf&quot;). Importing a newer file keeps the places
             already here (and the towns clients linked to them) and drops the ones Rightmove no longer lists.
           </CardDescription>
         </CardHeader>

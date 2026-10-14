@@ -173,21 +173,27 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
                 Test mode: the Rightmove certificate isn’t installed on the server yet. “Push now” shows what would be sent, but nothing reaches Rightmove.
               </div>
             )}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Rightmove network ID</Label>
-                <Input value={idValue(settings.networkId)} onChange={(e) => set({ networkId: parseId(e.target.value) })} inputMode="numeric" readOnly={!overview.canSetIds} className="font-mono" autoComplete="off" />
-              </div>
-              <div className="space-y-2">
-                <Label>Rightmove branch ID</Label>
-                <Input value={idValue(settings.branchId)} onChange={(e) => set({ branchId: parseId(e.target.value) })} inputMode="numeric" readOnly={!overview.canSetIds} className="font-mono" autoComplete="off" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {overview.canSetIds
-                ? 'Both numbers come from Rightmove for the agency’s branch. Each branch can belong to one client only.'
-                : 'Set by SPM support from the numbers Rightmove gives your branch. Contact us to change them.'}
-            </p>
+            {overview.canSetIds ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Rightmove network ID</Label>
+                    <Input value={idValue(settings.networkId)} onChange={(e) => set({ networkId: parseId(e.target.value) })} inputMode="numeric" className="font-mono" autoComplete="off" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rightmove branch ID</Label>
+                    <Input value={idValue(settings.branchId)} onChange={(e) => set({ branchId: parseId(e.target.value) })} inputMode="numeric" className="font-mono" autoComplete="off" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Super Admin only — clients don’t see these fields. Both numbers come from Rightmove for the agency’s branch. Each branch can belong to one client only.
+                </p>
+              </>
+            ) : settings.branchId ? (
+              <p className="text-sm text-muted-foreground">
+                Connected to your Rightmove branch <span className="font-mono text-foreground">{settings.branchId}</span>. Contact SPM support to change it.
+              </p>
+            ) : null}
             <div className="flex items-center justify-between gap-4 rounded-md border p-3">
               <div>
                 <Label>Add the Spanish description</Label>
