@@ -1,103 +1,111 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Copy,
-  RefreshCw,
-  ExternalLink,
-  FileJson,
-  FileCode,
-  Check,
-  Eye,
-  EyeOff,
-  Loader2,
-  Save,
-} from 'lucide-react';
+import { FileJson, FileCode, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { IdealistaCard } from '@/components/feed-export/idealista-card';
 import { RightmoveCard } from '@/components/feed-export/rightmove-card';
 import { API_URL } from '@/components/feed-export/idealista-api';
+import { StatusDot, type ExportStatus } from '@/components/feed-export/export-status';
+import {
+  AccessLogCard,
+  FeedKeyCard,
+  FeedSettingsCard,
+  FeedUrlCard,
+  type ExportLog,
+  type UrlFeedSettings,
+} from '@/components/feed-export/url-feed-parts';
+import { LockedRouteGuard } from '@/components/locked-route-guard';
 
+// GET /api/dashboard/feed-export: the top-level fields are the Kyero XML
+// feed's; `json` is the JSON feed's own settings and key.
 interface ExportConfig {
-  id?: number;
   isEnabled: boolean;
-  apiKey: string;
-  allowedFormats: string[];
   includeUnpublished: boolean;
-  includeSold: boolean;
-  xmlFormat: string;
+  listingScope?: 'all' | 'own';
   cacheTtl: number;
+  apiKey: string;
   tenantSlug?: string;
   propertyCount?: number;
+  skippedCount?: number;
+  skipped?: Array<{ reference: string; reason: string }>;
+  json: {
+    enabled: boolean;
+    includeUnpublished: boolean;
+    includeSold: boolean;
+    listingScope: 'all' | 'own';
+    apiKey: string;
+    propertyCount: number;
+  };
 }
 
-interface ExportLog {
-  id: number;
-  format: string;
-  propertiesCount: number;
-  requesterIp: string;
-  responseTimeMs: number;
-  accessedAt: string;
+type UrlFeed = 'kyero' | 'json';
+
+const TABS = ['idealista', 'rightmove', 'kyero', 'json'] as const;
+type Tab = (typeof TABS)[number];
+
+// The open tab lives in ?tab= so a refresh or a shared link lands on it.
+// Read from window rather than useSearchParams (no Suspense boundary needed).
+function tabFromUrl(): Tab {
+  if (typeof window === 'undefined') return 'idealista';
+  const t = new URLSearchParams(window.location.search).get('tab');
+  return (TABS as readonly string[]).includes(t || '') ? (t as Tab) : 'idealista';
 }
 
-function formatDate(d: string): string {
-  try { return new Date(d).toLocaleString(); } catch { return d; }
+function kyeroSettings(c: ExportConfig): UrlFeedSettings {
+  return {
+    enabled: !!c.isEnabled,
+    includeUnpublished: !!c.includeUnpublished,
+    includeSold: false,
+    listingScope: c.listingScope === 'own' ? 'own' : 'all',
+    cacheTtl: c.cacheTtl || 3600,
+  };
+}
+
+function jsonSettings(c: ExportConfig): UrlFeedSettings {
+  return {
+    enabled: !!c.json?.enabled,
+    includeUnpublished: !!c.json?.includeUnpublished,
+    includeSold: !!c.json?.includeSold,
+    listingScope: c.json?.listingScope === 'own' ? 'own' : 'all',
+  };
 }
 
 function FeedExportPageInner() {
+  const [tab, setTab] = useState<Tab>('idealista');
   const [config, setConfig] = useState<ExportConfig | null>(null);
   const [logs, setLogs] = useState<ExportLog[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
-  const [settings, setSettings] = useState({
-    includeUnpublished: false,
-    includeSold: false,
-    xmlFormat: 'kyero',
-    cacheTtl: 3600,
-  });
+  const [showKey, setShowKey] = useState<UrlFeed | null>(null);
+  const [saving, setSaving] = useState<UrlFeed | null>(null);
+  const [status, setStatus] = useState<Partial<Record<Tab, ExportStatus>>>({});
+  const [edits, setEdits] = useState<Record<UrlFeed, UrlFeedSettings> | null>(null);
 
   const api = useApi();
   const { toast } = useToast();
 
-  const fetchConfig = async () => {
+  useEffect(() => setTab(tabFromUrl()), []);
+
+  const changeTab = (v: string) => {
+    setTab(v as Tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', v);
+    window.history.replaceState(null, '', url.toString());
+  };
+
+  // `only` refreshes one feed's form and leaves unsaved edits on the other.
+  const fetchConfig = async (only?: UrlFeed) => {
     try {
       const res = await api.get('/api/dashboard/feed-export');
-      const body = res?.data || res;
+      const body: ExportConfig | null = res?.data || res;
       setConfig(body);
       if (body) {
-        setSettings({
-          includeUnpublished: body.includeUnpublished ?? false,
-          includeSold: body.includeSold ?? false,
-          xmlFormat: body.xmlFormat || 'kyero',
-          cacheTtl: body.cacheTtl || 3600,
+        setEdits((prev) => {
+          const fresh = { kyero: kyeroSettings(body), json: jsonSettings(body) };
+          if (!prev || !only) return fresh;
+          return { ...prev, [only]: fresh[only] };
         });
       }
     } catch {
@@ -125,21 +133,41 @@ function FeedExportPageInner() {
     fetchLogs();
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSaveSettings = async () => {
+  const save = async (feed: UrlFeed) => {
+    if (!edits) return;
+    const s = edits[feed];
+    setSaving(feed);
     try {
-      await api.put('/api/dashboard/feed-export', settings);
-      toast({ title: 'Export settings saved' });
-      fetchConfig();
+      if (feed === 'kyero') {
+        await api.put('/api/dashboard/feed-export', {
+          isEnabled: s.enabled,
+          includeUnpublished: s.includeUnpublished,
+          listingScope: s.listingScope,
+          cacheTtl: s.cacheTtl,
+        });
+      } else {
+        await api.put('/api/dashboard/feed-export/json', {
+          enabled: s.enabled,
+          includeUnpublished: s.includeUnpublished,
+          includeSold: s.includeSold,
+          listingScope: s.listingScope,
+        });
+      }
+      toast({ title: `${feed === 'kyero' ? 'Kyero XML' : 'JSON'} settings saved` });
+      fetchConfig(feed);
     } catch (e: any) {
       toast({ title: 'Failed to save', description: e.message, variant: 'destructive' });
+    } finally {
+      setSaving(null);
     }
   };
 
-  const handleRegenerateKey = async () => {
+  const regenerateKey = async (feed: UrlFeed) => {
+    const name = feed === 'kyero' ? 'Kyero XML' : 'JSON';
     try {
-      await api.post('/api/dashboard/feed-export/regenerate-key');
-      toast({ title: 'API key regenerated' });
-      fetchConfig();
+      await api.post(feed === 'kyero' ? '/api/dashboard/feed-export/regenerate-key' : '/api/dashboard/feed-export/json/regenerate-key');
+      toast({ title: `${name} key regenerated`, description: `The old ${name} URL no longer works.` });
+      fetchConfig(feed);
     } catch (e: any) {
       toast({ title: 'Failed to regenerate', description: e.message, variant: 'destructive' });
     }
@@ -152,18 +180,87 @@ function FeedExportPageInner() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const apiBaseUrl = API_URL;
+  const reportStatus = (t: Tab) => (s: ExportStatus) =>
+    setStatus((prev) => (prev[t] === s ? prev : { ...prev, [t]: s }));
+
   const tenantSlug = config?.tenantSlug || 'my-agency';
-  const xmlUrl = `${apiBaseUrl}/api/feed/${tenantSlug}/properties.xml`;
-  const jsonUrl = `${apiBaseUrl}/api/feed/${tenantSlug}/properties.json`;
-  const apiKey = config?.apiKey || '';
+  // Portals (Kyero etc.) can only fetch a URL, so the key goes in it.
+  const feedUrl = (file: string, key: string) =>
+    `${API_URL}/api/feed/${tenantSlug}/${file}${key ? `?key=${encodeURIComponent(key)}` : ''}`;
+
+  // Dots follow the saved config, not unsaved switch flips.
+  const kyeroOn = !!config?.isEnabled;
+  const jsonOn = !!config?.json?.enabled;
+  const dots: Partial<Record<Tab, ExportStatus>> = config
+    ? { ...status, kyero: !kyeroOn ? 'off' : config.skippedCount ? 'warn' : 'on', json: jsonOn ? 'on' : 'off' }
+    : status;
+
+  const urlFeedTab = (feed: UrlFeed) => {
+    const isKyero = feed === 'kyero';
+    const name = isKyero ? 'Kyero XML' : 'JSON';
+    const file = isKyero ? 'properties.xml' : 'properties.json';
+    const key = (isKyero ? config?.apiKey : config?.json?.apiKey) || '';
+    const shownKey = showKey === feed ? key : key ? '***' : '';
+    return (
+      <>
+        <FeedUrlCard
+          icon={isKyero ? <FileCode className="h-5 w-5" /> : <FileJson className="h-5 w-5" />}
+          title={isKyero ? 'Kyero XML' : 'JSON feed'}
+          description={isKyero
+            ? 'Kyero XML v3 — give this URL to Kyero or any portal that reads Kyero XML'
+            : 'Your listings as JSON, for custom integrations and developers'}
+          shownUrl={feedUrl(file, shownKey)}
+          url={feedUrl(file, key)}
+          propertyCount={(isKyero ? config?.propertyCount : config?.json?.propertyCount) ?? 0}
+          enabled={isKyero ? kyeroOn : jsonOn}
+          copied={copied === `${name} URL`}
+          onCopy={() => copyToClipboard(feedUrl(file, key), `${name} URL`)}
+        >
+          {isKyero && !!config?.skippedCount && (
+            <details className="rounded-md border p-3 text-sm">
+              <summary className="cursor-pointer">{config.skippedCount} listing(s) left out of the Kyero feed</summary>
+              <ul className="mt-2 space-y-1 text-muted-foreground">
+                {(config.skipped || []).map((s) => (
+                  <li key={s.reference}><span className="font-mono">{s.reference}</span> — {s.reason}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </FeedUrlCard>
+        {edits && (
+          <FeedSettingsCard
+            feedName={name}
+            settings={edits[feed]}
+            onChange={(s) => setEdits({ ...edits, [feed]: s })}
+            onSave={() => save(feed)}
+            saving={saving === feed}
+          />
+        )}
+        <FeedKeyCard
+          feedName={name}
+          apiKey={key}
+          plainUrl={feedUrl(file, '')}
+          showKey={showKey === feed}
+          onToggleShow={() => setShowKey(showKey === feed ? null : feed)}
+          copied={copied === `${name} key`}
+          onCopy={() => copyToClipboard(key, `${name} key`)}
+          onRegenerate={() => regenerateKey(feed)}
+        />
+        <AccessLogCard feedName={name} logs={logs.filter((l) => l.format === (isKyero ? 'xml' : 'json'))} />
+      </>
+    );
+  };
+
+  // Inactive tabs stay mounted (hidden) so each card loads once, reports its
+  // dot, and keeps unsaved edits when the user switches tabs.
+  const contentCls = 'space-y-6 mt-6 data-[state=inactive]:hidden';
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
           <h1 className="page-title">Feed Export</h1>
-          <p className="page-description mt-1">Send your properties to idealista, or export them as XML (Kyero) or JSON for other portals</p>
+          <p className="page-description mt-1">Send your properties to portals — each tab is one portal or feed</p>
         </div>
       </div>
 
@@ -172,213 +269,34 @@ function FeedExportPageInner() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <>
-          <IdealistaCard />
+        <Tabs value={tab} onValueChange={changeTab}>
+          <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="idealista"><StatusDot status={dots.idealista} />idealista</TabsTrigger>
+            <TabsTrigger value="rightmove"><StatusDot status={dots.rightmove} />Rightmove</TabsTrigger>
+            <TabsTrigger value="kyero"><StatusDot status={dots.kyero} />Kyero XML</TabsTrigger>
+            <TabsTrigger value="json"><StatusDot status={dots.json} />JSON</TabsTrigger>
+          </TabsList>
 
-          <RightmoveCard />
+          <TabsContent value="idealista" forceMount className={contentCls}>
+            <IdealistaCard onStatus={reportStatus('idealista')} />
+          </TabsContent>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileCode className="h-5 w-5" />
-                  XML Feed (Kyero Format)
-                </CardTitle>
-                <CardDescription>Compatible with Kyero and other portals that read Kyero XML</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Feed URL</Label>
-                  <div className="flex gap-2">
-                    <Input value={xmlUrl} readOnly className="font-mono text-sm" />
-                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(xmlUrl, 'XML URL')}>
-                      {copied === 'XML URL' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="outline" size="icon" asChild>
-                      <a href={xmlUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-md">
-                  <span className="text-sm">Properties in feed</span>
-                  <Badge variant="secondary">{config?.propertyCount ?? 0}</Badge>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="rightmove" forceMount className={contentCls}>
+            <RightmoveCard onStatus={reportStatus('rightmove')} />
+          </TabsContent>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileJson className="h-5 w-5" />
-                  JSON Feed
-                </CardTitle>
-                <CardDescription>For custom integrations and modern applications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Feed URL</Label>
-                  <div className="flex gap-2">
-                    <Input value={jsonUrl} readOnly className="font-mono text-sm" />
-                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(jsonUrl, 'JSON URL')}>
-                      {copied === 'JSON URL' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="outline" size="icon" asChild>
-                      <a href={jsonUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-md">
-                  <span className="text-sm">Properties in feed</span>
-                  <Badge variant="secondary">{config?.propertyCount ?? 0}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <TabsContent value="kyero" forceMount className={contentCls}>
+            {urlFeedTab('kyero')}
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Authentication</CardTitle>
-              <CardDescription>Include this API key in the X-API-Key header when accessing the feed</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Export API Key</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={apiKey}
-                    readOnly
-                    type={showKey ? 'text' : 'password'}
-                    className="font-mono"
-                  />
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(apiKey, 'API Key')}>
-                    {copied === 'API Key' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowKey(!showKey)}>
-                    {showKey ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                    {showKey ? 'Hide' : 'Reveal'}
-                  </Button>
-                  <Button variant="outline" onClick={handleRegenerateKey}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Regenerate
-                  </Button>
-                </div>
-              </div>
-              {apiKey && (
-                <div className="p-4 bg-muted rounded-md">
-                  <p className="text-sm font-medium mb-2">Example Request</p>
-                  <code className="text-xs block bg-background p-3 rounded border">
-                    curl -H &quot;X-API-Key: {showKey ? apiKey : '***'}&quot; {xmlUrl}
-                  </code>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Export Settings</CardTitle>
-                  <CardDescription>Configure which properties are included in the feed</CardDescription>
-                </div>
-                <Button className="shadow-sm" onClick={handleSaveSettings} disabled={api.isLoading}>
-                  {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Settings
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center justify-between p-4 border rounded-md">
-                  <div>
-                    <p className="font-medium">Include Unpublished</p>
-                    <p className="text-sm text-muted-foreground">Include draft and unpublished properties</p>
-                  </div>
-                  <Switch
-                    checked={settings.includeUnpublished}
-                    onCheckedChange={(checked) => setSettings({ ...settings, includeUnpublished: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-md">
-                  <div>
-                    <p className="font-medium">Include Sold Properties</p>
-                    <p className="text-sm text-muted-foreground">Include properties marked as sold</p>
-                  </div>
-                  <Switch
-                    checked={settings.includeSold}
-                    onCheckedChange={(checked) => setSettings({ ...settings, includeSold: checked })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>XML Format</Label>
-                  <Select value={settings.xmlFormat} onValueChange={(v) => setSettings({ ...settings, xmlFormat: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="kyero">Kyero</SelectItem>
-                      <SelectItem value="generic">Generic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cache TTL (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={60}
-                    max={86400}
-                    value={settings.cacheTtl}
-                    onChange={(e) => setSettings({ ...settings, cacheTtl: Number(e.target.value) })}
-                  />
-                  <p className="text-xs text-muted-foreground">Min 60s, max 86400s (24h)</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Access Log</CardTitle>
-              <CardDescription>Recent feed access history (last 7 days)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {logs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">No access logs yet</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Format</TableHead>
-                      <TableHead>Properties</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>Response Time</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {logs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell>{formatDate(log.accessedAt)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="uppercase">{log.format}</Badge>
-                        </TableCell>
-                        <TableCell>{log.propertiesCount}</TableCell>
-                        <TableCell className="font-mono text-sm">{log.requesterIp}</TableCell>
-                        <TableCell>{log.responseTimeMs}ms</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </>
+          <TabsContent value="json" forceMount className={contentCls}>
+            {urlFeedTab('json')}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
 }
-
-import { LockedRouteGuard } from '@/components/locked-route-guard';
 
 export default function FeedExportPage() {
   return (

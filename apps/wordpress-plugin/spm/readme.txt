@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.7
+Stable tag: 2.9.8
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,9 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.8 =
+* Fix: property and wishlist pages you build yourself (with `[spm_detail]`, `[spm_wishlist]` or the widget code) now work without "Create Pages". Property links no longer show "Page not found", and the wishlist link goes to your page. Works with Elementor and Divi too. "Create Pages" now uses such a page instead of making a second one.
 
 = 2.9.7 =
 * New: Settings → Property page form. Paste a Gravity Forms shortcode per language and property pages show that form instead of the built-in inquiry form (a language left empty uses the default language's). Fields with the CSS class `spm-ref`, `spm-title`, `spm-url` or `spm-message` are filled with the property. Needs the widget update released with it.

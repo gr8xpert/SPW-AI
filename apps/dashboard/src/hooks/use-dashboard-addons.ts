@@ -25,6 +25,15 @@ export const ALL_LOCKED: DashboardAddons = {
   aiTranslation: false,
 };
 
+const ALL_UNLOCKED: DashboardAddons = {
+  addProperty: true,
+  emailCampaign: true,
+  feedExport: true,
+  team: true,
+  aiChat: true,
+  aiTranslation: true,
+};
+
 interface TenantResponse {
   dashboardAddons?: DashboardAddons | null;
   tier?: TenantTier | number | null;
@@ -92,6 +101,18 @@ export function useDashboardAddons(): {
   });
 
   const meta = query.data;
+  // A Super Admin (also while viewing as a client — the session role stays
+  // super_admin) uses every feature; the API lets them through too.
+  if ((session?.user as { role?: string } | undefined)?.role === 'super_admin') {
+    return {
+      addons: ALL_UNLOCKED,
+      tier: meta?.tier ?? 1,
+      known: true,
+      isLoading: false,
+      isError: false,
+      retry: () => void query.refetch(),
+    };
+  }
   return {
     addons: meta?.addons ?? ALL_LOCKED,
     tier: meta?.tier ?? 1,

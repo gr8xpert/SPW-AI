@@ -2,7 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
+import { TranslationMemoryService } from '../translation-memory/translation-memory.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -44,6 +46,7 @@ export class MigrationService {
     @InjectQueue('migration')
     private migrationQueue: Queue,
     private tenantService: TenantService,
+    @Optional() private readonly translationMemory?: TranslationMemoryService,
   ) {}
 
   async validateFile(
@@ -504,7 +507,8 @@ export class MigrationService {
 
     const feature = this.featureRepository.create({
       tenantId,
-      name,
+      // Missing languages from the shared translation memory.
+      name: this.translationMemory ? await this.translationMemory.fillForTenant(tenantId, 'feature', name) : name,
       category: data.category || 'other',
     });
 

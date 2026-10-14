@@ -21,12 +21,13 @@ import {
   type IdealistaOverview,
   type IdealistaSettings,
 } from './idealista-api';
+import type { ExportStatus } from './export-status';
 import { IdealistaListingPicker } from './idealista-listing-picker';
 import { IdealistaTypesTable } from './idealista-types-table';
 
 // Feed Export → idealista: the client's own idealista feed (customer JSON v6).
 // idealista downloads the URL; the key sits in the path.
-export function IdealistaCard() {
+export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => void }) {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [overview, setOverview] = useState<IdealistaOverview | null>(null);
@@ -64,6 +65,13 @@ export function IdealistaCard() {
     load();
     runCheck();
   }, [session?.accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Saved state only — an unsaved switch flip doesn't change the tab dot.
+  useEffect(() => {
+    if (!overview) return;
+    const problems = (check?.skipped.length ?? 0) + (check?.issues?.length ?? 0);
+    onStatus?.(!overview.settings.enabled ? 'off' : problems ? 'warn' : 'on');
+  }, [overview, check]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (!settings) return;

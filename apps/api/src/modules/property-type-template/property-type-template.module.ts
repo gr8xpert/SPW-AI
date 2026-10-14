@@ -8,6 +8,7 @@ import {
 } from '../../database/entities';
 import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { TranslationMemoryModule } from '../translation-memory/translation-memory.module';
 import { PropertyTypeTemplateService } from './property-type-template.service';
 import { PropertyTypeTemplateController } from './property-type-template.controller';
 
@@ -17,6 +18,7 @@ import { PropertyTypeTemplateController } from './property-type-template.control
     AiEnrichmentModule,
     // Template apply bumps each affected client's syncVersion.
     TenantModule,
+    TranslationMemoryModule,
   ],
   controllers: [PropertyTypeTemplateController],
   providers: [PropertyTypeTemplateService],

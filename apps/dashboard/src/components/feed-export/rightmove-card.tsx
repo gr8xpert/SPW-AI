@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { errorText, unwrap } from './idealista-api';
 import type { RightmoveCheck, RightmoveOverview, RightmovePushSummary, RightmoveSettings } from './rightmove-api';
+import type { ExportStatus } from './export-status';
 import { IdealistaListingPicker } from './idealista-listing-picker';
 import { IdealistaTypesTable } from './idealista-types-table';
 import { RightmoveLog } from './rightmove-log';
@@ -24,7 +25,7 @@ const BASE = '/api/dashboard/feed-export/rightmove';
 
 // Feed Export → Rightmove: the client's own sale listings pushed to Rightmove
 // Overseas. Unlike the other feeds there's no URL — SPM sends each change.
-export function RightmoveCard() {
+export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => void }) {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [overview, setOverview] = useState<RightmoveOverview | null>(null);
@@ -61,6 +62,13 @@ export function RightmoveCard() {
     load();
     runCheck();
   }, [session?.accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!overview) return;
+    const s = overview.settings;
+    const problems = (check?.skipped.length ?? 0) + (check?.issues.length ?? 0);
+    onStatus?.(!s.enabled || !s.branchId ? 'off' : !overview.live ? 'test' : problems ? 'warn' : 'on');
+  }, [overview, check]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (!settings) return;
@@ -154,6 +162,12 @@ export function RightmoveCard() {
           </TabsList>
 
           <TabsContent value="settings" className="space-y-4 pt-4">
+            {!overview.canSetIds && !settings.networkId && !settings.branchId && (
+              <div className="text-sm p-3 rounded-md bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                To go live on Rightmove, ask SPM support to add your Rightmove network and branch ID. Until then you can
+                set everything else up and use the Check tab to see what Rightmove would receive.
+              </div>
+            )}
             {!overview.live && (
               <div className="text-sm p-3 rounded-md bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
                 Test mode: the Rightmove certificate isn’t installed on the server yet. “Push now” shows what would be sent, but nothing reaches Rightmove.

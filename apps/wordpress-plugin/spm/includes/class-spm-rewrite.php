@@ -107,39 +107,20 @@ class SPM_Rewrite {
     }
 
     /**
-     * Which page shows a property. The configured one, else a page with the
-     * detail slug, else any published page carrying the detail widget — so an
-     * admin who built their own page never has to click "Create Pages".
+     * Which page shows a property: the generated one, else a page on the
+     * detail slug, else any published page carrying the detail widget or
+     * [spm_detail] (SPM_Page_Finder) — so an admin who built their own page
+     * never has to click "Create Pages".
      * On a multilingual site the URL's language picks the translation.
      *
      * @param string $url_lang language from the URL, '' when unprefixed
      */
     private function resolve_detail_page_id($url_lang = '') {
-        $detail_id = (int) SPM_Plugin::get('detail_page_id');
-
-        if (!$detail_id) {
-            $lang = $url_lang;
-            if (!$lang && class_exists('SPM_I18n')) {
-                $lang = SPM_I18n::instance()->current_lang() ?: 'en';
-            }
-            $slug = SPM_Plugin::slug('detail', $lang);
-            $found = $slug ? get_page_by_path($slug) : null;
-            if ($found) $detail_id = (int) $found->ID;
+        $lang = $url_lang;
+        if (!$lang && class_exists('SPM_I18n')) {
+            $lang = SPM_I18n::instance()->current_lang() ?: 'en';
         }
-
-        if (!$detail_id) {
-            foreach (['data-spm-widget="site-detail"', 'detail-template-01'] as $marker) {
-                $hits = get_posts([
-                    'post_type'      => 'page',
-                    'post_status'    => 'publish',
-                    's'              => $marker,
-                    'numberposts'    => 1,
-                    'fields'         => 'ids',
-                    'suppress_filters' => true,
-                ]);
-                if (!empty($hits)) { $detail_id = (int) $hits[0]; break; }
-            }
-        }
+        $detail_id = SPM_Page_Finder::page_id('detail', $lang);
 
         if (!$detail_id) return 0;
 

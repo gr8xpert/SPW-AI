@@ -104,7 +104,13 @@ class SPM_Page_Generator {
         foreach ($types as $type) {
             $key = self::option_key($type);
             $id = (int) ($opts[$key] ?? 0);
-            if (!self::usable($id)) {
+            // A page the admin built by hand is adopted, not duplicated.
+            if (!self::usable($id) && ($own = SPM_Page_Finder::page_id($type))) {
+                $id = $own;
+                $opts[$key] = $id;
+                update_option(SPM_OPTION, $opts);
+                $results[] = self::existing($type, $default_lang, $id, $upgrade, $publish);
+            } elseif (!self::usable($id)) {
                 $id = self::insert($type, $default_lang, $plugin, $results);
                 if (!$id) continue;
                 $opts[$key] = $id;

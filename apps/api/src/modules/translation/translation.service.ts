@@ -6,6 +6,8 @@ import { Job, Queue } from 'bullmq';
 import { Property, PropertyType, Feature, Label } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
 import { TenantService } from '../tenant/tenant.service';
+import type { TranslationMemoryKind } from '../../database/entities';
+import { MemoryEntry, TranslationMemoryService, memoryKey } from '../translation-memory/translation-memory.service';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French',
@@ -15,7 +17,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ja: 'Japanese', ko: 'Korean',
 };
 
-function langName(code: string): string {
+export function langName(code: string): string {
   return LANGUAGE_NAMES[code] || code;
 }
 
@@ -58,6 +60,7 @@ export class TranslationService {
     private translationQueue: Queue,
     private aiService: AiService,
     private tenantService: TenantService,
+    private memory: TranslationMemoryService,
   ) {}
 
   async translateProperty(
@@ -118,13 +121,7 @@ export class TranslationService {
     const sourceLang = sourceLanguage || this.detectSourceLang(entity.name);
     if (!entity.name[sourceLang]) return entity;
 
-    for (const targetLang of targetLanguages) {
-      if (targetLang === sourceLang) continue;
-      const result = await this.translateTexts(
-        tenantId, { name: entity.name[sourceLang] }, sourceLang, targetLang, 'label',
-      );
-      entity.name = { ...entity.name, [targetLang]: result.name || entity.name[targetLang] || '' };
-    }
+    entity.name = await this.translateRecord(tenantId, 'property_type', entity.name, targetLanguages, sourceLang);
 
     return this.saveAndBump(tenantId, this.propertyTypeRepository, entity, `translate property type=${id}`, targetLanguages, sourceLang);
   }
@@ -141,13 +138,7 @@ export class TranslationService {
     const sourceLang = sourceLanguage || this.detectSourceLang(entity.name);
     if (!entity.name[sourceLang]) return entity;
 
-    for (const targetLang of targetLanguages) {
-      if (targetLang === sourceLang) continue;
-      const result = await this.translateTexts(
-        tenantId, { name: entity.name[sourceLang] }, sourceLang, targetLang, 'label',
-      );
-      entity.name = { ...entity.name, [targetLang]: result.name || entity.name[targetLang] || '' };
-    }
+    entity.name = await this.translateRecord(tenantId, 'feature', entity.name, targetLanguages, sourceLang);
 
     return this.saveAndBump(tenantId, this.featureRepository, entity, `translate feature=${id}`, targetLanguages, sourceLang);
   }
@@ -164,15 +155,43 @@ export class TranslationService {
     const sourceLang = sourceLanguage || this.detectSourceLang(entity.translations);
     if (!entity.translations[sourceLang]) return entity;
 
-    for (const targetLang of targetLanguages) {
-      if (targetLang === sourceLang) continue;
-      const result = await this.translateTexts(
-        tenantId, { value: entity.translations[sourceLang] }, sourceLang, targetLang, 'label',
-      );
-      entity.translations = { ...entity.translations, [targetLang]: result.value || entity.translations[targetLang] || '' };
-    }
+    entity.translations = await this.translateRecord(tenantId, 'label', entity.translations, targetLanguages, sourceLang);
 
     return this.saveAndBump(tenantId, this.labelRepository, entity, `translate label=${id}`, targetLanguages, sourceLang);
+  }
+
+  // One type, feature or label into each target language: from the shared
+  // translation memory when another client already paid for it, else by AI
+  // (and the answer is remembered for everyone).
+  private async translateRecord(
+    tenantId: number,
+    kind: TranslationMemoryKind,
+    record: Record<string, string>,
+    targetLanguages: string[],
+    sourceLang: string,
+  ): Promise<Record<string, string>> {
+    const key = sourceLang === 'en' ? memoryKey(record.en) : null;
+    const remembered = key
+      ? await this.memory.lookup(kind, [record.en]).then((m) => m.get(key)).catch(() => undefined)
+      : undefined;
+    const next = { ...record };
+    const learned: MemoryEntry[] = [];
+    for (const targetLang of targetLanguages) {
+      if (targetLang === sourceLang) continue;
+      if (remembered?.[targetLang]) {
+        next[targetLang] = remembered[targetLang];
+        continue;
+      }
+      const result = await this.translateTexts(
+        tenantId, { value: record[sourceLang] }, sourceLang, targetLang, 'label',
+      );
+      const text = typeof result.value === 'string' ? result.value.trim() : '';
+      if (!text) continue;
+      next[targetLang] = text;
+      if (key) learned.push({ en: record.en, lang: targetLang, text });
+    }
+    await this.memory.remember(kind, learned);
+    return next;
   }
 
   // Single-row translate (types, features, labels): save, then bump once so

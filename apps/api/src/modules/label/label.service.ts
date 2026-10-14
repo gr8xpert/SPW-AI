@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Label } from '../../database/entities';
 import { CreateLabelDto, UpdateLabelDto } from './dto';
 import { DEFAULT_LABELS, PREVIOUS_DEFAULTS } from './default-labels';
+import { TranslationMemoryService, memoryKey } from '../translation-memory/translation-memory.service';
 
 function isPreviousDefault(key: string, lang: string, text: string): boolean {
   return !!PREVIOUS_DEFAULTS[key]?.[lang]?.includes(text);
@@ -14,6 +15,7 @@ export class LabelService {
   constructor(
     @InjectRepository(Label)
     private labelRepository: Repository<Label>,
+    @Optional() private readonly translationMemory?: TranslationMemoryService,
   ) {}
 
   async findAll(tenantId: number): Promise<Label[]> {
@@ -65,9 +67,21 @@ export class LabelService {
     const existingKeys = new Set(existingLabels.map((l) => l.key));
     const defaultKeys = new Set(DEFAULT_LABELS.map((dl) => dl.key));
 
-    const labelsToCreate = DEFAULT_LABELS
-      .filter((dl) => !existingKeys.has(dl.key))
-      .map((dl) => this.labelRepository.create({ tenantId, key: dl.key, translations: dl.translations, isCustom: false }));
+    const missing = DEFAULT_LABELS.filter((dl) => !existingKeys.has(dl.key));
+    // Languages the defaults don't ship with come from the shared
+    // translation memory, so a new client's labels arrive translated.
+    let remembered = new Map<string, Record<string, string>>();
+    let langs: string[] = [];
+    if (missing.length && this.translationMemory) {
+      langs = await this.translationMemory.tenantLanguages(tenantId);
+      remembered = await this.translationMemory.lookup('label', missing.map((dl) => dl.translations.en)).catch(() => remembered);
+    }
+    const labelsToCreate = missing.map((dl) => {
+      const translations = this.translationMemory
+        ? this.translationMemory.applyTo(dl.translations, remembered.get(memoryKey(dl.translations.en) || ''), langs).record
+        : dl.translations;
+      return this.labelRepository.create({ tenantId, key: dl.key, translations, isCustom: false });
+    });
     if (labelsToCreate.length > 0) {
       await this.labelRepository.save(labelsToCreate);
     }

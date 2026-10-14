@@ -45,6 +45,11 @@ export class DashboardAddonGuard implements CanActivate {
     if (!required) return true;
 
     const request = context.switchToHttp().getRequest();
+    // A Super Admin (directly or impersonating a client) uses every feature,
+    // whatever the client's plan.
+    const user = request.user as { role?: string; originalRole?: string } | undefined;
+    if (user?.role === 'super_admin' || user?.originalRole === 'super_admin') return true;
+
     const tenantId: number | undefined = request.tenantId ?? request.user?.tenantId;
     if (!tenantId) {
       // No tenant context = JwtAuthGuard/TenantGuard should have already

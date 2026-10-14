@@ -4,7 +4,9 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { TranslationMemoryService } from '../translation-memory/translation-memory.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import {
@@ -72,6 +74,7 @@ export class PropertyTypeTemplateService {
     private readonly propertyRepository: Repository<Property>,
     private readonly aiEnrichmentService: AiEnrichmentService,
     private readonly tenantService: TenantService,
+    @Optional() private readonly translationMemory?: TranslationMemoryService,
   ) {}
 
   // ===================================================================
@@ -255,10 +258,14 @@ export class PropertyTypeTemplateService {
     for (let i = 2; [...ctx.rows.values()].some((r) => r.slug === slug); i++) slug = `${base}-${i}`;
     let row: PropertyType;
     try {
+      // Languages the template lacks come from the shared translation memory.
+      const names = this.translationMemory
+        ? await this.translationMemory.fillForTenant(ctx.tenantId, 'property_type', data.names)
+        : data.names;
       row = await this.typeRepository.save(
         this.typeRepository.create({
           tenantId: ctx.tenantId,
-          name: data.names,
+          name: names,
           slug,
           parentId: data.parentId,
           templateNodeId: data.templateNodeId,

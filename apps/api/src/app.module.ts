@@ -61,6 +61,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
 import { LocationTemplateModule } from './modules/location-template/location-template.module';
 import { PropertyTypeTemplateModule } from './modules/property-type-template/property-type-template.module';
+import { TranslationMemoryModule } from './modules/translation-memory/translation-memory.module';
 import { TranslationModule } from './modules/translation/translation.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { AiSeoModule } from './modules/ai-seo/ai-seo.module';
@@ -184,6 +185,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     AiEnrichmentModule,
     LocationTemplateModule,
     PropertyTypeTemplateModule,
+    TranslationMemoryModule,
     TranslationModule,
     AiChatModule,
     AiSeoModule,

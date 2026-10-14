@@ -12,6 +12,9 @@ import { Tenant } from './tenant.entity';
 
 export type XmlFormat = 'kyero' | 'idealista' | 'generic';
 export type ExportFormat = 'xml' | 'json';
+// What an access-log row records: one of the URL feeds, or idealista's.
+export type ExportLogFormat = ExportFormat | 'idealista';
+export type ExportListingScope = 'all' | 'own';
 
 // The client's idealista feed (customer JSON, v6). One per client.
 export interface IdealistaExportSettings {
@@ -47,6 +50,16 @@ export interface RightmoveExportSettings {
   includeSpanish: boolean;
 }
 
+// The client's JSON feed, separate from the Kyero XML feed (whose settings
+// are the config's top-level columns). Own key so each URL can be replaced alone.
+export interface JsonFeedSettings {
+  enabled: boolean;
+  includeUnpublished: boolean;
+  includeSold: boolean;
+  listingScope: ExportListingScope;
+  feedKey?: string;
+}
+
 @Entity('feed_export_configs')
 export class FeedExportConfig {
   @PrimaryGeneratedColumn()
@@ -77,6 +90,11 @@ export class FeedExportConfig {
   @Column({ default: false })
   includeSold: boolean;
 
+  // 'all' = every live listing (network ones too); 'own' = the client's own
+  // (Resales OwnProperty or added by hand), like the idealista feed.
+  @Column({ type: 'varchar', length: 8, default: 'all' })
+  listingScope: ExportListingScope;
+
   @Column({
     type: 'enum',
     enum: ['kyero', 'idealista', 'generic'],
@@ -92,6 +110,9 @@ export class FeedExportConfig {
 
   @Column({ type: 'json', nullable: true })
   rightmove: RightmoveExportSettings | null;
+
+  @Column({ type: 'json', nullable: true })
+  jsonFeed: JsonFeedSettings | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastGeneratedAt: Date;
@@ -118,9 +139,9 @@ export class FeedExportLog {
 
   @Column({
     type: 'enum',
-    enum: ['xml', 'json'],
+    enum: ['xml', 'json', 'idealista'],
   })
-  format: ExportFormat;
+  format: ExportLogFormat;
 
   @Column({ default: 0 })
   propertiesCount: number;

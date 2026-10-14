@@ -6,7 +6,9 @@ import { Job } from 'bullmq';
 import { Property, PropertyType, Feature, Label } from '../../database/entities';
 import { AiService, ChatMessage } from '../ai/ai.service';
 import { TenantService } from '../tenant/tenant.service';
-import { BulkTranslateJob } from './translation.service';
+import { BulkTranslateJob, langName } from './translation.service';
+import type { TranslationMemoryKind } from '../../database/entities';
+import { MemoryEntry, TranslationMemoryService, isGap, memoryKey } from '../translation-memory/translation-memory.service';
 
 @Processor('translation', { concurrency: 3 })
 export class TranslationProcessor extends WorkerHost {
@@ -23,6 +25,7 @@ export class TranslationProcessor extends WorkerHost {
     private labelRepository: Repository<Label>,
     private aiService: AiService,
     private tenantService: TenantService,
+    private memory: TranslationMemoryService,
   ) {
     super();
   }
@@ -162,7 +165,7 @@ export class TranslationProcessor extends WorkerHost {
     sourceLanguage?: string,
   ): Promise<number> {
     const entities = await this.propertyTypeRepository.find({ where: { tenantId } });
-    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.propertyTypeRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.propertyTypeRepository, 'property_type');
   }
 
   private async processFeatures(
@@ -172,7 +175,7 @@ export class TranslationProcessor extends WorkerHost {
     sourceLanguage?: string,
   ): Promise<number> {
     const entities = await this.featureRepository.find({ where: { tenantId } });
-    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.featureRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'name', this.featureRepository, 'feature');
   }
 
   private async processLabels(
@@ -182,10 +185,17 @@ export class TranslationProcessor extends WorkerHost {
     sourceLanguage?: string,
   ): Promise<number> {
     const entities = await this.labelRepository.find({ where: { tenantId } });
-    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'translations', this.labelRepository);
+    return this.processNameEntities(job, entities, tenantId, targetLanguages, sourceLanguage, 'translations', this.labelRepository, 'label');
   }
 
-  private async processNameEntities<T extends Record<string, any>>(
+  // Terms sent to the AI in one call.
+  private static readonly TERMS_PER_CALL = 40;
+
+  // Types, features and labels. A language the row already has is skipped
+  // (a copy of the English counts as missing); the shared translation memory
+  // fills what other clients already paid for; only what is left goes to
+  // the AI, many terms per call, and every answer is remembered.
+  private async processNameEntities<T extends { id: number } & Record<string, any>>(
     job: Job,
     entities: T[],
     tenantId: number,
@@ -193,50 +203,86 @@ export class TranslationProcessor extends WorkerHost {
     sourceLanguage: string | undefined,
     field: string,
     repo: Repository<T>,
+    kind: TranslationMemoryKind,
   ): Promise<number> {
     const total = entities.length * targetLanguages.length;
     let completed = 0;
     let failed = 0;
-    let changed = 0;
-
     await job.updateProgress({ total, completed, failed });
 
-    for (const entity of entities) {
-      const record = entity[field] as Record<string, string>;
-      const sourceLang = sourceLanguage || Object.keys(record).find((k) => record[k]?.trim()) || 'en';
+    const records = new Map<number, Record<string, string>>(entities.map((e) => [e.id, { ...((e[field] as Record<string, string>) || {}) }]));
+    const changedIds = new Set<number>();
+    const remembered = await this.memory
+      .lookup(kind, entities.map((e) => records.get(e.id)!.en).filter(Boolean))
+      .catch(() => new Map<string, Record<string, string>>());
 
-      if (!record[sourceLang]) {
-        completed += targetLanguages.length;
-        await job.updateProgress({ total, completed, failed });
-        continue;
+    // "target:source" → rows still needing that language.
+    const pending = new Map<string, { id: number; text: string }[]>();
+    for (const e of entities) {
+      const record = records.get(e.id)!;
+      const sourceLang = sourceLanguage || (record.en?.trim() ? 'en' : Object.keys(record).find((k) => record[k]?.trim())) || 'en';
+      const sourceText = record[sourceLang]?.trim();
+      const key = memoryKey(record.en);
+      const filled = key ? this.memory.applyTo(record, remembered.get(key), targetLanguages.filter((l) => l !== sourceLang)) : null;
+      if (filled?.filled.length) {
+        records.set(e.id, filled.record);
+        changedIds.add(e.id);
       }
-
-      for (const targetLang of targetLanguages) {
-        if (targetLang === sourceLang) {
+      const current = records.get(e.id)!;
+      for (const lang of targetLanguages) {
+        if (!sourceText || lang === sourceLang || !this.needs(current, lang, sourceLang)) {
           completed++;
-          await job.updateProgress({ total, completed, failed });
           continue;
         }
+        const id = `${lang}:${sourceLang}`;
+        pending.set(id, [...(pending.get(id) || []), { id: e.id, text: sourceText }]);
+      }
+    }
+    await job.updateProgress({ total, completed, failed });
 
+    for (const [id, rows] of pending) {
+      const [targetLang, sourceLang] = id.split(':');
+      for (let i = 0; i < rows.length; i += TranslationProcessor.TERMS_PER_CALL) {
+        const chunk = rows.slice(i, i + TranslationProcessor.TERMS_PER_CALL);
+        const texts: Record<string, string> = {};
+        chunk.forEach((r, n) => (texts[String(n + 1)] = r.text));
         try {
-          const result = await this.translateTexts(
-            tenantId, { value: record[sourceLang] }, sourceLang, targetLang, 'label',
-          );
-          (entity as any)[field] = { ...record, [targetLang]: result.value || '' };
-          changed++;
-          completed++;
+          const result = await this.translateTexts(tenantId, texts, sourceLang, targetLang, 'label');
+          const learned: MemoryEntry[] = [];
+          chunk.forEach((r, n) => {
+            const value = result[String(n + 1)];
+            const text = typeof value === 'string' ? value.trim() : '';
+            if (!text) {
+              failed++;
+              return;
+            }
+            const record = records.get(r.id)!;
+            records.set(r.id, { ...record, [targetLang]: text });
+            changedIds.add(r.id);
+            if (record.en?.trim()) learned.push({ en: record.en, lang: targetLang, text });
+          });
+          if (sourceLang === 'en') await this.memory.remember(kind, learned);
         } catch (err) {
-          this.logger.error(`Failed to translate entity to ${targetLang}: ${(err as Error).message}`);
-          failed++;
-          completed++;
+          this.logger.error(`Failed to translate ${chunk.length} ${kind} terms to ${targetLang}: ${(err as Error).message}`);
+          failed += chunk.length;
         }
-
+        completed += chunk.length;
         await job.updateProgress({ total, completed, failed });
       }
-
-      await repo.save(entity);
     }
-    return changed;
+
+    // Only the translated column is written, so edits made meanwhile to
+    // anything else on the row are kept.
+    for (const id of changedIds) {
+      await repo.update({ id, tenantId } as any, { [field]: records.get(id) } as any);
+    }
+    return changedIds.size;
+  }
+
+  // A language still to translate: empty, or a copy of the source text.
+  private needs(record: Record<string, string>, lang: string, sourceLang: string): boolean {
+    const v = record[lang]?.trim();
+    return !v || (sourceLang === 'en' ? isGap(record, lang) : v === record[sourceLang]?.trim());
   }
 
   private async translateTexts(
@@ -246,16 +292,12 @@ export class TranslationProcessor extends WorkerHost {
     targetLang: string,
     context: 'property' | 'label',
   ): Promise<Record<string, string>> {
-    const LANG_NAMES: Record<string, string> = {
-      en: 'English', es: 'Spanish', de: 'German', fr: 'French',
-      nl: 'Dutch', pt: 'Portuguese', it: 'Italian', ru: 'Russian',
-    };
-    const sName = LANG_NAMES[sourceLang] || sourceLang;
-    const tName = LANG_NAMES[targetLang] || targetLang;
+    const sName = langName(sourceLang);
+    const tName = langName(targetLang);
 
     const systemPrompt = context === 'property'
       ? `You are a professional real estate translator. Translate from ${sName} to ${tName}. Return ONLY valid JSON with the same keys. No markdown.`
-      : `You are a translator. Translate from ${sName} to ${tName}. Return ONLY valid JSON with the same keys. No markdown.`;
+      : `You are a translator for a real estate website. Translate each value (a UI label, property feature or property type) from ${sName} to ${tName}. Keep it short, as it would appear on a property portal. Keep placeholders like {n} exactly as they are. Return ONLY valid JSON with the same keys. No markdown.`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },

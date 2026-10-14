@@ -1,5 +1,23 @@
 import { TranslationProcessor } from './translation.processor';
 import { TranslationService } from './translation.service';
+import { TranslationMemoryService, memoryKey } from '../translation-memory/translation-memory.service';
+
+// The shared translation memory, in a plain object: key → { lang: text }.
+function memoryFake(store: Record<string, Record<string, string>> = {}) {
+  const real = new TranslationMemoryService({} as any, {} as any);
+  return {
+    store,
+    lookup: async (_kind: string, texts: string[]) =>
+      new Map(texts.map((t) => memoryKey(t)!).filter((k) => store[k]).map((k) => [k, store[k]])),
+    applyTo: real.applyTo.bind(real),
+    remember: jest.fn(async (_kind: string, entries: Array<{ en: string; lang: string; text: string }>) => {
+      for (const e of entries) {
+        const k = memoryKey(e.en)!;
+        store[k] = { ...store[k], [e.lang]: e.text };
+      }
+    }),
+  };
+}
 
 // Translations are public text, so a finished run must bump the tenant's
 // syncVersion — once for the whole run, after the rows are saved — or the
@@ -51,7 +69,7 @@ describe('TranslationProcessor syncVersion bump', () => {
       repo([]) as any,
       repo([]) as any,
       aiService as any,
-      tenantService as any,
+      tenantService as any, memoryFake() as any,
     );
 
     await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'property' }));
@@ -71,7 +89,7 @@ describe('TranslationProcessor syncVersion bump', () => {
     ];
     const processor = new TranslationProcessor(
       repo(properties) as any, repo([]) as any, repo([]) as any, repo([]) as any,
-      aiService as any, tenantService as any,
+      aiService as any, tenantService as any, memoryFake() as any,
     );
 
     await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'property' }));
@@ -94,7 +112,7 @@ describe('TranslationProcessor syncVersion bump', () => {
       repo(features) as any,
       repo([]) as any,
       aiService as any,
-      tenantService as any,
+      tenantService as any, memoryFake() as any,
     );
 
     await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'feature' }));
@@ -111,7 +129,7 @@ describe('TranslationProcessor syncVersion bump', () => {
       repo([]) as any,
       repo([]) as any,
       aiService as any,
-      tenantService as any,
+      tenantService as any, memoryFake() as any,
     );
 
     await processor.process(job({ tenantId: 5, targetLanguages: ['en'], entityType: 'property' }));
@@ -130,7 +148,7 @@ describe('TranslationService single translate syncVersion bump', () => {
       repo([]) as any,
       {} as any,
       aiService as any,
-      tenantService as any,
+      tenantService as any, memoryFake() as any,
     );
 
     await service.translateProperty(5, 1, ['es', 'de']);
@@ -147,11 +165,66 @@ describe('TranslationService single translate syncVersion bump', () => {
       repo([]) as any,
       {} as any,
       aiService as any,
-      tenantService as any,
+      tenantService as any, memoryFake() as any,
     );
 
     await service.translateFeature(5, 3, ['en']);
 
     expect(tenantService.bumpSyncVersionSafely).not.toHaveBeenCalled();
+  });
+});
+
+describe('Translation memory', () => {
+  const featureProcessor = (features: any[], memory: ReturnType<typeof memoryFake>) => {
+    const { repo, aiService, tenantService, calls } = setup();
+    const processor = new TranslationProcessor(
+      repo([]) as any, repo([]) as any, repo(features) as any, repo([]) as any,
+      aiService as any, tenantService as any, memory as any,
+    );
+    return { processor, calls };
+  };
+
+  it('bulk run: remembered terms cost no AI call; the rest go in one batched call and are remembered', async () => {
+    const memory = memoryFake({ 'swimming pool': { es: 'Piscina', fr: 'Piscine' } });
+    const features: any[] = [
+      { id: 1, name: { en: 'Swimming Pool', es: 'Swimming Pool' } },
+      { id: 2, name: { en: 'Garden', es: 'Garden' } },
+      { id: 3, name: { en: 'Lift', es: 'Lift' } },
+    ];
+    const { processor, calls } = featureProcessor(features, memory);
+
+    await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'feature' }));
+
+    expect(calls).toEqual(['1,2']);
+    expect(features[0].name).toEqual({ en: 'Swimming Pool', es: 'Piscina' });
+    expect(features[1].name).toEqual({ en: 'Garden', es: 'es:Garden' });
+    expect(memory.store['lift']).toEqual({ es: 'es:Lift' });
+  });
+
+  it('bulk run: a real translation the client has is kept', async () => {
+    const memory = memoryFake({ garden: { es: 'Jardín' } });
+    const features: any[] = [{ id: 1, name: { en: 'Garden', es: 'Jardín privado' } }];
+    const { processor, calls } = featureProcessor(features, memory);
+
+    await processor.process(job({ tenantId: 5, targetLanguages: ['es'], entityType: 'feature' }));
+
+    expect(calls).toEqual([]);
+    expect(features[0].name).toEqual({ en: 'Garden', es: 'Jardín privado' });
+  });
+
+  it('single translate uses memory first and remembers what the AI returned', async () => {
+    const { repo, aiService, tenantService, calls } = setup();
+    const memory = memoryFake({ pool: { es: 'Piscina' } });
+    const feature = { id: 3, tenantId: 5, name: { en: 'Pool' } };
+    const service = new TranslationService(
+      repo([]) as any, repo([]) as any, repo([feature]) as any, repo([]) as any,
+      {} as any, aiService as any, tenantService as any, memory as any,
+    );
+
+    await service.translateFeature(5, 3, ['es', 'de']);
+
+    expect(calls).toEqual(['value']);
+    expect(feature.name).toEqual({ en: 'Pool', es: 'Piscina', de: 'es:Pool' });
+    expect(memory.store.pool).toEqual({ es: 'Piscina', de: 'es:Pool' });
   });
 });

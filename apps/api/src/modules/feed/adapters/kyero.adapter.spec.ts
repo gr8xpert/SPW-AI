@@ -162,6 +162,11 @@ describe('KyeroAdapter', () => {
     expect(map({ pool: '0', features: { feature: ['garden'] } }).features).toEqual(['garden']);
   });
 
+  it('reads features sent per language (IPP Spain CRM)', () => {
+    expect(map({ features: { feature: [{ en: 'Lift', es: 'Ascensor' }, { es: 'Garaje' }, 'Garden'] } }).features)
+      .toEqual(['Lift', 'Garaje', 'Garden']);
+  });
+
   it('downloads the file once per run, whatever the number of pages', async () => {
     get = jest.spyOn(axios, 'get').mockResolvedValue({ status: 200, data: feed(5) });
     const adapter = new KyeroAdapter();

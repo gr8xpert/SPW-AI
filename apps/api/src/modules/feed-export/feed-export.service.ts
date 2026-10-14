@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import {
@@ -16,8 +16,33 @@ import {
   Feature,
   Tenant,
   ExportFormat,
+  ExportLogFormat,
+  JsonFeedSettings,
 } from '../../database/entities';
-import { UpdateFeedExportConfigDto } from './dto';
+import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
+import { displayName } from './idealista/idealista-builder';
+import { KyeroLocationRow, buildKyeroFeed } from './kyero/kyero-builder';
+
+// Which listings a URL feed sends. The Kyero XML feed reads these from the
+// config's top-level columns, the JSON feed from config.jsonFeed.
+interface ListingRules {
+  includeUnpublished: boolean;
+  includeSold: boolean;
+  listingScope: 'all' | 'own';
+  propertyFilter?: Record<string, any> | null;
+}
+
+// The JSON feed's settings. Rows saved before it had its own fall back to
+// the shared values (the migration copies them; this covers a missed row).
+export function jsonFeedOf(config: FeedExportConfig): JsonFeedSettings {
+  return {
+    enabled: config.jsonFeed?.enabled ?? config.isEnabled,
+    includeUnpublished: config.jsonFeed?.includeUnpublished ?? config.includeUnpublished,
+    includeSold: config.jsonFeed?.includeSold ?? config.includeSold,
+    listingScope: config.jsonFeed?.listingScope ?? config.listingScope ?? 'all',
+    feedKey: config.jsonFeed?.feedKey || config.exportKey,
+  };
+}
 
 interface ExportProperty {
   id: string;
@@ -62,17 +87,36 @@ export class FeedExportService {
 
   // ============ Config Management ============
   // `apiKey` / `tenantSlug` are what the dashboard page reads to show the key
-  // and build the feed URLs.
-  async getConfig(
-    tenantId: number,
-  ): Promise<(FeedExportConfig & { apiKey: string; tenantSlug: string }) | null> {
-    const config = await this.configRepository.findOne({ where: { tenantId } });
-    if (!config) return null;
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
-      select: ['id', 'slug'],
-    });
-    return { ...config, apiKey: config.exportKey, tenantSlug: tenant?.slug ?? '' };
+  // and build the feed URLs. The row (and key) is created on first visit so
+  // the page always has a real URL to show.
+  async getConfig(tenantId: number) {
+    const config = await this.ensureConfig(tenantId);
+    const json = jsonFeedOf(config);
+    const [tenant, properties, lookups, jsonCount] = await Promise.all([
+      this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'slug'] }),
+      this.loadProperties(tenantId, config, 'xml'),
+      this.loadLookups(tenantId),
+      this.loadProperties(tenantId, { ...json, propertyFilter: config.propertyFilter }, 'json').then((r) => r.length),
+    ]);
+    const kyero = buildKyeroFeed({ properties, ...lookups });
+    const { jsonFeed: _stored, ...rest } = config;
+    return {
+      ...rest,
+      apiKey: config.exportKey,
+      json: {
+        enabled: json.enabled,
+        includeUnpublished: json.includeUnpublished,
+        includeSold: json.includeSold,
+        listingScope: json.listingScope,
+        apiKey: json.feedKey,
+        propertyCount: jsonCount,
+      },
+      tenantSlug: tenant?.slug ?? '',
+      propertyCount: kyero.included,
+      // Listings Kyero would reject, and why (first 50 for the page).
+      skippedCount: kyero.skipped.length,
+      skipped: kyero.skipped.slice(0, 50),
+    };
   }
 
   // The client's config row, created (with a fresh export key) on first use.
@@ -103,40 +147,57 @@ export class FeedExportService {
     return this.configRepository.save(config);
   }
 
+  // The Kyero XML key. The JSON feed is pinned to its current key first, so a
+  // row still on the shared key doesn't lose its JSON URL along with Kyero's.
   async regenerateKey(tenantId: number): Promise<FeedExportConfig> {
-    const config = await this.configRepository.findOne({ where: { tenantId } });
-
-    if (!config) {
-      throw new NotFoundException('Feed export not configured');
-    }
-
+    const config = await this.ensureConfig(tenantId);
+    config.jsonFeed = jsonFeedOf(config);
     config.exportKey = this.generateExportKey();
+    return this.configRepository.save(config);
+  }
+
+  async updateJsonFeed(tenantId: number, dto: UpdateJsonFeedDto): Promise<FeedExportConfig> {
+    const config = await this.ensureConfig(tenantId);
+    config.jsonFeed = { ...jsonFeedOf(config), ...dto };
+    return this.configRepository.save(config);
+  }
+
+  async regenerateJsonKey(tenantId: number): Promise<FeedExportConfig> {
+    const config = await this.ensureConfig(tenantId);
+    config.jsonFeed = { ...jsonFeedOf(config), feedKey: this.generateExportKey() };
     return this.configRepository.save(config);
   }
 
   async getLogs(
     tenantId: number,
     days: number = 7,
+    format?: ExportLogFormat,
   ): Promise<FeedExportLog[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    return this.logRepository
+    const query = this.logRepository
       .createQueryBuilder('log')
       .where('log.tenantId = :tenantId', { tenantId })
-      .andWhere('log.accessedAt >= :since', { since })
-      .orderBy('log.accessedAt', 'DESC')
-      .limit(100)
-      .getMany();
+      .andWhere('log.accessedAt >= :since', { since });
+    if (format) query.andWhere('log.format = :format', { format });
+    return query.orderBy('log.accessedAt', 'DESC').limit(100).getMany();
   }
 
   // ============ Feed Export ============
+  // Each URL feed has its own key and switch: Kyero XML the top-level ones,
+  // JSON its jsonFeed settings.
   async validateExportKey(
     tenantSlug: string,
     exportKey: string,
+    format: ExportFormat = 'xml',
   ): Promise<{ config: FeedExportConfig; tenantId: number }> {
-    const found = await this.findConfigByKey(tenantSlug, exportKey);
-    if (!found.config.isEnabled) {
+    const found =
+      format === 'json'
+        ? await this.findConfigBySlug(tenantSlug, (c) => jsonFeedOf(c).feedKey, exportKey)
+        : await this.findConfigByKey(tenantSlug, exportKey);
+    const enabled = format === 'json' ? jsonFeedOf(found.config).enabled : found.config.isEnabled;
+    if (!enabled) {
       throw new UnauthorizedException('Invalid export key');
     }
     return found;
@@ -202,19 +263,27 @@ export class FeedExportService {
       throw new UnauthorizedException(`Format ${format} not allowed`);
     }
 
-    // Get properties
-    const properties = await this.getExportableProperties(tenantId, config);
+    const rules: ListingRules =
+      format === 'json' ? { ...jsonFeedOf(config), propertyFilter: config.propertyFilter } : config;
+    const [properties, lookups] = await Promise.all([
+      this.loadProperties(tenantId, rules, format),
+      this.loadLookups(tenantId),
+    ]);
 
-    // Generate content
     let content: string;
     let contentType: string;
+    let count: number;
 
     if (format === 'xml') {
-      content = await this.generateXml(tenantId, properties, config.xmlFormat);
-      contentType = 'application/xml';
+      const result = buildKyeroFeed({ properties, ...lookups });
+      content = result.xml;
+      contentType = 'application/xml; charset=utf-8';
+      count = result.included;
     } else {
-      content = JSON.stringify(properties, null, 2);
-      contentType = 'application/json';
+      const rows = properties.map((p) => this.toExportProperty(p, lookups));
+      content = JSON.stringify(rows, null, 2);
+      contentType = 'application/json; charset=utf-8';
+      count = rows.length;
     }
 
     // Update last generated time
@@ -225,9 +294,9 @@ export class FeedExportService {
     const log = this.logRepository.create({
       tenantId,
       format,
-      propertiesCount: properties.length,
-      requesterIp: ip,
-      userAgent,
+      propertiesCount: count,
+      requesterIp: ip.slice(0, 45),
+      userAgent: userAgent.slice(0, 500),
       responseTimeMs: Date.now() - startTime,
     });
     await this.logRepository.save(log);
@@ -244,26 +313,33 @@ export class FeedExportService {
     return `sk_export_${crypto.randomBytes(24).toString('hex')}`;
   }
 
-  private async getExportableProperties(
+  private async loadProperties(
     tenantId: number,
-    config: FeedExportConfig,
-  ): Promise<ExportProperty[]> {
+    config: ListingRules,
+    format: ExportFormat,
+  ): Promise<Property[]> {
     const query = this.propertyRepository
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.location', 'location')
       .leftJoinAndSelect('property.propertyType', 'propertyType')
       .where('property.tenantId = :tenantId', { tenantId });
 
-    // Apply filters
     if (!config.includeUnpublished) {
       query.andWhere('property.isPublished = true');
     }
 
-    if (!config.includeSold) {
-      query.andWhere('property.status != :sold', { sold: 'sold' });
+    // Kyero has no "sold" marker, so the XML only ever carries live listings.
+    const statuses = config.includeSold && format === 'json' ? ['active', 'sold'] : ['active'];
+    query.andWhere('property.status IN (:...statuses)', { statuses });
+
+    // Own = flagged own by the feed (Resales OwnProperty) or added by hand —
+    // the same rule as the idealista feed.
+    if (config.listingScope === 'own') {
+      query.andWhere(
+        new Brackets((b) => b.where('property.isOwnProperty = 1').orWhere("property.source = 'manual'")),
+      );
     }
 
-    // Apply custom filters
     if (config.propertyFilter) {
       if (config.propertyFilter.locations?.length) {
         query.andWhere('property.locationId IN (:...locations)', {
@@ -277,111 +353,63 @@ export class FeedExportService {
       }
     }
 
-    query.andWhere('property.status = :active', { active: 'active' });
+    return query.orderBy('property.id', 'ASC').getMany();
+  }
 
-    const properties = await query.getMany();
+  private async loadLookups(tenantId: number): Promise<ExportLookups> {
+    const [locations, types, features] = await Promise.all([
+      this.locationRepository.find({ where: { tenantId }, select: ['id', 'parentId', 'level', 'name'] }),
+      this.typeRepository.find({ where: { tenantId }, select: ['id', 'name'] }),
+      this.featureRepository.find({ where: { tenantId }, select: ['id', 'name'] }),
+    ]);
+    return {
+      locations: new Map(
+        locations.map((l) => [l.id, { id: l.id, parentId: l.parentId, level: l.level, name: l.name }]),
+      ),
+      types: new Map(types.map((t) => [t.id, { name: t.name }])),
+      features: new Map(features.map((f) => [f.id, { name: f.name }])),
+    };
+  }
 
-    // Get features
-    const features = await this.featureRepository.find({
-      where: { tenantId },
-    });
-    const featureMap = new Map(features.map((f) => [f.id, f.name.en || '']));
-
-    // Transform to export format
-    return properties.map((p) => ({
+  private toExportProperty(p: Property, lookups: ExportLookups): ExportProperty {
+    return {
       id: p.reference,
       reference: p.reference,
       date: p.updatedAt.toISOString().split('T')[0],
       price: p.price || 0,
       currency: p.currency,
-      type: p.propertyType?.name?.en || '',
-      town: p.location?.name?.en || '',
-      province: '', // Would need parent location
+      type: displayName(p.propertyType?.name),
+      town: displayName(p.location?.name),
+      province: provinceOf(p, lookups.locations),
       beds: p.bedrooms || 0,
       baths: p.bathrooms || 0,
       buildSize: p.buildSize || 0,
       plotSize: p.plotSize || 0,
       descriptions: p.description || {},
-      images: (p.images || []).map((img) => img.url),
+      images: [...(p.images || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((img) => img.url),
       features: (p.features || [])
-        .map((fId) => featureMap.get(fId))
+        .map((fId) => displayName(lookups.features.get(fId)?.name))
         .filter((f): f is string => !!f),
       lat: p.lat ?? undefined,
       lng: p.lng ?? undefined,
       status: p.status,
-    }));
+    };
   }
+}
 
-  private async generateXml(
-    tenantId: number,
-    properties: ExportProperty[],
-    format: string,
-  ): Promise<string> {
-    // Kyero XML format
-    const lines: string[] = [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      '<root>',
-    ];
+interface ExportLookups {
+  locations: Map<number, KyeroLocationRow>;
+  types: Map<number, { name: Record<string, string> | null }>;
+  features: Map<number, { name: Record<string, string> | null }>;
+}
 
-    for (const prop of properties) {
-      lines.push('  <property>');
-      lines.push(`    <id>${this.escapeXml(prop.id)}</id>`);
-      lines.push(`    <date>${prop.date}</date>`);
-      lines.push(`    <ref>${this.escapeXml(prop.reference)}</ref>`);
-      lines.push(`    <price>${prop.price}</price>`);
-      lines.push(`    <currency>${prop.currency}</currency>`);
-      lines.push(`    <type>${this.escapeXml(prop.type)}</type>`);
-      lines.push(`    <town>${this.escapeXml(prop.town)}</town>`);
-      lines.push(`    <province>${this.escapeXml(prop.province)}</province>`);
-      lines.push(`    <beds>${prop.beds}</beds>`);
-      lines.push(`    <baths>${prop.baths}</baths>`);
-      lines.push(`    <built>${prop.buildSize}</built>`);
-      lines.push(`    <plot>${prop.plotSize}</plot>`);
-
-      // Descriptions in multiple languages
-      for (const [lang, text] of Object.entries(prop.descriptions)) {
-        lines.push(`    <desc lang="${lang}">${this.escapeXml(text)}</desc>`);
-      }
-
-      // Images
-      if (prop.images.length > 0) {
-        lines.push('    <images>');
-        prop.images.forEach((url, i) => {
-          lines.push(`      <image id="${i + 1}">`);
-          lines.push(`        <url>${this.escapeXml(url)}</url>`);
-          lines.push('      </image>');
-        });
-        lines.push('    </images>');
-      }
-
-      // Features
-      if (prop.features.length > 0) {
-        lines.push('    <features>');
-        for (const feature of prop.features) {
-          lines.push(`      <feature>${this.escapeXml(feature)}</feature>`);
-        }
-        lines.push('    </features>');
-      }
-
-      // Coordinates
-      if (prop.lat && prop.lng) {
-        lines.push(`    <latitude>${prop.lat}</latitude>`);
-        lines.push(`    <longitude>${prop.lng}</longitude>`);
-      }
-
-      lines.push('  </property>');
-    }
-
-    lines.push('</root>');
-    return lines.join('\n');
+function provinceOf(p: Property, locations: Map<number, KyeroLocationRow>): string {
+  const seen = new Set<number>();
+  let cur = p.locationId != null ? locations.get(p.locationId) : undefined;
+  while (cur && !seen.has(cur.id)) {
+    if (cur.level === 'province') return displayName(cur.name);
+    seen.add(cur.id);
+    cur = cur.parentId != null ? locations.get(cur.parentId) : undefined;
   }
-
-  private escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
+  return p.feedLocation?.province || '';
 }

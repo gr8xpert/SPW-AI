@@ -134,7 +134,13 @@ export class KyeroAdapter extends BaseFeedAdapter {
     let urbanization: string | undefined;
     let builtYear: number | undefined;
     for (const f of raw.features?.feature ?? []) {
-      const name = this.text(f);
+      // Plain English text per the spec; some CRMs (IPP Spain) send
+      // <feature><en>Lift</en><es>Ascensor</es></feature> instead.
+      const name =
+        this.text(f) ??
+        (f && typeof f === 'object'
+          ? this.text(f.en) ?? Object.values(f).map((v) => this.text(v)).find(Boolean)
+          : undefined);
       if (!name) continue;
       const urb = name.match(/^urbani[sz]ation:\s*(.+)$/i);
       if (urb) {

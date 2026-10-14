@@ -27,6 +27,7 @@ class SPM_Plugin {
         SPM_Settings::instance();
         SPM_I18n::instance();
         SPM_Rewrite::instance();
+        SPM_Page_Finder::instance();
         SPM_OG_Tags::instance();
         SPM_Data_Sync::instance();
         SPM_Page_Results::instance();
@@ -84,14 +85,15 @@ class SPM_Plugin {
     }
 
     /**
-     * Public URL of a generated page (listings / wishlist) in the current
-     * language. Uses the page's translation when WPML or Polylang provides one,
-     * else the configured slug under the language prefix.
+     * Public URL of the listings / wishlist page in the current language —
+     * generated or hand-built (SPM_Page_Finder). Uses the page's translation
+     * when WPML or Polylang provides one, else the configured slug under the
+     * language prefix.
      */
     public static function page_url($type) {
-        $id = (int) self::get($type . '_page_id');
+        $id = SPM_Page_Finder::page_id($type);
         $lang = class_exists('SPM_I18n') ? (SPM_I18n::instance()->current_lang() ?: 'en') : 'en';
-        if ($id && get_post_status($id) === 'publish') {
+        if ($id) {
             $translated = $id;
             if (function_exists('pll_get_post')) {
                 $translated = (int) (pll_get_post($id, $lang) ?: $id);

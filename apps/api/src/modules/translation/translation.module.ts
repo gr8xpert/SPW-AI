@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Property, PropertyType, Feature, Label, Tenant } from '../../database/entities';
 import { AiModule } from '../ai/ai.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { TranslationMemoryModule } from '../translation-memory/translation-memory.module';
 import { TranslationService } from './translation.service';
 import { TranslationProcessor } from './translation.processor';
 import { TranslationController } from './translation.controller';
@@ -25,6 +26,9 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
     // TenantService bumps syncVersion once a translation lands, so the widget
     // and WP plugin refetch. Same process as the BullMQ worker (main.ts).
     TenantModule,
+    // Shared translations: reused before the AI is asked, and every AI
+    // answer saved for the next client.
+    TranslationMemoryModule,
   ],
   controllers: [TranslationController],
   providers: [TranslationService, TranslationProcessor, DashboardAddonGuard],

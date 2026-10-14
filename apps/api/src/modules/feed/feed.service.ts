@@ -3,7 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
+import { TranslationMemoryService } from '../translation-memory/translation-memory.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -14,6 +16,7 @@ import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from
 import { CreateFeedConfigDto, UpdateFeedConfigDto } from './dto';
 import { ResalesAdapter, InmobaAdapter, KyeroAdapter, OdooAdapter, RedspAdapter, BaseFeedAdapter, FeedProperty, FeedPropertyImage } from './adapters';
 import { computeFeedHash } from './feed-hash';
+import { buildListingTitles } from './feed-titles';
 import { TenantService } from '../tenant/tenant.service';
 import { UploadService } from '../upload/upload.service';
 import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
@@ -93,6 +96,7 @@ export class FeedService {
     private readonly aiEnrichmentService: AiEnrichmentService,
     private readonly locationTemplateService: LocationTemplateService,
     private readonly typeTemplateService: PropertyTypeTemplateService,
+    @Optional() private readonly translationMemory?: TranslationMemoryService,
   ) {
     this.adapters = new Map<string, BaseFeedAdapter>([
       ['resales', this.resalesAdapter],
@@ -561,6 +565,8 @@ export class FeedService {
     // Every listing the feed returned this run — a markAsFeatured feed
     // unfeatures whatever it flagged earlier that isn't in here.
     const seenExternalIds = new Set<string>();
+    // Type / location names already loaded for titles this run.
+    const titleNames = { types: new Map<number, Record<string, string>>(), locations: new Map<number, Record<string, string>>() };
 
     try {
       while (hasMore) {
@@ -599,6 +605,16 @@ export class FeedService {
               error: error instanceof Error ? error.message : String(error),
             });
           }
+        }
+
+        // Resales sends no title, only type + town in English: give this
+        // page's listings a title in every language from our own names.
+        if (config.provider === 'resales') {
+          await this.refreshGeneratedTitles(
+            config.tenantId,
+            result.properties.map((p) => p.reference),
+            titleNames,
+          ).catch((err) => this.logger.warn(`Titles for feed ${config.id} page ${page}: ${(err as Error).message}`));
         }
 
         // Persist progress after each page so the dashboard can poll status
@@ -1135,6 +1151,49 @@ export class FeedService {
     }
   }
 
+  // Titles "<type> in <town>" in every language, from the client's type and
+  // location names (feed-titles.ts). Hand-edited (locked) titles are kept, and
+  // so is any language the type has no name in.
+  private async refreshGeneratedTitles(
+    tenantId: number,
+    references: string[],
+    names: { types: Map<number, Record<string, string>>; locations: Map<number, Record<string, string>> },
+  ): Promise<number> {
+    if (!references.length) return 0;
+    const rows = await this.propertyRepository.find({
+      where: { tenantId, source: 'resales' as any, reference: In(references) },
+      select: ['id', 'title', 'propertyTypeId', 'locationId', 'lockedFields'],
+    });
+    const load = async (
+      repo: Repository<PropertyType> | Repository<Location>,
+      cache: Map<number, Record<string, string>>,
+      ids: (number | null | undefined)[],
+    ) => {
+      const missing = [...new Set(ids.filter((id): id is number => !!id && !cache.has(id)))];
+      if (!missing.length) return;
+      const found = await (repo as Repository<any>).find({ where: { tenantId, id: In(missing) }, select: ['id', 'name'] });
+      for (const id of missing) cache.set(id, {});
+      for (const r of found) cache.set(r.id, r.name || {});
+    };
+    await load(this.propertyTypeRepository, names.types, rows.map((r) => r.propertyTypeId));
+    await load(this.locationRepository, names.locations, rows.map((r) => r.locationId));
+
+    let changed = 0;
+    for (const row of rows) {
+      if ((row.lockedFields || []).includes('title') || !row.propertyTypeId) continue;
+      const built = buildListingTitles(
+        names.types.get(row.propertyTypeId),
+        row.locationId ? names.locations.get(row.locationId) : null,
+      );
+      if (!Object.keys(built).length) continue;
+      const next = { ...(row.title || {}), ...built };
+      if (JSON.stringify(next) === JSON.stringify(row.title || {})) continue;
+      await this.propertyRepository.update(row.id, { title: next });
+      changed++;
+    }
+    return changed;
+  }
+
   // Multilingual text from a feed laid over what the listing already has: the
   // feed's languages win, every other language is kept.
   private mergeLanguages(
@@ -1452,7 +1511,7 @@ export class FeedService {
 
     const created = this.propertyTypeRepository.create({
       tenantId,
-      name: { en: typeName, es: typeName },
+      name: await this.rememberedNames(tenantId, 'property_type', typeName),
       slug,
     });
     const saved = await this.propertyTypeRepository.save(created);
@@ -1506,7 +1565,7 @@ export class FeedService {
       const category = categoryMap[name.toLowerCase()] || 'other';
       const created = this.featureRepository.create({
         tenantId,
-        name: { en: name, es: name },
+        name: await this.rememberedNames(tenantId, 'feature', name),
         category: category as any,
       });
       const saved = await this.featureRepository.save(created);
@@ -1515,6 +1574,14 @@ export class FeedService {
     }
 
     return resolved;
+  }
+
+  // A new type or feature's names: English, plus every language another
+  // client already translated it into (shared translation memory), so a new
+  // client's import needs no AI translation for words the platform knows.
+  private async rememberedNames(tenantId: number, kind: 'feature' | 'property_type', name: string): Promise<Record<string, string>> {
+    const names = { en: name, es: name };
+    return this.translationMemory ? this.translationMemory.fillForTenant(tenantId, kind, names) : names;
   }
 
   private slugify(text: string): string {

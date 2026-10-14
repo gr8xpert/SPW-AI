@@ -88,7 +88,7 @@ class SPM_Health {
         $missing = [];
         $legacy = [];
         foreach (['listings' => 'Properties', 'detail' => 'Property detail', 'wishlist' => 'Wishlist'] as $type => $label) {
-            $id = (int) ($opts[$type . '_page_id'] ?? 0);
+            $id = SPM_Page_Finder::page_id($type) ?: (int) ($opts[$type . '_page_id'] ?? 0);
             $status = $id ? get_post_status($id) : false;
             if ($status !== 'publish') {
                 $missing[] = $label . ($status ? " ({$status})" : '');
@@ -115,7 +115,7 @@ class SPM_Health {
             $gaps = [];
             foreach (SPM_I18n::instance()->all_language_codes() as $lang) {
                 foreach (['listings', 'detail', 'wishlist'] as $type) {
-                    $id = (int) ($opts[$type . '_page_id'] ?? 0);
+                    $id = SPM_Page_Finder::page_id($type);
                     if ($id && !SPM_Page_Generator::translation_of($info['plugin'], $id, $lang)) {
                         $gaps[$lang] = true;
                     }

@@ -194,7 +194,7 @@ export class IdealistaFeedService {
     await this.logRepository.save(
       this.logRepository.create({
         tenantId,
-        format: 'json',
+        format: 'idealista',
         propertiesCount: result.included,
         requesterIp: ip.slice(0, 45),
         userAgent: userAgent.slice(0, 500),

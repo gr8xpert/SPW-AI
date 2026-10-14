@@ -22,6 +22,7 @@ import { AiEnrichmentModule } from '../ai-enrichment/ai-enrichment.module';
 import { PropertyModule } from '../property/property.module';
 import { LocationTemplateModule } from '../location-template/location-template.module';
 import { PropertyTypeTemplateModule } from '../property-type-template/property-type-template.module';
+import { TranslationMemoryModule } from '../translation-memory/translation-memory.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { PropertyTypeTemplateModule } from '../property-type-template/property-t
     PropertyModule,
     LocationTemplateModule,
     PropertyTypeTemplateModule,
+    TranslationMemoryModule,
   ],
   controllers: [FeedController],
   providers: [
