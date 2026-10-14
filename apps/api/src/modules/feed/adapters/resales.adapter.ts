@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import {
   BaseFeedAdapter,
   FeedProperty,
+  FeedFetchOptions,
   FeedImportResult,
   FeedPropertyImage,
   FeedValidationResult,
@@ -22,6 +23,12 @@ export class ResalesAdapter extends BaseFeedAdapter {
   // SearchProperties never returns more than 40 per page, whatever P_PageSize
   // asks for (QueryInfo.PropertiesPerPage says 40).
   private static readonly MAX_PAGE_SIZE = 40;
+  // P_Lang takes Resales' numbers; letter codes ("NL") are ignored and give
+  // English. Probed live 2026-10-14 (12 also gives English). A language the
+  // agent never filled in comes back as the English text.
+  private static readonly LANGUAGE_CODES: Record<string, number> = {
+    es: 2, de: 3, fr: 4, nl: 5, da: 6, ru: 7, sv: 8, pl: 9, no: 10, tr: 11, fi: 13, hu: 14, vi: 15,
+  };
   private readonly parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -93,6 +100,7 @@ export class ResalesAdapter extends BaseFeedAdapter {
     credentials: FeedCredentials,
     page: number = 1,
     limit: number = 100,
+    options: FeedFetchOptions = {},
   ): Promise<FeedImportResult> {
     if (!credentials.clientId || !credentials.apiKey || !credentials.filterId) {
       throw new Error('Resales Online requires Client ID, API Key, and Filter ID.');
@@ -140,12 +148,61 @@ export class ResalesAdapter extends BaseFeedAdapter {
       enriched.push(...batchResults);
     }
 
+    await this.addTranslations(credentials, page, limit, enriched, options.languages || []);
+
     return {
       properties: enriched,
       totalCount,
       hasMore: propertyArray.length > 0 && page * (perPage || propertyArray.length) < totalCount,
       page,
     };
+  }
+
+  // The agent's own descriptions in the client's website languages. One
+  // SearchProperties call per language for the same page; it returns the full
+  // description, the same text PropertyDetails gives. Text equal to the
+  // English one is Resales' fallback, not a translation, so it is left out and
+  // our own translation can fill that language.
+  private async addTranslations(
+    credentials: FeedCredentials,
+    page: number,
+    limit: number,
+    properties: FeedProperty[],
+    languages: string[],
+  ): Promise<void> {
+    const wanted = [...new Set(languages.map((l) => String(l).toLowerCase().slice(0, 2)))]
+      .filter((l) => ResalesAdapter.LANGUAGE_CODES[l]);
+    if (!wanted.length || !properties.length) return;
+    const byRef = new Map(properties.map((p) => [p.reference, p]));
+
+    for (const lang of wanted) {
+      try {
+        const response = await axios.get(`${this.baseUrl}/SearchProperties`, {
+          params: {
+            ...this.getAuthParams(credentials),
+            P_PageNo: page,
+            P_PageSize: Math.min(limit, ResalesAdapter.MAX_PAGE_SIZE),
+            P_Lang: ResalesAdapter.LANGUAGE_CODES[lang],
+          },
+          timeout: 60000,
+        });
+        const data = typeof response.data === 'string' ? this.parser.parse(response.data) : response.data;
+        const root = data.root || data;
+        if (root?.transaction?.status === 'error') throw new Error('Resales returned an error');
+        const raw = root.Property || [];
+        for (const item of Array.isArray(raw) ? raw : [raw]) {
+          const property = item?.Reference ? byRef.get(String(item.Reference)) : undefined;
+          const text = typeof item?.Description === 'string' ? item.Description.trim() : '';
+          if (!property || !text) continue;
+          const english = (property.description?.en || '').trim();
+          if (text === english) continue;
+          property.description = { ...(property.description || {}), [lang]: text };
+        }
+      } catch (err: any) {
+        // A missing language costs only that language for this page.
+        this.logger.warn(`Resales ${lang} descriptions failed for page ${page}: ${err?.message || err}`);
+      }
+    }
   }
 
   private async fetchPropertyDetailsAndMerge(

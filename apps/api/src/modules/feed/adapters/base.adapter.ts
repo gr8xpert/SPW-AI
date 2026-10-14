@@ -108,6 +108,13 @@ export interface FeedImportResult {
   page?: number;
 }
 
+// What the sync knows about the client that a provider may use.
+export interface FeedFetchOptions {
+  // The languages the client's website uses (lowercase ISO codes). A provider
+  // that holds the agent's own translations fetches these as well as English.
+  languages?: string[];
+}
+
 export interface FeedValidationResult {
   valid: boolean;
   error?: string;
@@ -124,11 +131,13 @@ export abstract class BaseFeedAdapter {
    * @param credentials Provider credentials
    * @param page Page number for pagination (if supported)
    * @param limit Number of properties per page
+   * @param options Client details a provider may use (e.g. languages)
    */
   abstract fetchProperties(
     credentials: FeedCredentials,
     page?: number,
     limit?: number,
+    options?: FeedFetchOptions,
   ): Promise<FeedImportResult>;
 
   /**

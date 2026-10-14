@@ -518,6 +518,10 @@ export class FeedService {
     const areaProvinceOverrides = this.normalizeAreaProvinceOverrides(
       tenant?.settings?.locationAreaProvince,
     );
+    // Providers that hold the agent's own translations (Resales) fetch the
+    // website's languages too; Spanish always, as every listing carries it.
+    const siteLanguages = Array.isArray(tenant?.settings?.languages) ? tenant!.settings.languages : [];
+    const fetchOptions = { languages: [...new Set(['es', ...siteLanguages])].filter((l) => l !== 'en') };
 
     let totalFetched = 0;
     let createdCount = 0;
@@ -560,7 +564,7 @@ export class FeedService {
 
     try {
       while (hasMore) {
-        const result = await adapter.fetchProperties(config.credentials, page, 100);
+        const result = await adapter.fetchProperties(config.credentials, page, 100, fetchOptions);
 
         totalFetched += result.properties.length;
         reportedTotal = Math.max(reportedTotal, result.totalCount || 0);
