@@ -70,6 +70,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { MoveMergeDialog, type PickableLocation } from './move-merge-dialog';
 import { SortOrderMenu } from '@/components/sort-order-menu';
+import { SetupTransferMenu } from '@/components/setup-transfer-menu';
 
 interface Location {
   id: number;
@@ -813,6 +814,7 @@ export default function LocationsPage() {
         </div>
         <div className="flex gap-2">
           <SortOrderMenu endpoint="/api/dashboard/locations/sort" onSorted={() => fetchLocations()} />
+          <SetupTransferMenu kind="locations" onImported={() => fetchLocations()} />
           <Button variant="outline" size="sm" onClick={placeOnMap} disabled={isPlacingOnMap} title="Look each location up on the map and correct any that are in the wrong place">
             {isPlacingOnMap ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MapPin className="h-4 w-4 mr-2" />}
             Check map positions

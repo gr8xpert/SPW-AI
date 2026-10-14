@@ -26,6 +26,7 @@ function setup() {
     {} as any,
     {} as any,
     tenantService as any,
+    {} as any,
   );
   return { controller, events, tenantService };
 }

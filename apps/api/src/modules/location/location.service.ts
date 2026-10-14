@@ -389,7 +389,7 @@ function originKey(row: Location): string {
 }
 
 // Trimmed, de-duplicated, without the location's own name.
-function cleanAliases(list: string[] | null | undefined, ownName?: string | null): string[] | null {
+export function cleanAliases(list: string[] | null | undefined, ownName?: string | null): string[] | null {
   if (!list) return null;
   const own = locationKey(ownName);
   const seen = new Set<string>();

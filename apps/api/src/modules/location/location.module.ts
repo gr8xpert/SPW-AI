@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LocationController } from './location.controller';
 import { PublicLocationController } from './public-location.controller';
+import { LocationTransferService } from './location-transfer.service';
 import { LocationService } from './location.service';
 import { LocationGeocodeService } from './location-geocode.service';
 import { ReorderModule } from '../reorder/reorder.module';
@@ -12,7 +13,7 @@ import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guar
 @Module({
   imports: [TypeOrmModule.forFeature([Location]), ReorderModule, TenantModule],
   controllers: [LocationController, PublicLocationController],
-  providers: [LocationService, LocationGeocodeService, ApiKeyThrottlerGuard],
+  providers: [LocationService, LocationTransferService, LocationGeocodeService, ApiKeyThrottlerGuard],
   exports: [LocationService, LocationGeocodeService],
 })
 export class LocationModule {}

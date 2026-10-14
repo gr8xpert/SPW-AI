@@ -8,8 +8,16 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PropertyTypeService } from './property-type.service';
+import { PropertyTypeTransferService } from './property-type-transfer.service';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
 import { ReorderDto, SortAllDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
@@ -28,6 +36,7 @@ export class PropertyTypeController {
     private readonly propertyTypeService: PropertyTypeService,
     private readonly reorderService: ReorderService,
     private readonly tenantService: TenantService,
+    private readonly transferService: PropertyTypeTransferService,
   ) {}
 
   private bump(tenantId: number, reason: string): Promise<void> {
@@ -67,6 +76,29 @@ export class PropertyTypeController {
     const result = await this.propertyTypeService.bulkDelete(tenantId, dto.ids || []);
     if ((dto.ids || []).length > 0) await this.bump(tenantId, 'bulk delete');
     return result;
+  }
+
+  // "Export setup": this client's arrangement as a file another client can import.
+  @Get('export')
+  async exportSetup(@CurrentTenant() tenantId: number) {
+    return this.transferService.export(tenantId);
+  }
+
+  // "Import setup": arranges this client's own types like the file's.
+  // Without ?apply=true it only reports what would change. Multipart, as a
+  // big tree is over the 100 KB JSON body limit.
+  @Post('import')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  async importSetup(
+    @CurrentTenant() tenantId: number,
+    @UploadedFile() file?: Express.Multer.File,
+    @Query('apply') apply?: string,
+  ) {
+    if (!file?.buffer?.length) throw new BadRequestException('Attach a Property Types export file');
+    const report = await this.transferService.import(tenantId, file.buffer.toString('utf8'), apply === 'true');
+    if (report.applied && (report.changed > 0 || report.merged > 0)) await this.bump(tenantId, 'import setup');
+    return report;
   }
 
   @Get(':id')

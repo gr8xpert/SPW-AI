@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PropertyTypeController } from './property-type.controller';
 import { PublicPropertyTypeController } from './public-property-type.controller';
+import { PropertyTypeTransferService } from './property-type-transfer.service';
 import { PropertyTypeService } from './property-type.service';
 import { ReorderModule } from '../reorder/reorder.module';
 import { PropertyType } from '../../database/entities';
@@ -11,7 +12,7 @@ import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guar
 @Module({
   imports: [TypeOrmModule.forFeature([PropertyType]), ReorderModule, TenantModule],
   controllers: [PropertyTypeController, PublicPropertyTypeController],
-  providers: [PropertyTypeService, ApiKeyThrottlerGuard],
+  providers: [PropertyTypeService, PropertyTypeTransferService, ApiKeyThrottlerGuard],
   exports: [PropertyTypeService],
 })
 export class PropertyTypeModule {}
