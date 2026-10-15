@@ -24,9 +24,10 @@ function num(n: number | null): string {
 
 /**
  * A new development's units with their current prices (Resales PriceList).
- * Sold units stay in the list, greyed, without a price. Nothing renders for
- * a listing without units, or with just one: its row would repeat Property
- * Information (type, beds, baths, sizes) and the price above it.
+ * Sold units stay in the list, greyed, without a price. Nothing renders
+ * unless at least two units are still for sale: with one left (Resales sends
+ * the whole sold-out block for a last-unit listing) its row would only
+ * repeat Property Information and the price above it.
  */
 export default function RsDetailPriceList({ property: propertyProp }: Props) {
   const { t } = useLabels();
@@ -34,9 +35,9 @@ export default function RsDetailPriceList({ property: propertyProp }: Props) {
   const storeProperty = useSelector(selectors.getSelectedProperty);
   const property = propertyProp ?? storeProperty;
   const units: DevelopmentUnit[] = Array.isArray(property?.units) ? property!.units! : [];
-  if (!property || units.length < 2) return null;
-
   const available = units.filter((u) => u.status !== 'sold').length;
+  if (!property || available < 2) return null;
+
   const summary = t('detail_units_available', '{count} of {total} units available')
     .replace('{count}', String(available))
     .replace('{total}', String(units.length));
