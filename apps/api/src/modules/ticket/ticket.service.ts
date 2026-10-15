@@ -351,7 +351,10 @@ export class TicketService {
     await this.ticketRepository.update(ticket.id, updateFields);
 
     if (savedMessage && !dto.isInternal) {
-      const senderName = savedMessage.user?.name || savedMessage.user?.email || (isStaff ? 'Support' : 'Customer');
+      // Staff replies go out as "Admin", never the staff member's own name.
+      const senderName = isStaff
+        ? 'Admin'
+        : savedMessage.user?.name || savedMessage.user?.email || 'Customer';
       this.notifications.notifyTicketReply(ticket, savedMessage, senderName).catch((err) =>
         this.logger.error(`Failed to send reply notification: ${err.message}`),
       );

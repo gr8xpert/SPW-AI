@@ -53,6 +53,7 @@ import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { formatHM } from '@/lib/time';
 import { AttachmentList } from '@/components/tickets/attachment-list';
+import { MessageText, STAFF_AUTHOR_NAME } from '@/components/tickets/message-text';
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 import { useTenantTicket, useTenantTicketMutation, useTenantTicketStats, useTenantTickets } from './use-tickets';
 import { PageNumbers } from '@/components/ui/page-numbers';
@@ -492,13 +493,13 @@ export default function TicketsPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-xs">
-                          {msg.isStaff ? 'Support' : msg.user?.name || 'You'}
+                          {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || 'You'}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {new Date(msg.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap">{msg.message}</p>
+                      <MessageText text={msg.message} />
                       <AttachmentList attachments={msg.attachments} />
                     </div>
                   ))

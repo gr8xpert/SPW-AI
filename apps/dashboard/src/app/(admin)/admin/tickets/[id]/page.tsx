@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { AttachmentList } from '@/components/tickets/attachment-list';
+import { MessageText, STAFF_AUTHOR_NAME } from '@/components/tickets/message-text';
 import {
   Table,
   TableBody,
@@ -348,14 +349,14 @@ export default function AdminTicketDetailPage() {
                       <div className="flex gap-4">
                         <Avatar>
                           <AvatarFallback className={msg.isStaff ? 'bg-primary text-primary-foreground' : ''}>
-                            {initials(msg.user?.name, msg.isStaff ? 'S' : 'U')}
+                            {initials(msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name, 'U')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">
-                                {msg.user?.name || (msg.isStaff ? 'Support' : 'Customer')}
+                                {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || 'Customer'}
                               </span>
                               {msg.isStaff && (
                                 <Badge variant="secondary" className="text-xs">
@@ -373,9 +374,7 @@ export default function AdminTicketDetailPage() {
                               {new Date(msg.createdAt).toLocaleString()}
                             </span>
                           </div>
-                          <div className="text-sm whitespace-pre-wrap">
-                            {msg.message}
-                          </div>
+                          <MessageText text={msg.message} className="text-sm" />
                           <AttachmentList attachments={msg.attachments} />
                         </div>
                       </div>

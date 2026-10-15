@@ -42,6 +42,7 @@ import { formatDate } from '@/lib/utils';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { AttachmentList } from '@/components/tickets/attachment-list';
+import { MessageText, STAFF_AUTHOR_NAME } from '@/components/tickets/message-text';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { tenantTicketKeys, useTenantTicket, useTenantTicketMutation } from '../use-tickets';
@@ -259,7 +260,7 @@ export default function TicketDetailPage() {
                       <div className="flex gap-4">
                         <Avatar>
                           <AvatarFallback className={msg.isStaff ? 'bg-primary text-primary-foreground' : ''}>
-                            {(msg.user?.name || (msg.isStaff ? 'S' : 'U'))
+                            {((msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name) || 'U')
                               .split(' ')
                               .map((n) => n[0])
                               .join('')
@@ -271,7 +272,7 @@ export default function TicketDetailPage() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">
-                                {msg.user?.name || (msg.isStaff ? 'Support' : 'You')}
+                                {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || 'You'}
                               </span>
                               {msg.isStaff && (
                                 <Badge variant="secondary" className="text-xs">
@@ -288,9 +289,7 @@ export default function TicketDetailPage() {
                               {new Date(msg.createdAt).toLocaleString()}
                             </span>
                           </div>
-                          <div className="text-sm whitespace-pre-wrap">
-                            {msg.message}
-                          </div>
+                          <MessageText text={msg.message} className="text-sm" />
                           <AttachmentList attachments={msg.attachments} />
                         </div>
                       </div>
