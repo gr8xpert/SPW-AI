@@ -11,6 +11,8 @@ import { X, Heart, Star, Bookmark, Save } from 'lucide-react';
 import { WidgetThemeCards } from './widget-theme-cards';
 import { SUPPORTED_CURRENCIES } from './types';
 import type { WidgetSettings } from './use-widget-settings';
+import { PurchaseCostsSettings } from './purchase-costs-settings';
+import { SiteAgentSettings } from './site-agent-settings';
 
 export function WidgetTab({ widget }: { widget: WidgetSettings }) {
   const {
@@ -36,6 +38,12 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
     setMortgageInterestRate,
     hideEmptySearchOptions,
     setHideEmptySearchOptions,
+    cardShareIcon,
+    setCardShareIcon,
+    purchaseCosts,
+    setPurchaseCosts,
+    siteAgent,
+    setSiteAgent,
     baseCurrency,
     setBaseCurrency,
     savingWidget,
@@ -237,6 +245,16 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
               <Switch id="hide-empty-options" checked={hideEmptySearchOptions} onCheckedChange={setHideEmptySearchOptions} />
             </div>
 
+            <div className="flex items-start justify-between gap-4 rounded-md border p-4">
+              <div className="space-y-1">
+                <Label htmlFor="card-share-icon">Share icon on listing cards</Label>
+                <p className="text-xs text-muted-foreground">
+                  Adds a share icon beside the wishlist heart on every listing card and carousel. Visitors can send the property by WhatsApp, Facebook, X or email, or copy its link. On phones it opens the phone&apos;s own share menu.
+                </p>
+              </div>
+              <Switch id="card-share-icon" checked={cardShareIcon} onCheckedChange={setCardShareIcon} />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="mortgage-rate">Mortgage Interest Rate (%)</Label>
               <p className="text-xs text-muted-foreground">
@@ -255,6 +273,10 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
                 className="w-28"
               />
             </div>
+
+            <PurchaseCostsSettings value={purchaseCosts} onChange={setPurchaseCosts} />
+
+            <SiteAgentSettings value={siteAgent} onChange={setSiteAgent} />
 
             <div className="space-y-2">
               <Label>Bedroom Options</Label>

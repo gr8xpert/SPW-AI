@@ -4,6 +4,7 @@ import { useCardState } from '../cards/useCardState';
 import type { Property } from '@/types';
 import type { CarouselLayout, SlideStyle } from './layouts';
 import { formatPropertyPrice } from '@/core/property-display';
+import CardShare from '../cards/CardShare';
 
 interface SlideProps {
   property: Property;
@@ -75,6 +76,9 @@ export default function CarouselSlide({ property, layout, index, className = '',
     <div class="rs-property-carousel__card-image rs-property-carousel__card-image--empty" />
   );
 
+  // Share icon (Website → Share icon on listing cards); slides have no heart.
+  const share = <CardShare s={s} size={16} className="rs-property-carousel__share" />;
+
   const style = placement
     ? { transform: placement.transform, filter: placement.filter, pointerEvents: placement.pointerEvents, zIndex: placement.zIndex, opacity: placement.opacity }
     : undefined;
@@ -88,6 +92,7 @@ export default function CarouselSlide({ property, layout, index, className = '',
         <a href={propertyUrl} class="rs-property-carousel__card" onClick={onCardClick}>
           <div class="rs-property-carousel__card-image-wrapper">
             {img}
+            {share}
             {property.isFeatured && <span class="rs-property-carousel__card-badge">{t('card_featured', 'Featured')}</span>}
           </div>
         </a>
@@ -114,6 +119,7 @@ export default function CarouselSlide({ property, layout, index, className = '',
   return (
     <div class={`rs-property-carousel__item ${className}`.trim()} data-index={index} data-property-ref={property.reference} style={style}>
       <a href={propertyUrl} class="rs-property-carousel__card" onClick={onCardClick}>
+        {share}
         {layout === 5 ? <div class="rs-property-carousel__card-inner">{img}{overlay}</div> : <>{img}{overlay}</>}
       </a>
     </div>

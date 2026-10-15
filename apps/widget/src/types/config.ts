@@ -1,3 +1,6 @@
+import type { PurchaseCostsConfig } from '@/core/purchase-costs';
+import type { Agent } from '@/types/property';
+
 export interface WidgetConfig {
   apiUrl: string;
   apiKey: string;
@@ -19,6 +22,14 @@ export interface WidgetConfig {
 
   enableFavorites?: boolean;
   wishlistIcon?: 'heart' | 'star' | 'bookmark' | 'save';
+  // Dashboard → Settings → Widget: share icon beside the heart on listing
+  // cards and carousels. Off unless switched on.
+  cardShareIcon?: boolean;
+  // Dashboard → Settings → Widget: purchase costs calculator (rates in %,
+  // optional calculator page). Absent = switched off.
+  purchaseCosts?: PurchaseCostsConfig;
+  // Dashboard → Settings → Widget → Website agent (the client's own details).
+  siteAgent?: Agent;
   mapVariation?: 'auto' | '0' | '1' | '2';
   recaptchaSiteKey?: string;
   enableInquiry?: boolean;

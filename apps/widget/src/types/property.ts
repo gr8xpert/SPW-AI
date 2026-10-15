@@ -55,6 +55,7 @@ export interface Agent {
   phone?: string;
   photo?: string;
   title?: string;
+  whatsapp?: string;
 }
 
 export interface Property {

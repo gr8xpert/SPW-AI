@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiPut } from '@/lib/api';
 import type { TenantCurrent } from './types';
+import { EMPTY_PURCHASE_COSTS, purchaseCostsFromSettings, purchaseCostsToSettings, type PurchaseCostsForm } from './purchase-costs-settings';
+import { EMPTY_SITE_AGENT, siteAgentFromSettings, siteAgentToSettings, type SiteAgentForm } from './site-agent-settings';
 
 // State for the Widget tab (search options, theme colour, reCAPTCHA). All
 // three cards save through the same onSaveWidget payload.
@@ -36,6 +38,10 @@ export function useWidgetSettings() {
   const [mortgageInterestRate, setMortgageInterestRate] = useState('');
   // Hide search choices with no listings (default on).
   const [hideEmptySearchOptions, setHideEmptySearchOptions] = useState(true);
+  // Share icon beside the heart on listing cards (default off).
+  const [cardShareIcon, setCardShareIcon] = useState(false);
+  const [purchaseCosts, setPurchaseCosts] = useState<PurchaseCostsForm>(EMPTY_PURCHASE_COSTS);
+  const [siteAgent, setSiteAgent] = useState<SiteAgentForm>(EMPTY_SITE_AGENT);
   const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [savingWidget, setSavingWidget] = useState(false);
 
@@ -78,6 +84,9 @@ export function useWidgetSettings() {
     if (typeof settings?.similarPropertiesLimit === 'number') setSimilarPropertiesLimit(settings.similarPropertiesLimit);
     setMortgageInterestRate(typeof settings?.mortgageInterestRate === 'number' ? String(settings.mortgageInterestRate) : '');
     setHideEmptySearchOptions(settings?.hideEmptySearchOptions !== false);
+    setCardShareIcon(settings?.cardShareIcon === true);
+    setPurchaseCosts(purchaseCostsFromSettings(settings?.purchaseCosts));
+    setSiteAgent(siteAgentFromSettings(settings?.siteAgent));
     if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
   };
 
@@ -123,6 +132,9 @@ export function useWidgetSettings() {
         // null clears it (back to the widget default).
         mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
         hideEmptySearchOptions,
+        cardShareIcon,
+        purchaseCosts: purchaseCostsToSettings(purchaseCosts),
+        siteAgent: siteAgentToSettings(siteAgent),
         baseCurrency,
       });
       toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
@@ -162,6 +174,12 @@ export function useWidgetSettings() {
     setMortgageInterestRate,
     hideEmptySearchOptions,
     setHideEmptySearchOptions,
+    cardShareIcon,
+    setCardShareIcon,
+    purchaseCosts,
+    setPurchaseCosts,
+    siteAgent,
+    setSiteAgent,
     baseCurrency,
     setBaseCurrency,
     savingWidget,

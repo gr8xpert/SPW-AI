@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Card designs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <!-- ?t=1..17 listing design, ?c=1..6 carousel design, ?s=1..7 search design -->
+  <div id="mount"></div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const pad = (n) => String(n).padStart(2, '0');
+    const el = document.createElement('div');
+    el.setAttribute('data-spm-widget',
+      q.get('c') ? 'carousel-template-' + pad(q.get('c'))
+        : q.get('s') ? 'search-template-' + pad(q.get('s'))
+        : 'listing-template-' + pad(q.get('t') || 1));
+    el.setAttribute('data-spm-api-url', 'http://localhost:3001');
+    el.setAttribute('data-spm-api-key', 'spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    el.setAttribute('data-spm-results-per-page', '6');
+    el.setAttribute('data-spm-property-page-slug', 'detail');
+    if (q.get('fids')) el.setAttribute('data-spm-feature-ids', q.get('fids'));
+    document.getElementById('mount').appendChild(el);
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

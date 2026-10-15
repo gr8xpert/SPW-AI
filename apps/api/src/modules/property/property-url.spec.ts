@@ -52,4 +52,11 @@ describe('PropertyUrlInterceptor', () => {
     const one: any = await run({ ...villa });
     expect(one.urlSegment).toBe('luxury-villa-in-malaga_R5P-123');
   });
+
+  it('sends only the agent name and photo, never the user accounts', async () => {
+    const user = { id: 3, email: 'staff@agency.test', name: 'Ana', role: 'admin', permissions: {}, avatarUrl: 'https://x/a.jpg', lastLoginAt: 'x' };
+    const one: any = await run({ ...villa, agent: user, agentId: 3, salesAgent: user, salesAgentId: 3, lastUpdatedByUser: user, lastUpdatedById: 3 });
+    expect(one.agent).toEqual({ name: 'Ana', photo: 'https://x/a.jpg' });
+    for (const k of ['salesAgent', 'salesAgentId', 'lastUpdatedByUser', 'lastUpdatedById', 'agentId']) expect(one).not.toHaveProperty(k);
+  });
 });

@@ -4,7 +4,8 @@
 .rs-search-template-03,
 .rs-search-template-04,
 .rs-search-template-05,
-.rs-search-template-06 {
+.rs-search-template-06,
+.rs-search-template-07 {
   font-family: var(--rs-font);
 }
 
@@ -1609,4 +1610,145 @@ button.rs-more-filters-btn--active:hover {
   .rs-search-template-03 .rs-t03-actions > .rs_price .rs-custom-select {
     width: auto;
   }
+}
+
+/* Template 07: tabs, then Reference · locations · type / prices · beds ·
+   Reset · Search / Refine buttons · Sort · Currency (search design 03's
+   tabs and rows, with a third row). */
+.rs-search-template-07 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rs-search-template-07 .rs-field__label { display: none; }
+.rs-search-template-07 .rs-t07-row { flex-wrap: nowrap; }
+.rs-search-template-07 .rs-t07-row > * { flex: 1 1 0; min-width: 0; width: 0; }
+/* Min and max price are two slots of the row, like the other fields. */
+.rs-search-template-07 .rs_price,
+.rs-search-template-07 .rs_price > .rs-range-row { display: contents; }
+.rs-search-template-07 .rs_price .rs-range-sep { display: none; }
+.rs-search-template-07 .rs_price .rs-custom-select { flex: 1 1 0; min-width: 0; width: 0; }
+.rs-search-template-07 .rs-t07-row--what > .rs_reset_button,
+.rs-search-template-07 .rs-t07-row--what > .rs_search_button { flex: 1 1 0; width: 0; }
+.rs-search-template-07 .rs-t07-row--what > .rs_ai_actions { flex: 0 0 auto; width: auto; }
+.rs-search-template-07 .rs_reset_button .rs-reset-btn,
+.rs-search-template-07 .rs_search_button .rs-search-btn { width: 100%; justify-content: center; }
+.rs-search-template-07 button.rs-reset-btn {
+  background: transparent;
+  border: 2px solid var(--rs-text);
+  color: var(--rs-text);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rs-search-template-07 button.rs-reset-btn:hover { background: var(--rs-text); color: var(--rs-bg); }
+.rs-search-template-07 .rs-search-btn { text-transform: uppercase; letter-spacing: 0.03em; }
+
+.rs-search-template-07 .rs-t07-refine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+}
+.rs-search-template-07 .rs-t07-refine > .rs_quick_features { flex: 1 1 420px; min-width: 0; }
+.rs-search-template-07 .rs-t07-refine { align-items: center; }
+.rs-search-template-07 .rs-t07-tools select.rs-select { height: auto; padding-top: 2px; padding-bottom: 2px; font-size: 0.75rem; }
+.rs-search-template-07 .rs-t07-tools .rs-sort { gap: 8px; }
+.rs-search-template-07 .rs-t07-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+.rs-search-template-07 .rs-t07-tools .rs-selector {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rs-search-template-07 .rs-t07-tools .rs-field__label,
+.rs-search-template-07 .rs-t07-tools .rs-sort__label {
+  display: inline;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rs-text);
+}
+.rs-search-template-07 .rs-t07-tools select.rs-select,
+.rs-search-template-07 .rs-t07-tools .rs-custom-select { width: auto; min-width: 0; }
+
+/* Refine: outlined toggle buttons (RsQuickFeatures variation 2). */
+.rs_quick_features--buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+.rs-quick-features__label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rs-text);
+}
+.rs-quick-features--buttons { padding: 0; gap: 6px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; align-items: center; }
+.rs-quick-features--buttons button.rs-quick-features__btn {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  padding: 2px 6px;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: none;
+  text-transform: uppercase;
+  border: 2px solid var(--rs-primary);
+  border-radius: 0;
+  background: transparent;
+  color: var(--rs-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.rs-quick-features--buttons button.rs-quick-features__btn:hover,
+.rs-quick-features--buttons button.rs-quick-features__btn--active { background: var(--rs-primary); color: #fff; }
+.rs-quick-features--buttons button.rs-quick-features__btn:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 768px) {
+  .rs-search-template-07 .rs-t07-row { flex-direction: row; flex-wrap: wrap; align-items: stretch; }
+  .rs-search-template-07 .rs-t07-row > * { flex: none; width: 100%; }
+  /* Min | max price, Reset | Search side by side. */
+  .rs-search-template-07 .rs_price .rs-custom-select,
+  .rs-search-template-07 .rs-t07-row--what > .rs_reset_button,
+  .rs-search-template-07 .rs-t07-row--what > .rs_search_button { flex: 1 1 calc(50% - 6px); width: auto; }
+  .rs-search-template-07 .rs-t07-row--what > .rs_ai_actions { width: auto; }
+  .rs-search-template-07 .rs-t07-tools { margin-left: 0; width: 100%; justify-content: space-between; }
+}
+/* Sort (custom select) and Currency (native select) the same height. */
+.rs-search-template-07 .rs-t07-tools .rs-custom-select__trigger,
+.rs-search-template-07 .rs-t07-tools select.rs-select {
+  height: 34px;
+  min-height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 0.8125rem;
+}
+/* Phones: "Refine" on its own line above the feature buttons. */
+@media (max-width: 768px) {
+  .rs_quick_features--buttons { flex-wrap: wrap; gap: 6px; }
+  .rs_quick_features--buttons .rs-quick-features__label { flex: 1 0 100%; }
+  .rs-search-template-07 .rs-t07-refine > .rs_quick_features { flex: 1 1 100%; }
+  .rs-search-template-07 .rs-t07-tools { gap: 12px; }
+  .rs-search-template-07 .rs-t07-tools .rs-sort { flex: 1 1 0; min-width: 0; }
+  .rs-search-template-07 .rs-t07-tools .rs-selector { flex: 0 0 auto; }
+  .rs-search-template-07 .rs-t07-tools .rs-selector select.rs-select { min-width: 76px; }
+  .rs-search-template-07 .rs-t07-tools .rs-custom-select,
+  .rs-search-template-07 .rs-t07-tools select.rs-select { flex: 1 1 auto; width: 100%; }
 }

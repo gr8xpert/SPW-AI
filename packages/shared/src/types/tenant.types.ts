@@ -168,6 +168,26 @@ export interface TenantSettings {
   // Search dropdowns hide locations / types / statuses with no listings for
   // the search on screen. Default on (undefined); false shows them as 0.
   hideEmptySearchOptions?: boolean;
+  // Share icon beside the wishlist heart on listing cards. Default off.
+  cardShareIcon?: boolean;
+  // The agent shown on property pages (design 02's side column and contact
+  // section): the client's own public details. No name = not shown.
+  siteAgent?: { name?: string; title?: string; phone?: string; whatsapp?: string; email?: string; photo?: string };
+  // Purchase costs calculator (property page button + calculator block).
+  // Rates are % of the price; unset rates use Andalucía's (widget defaults).
+  // pageUrl: the button links to that page instead of opening a popup.
+  purchaseCosts?: {
+    enabled?: boolean;
+    pageUrl?: string;
+    newVat?: number | null;
+    newStampDuty?: number | null;
+    resaleTransferTax?: number | null;
+    plotPrivateTransferTax?: number | null;
+    plotCompanyVat?: number | null;
+    plotCompanyStampDuty?: number | null;
+    lawyerFee?: number | null;
+    notaryFee?: number | null;
+  };
   enabledListingTypes?: string[];
   mapVariation?: 'auto' | '0' | '1' | '2';
   similarPropertiesLimit?: number;

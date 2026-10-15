@@ -26,6 +26,7 @@ import RsDetailInquiryForm from '@/components/detail/RsDetailInquiryForm';
 import RsDetailWishlist from '@/components/detail/RsDetailWishlist';
 import RsDetailPdf from '@/components/detail/RsDetailPdf';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
+import RsDetailPurchaseCosts from '@/components/detail/RsDetailPurchaseCosts';
 import Skeleton from '@/components/common/Skeleton';
 import { resolveFeatures } from '@/core/feature-utils';
 import { getDataLoader } from '@/core/data-loader';
@@ -308,6 +309,8 @@ export default function DetailTemplate01() {
           {config.enableMortgageCalculator !== false && !property.priceOnRequest && property.price > 0 && property.listingType !== 'rent' && property.listingType !== 'holiday_rent' && (
             <MortgageButton price={property.price} currency={property.currency} />
           )}
+
+          <RsDetailPurchaseCosts property={property} />
 
           <RsDetailEnergyRating />
         </div>

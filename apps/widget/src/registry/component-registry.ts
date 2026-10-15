@@ -105,6 +105,7 @@ export function registerAllComponents(): void {
   registerComponent('detail_features', () => import('@/components/detail/RsDetailFeatures'));
   registerComponent('detail_specs', () => import('@/components/detail/RsDetailSpecs'));
   registerComponent('detail_price_list', () => import('@/components/detail/RsDetailPriceList'));
+  registerComponent('detail_purchase_costs', () => import('@/components/detail/RsDetailPurchaseCosts'));
   registerComponent('detail_resources', () => import('@/components/detail/RsDetailResources'));
   registerComponent('detail_video_embed', () => import('@/components/detail/RsDetailVideoEmbed'));
   registerComponent('detail_video_link', () => import('@/components/detail/RsDetailVideoLink'));
@@ -143,6 +144,7 @@ export function registerAllComponents(): void {
   registerComponent('language_selector', () => import('@/components/utility/RsLanguageSelector'));
   registerComponent('currency_selector', () => import('@/components/utility/RsCurrencySelector'));
   registerComponent('share_buttons', () => import('@/components/utility/RsShareButtons'));
+  registerComponent('purchase_costs', () => import('@/components/utility/RsPurchaseCosts'));
 
   // Chat components
   registerComponent('chat_bubble', () => import('@/components/chat/RsChatBubble'));
@@ -156,6 +158,7 @@ export function registerAllComponents(): void {
   registerTemplate('search-template-04', () => import('@/templates/search/SearchTemplate04'));
   registerTemplate('search-template-05', () => import('@/templates/search/SearchTemplate05'));
   registerTemplate('search-template-06', () => import('@/templates/search/SearchTemplate06'));
+  registerTemplate('search-template-07', () => import('@/templates/search/SearchTemplate07'));
 
   // Listing templates
   registerTemplate('listing-template-01', () => import('@/templates/listing/ListingTemplate01'));
@@ -178,6 +181,7 @@ export function registerAllComponents(): void {
 
   // Detail templates
   registerTemplate('detail-template-01', () => import('@/templates/detail/DetailTemplate01'));
+  registerTemplate('detail-template-02', () => import('@/templates/detail/DetailTemplate02'));
 
   // Map templates
   registerTemplate('map-template-01', () => import('@/templates/map/MapTemplate01'));

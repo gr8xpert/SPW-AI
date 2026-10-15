@@ -8750,3 +8750,364 @@ button.rs-ai__chip:hover {
   .rs_location--multi .rs-cascading-v2__tab { flex: none; width: 100%; }
 }
 .rs_location--multi .rs-cascading-v2__tab { overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Share icon on listing cards (CardShare.tsx) ──
+   The icon carries the design's own heart classes, so it takes the heart's
+   look and corner; a margin moves it beside the heart. Left-corner hearts
+   push it right, right-corner hearts push it left. --solo = no heart. */
+.rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo) { margin-left: 44px; }
+.rs-property-card--overlay .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo),
+.rs-property-card--blend .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo) { margin-left: 0; margin-right: 44px; }
+.rs-property-card--compact .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo) { margin-left: 0; margin-right: 38px; }
+.rs-property-card--showcase .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo),
+.rs-property-card--metro .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo) { margin-left: 0; margin-right: 42px; }
+.rs-property-card--elegant .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo),
+.rs-property-card--country .rs-property-card__favorite.rs-card-share:not(.rs-card-share--solo) { margin-left: 0; margin-right: 40px; }
+/* Immersive: heart sits in a flex row after the price. */
+.rs-property-card--immersive .rs-property-card__favorite.rs-card-share { margin: 0 8px 0 auto; }
+/* Listing designs 13–17: every heart is top-right, 36px. */
+.rs_card .rs_card_wishlist.rs-card-share:not(.rs-card-share--solo) { margin-right: 44px; }
+.rs-card-share svg { fill: none; }
+
+/* Carousels have no heart: the icon gets its own top-right corner. */
+.rs-property-carousel__share {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease;
+}
+.rs-property-carousel__share:hover { transform: scale(1.08); }
+
+/* The popup lives at the end of <body> (RsFloating), outside the widget's
+   button reset, so theme button styles are undone here. */
+.rs-card-share__panel {
+  background: var(--rs-bg, #fff);
+  border: 1px solid var(--rs-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  margin-top: 4px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+}
+.rs-card-share__panel .rs-share-buttons { flex-wrap: nowrap; }
+.rs-card-share__panel .rs-share-buttons__btn {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  line-height: 1;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.rs-share-buttons__btn--copied,
+button.rs-share-buttons__btn--copied {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+/* ── Purchase costs calculator (RsPurchaseCosts) ── */
+.rs-purchase-costs { font-family: var(--rs-font); color: var(--rs-text); }
+.rs-purchase-costs__heading { font-size: 1.5rem; margin: 0 0 16px; }
+.rs-purchase-costs__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rs-purchase-costs__field { display: flex; flex-direction: column; gap: 6px; }
+.rs-purchase-costs__label { font-size: 0.8125rem; font-weight: 600; color: var(--rs-text-light); }
+.rs-purchase-costs__price { font-variant-numeric: tabular-nums; }
+.rs-purchase-costs__table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rs-purchase-costs__table th,
+.rs-purchase-costs__table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--rs-border);
+  text-align: left;
+  font-weight: 400;
+  background: none;
+}
+.rs-purchase-costs__row:nth-child(odd) th,
+.rs-purchase-costs__row:nth-child(odd) td { background: var(--rs-bg-secondary); }
+.rs-purchase-costs__table .rs-purchase-costs__rate { color: var(--rs-text-light); white-space: nowrap; width: 1%; padding-right: 16px; }
+.rs-purchase-costs__table .rs-purchase-costs__amount { text-align: right; white-space: nowrap; }
+.rs-purchase-costs__row--costs th,
+.rs-purchase-costs__row--costs td { font-weight: 600; }
+.rs-purchase-costs__row--total th,
+.rs-purchase-costs__row--total td {
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-top: 2px solid var(--rs-text);
+  border-bottom: none;
+  background: none !important;
+}
+.rs-purchase-costs__row--total .rs-purchase-costs__amount { color: var(--rs-primary); }
+.rs-purchase-costs__note { margin: 14px 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--rs-text-light); }
+.rs-purchase-costs-modal { z-index: 2147483000; }
+.rs-purchase-costs-modal .rs-modal-content { max-width: 560px; max-height: 90vh; }
+
+/* ── Property page design 02 (DetailTemplate02) ── */
+.rs-detail-02 { max-width: 1240px; }
+.rs-d02-hero { position: relative; margin: 0 0 32px; }
+button.rs-d02-hero__image {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: var(--rs-bg-secondary);
+  cursor: zoom-in;
+}
+.rs-d02-hero__image img,
+.rs-d02-hero__image--empty {
+  display: block;
+  width: 100% !important;
+  height: min(62vh, 640px) !important;
+  object-fit: cover;
+}
+.rs-d02-hero__image--empty { background: var(--rs-bg-secondary); }
+button.rs-d02-hero__count {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--rs-radius);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.rs-d02-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 40px;
+  padding-bottom: 40px;
+}
+.rs-d02-main { min-width: 0; }
+.rs-d02-back { margin-bottom: 12px; }
+.rs-d02-intro { text-align: center; margin-bottom: 28px; }
+.rs-d02-intro .rs-detail-title { margin-bottom: 8px; }
+.rs-d02-summary { margin: 0; font-size: 0.875rem; color: var(--rs-text-light); }
+.rs-d02-heading { font-size: 1.375rem; font-weight: 600; text-align: center; margin: 0 0 16px; }
+.rs-d02-section { margin: 36px 0; }
+.rs-d02-section__title { font-size: 1.375rem; font-weight: 600; text-align: center; margin: 0 0 20px; }
+.rs-d02-highlights__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+.rs-d02-facts { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.rs-d02-facts th,
+.rs-d02-facts td { padding: 8px 12px; text-align: left; border: none; background: none; }
+.rs-d02-facts tr:nth-child(odd) th,
+.rs-d02-facts tr:nth-child(odd) td { background: var(--rs-bg-secondary); }
+.rs-d02-facts th { font-weight: 600; width: 45%; }
+.rs-d02-features {
+  margin: 0;
+  padding: 0 0 0 18px;
+  columns: 1;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+.rs-d02-features li { margin: 0 0 8px; break-inside: avoid; }
+.rs-d02-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 28px 0; }
+.rs-detail-action-btn,
+button.rs-detail-action-btn,
+a.rs-detail-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  margin: 0;
+  border: 1px solid var(--rs-primary);
+  border-radius: 0;
+  background: transparent;
+  color: var(--rs-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.rs-detail-action-btn:hover,
+button.rs-detail-action-btn:hover,
+a.rs-detail-action-btn:hover { background: var(--rs-primary); color: #fff; }
+.rs-detail__sidebar .rs-detail-purchase-costs { width: 100%; padding: 12px 16px; }
+.rs-d02-photos__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+button.rs-d02-photos__tile {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: var(--rs-bg-secondary);
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.rs-d02-photos__tile img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.rs-d02-photos__tile:hover img { transform: scale(1.04); }
+.rs-d02-photos__more { display: flex; justify-content: center; margin-top: 16px; }
+.rs-d02-side__sticky { position: sticky; top: 1.5rem; display: flex; flex-direction: column; gap: 16px; }
+.rs-d02-side__price {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rs-border);
+  text-align: center;
+}
+.rs-d02-map { margin: 0 0 40px; }
+@media (max-width: 960px) {
+  .rs-d02-body { grid-template-columns: 1fr; gap: 24px; }
+  .rs-d02-side__sticky { position: static; }
+}
+@media (max-width: 640px) {
+  .rs-d02-highlights__grid { grid-template-columns: 1fr; gap: 20px; }
+  .rs-d02-photos__grid { gap: 8px; }
+  .rs-d02-hero__image img,
+  .rs-d02-hero__image--empty { height: 300px !important; }
+}
+
+/* Design 02: heart top-right of the photo (no gallery arrows to avoid). */
+.rs-d02-hero .rs-d02-hero__heart { right: 16px; top: 16px; }
+
+/* Agent card: photo beside name, title and contact lines. */
+.rs-detail-agent {
+  flex-direction: row;
+  padding: 18px;
+  border-radius: 10px;
+}
+.rs-detail-agent__head { display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 16px; min-width: 0; width: 100%; }
+.rs-detail-agent img.rs-detail-agent__photo,
+.rs-detail-agent__initials {
+  width: 82px !important;
+  height: 108px !important;
+  flex: 0 0 82px;
+  border-radius: 10px;
+  border: 2px solid var(--rs-bg);
+  box-shadow: 0 0 0 1px var(--rs-border), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.rs-detail-agent img.rs-detail-agent__photo { object-fit: cover; object-position: center top; }
+.rs-detail-agent__initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rs-primary-light);
+  color: var(--rs-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.rs-detail-agent__info { gap: 0; flex: 1; padding-top: 4px; }
+.rs-detail-agent .rs-detail-agent__name { font-size: 1.0625rem; line-height: 1.25; }
+.rs-detail-agent .rs-detail-agent__title {
+  margin: 3px 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rs-text-light);
+}
+.rs-detail-agent__contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rs-border);
+}
+.rs-detail-agent a.rs-detail-agent__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--rs-text);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  text-decoration: none;
+  word-break: normal;
+  transition: color 0.15s ease;
+}
+.rs-detail-agent a.rs-detail-agent__link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rs-detail-agent a.rs-detail-agent__link svg {
+  flex: 0 0 auto;
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 50%;
+  background: var(--rs-primary-light);
+  color: var(--rs-primary);
+}
+.rs-detail-agent a.rs-detail-agent__link--whatsapp svg { background: #e7f9ee; color: #1faa52; }
+.rs-detail-agent a.rs-detail-agent__link:hover { color: var(--rs-primary); }
+.rs-detail-agent a.rs-detail-agent__link--whatsapp:hover { color: #1faa52; }
+
+/* ── Design 02 on tablets and phones ──
+   One column, in reading order: title → price → description → highlights →
+   buttons → photos → agent → form. The side column's parts join the main
+   column's flow (display: contents) so the price sits under the title and
+   the agent and form come after the photos, instead of all at the very end. */
+@media (max-width: 960px) {
+  .rs-detail.rs-detail-02 { padding: 0 16px; }
+  .rs-d02-hero { margin: 0 -16px 20px; }
+  .rs-d02-body { display: flex; flex-direction: column; gap: 0; padding-bottom: 24px; }
+  .rs-d02-main,
+  .rs-d02-side,
+  .rs-d02-side__sticky { display: contents; }
+  .rs-d02-main > * { order: 5; }
+  .rs-d02-back { order: 1; margin-bottom: 8px; }
+  .rs-d02-intro { order: 2; margin-bottom: 12px; }
+  .rs-d02-side__price { order: 3; margin-bottom: 20px; padding-bottom: 16px; }
+  .rs-d02-heading { order: 4; }
+  .rs-d02-side .rs-detail-agent { order: 20; margin: 8px 0 16px; }
+  .rs-d02-side .rs-detail-inquiry,
+  .rs-d02-side .rs-detail-inquiry-form,
+  .rs-d02-side__sticky > :last-child { order: 21; }
+  .rs-d02-section { margin: 28px 0; }
+}
+@media (max-width: 640px) {
+  .rs-d02-hero__image img,
+  .rs-d02-hero__image--empty { height: 280px !important; }
+  .rs-d02-intro .rs-detail-title { font-size: 1.5rem; }
+  .rs-d02-heading,
+  .rs-d02-section__title { font-size: 1.1875rem; }
+  .rs-d02-summary { font-size: 0.8125rem; line-height: 1.5; }
+  .rs-d02-facts th,
+  .rs-d02-facts td { padding: 7px 10px; }
+  .rs-d02-features { padding-left: 16px; }
+  .rs-d02-actions { gap: 8px; }
+  .rs-d02-actions > .rs-detail-action-btn,
+  .rs-d02-actions > a.rs-detail-action-btn,
+  .rs-d02-actions > button.rs-detail-action-btn { flex: 1 1 calc(50% - 4px); padding: 10px 8px; }
+  .rs-d02-photos__grid { gap: 6px; }
+  .rs-d02-photos__more .rs-detail-action-btn { width: 100%; padding: 12px; }
+  .rs-d02-side .rs-detail-agent { padding: 16px; }
+}
+@media (max-width: 900px) {
+  .rs-d02-hero .rs-detail__gallery-badges { display: flex; top: 12px; left: 12px; right: 60px; gap: 4px; }
+  .rs-d02-hero .rs-detail__gallery-badges > * { font-size: 0.6875rem; padding: 4px 9px; }
+}

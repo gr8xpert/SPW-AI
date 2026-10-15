@@ -1,4 +1,4 @@
-import { useCallback } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
 
 interface Props {
@@ -12,8 +12,13 @@ export default function RsShareButtons({ url = '', title = '' }: Props) {
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
 
+  const [copied, setCopied] = useState(false);
+
   const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(url).catch(() => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
       /* clipboard API not available */
     });
   }, [url]);
@@ -65,14 +70,21 @@ export default function RsShareButtons({ url = '', title = '' }: Props) {
       </a>
       <button
         type="button"
-        class="rs-share-buttons__btn rs-share-buttons__btn--copy"
+        class={`rs-share-buttons__btn rs-share-buttons__btn--copy${copied ? ' rs-share-buttons__btn--copied' : ''}`}
         onClick={handleCopyLink}
-        aria-label={t('copy_link', 'Copy Link')}
+        aria-label={copied ? t('copied', 'Copied!') : t('copy_link', 'Copy Link')}
+        title={copied ? t('copied', 'Copied!') : t('copy_link', 'Copy Link')}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-        </svg>
+        {copied ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        )}
       </button>
     </div>
   );

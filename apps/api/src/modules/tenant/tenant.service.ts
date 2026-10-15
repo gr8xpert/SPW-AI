@@ -147,6 +147,18 @@ export class TenantService {
     if (hideEmpty !== undefined && typeof hideEmpty !== 'boolean') {
       delete (publicSettings as { hideEmptySearchOptions?: unknown }).hideEmptySearchOptions;
     }
+    const shareIcon = (publicSettings as { cardShareIcon?: unknown }).cardShareIcon;
+    if (shareIcon !== undefined && typeof shareIcon !== 'boolean') {
+      delete (publicSettings as { cardShareIcon?: unknown }).cardShareIcon;
+    }
+    const agentIn = (publicSettings as { siteAgent?: unknown }).siteAgent;
+    if (agentIn !== undefined && (agentIn === null || typeof agentIn !== 'object' || Array.isArray(agentIn))) {
+      delete (publicSettings as { siteAgent?: unknown }).siteAgent;
+    }
+    const costsIn = (publicSettings as { purchaseCosts?: unknown }).purchaseCosts;
+    if (costsIn !== undefined && (costsIn === null || typeof costsIn !== 'object' || Array.isArray(costsIn))) {
+      delete (publicSettings as { purchaseCosts?: unknown }).purchaseCosts;
+    }
     const rateIn = (publicSettings as { mortgageInterestRate?: unknown }).mortgageInterestRate;
     if (rateIn != null && rateIn !== '' && mortgageRate(rateIn) == null) {
       throw new BadRequestException('The mortgage interest rate must be a number from 0 to 30.');
@@ -328,6 +340,11 @@ export class TenantService {
     if (rate != null) config.mortgageInterestRate = rate;
     // Default on: only an explicit false shows zero-count choices.
     if (s.hideEmptySearchOptions === false) config.hideEmptySearchOptions = false;
+    if (s.cardShareIcon === true) config.cardShareIcon = true;
+    const purchaseCosts = publicPurchaseCosts(s.purchaseCosts);
+    if (purchaseCosts) config.purchaseCosts = purchaseCosts;
+    const siteAgent = publicSiteAgent(s.siteAgent);
+    if (siteAgent) config.siteAgent = siteAgent;
     if (s.primaryColor) config.primaryColor = s.primaryColor;
     if (s.mapVariation) config.mapVariation = s.mapVariation;
     const tiles = publicMapTiles(s.mapTiles);
@@ -593,12 +610,53 @@ export function mortgageRate(v: unknown): number | null {
   return Number.isFinite(n) && n >= 0 && n <= 30 ? Math.round(n * 100) / 100 : null;
 }
 
+// The agent the website shows on property pages (Settings → Widget → Website
+// agent): the client's own public contact details, cleaned. Null when no name.
+export function publicSiteAgent(value: TenantSettings['siteAgent']): Record<string, string> | null {
+  if (!value || typeof value !== 'object') return null;
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const name = text(value.name, 120);
+  if (!name) return null;
+  const out: Record<string, string> = { name };
+  const title = text(value.title, 120);
+  if (title) out.title = title;
+  const email = text(value.email, 200);
+  if (/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(email)) out.email = email;
+  for (const key of ['phone', 'whatsapp'] as const) {
+    const phone = text(value[key], 40);
+    if (/^\+?[\d\s().-]{6,40}$/.test(phone)) out[key] = phone;
+  }
+  const photo = text(value.photo, 1000);
+  if (/^https?:\/\/[^\s"'<>]+$/i.test(photo)) out.photo = photo;
+  return out;
+}
+
+const PURCHASE_COST_RATES = [
+  'newVat', 'newStampDuty', 'resaleTransferTax', 'plotPrivateTransferTax',
+  'plotCompanyVat', 'plotCompanyStampDuty', 'lawyerFee', 'notaryFee',
+] as const;
+
+// The purchase costs calculator as the widget gets it: the rates that are
+// sensible percentages, and the calculator page when it is a web address or
+// a path. Null while the calculator is switched off.
+export function publicPurchaseCosts(value: TenantSettings['purchaseCosts']): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || value.enabled !== true) return null;
+  const out: Record<string, unknown> = {};
+  for (const key of PURCHASE_COST_RATES) {
+    const n = mortgageRate(value[key]);
+    if (n != null) out[key] = n;
+  }
+  const page = typeof value.pageUrl === 'string' ? value.pageUrl.trim() : '';
+  if (page && /^(https?:\/\/[^\s"'<>]+|\/[^\s"'<>]*)$/i.test(page)) out.pageUrl = page;
+  return out;
+}
+
 // Templates the widget has, per page type. Keep in step with the widget's
 // component registry.
 export const SITE_TEMPLATE_IDS: Record<'search' | 'listing' | 'detail' | 'map' | 'carousel', string[]> = {
-  search: ['01', '02', '03', '04', '05', '06'].map((n) => `search-template-${n}`),
+  search: ['01', '02', '03', '04', '05', '06', '07'].map((n) => `search-template-${n}`),
   listing: Array.from({ length: 17 }, (_, i) => `listing-template-${String(i + 1).padStart(2, '0')}`),
-  detail: ['detail-template-01'],
+  detail: ['detail-template-01', 'detail-template-02'],
   map: ['map-template-01', 'map-template-02', 'map-template-03'],
   carousel: Array.from({ length: 6 }, (_, i) => `carousel-template-${String(i + 1).padStart(2, '0')}`),
 };

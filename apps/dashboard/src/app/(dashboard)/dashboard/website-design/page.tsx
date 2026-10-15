@@ -32,6 +32,7 @@ const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; wp
       ['04', 'Capsule'],
       ['05', 'Card panel'],
       ['06', 'Minimal hero'],
+      ['07', 'Tabs, three rows and refine buttons'],
     ].map(([n, name]) => ({ id: `search-template-${n}`, name })),
   },
   {
@@ -75,7 +76,10 @@ const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; wp
     tab: 'Property page',
     intro: 'The page a visitor sees after clicking a property.',
     snippet: '<div data-spm-widget="site-detail"></div>',
-    templates: [{ id: 'detail-template-01', name: 'Standard property page' }],
+    templates: [
+      { id: 'detail-template-01', name: 'Standard property page' },
+      { id: 'detail-template-02', name: 'Large photo, highlights and photo grid' },
+    ],
   },
   {
     kind: 'carousel',

@@ -8,6 +8,7 @@ import { getDisplayReference, specRange } from '@/core/property-display';
 import css from '@/styles/listing-classic.css?inline';
 import { useCardState, type CardProps, type CardState } from './useCardState';
 import { CardPrice } from './CardParts';
+import CardShare from './CardShare';
 
 // V2 template number → V3 design number (its class names).
 const DESIGN: Record<number, number> = { 13: 7, 14: 8, 15: 9, 16: 10, 17: 11 };
@@ -117,16 +118,20 @@ function Status({ s, n }: { s: CardState; n: string }) {
 
 function Wishlist({ s, n }: { s: CardState; n: string }) {
   const { t, config, favorite, handleFavoriteClick } = s;
-  if (config.enableFavorites === false) return null;
+  const share = <CardShare s={s} size={17} className={`rs_card_wishlist rs-template-card-${n}__wishlist rs-card__wishlist`} />;
+  if (config.enableFavorites === false) return share;
   return (
-    <button
-      class={`rs_card_wishlist rs-template-card-${n}__wishlist rs-card__wishlist${favorite ? ' rs-card__wishlist--active' : ''}`}
-      type="button"
-      aria-label={t('card_toggle_favorite', 'Toggle favorite')}
-      onClick={inLink(handleFavoriteClick)}
-    >
-      <RsWishlistIcon size={18} filled={favorite} />
-    </button>
+    <>
+      {share}
+      <button
+        class={`rs_card_wishlist rs-template-card-${n}__wishlist rs-card__wishlist${favorite ? ' rs-card__wishlist--active' : ''}`}
+        type="button"
+        aria-label={t('card_toggle_favorite', 'Toggle favorite')}
+        onClick={inLink(handleFavoriteClick)}
+      >
+        <RsWishlistIcon size={18} filled={favorite} />
+      </button>
+    </>
   );
 }
 

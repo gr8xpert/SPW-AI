@@ -92,6 +92,10 @@ export class DataLoader {
     // Layer 1: IndexedDB cache
     const cached = await this.tryIDBCache();
     if (cached) {
+      // The saved copy draws the page at once; the live settings follow, so
+      // a dashboard change shows on this visit instead of waiting for the
+      // next sync-version bump.
+      this.keepConfigLive(cached, this.liveConfig());
       this.checkFreshnessInBackground();
       return cached;
     }
@@ -241,12 +245,13 @@ export class DataLoader {
   }
 
   private async loadFromAPI(): Promise<BundleData> {
+    const live = this.liveConfig();
     const [locations, types, features, labels, dashboardConfig, syncMeta] = await Promise.all([
       this.loadLocalFileOrAPI<Location[]>('locations.json', '/v1/locations'),
       this.loadLocalFileOrAPI<PropertyType[]>('types.json', '/v1/property-types'),
       this.loadLocalFileOrAPI<Feature[]>('features.json', '/v1/features'),
       this.loadLocalFileOrAPI<Record<string, string>>('labels.json', '/v1/labels'),
-      this.dashboardConfig(this.liveConfig()),
+      this.dashboardConfig(live),
       this.fetchSyncMeta(),
     ]);
 
@@ -260,7 +265,34 @@ export class DataLoader {
     };
 
     this.persistToIDB(bundle);
+    // dashboardConfig may be this browser's previous copy: once the live
+    // settings arrive they replace it in the saved bundle too. Before, the
+    // bundle kept the old settings under the new sync version, so the next
+    // visit drew with them and nothing corrected it (10-16: Website agent
+    // showed once, then vanished).
+    live.then((c) => {
+      if (c && JSON.stringify(c) !== JSON.stringify(bundle.config)) this.saveLiveConfig(c);
+    });
     return bundle;
+  }
+
+  // A bundle drawn from IndexedDB: hand newer live settings to the page and
+  // keep them in the saved copy.
+  private keepConfigLive(bundle: BundleData, live: Promise<Partial<WidgetConfig> | null>): void {
+    live.then((c) => {
+      if (!c || JSON.stringify(c) === JSON.stringify(bundle.config)) return;
+      if (this.onLiveConfig) this.onLiveConfig(c);
+      this.saveLiveConfig(c);
+    });
+  }
+
+  // Into whatever bundle is saved now: the freshness check may have stored a
+  // newer one meanwhile, and its lists and version must stay.
+  private async saveLiveConfig(config: Partial<WidgetConfig>): Promise<void> {
+    try {
+      const entry = await getCached<BundleData>(this.cacheKey());
+      if (entry?.data) await this.persistToIDB({ ...entry.data, config });
+    } catch { /* storage unavailable */ }
   }
 
   private async loadLocalFileOrAPI<T>(filename: string, apiEndpoint: string): Promise<T | null> {

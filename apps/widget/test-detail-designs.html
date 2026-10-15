@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPW Widget — Property page designs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>body { font-family: system-ui, sans-serif; margin: 0; }</style>
+</head>
+<body>
+  <!-- ?d=1|2 property page design, ?ref=<reference>; ?calc=1 shows the
+       purchase costs calculator block instead (reads ?price= and ?type=). -->
+  <div id="mount"></div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const el = document.createElement('div');
+    el.setAttribute('data-spm-widget', q.get('calc') ? 'purchase_costs' : 'detail-template-' + String(q.get('d') || 2).padStart(2, '0'));
+    el.setAttribute('data-spm-api-url', 'http://localhost:3001');
+    el.setAttribute('data-spm-api-key', 'spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    if (q.get('calc')) el.style.cssText = 'max-width:720px;margin:40px auto;padding:0 16px';
+    document.getElementById('mount').appendChild(el);
+    if (!q.get('calc')) {
+      document.addEventListener('spw:ready', async () => {
+        const { DataLoader, actions, store } = await import('/src/index.ts');
+        const loader = new DataLoader(store.getState().config);
+        actions.setSelectedProperty(await loader.getProperty(q.get('ref') || '12753DR'));
+      });
+    }
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

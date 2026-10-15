@@ -25,6 +25,25 @@ export class PropertyUrlInterceptor implements NestInterceptor {
   }
 }
 
+// The listing's agent, sales agent and last editor are dashboard user
+// accounts: the public answer sent each whole (login email, role,
+// permissions, 2FA and last login). A website only needs the agent's name and
+// photo; the contact details shown come from Settings → Website agent.
+export function publicPeople(obj: Record<string, unknown>): void {
+  const agent = obj.agent as { name?: unknown; avatarUrl?: unknown } | null | undefined;
+  if (agent && typeof agent === 'object') {
+    obj.agent = {
+      name: typeof agent.name === 'string' ? agent.name : '',
+      ...(typeof agent.avatarUrl === 'string' && agent.avatarUrl ? { photo: agent.avatarUrl } : {}),
+    };
+  }
+  delete obj.salesAgent;
+  delete obj.lastUpdatedByUser;
+  delete obj.agentId;
+  delete obj.salesAgentId;
+  delete obj.lastUpdatedById;
+}
+
 function attach(node: unknown, format: unknown, depth: number): unknown {
   if (!node || typeof node !== 'object' || depth > 3) return node;
   if (Array.isArray(node)) {
@@ -34,6 +53,7 @@ function attach(node: unknown, format: unknown, depth: number): unknown {
   const obj = node as Record<string, unknown>;
   if (typeof obj.reference === 'string' && (obj.title === undefined || typeof obj.title === 'string')) {
     obj.urlSegment = propertyUrlSegment(obj as any, format);
+    publicPeople(obj);
     return node;
   }
   if (Array.isArray(obj.data)) attach(obj.data, format, depth + 1);

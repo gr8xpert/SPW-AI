@@ -1,6 +1,7 @@
 // Pieces several card designs share. Each one renders exactly the markup the
 // designs had inline before the split, so customer CSS keeps matching.
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
+import CardShare from './CardShare';
 import type { CardState } from './useCardState';
 import { hasPrice, priceSuffix, priceTo, specRange } from '@/core/property-display';
 
@@ -85,19 +86,24 @@ export function CardBadges({ s, own = true }: PartProps & { own?: boolean }) {
   );
 }
 
-/** Wishlist heart, hidden when the site turned favourites off. */
+/** Wishlist heart, hidden when the site turned favourites off, and the share
+ *  icon beside it when the site turned that on. */
 export function CardFavorite({ s, size }: PartProps & { size: number }) {
   const { t, config, favorite, heartBounce, handleFavoriteClick } = s;
-  if (config.enableFavorites === false) return null;
+  const share = <CardShare s={s} size={size - 2} className="rs-property-card__favorite" />;
+  if (config.enableFavorites === false) return share;
   return (
-    <button
-      class={`rs-property-card__favorite${favorite ? ' rs-property-card__favorite--active' : ''}${heartBounce ? ' rs-heart-bounce' : ''}`}
-      onClick={handleFavoriteClick}
-      aria-label={t('card_toggle_favorite', 'Toggle favorite')}
-      type="button"
-    >
-      <RsWishlistIcon size={size} filled={favorite} />
-    </button>
+    <>
+      {share}
+      <button
+        class={`rs-property-card__favorite${favorite ? ' rs-property-card__favorite--active' : ''}${heartBounce ? ' rs-heart-bounce' : ''}`}
+        onClick={handleFavoriteClick}
+        aria-label={t('card_toggle_favorite', 'Toggle favorite')}
+        type="button"
+      >
+        <RsWishlistIcon size={size} filled={favorite} />
+      </button>
+    </>
   );
 }
 

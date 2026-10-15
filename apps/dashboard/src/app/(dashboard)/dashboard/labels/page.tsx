@@ -78,6 +78,7 @@ const labelCategories = [
   { id: 'chat', name: 'AI Chat' },
   { id: 'pagination', name: 'Pagination' },
   { id: 'mortgage', name: 'Mortgage Calculator' },
+  { id: 'calculator', name: 'Purchase Costs Calculator' },
   { id: 'general', name: 'General' },
 ];
 
@@ -92,6 +93,7 @@ const CATEGORY_PREFIXES: Record<string, string[]> = {
   chat: ['chat_'],
   pagination: ['pagination_'],
   mortgage: ['mortgage_'],
+  calculator: ['calc_'],
   general: ['loading', 'error', 'close', 'currency_', 'language_', 'featured', 'cancel', 'clear', 'copy', 'copied', 'save', 'edit', 'share', 'send_email', 'send_to', 'sending', 'email', 'email_error', 'email_sent', 'download_pdf', 'qr_code', 'read_less', 'read_more', 'view_all', 'view_details', 'properties', 'property_singular', 'type', 'reference', 'feature', 'no_results', 'beds', 'baths', 'bedrooms', 'bathrooms', 'location', 'price', 'wishlist', 'yes'],
 };
 

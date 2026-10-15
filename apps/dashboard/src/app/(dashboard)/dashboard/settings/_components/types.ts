@@ -77,6 +77,9 @@ export interface TenantSettings {
   similarPropertiesLimit?: number;
   mortgageInterestRate?: number | null;
   hideEmptySearchOptions?: boolean;
+  cardShareIcon?: boolean;
+  purchaseCosts?: Record<string, unknown>;
+  siteAgent?: Record<string, unknown>;
   baseCurrency?: string;
   inquiryNotificationEmails?: string[];
   inquiryWebhookUrl?: string;
