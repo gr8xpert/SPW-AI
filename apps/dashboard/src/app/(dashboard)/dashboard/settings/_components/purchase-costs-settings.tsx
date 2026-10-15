@@ -58,7 +58,7 @@ export function purchaseCostsToSettings(form: PurchaseCostsForm) {
 
 export function PurchaseCostsSettings({ value, onChange }: { value: PurchaseCostsForm; onChange: (v: PurchaseCostsForm) => void }) {
   const page = value.pageUrl.trim();
-  const pageOk = !page || /^(https?:\/\/\S+|\/\S*)$/i.test(page);
+  const pageOk = !page || /^(https?:\/\/\S+|\/(?!\/)\S*)$/i.test(page);
   return (
     <div className="space-y-4 rounded-md border p-4">
       <div className="flex items-start justify-between gap-4">

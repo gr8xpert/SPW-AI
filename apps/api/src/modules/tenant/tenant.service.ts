@@ -647,7 +647,8 @@ export function publicPurchaseCosts(value: TenantSettings['purchaseCosts']): Rec
     if (n != null) out[key] = n;
   }
   const page = typeof value.pageUrl === 'string' ? value.pageUrl.trim() : '';
-  if (page && /^(https?:\/\/[^\s"'<>]+|\/[^\s"'<>]*)$/i.test(page)) out.pageUrl = page;
+  // A full http(s) address or a path on the site — not "//other-host".
+  if (page && /^(https?:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*)$/i.test(page)) out.pageUrl = page;
   return out;
 }
 

@@ -77,14 +77,16 @@ export function purchaseTypeOf(property?: Pick<Property, 'listingType' | 'proper
   return 'resale';
 }
 
-/** The calculator page's address for one property. */
+/** The calculator page's address for one property; '' when it is not a web
+ *  page (the button then opens the popup instead). */
 export function calculatorUrl(pageUrl: string, price: number, type: PurchaseType): string {
   try {
     const url = new URL(pageUrl, window.location.href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
     url.searchParams.set('price', String(Math.round(price)));
     url.searchParams.set('type', type);
     return url.toString();
   } catch {
-    return pageUrl;
+    return '';
   }
 }

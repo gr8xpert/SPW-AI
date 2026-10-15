@@ -40,10 +40,11 @@ export default function RsDetailPurchaseCosts({ property: propertyProp }: Props)
   const type = purchaseTypeOf(property);
   const label = t('calc_button', 'Calculate purchasing costs');
   const pageUrl = typeof config.purchaseCosts.pageUrl === 'string' ? config.purchaseCosts.pageUrl.trim() : '';
+  const pageHref = pageUrl ? calculatorUrl(pageUrl, price, type) : '';
 
-  if (pageUrl) {
+  if (pageHref) {
     return (
-      <a class="rs-detail-purchase-costs rs-detail-action-btn" href={calculatorUrl(pageUrl, price, type)}>
+      <a class="rs-detail-purchase-costs rs-detail-action-btn" href={pageHref}>
         {label}
       </a>
     );
