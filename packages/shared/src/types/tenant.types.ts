@@ -173,6 +173,16 @@ export interface TenantSettings {
   // The agent shown on property pages (design 02's side column and contact
   // section): the client's own public details. No name = not shown.
   siteAgent?: { name?: string; title?: string; phone?: string; whatsapp?: string; email?: string; photo?: string };
+  // Listing titles built from patterns per language ("{type} for sale in
+  // {location}") on cards and the property page; see the API's
+  // property/title-pattern.ts. Keys of card/detail: default, sale, rent,
+  // holiday_rent, development. Off unless enabled.
+  titlePatterns?: {
+    enabled?: boolean;
+    card?: Record<string, Record<string, string>>;
+    detailSameAsCard?: boolean;
+    detail?: Record<string, Record<string, string>>;
+  };
   // Purchase costs calculator (property page button + calculator block).
   // Rates are % of the price; unset rates use Andalucía's (widget defaults).
   // pageUrl: the button links to that page instead of opening a popup.

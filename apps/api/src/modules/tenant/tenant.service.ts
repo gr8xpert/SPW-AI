@@ -11,6 +11,7 @@ import { widgetVersion } from './widget-version';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
 import { siteMinPrices } from '../property/site-limits';
+import { cleanTitlePatterns, unknownTitleTokens } from '../property/title-pattern';
 import { isRecaptchaKey } from '../../common/security/recaptcha-key';
 
 export interface CacheClearResult {
@@ -158,6 +159,15 @@ export class TenantService {
     const costsIn = (publicSettings as { purchaseCosts?: unknown }).purchaseCosts;
     if (costsIn !== undefined && (costsIn === null || typeof costsIn !== 'object' || Array.isArray(costsIn))) {
       delete (publicSettings as { purchaseCosts?: unknown }).purchaseCosts;
+    }
+    const titlesIn = (publicSettings as { titlePatterns?: unknown }).titlePatterns;
+    if (titlesIn !== undefined) {
+      const titles = cleanTitlePatterns(titlesIn);
+      const unknown = unknownTitleTokens(titles);
+      if (unknown.length) {
+        throw new BadRequestException(`Listing titles: unknown field ${unknown.map((t) => `{${t}}`).join(', ')}.`);
+      }
+      (publicSettings as { titlePatterns?: unknown }).titlePatterns = titles;
     }
     const rateIn = (publicSettings as { mortgageInterestRate?: unknown }).mortgageInterestRate;
     if (rateIn != null && rateIn !== '' && mortgageRate(rateIn) == null) {

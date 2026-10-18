@@ -35,7 +35,7 @@ export function pickLang(req: Request): string {
   return 'en';
 }
 
-function resolveOne(value: Record<string, unknown>, lang: string): string {
+export function resolveOne(value: Record<string, unknown>, lang: string): string {
   const base = lang.split('-')[0];
   const candidates = [lang, base, 'en'];
   for (const k of candidates) {

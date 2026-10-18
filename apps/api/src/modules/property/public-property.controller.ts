@@ -9,7 +9,9 @@ import { SetMetadata } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
-import { PropertyUrlInterceptor, PropertyUrlRequest } from './property-url.interceptor';
+import { PropertyUrlInterceptor } from './property-url.interceptor';
+import { PropertyTitleInterceptor, PropertyTitleRequest } from './property-title.interceptor';
+import { cleanTitlePatterns } from './title-pattern';
 import { withWidgetCache } from '../../common/http/widget-http-cache';
 import type { Tenant } from '../../database/entities';
 import { siteListingTypes, siteMinPrices } from './site-limits';
@@ -23,7 +25,7 @@ const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 // per-request limit from tenant.plan.ratePerMinute.
 @Controller('api/v1/properties')
 @UseGuards(ApiKeyThrottlerGuard)
-@UseInterceptors(PropertyUrlInterceptor, ResolveNameInterceptor)
+@UseInterceptors(PropertyTitleInterceptor, PropertyUrlInterceptor, ResolveNameInterceptor)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
 export class PublicPropertyController {
   constructor(
@@ -35,7 +37,7 @@ export class PublicPropertyController {
   // Resolves the tenant + verifies entitlement (active subscription + widget
   // enabled). Returns 401 either way so a probe can't distinguish "wrong key"
   // from "expired subscription".
-  private async getTenantFromApiKey(apiKey: string, req: PropertyUrlRequest): Promise<Tenant> {
+  private async getTenantFromApiKey(apiKey: string, req: PropertyTitleRequest): Promise<Tenant> {
     if (!apiKey) {
       throw new UnauthorizedException('API key required');
     }
@@ -46,11 +48,14 @@ export class PublicPropertyController {
     req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
     req.spwListingTypes = siteListingTypes(tenant.settings);
     req.spwMinPrices = siteMinPrices(tenant.settings);
+    req.spwTenantId = tenant.id;
+    const titles = cleanTitlePatterns((tenant.settings as { titlePatterns?: unknown } | null)?.titlePatterns);
+    req.spwTitlePatterns = titles.enabled ? titles : null;
     return tenant;
   }
 
   // Settings -> Widget limits, set by the server only (see SearchPropertyDto).
-  private siteLimits(req: PropertyUrlRequest): Pick<SearchPropertyDto, 'siteListingTypes' | 'siteMinPrices'> {
+  private siteLimits(req: PropertyTitleRequest): Pick<SearchPropertyDto, 'siteListingTypes' | 'siteMinPrices'> {
     return { siteListingTypes: req.spwListingTypes ?? undefined, siteMinPrices: req.spwMinPrices ?? undefined };
   }
 
@@ -61,7 +66,7 @@ export class PublicPropertyController {
   // SEO jobs, CSV imports, location/type templates and location/type/feature
   // edits don't yet; the tag's time bucket bounds how stale those can get.
   private cached<T>(
-    req: PropertyUrlRequest,
+    req: PropertyTitleRequest,
     res: Response,
     tenant: Tenant,
     route: string,
@@ -80,7 +85,7 @@ export class PublicPropertyController {
   @Get()
   async search(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Query() dto: SearchPropertyDto,
   ) {
@@ -98,7 +103,7 @@ export class PublicPropertyController {
   @Get('areas')
   async areas(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Query() dto: SearchPropertyDto,
   ) {
@@ -113,7 +118,7 @@ export class PublicPropertyController {
   @Get('facets')
   async facets(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Query() dto: SearchPropertyDto,
   ) {
@@ -127,7 +132,7 @@ export class PublicPropertyController {
   @Get('map')
   async mapPoints(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Query() dto: SearchPropertyDto,
   ) {
@@ -144,7 +149,7 @@ export class PublicPropertyController {
   @Get(':reference/similar')
   async findSimilar(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Param('reference') reference: string,
     @Query('limit') limitStr?: string,
@@ -165,11 +170,12 @@ export class PublicPropertyController {
   @Get(':reference')
   async findByReference(
     @Headers('x-api-key') apiKey: string,
-    @Req() req: PropertyUrlRequest,
+    @Req() req: PropertyTitleRequest,
     @Res({ passthrough: true }) res: Response,
     @Param('reference') reference: string,
   ) {
     const tenant = await this.getTenantFromApiKey(apiKey, req);
+    req.spwTitleKind = 'detail';
     // The 404 is thrown inside the loader so it never carries the cache headers.
     return this.cached(
       req,

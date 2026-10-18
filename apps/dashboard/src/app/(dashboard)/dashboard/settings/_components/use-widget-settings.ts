@@ -6,6 +6,7 @@ import { apiPut } from '@/lib/api';
 import type { TenantCurrent } from './types';
 import { EMPTY_PURCHASE_COSTS, purchaseCostsFromSettings, purchaseCostsToSettings, type PurchaseCostsForm } from './purchase-costs-settings';
 import { EMPTY_SITE_AGENT, siteAgentFromSettings, siteAgentToSettings, type SiteAgentForm } from './site-agent-settings';
+import { EMPTY_TITLE_PATTERNS, titlePatternsFromSettings, titlePatternsToSettings, type TitlePatternsForm } from './title-pattern-settings';
 
 // State for the Widget tab (search options, theme colour, reCAPTCHA). All
 // three cards save through the same onSaveWidget payload.
@@ -42,6 +43,9 @@ export function useWidgetSettings() {
   const [cardShareIcon, setCardShareIcon] = useState(false);
   const [purchaseCosts, setPurchaseCosts] = useState<PurchaseCostsForm>(EMPTY_PURCHASE_COSTS);
   const [siteAgent, setSiteAgent] = useState<SiteAgentForm>(EMPTY_SITE_AGENT);
+  const [titlePatterns, setTitlePatterns] = useState<TitlePatternsForm>(EMPTY_TITLE_PATTERNS);
+  // The website's languages (Settings → General), for the title patterns.
+  const [siteLanguages, setSiteLanguages] = useState<string[]>(['en']);
   const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [savingWidget, setSavingWidget] = useState(false);
 
@@ -87,6 +91,10 @@ export function useWidgetSettings() {
     setCardShareIcon(settings?.cardShareIcon === true);
     setPurchaseCosts(purchaseCostsFromSettings(settings?.purchaseCosts));
     setSiteAgent(siteAgentFromSettings(settings?.siteAgent));
+    setTitlePatterns(titlePatternsFromSettings(settings?.titlePatterns));
+    const langs = Array.isArray(settings?.languages) ? settings.languages.filter((l) => typeof l === 'string' && l) : [];
+    const first = settings?.defaultLanguage || 'en';
+    setSiteLanguages([first, ...langs.filter((l) => l !== first)]);
     if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
   };
 
@@ -135,6 +143,7 @@ export function useWidgetSettings() {
         cardShareIcon,
         purchaseCosts: purchaseCostsToSettings(purchaseCosts),
         siteAgent: siteAgentToSettings(siteAgent),
+        titlePatterns: titlePatternsToSettings(titlePatterns),
         baseCurrency,
       });
       toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
@@ -180,6 +189,9 @@ export function useWidgetSettings() {
     setPurchaseCosts,
     siteAgent,
     setSiteAgent,
+    titlePatterns,
+    setTitlePatterns,
+    siteLanguages,
     baseCurrency,
     setBaseCurrency,
     savingWidget,

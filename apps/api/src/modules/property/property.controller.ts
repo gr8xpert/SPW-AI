@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { PropertyService } from './property.service';
+import { PropertyTitleService } from './property-title.service';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto, LockFieldsDto, UnlockFieldsDto } from './dto';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
@@ -7,7 +8,10 @@ import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorato
 @Controller('api/dashboard/properties')
 @UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
 export class PropertyController {
-  constructor(private readonly propertyService: PropertyService) {}
+  constructor(
+    private readonly propertyService: PropertyService,
+    private readonly propertyTitleService: PropertyTitleService,
+  ) {}
 
   @Get()
   async findAll(@CurrentTenant() tenantId: number, @Query() dto: ListPropertyDto) {
@@ -17,6 +21,17 @@ export class PropertyController {
   @Get('search')
   async search(@CurrentTenant() tenantId: number, @Query() dto: SearchPropertyDto) {
     return this.propertyService.search(tenantId, dto);
+  }
+
+  // Settings → Widget → Listing titles: the unsaved patterns applied to a few
+  // published listings, so the client sees the result before saving.
+  @Post('title-preview')
+  async titlePreview(
+    @CurrentTenant() tenantId: number,
+    @Body() body: { titlePatterns?: unknown; languages?: unknown },
+  ) {
+    const languages = Array.isArray(body?.languages) ? body.languages.filter((l): l is string => typeof l === 'string') : [];
+    return this.propertyTitleService.preview(tenantId, body?.titlePatterns, languages);
   }
 
   @Get(':id')

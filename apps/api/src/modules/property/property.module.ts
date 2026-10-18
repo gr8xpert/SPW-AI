@@ -9,13 +9,16 @@ import { Property, User, Location, PropertyType, Tenant, Plan } from '../../data
 import { LocationModule } from '../location/location.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { WebhookModule } from '../webhook/webhook.module';
+import { LabelModule } from '../label/label.module';
+import { PropertyTitleService } from './property-title.service';
+import { PropertyTitleInterceptor } from './property-title.interceptor';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property, User, Location, PropertyType, Tenant, Plan]), LocationModule, TenantModule, WebhookModule],
+  imports: [TypeOrmModule.forFeature([Property, User, Location, PropertyType, Tenant, Plan]), LocationModule, TenantModule, WebhookModule, LabelModule],
   controllers: [PropertyController, PublicPropertyController, PublicPropertyRefsController],
-  providers: [PropertyService, PropertySearchService, ApiKeyThrottlerGuard, DashboardAddonGuard],
+  providers: [PropertyService, PropertySearchService, PropertyTitleService, PropertyTitleInterceptor, ApiKeyThrottlerGuard, DashboardAddonGuard],
   exports: [PropertyService, PropertySearchService],
 })
 export class PropertyModule {}

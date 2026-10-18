@@ -13,6 +13,7 @@ import { SUPPORTED_CURRENCIES } from './types';
 import type { WidgetSettings } from './use-widget-settings';
 import { PurchaseCostsSettings } from './purchase-costs-settings';
 import { SiteAgentSettings } from './site-agent-settings';
+import { TitlePatternSettings } from './title-pattern-settings';
 
 export function WidgetTab({ widget }: { widget: WidgetSettings }) {
   const {
@@ -44,6 +45,9 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
     setPurchaseCosts,
     siteAgent,
     setSiteAgent,
+    titlePatterns,
+    setTitlePatterns,
+    siteLanguages,
     baseCurrency,
     setBaseCurrency,
     savingWidget,
@@ -277,6 +281,8 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
             <PurchaseCostsSettings value={purchaseCosts} onChange={setPurchaseCosts} />
 
             <SiteAgentSettings value={siteAgent} onChange={setSiteAgent} />
+
+            <TitlePatternSettings value={titlePatterns} onChange={setTitlePatterns} languages={siteLanguages} />
 
             <div className="space-y-2">
               <Label>Bedroom Options</Label>
