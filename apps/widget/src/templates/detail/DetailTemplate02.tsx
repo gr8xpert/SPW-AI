@@ -1,6 +1,6 @@
 // Property page design 02: a full-width photo, then the title, summary and
 // description beside a sticky price / agent / inquiry column, the highlights
-// (facts + features), the actions (purchase costs, share, brochure, EPC), a
+// (facts), the features as buttons, the actions (purchase costs, share, brochure, EPC), a
 // photo grid, the map — and below the map only similar properties.
 import { useEffect, useState } from 'preact/hooks';
 import { useSelector } from '@/hooks/useStore';
@@ -11,7 +11,6 @@ import { actions } from '@/core/actions';
 import RsDetailTitle from '@/components/detail/RsDetailTitle';
 import RsDetailPrice from '@/components/detail/RsDetailPrice';
 import RsDetailDescription from '@/components/detail/RsDetailDescription';
-import RsDetailPriceList from '@/components/detail/RsDetailPriceList';
 import RsDetailVideoEmbed from '@/components/detail/RsDetailVideoEmbed';
 import RsDetailTourEmbed from '@/components/detail/RsDetailTourEmbed';
 import RsDetailMap from '@/components/detail/RsDetailMap';
@@ -25,7 +24,7 @@ import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailType from '@/components/detail/RsDetailType';
 import RsDetailRef from '@/components/detail/RsDetailRef';
 import Skeleton from '@/components/common/Skeleton';
-import { ActionRow, Highlights, PhotoGrid, SummaryLine, TypeHeading } from './Detail02Parts';
+import { ActionRow, FeatureButtons, Highlights, PhotoGrid, SummaryLine, TypeHeading } from './Detail02Parts';
 
 export default function DetailTemplate02() {
   const { t } = useLabels();
@@ -90,7 +89,7 @@ export default function DetailTemplate02() {
           <TypeHeading property={property} t={t} />
           <RsDetailDescription description={property.description} />
           <Highlights property={property} t={t} />
-          <RsDetailPriceList property={property} />
+          <FeatureButtons property={property} t={t} />
           <ActionRow property={property} t={t} />
           <PhotoGrid images={images} onOpen={setLightbox} t={t} />
           {property.videoUrl && <RsDetailVideoEmbed />}

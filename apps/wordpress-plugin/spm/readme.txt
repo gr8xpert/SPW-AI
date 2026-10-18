@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.8
+Stable tag: 2.9.9
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,11 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.9 =
+* Property pages have one address. Extra parameters (`?page=2`, `?ref=`, anything SPM does not use), an old title, a trailing slash or the other language's slug get a 301 to the clean address; tracking parameters (utm_*, gclid, fbclid, …) are kept. Stops crawlers looping through endless variants of a page.
+* Property pages are saved as finished HTML (uploads/spm-cache/pages) and served from there for up to 6 hours; a property or dashboard change, a widget or plugin update, or any saved page clears them. No cookies are set on property pages for visitors, and they send Cache-Control so a server or Cloudflare cache can keep them. Turn the HTML cache off with `define('SPM_PAGE_CACHE', false);`.
+* Fix: Rank Math could still print its own canonical (pointing at the plain property-detail page) next to SPM's. Now there is exactly one.
 
 = 2.9.8 =
 * Fix: property and wishlist pages you build yourself (with `[spm_detail]`, `[spm_wishlist]` or the widget code) now work without "Create Pages". Property links no longer show "Page not found", and the wishlist link goes to your page. Works with Elementor and Divi too. "Create Pages" now uses such a page instead of making a second one.

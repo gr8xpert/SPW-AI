@@ -52,12 +52,10 @@ export function TypeHeading({ property, t }: { property: Property; t: T }) {
   return <h2 class="rs-d02-heading">{t(key, fallback).replace('{type}', type).replace('{location}', place)}</h2>;
 }
 
-/** Facts table on the left, the listing's features in two columns on the right. */
+/** Facts table across the full width. */
 export function Highlights({ property, t }: { property: Property; t: T }) {
   const config = useConfig();
   const { formatPrice } = useCurrency();
-  const catalog = useSelector(selectors.getFeatures);
-  const features = resolveFeatures(property.features, catalog);
   const fees = Number(property.communityFees) || 0;
   const rows: [string, string | number | null | undefined][] = [
     [t('detail_ref', 'Reference'), getDisplayReference(property, config)],
@@ -78,20 +76,28 @@ export function Highlights({ property, t }: { property: Property; t: T }) {
   return (
     <section class="rs-d02-section rs-d02-highlights">
       <h2 class="rs-d02-section__title">{t('detail_highlights', 'Property Highlights')}</h2>
-      <div class="rs-d02-highlights__grid">
-        <table class="rs-d02-facts">
-          <tbody>
-            {shown.map(([label, value]) => (
-              <tr key={label}><th scope="row">{label}:</th><td>{value}</td></tr>
-            ))}
-          </tbody>
-        </table>
-        {features.length > 0 && (
-          <ul class="rs-d02-features">
-            {features.map((f) => <li key={f.id}>{f.name}</li>)}
-          </ul>
-        )}
-      </div>
+      <table class="rs-d02-facts">
+        <tbody>
+          {shown.map(([label, value]) => (
+            <tr key={label}><th scope="row">{label}:</th><td>{value}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+/** The listing's features as buttons (names from the Features list). */
+export function FeatureButtons({ property, t }: { property: Property; t: T }) {
+  const catalog = useSelector(selectors.getFeatures);
+  const features = resolveFeatures(property.features, catalog);
+  if (!features.length) return null;
+  return (
+    <section class="rs-d02-section rs-d02-features">
+      <h2 class="rs-d02-section__title">{t('detail_features', 'Features')}</h2>
+      <ul class="rs-d02-features__list">
+        {features.map((f) => <li key={f.id} class="rs-d02-features__item">{f.name}</li>)}
+      </ul>
     </section>
   );
 }

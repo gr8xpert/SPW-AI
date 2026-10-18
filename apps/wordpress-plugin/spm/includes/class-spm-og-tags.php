@@ -37,6 +37,15 @@ class SPM_OG_Tags {
         // After SPM_Rewrite::route_to_detail (priority 0), before any output.
         add_action('template_redirect', [$this, 'prepare'], 5);
         add_action('wp_head', [$this, 'render'], 1);
+        // Rank Math works its canonical out once and keeps it, sometimes before
+        // prepare() runs, so these are added up front and decide per request.
+        add_filter('rank_math/frontend/canonical', [$this, 'drop_on_detail'], 999);
+        add_filter('wpseo_canonical', [$this, 'drop_on_detail'], 999);
+    }
+
+    /** SEO plugins' canonical: none on property pages (ours is the only one). */
+    public function drop_on_detail($value) {
+        return SPM_Rewrite::is_property_detail() ? false : $value;
     }
 
     /** Fetch the property and register the title / SEO-plugin overrides. */

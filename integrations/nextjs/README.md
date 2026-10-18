@@ -85,6 +85,10 @@ See `example/app/property/[slug]/page.tsx`. It uses `generateMetadata` → `spmP
 
 If property pages live under another folder (e.g. `/propiedad/[slug]`), set `NEXT_PUBLIC_SPM_PROPERTY_SLUG` to that name.
 
+### One address per property
+
+Copy `example/proxy.ts` to the project root (Next 14–15: name it `middleware.ts` and the function `middleware`). Property pages with parameters SPM does not use (`?page=2`, `?ref=…`) or a trailing slash get a 301 to the clean address; tracking parameters (utm_*, gclid, fbclid, …) are kept. The example page also sends an old title or a bare reference to the property's current address. This stops crawlers looping through endless variants of a page; the page itself is cached for 10 minutes (`revalidate`).
+
 ## 6. Sitemap: `app/sitemap.ts`
 
 See `example/app/sitemap.ts`. Add your own pages to the list.

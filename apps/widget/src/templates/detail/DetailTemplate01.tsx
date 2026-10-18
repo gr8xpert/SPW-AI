@@ -15,7 +15,6 @@ import RsDetailAddress from '@/components/detail/RsDetailAddress';
 import RsDetailType from '@/components/detail/RsDetailType';
 import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailSpecs from '@/components/detail/RsDetailSpecs';
-import RsDetailPriceList from '@/components/detail/RsDetailPriceList';
 import RsDetailEnergyRating from '@/components/detail/RsDetailEnergyRating';
 import RsDetailDescription from '@/components/detail/RsDetailDescription';
 import RsDetailVideoEmbed from '@/components/detail/RsDetailVideoEmbed';
@@ -271,8 +270,6 @@ export default function DetailTemplate01() {
           </div>
 
           <RsDetailSpecs property={property} />
-
-          <RsDetailPriceList property={property} />
 
           <RsDetailDescription description={property.description} />
 

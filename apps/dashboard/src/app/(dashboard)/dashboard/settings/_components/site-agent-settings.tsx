@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { api } from '@/lib/api';
+import { useApi } from '@/hooks/use-api';
 
 // The agent shown on property pages (design 02's side column, above the
 // form). The client's own public details.
@@ -40,6 +40,9 @@ const FIELDS: { key: Exclude<keyof SiteAgentForm, 'photo'>; label: string; place
 
 export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; onChange: (v: SiteAgentForm) => void }) {
   const { toast } = useToast();
+  // useApi sends FormData as multipart; the axios client forces JSON and the
+  // file never reached the server.
+  const api = useApi();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -53,7 +56,7 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
       const form = new FormData();
       form.append('file', file);
       const res = await api.post('/api/dashboard/upload', form);
-      const data = (res?.data?.data ?? res?.data ?? res) as { url?: string };
+      const data = (res?.data ?? res) as { url?: string };
       if (!data?.url) throw new Error('The upload returned no address.');
       onChange({ ...value, photo: data.url });
     } catch (e) {

@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { SpmBlock } from '@/spm/SpmBlock';
+import { spmPropertyPath } from '@/spm/config';
 import { spmGetProperty, spmJsonLdString, spmPropertyJsonLd, spmPropertyMetadata } from '@/spm/server';
 
 // Every property page is rendered on the server (title, description, preview
@@ -19,6 +20,10 @@ export default async function PropertyPage({ params }: Props) {
   const { slug } = await params;
   const property = await spmGetProperty(slug);
   if (!property) notFound(); // a real 404 for sold / removed listings
+  // An old title or the bare reference: 301 to the property's one address.
+  if (property.urlSegment && decodeURIComponent(slug) !== property.urlSegment) {
+    permanentRedirect(spmPropertyPath(property.urlSegment));
+  }
 
   return (
     <main>

@@ -329,6 +329,7 @@ class SPM_Data_Sync {
             if ($p && file_exists($p) && @unlink($p)) $n++;
         }
         $n += SPM_Page_Results::instance()->clear();
+        if (class_exists('SPM_Detail_Page')) $n += SPM_Detail_Page::clear();
         delete_option('spm_last_sync');
         delete_option('spm_data_versions');
         delete_option('spm_last_check');

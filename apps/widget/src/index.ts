@@ -142,16 +142,17 @@ function bootStillValid(b: Boot, config: WidgetConfig): boolean {
     .every((k) => b.config[k] === config[k]);
 }
 
-// The property reference(s) a detail page's address may carry: `?ref=` on
-// propertyPageUrl links; on pretty links, the path segment after the detail
-// slug (which may be language-prefixed, e.g. "de/property", so match on its
-// last part).
+// The property reference(s) a detail page's address may carry: on pretty
+// links, the path segment after the detail slug (which may be
+// language-prefixed, e.g. "de/property", so match on its last part); else
+// `?ref=` (propertyPageUrl links). The path wins: /property/x_R1?ref=R2 is
+// R1's address, and showing R2 there would contradict its canonical.
 function detailRefCandidates(config: WidgetConfig): string[] {
   const queryRef = new URLSearchParams(window.location.search).get('ref');
-  if (queryRef) return [queryRef];
   const slug = (config.propertyPageSlug || 'property').split('/').filter(Boolean).pop() || 'property';
   const pathSegments = window.location.pathname.split('/').filter(Boolean);
   const slugIdx = pathSegments.indexOf(slug);
+  if (queryRef && (slugIdx < 0 || !pathSegments[slugIdx + 1])) return [queryRef];
   const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
   return segment ? extractRefCandidates(decodeURIComponent(segment), refFirst(config) ? 'start' : config.propertyRefPosition) : [];
 }
@@ -410,7 +411,7 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   if (hasDetailTemplate && !seoHooked) {
     seoHooked = true;
     store.subscribeSlice('selectedProperty', (property) => {
-      if (property) applyPropertySeo(property);
+      if (property) applyPropertySeo(property, pageConfig ?? config);
     });
   }
   if (hasDetailTemplate && !store.getState().selectedProperty) {

@@ -12,7 +12,6 @@ import RsDetailStatus from './RsDetailStatus';
 import RsDetailDescription from './RsDetailDescription';
 import RsDetailFeatures from './RsDetailFeatures';
 import RsDetailSpecs from './RsDetailSpecs';
-import RsDetailPriceList from './RsDetailPriceList';
 import RsDetailResources from './RsDetailResources';
 import RsDetailVideoEmbed from './RsDetailVideoEmbed';
 import RsDetailTourEmbed from './RsDetailTourEmbed';
@@ -68,7 +67,6 @@ export default function RsDetail() {
           </div>
 
           <RsDetailSpecs property={property} />
-          <RsDetailPriceList property={property} />
           <RsDetailDescription description={property.description} />
           <RsDetailFeatures features={property.features} />
           <RsDetailResources />

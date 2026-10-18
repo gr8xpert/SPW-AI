@@ -29,6 +29,7 @@ class SPM_Plugin {
         SPM_Rewrite::instance();
         SPM_Page_Finder::instance();
         SPM_OG_Tags::instance();
+        SPM_Detail_Page::instance();
         SPM_Data_Sync::instance();
         SPM_Page_Results::instance();
         SPM_Cache_Exclusions::instance();

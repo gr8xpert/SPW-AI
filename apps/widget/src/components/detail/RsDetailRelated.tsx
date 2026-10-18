@@ -7,6 +7,7 @@ import { selectors } from '@/core/selectors';
 import { getDataLoader } from '@/core/data-loader';
 import type { Property } from '@/types';
 import { formatPropertyPrice } from '@/core/property-display';
+import { buildPropertyUrl } from '@/core/url-utils';
 
 interface Props {
   limit?: number;
@@ -50,7 +51,7 @@ export default function RsDetailRelated({ limit }: Props) {
           <a
             key={p.id}
             class="rs-detail-related__card"
-            href={`?ref=${p.reference}`}
+            href={buildPropertyUrl(p, config) || '#'}
             style={`--i:${i}`}
           >
             <div class="rs-detail-related__image">
