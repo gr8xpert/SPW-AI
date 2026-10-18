@@ -747,7 +747,10 @@ function searchParams(filters: SearchFilters): Record<string, string | number | 
   if (filters.isFeatured) params.isFeatured = true;
   if (filters.isOwnProperty) params.isOwnProperty = true;
   if (filters.keyReady) params.keyReady = true;
-  if (filters.sortBy) params.sortBy = filters.sortBy;
+  // The site's default sort (Settings → Widget). Newest first is the API's own
+  // order, so it isn't sent: the plugin's saved first page keeps matching.
+  const sortBy = filters.sortBy || store.getState().config.defaultSort;
+  if (sortBy && (filters.sortBy || sortBy !== 'create_date_desc')) params.sortBy = sortBy;
   if (filters.page) params.page = filters.page;
   if (filters.limit) params.limit = filters.limit;
   if (filters.bounds) params.bounds = filters.bounds;

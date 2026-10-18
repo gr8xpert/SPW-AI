@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Tabs,
@@ -25,6 +25,7 @@ import { WebhooksTab } from './_components/webhooks-tab';
 import { AiTab } from './_components/ai-tab';
 import { AiChatTab } from './_components/ai-chat-tab';
 import { CacheTab } from './_components/cache-tab';
+import { updateQuery } from './_components/widget-ui';
 
 // Each tab saves on its own. The state lives here (in one hook per tab) and
 // not inside the tab components, because Radix unmounts inactive tabs and
@@ -41,6 +42,17 @@ export default function SettingsPage() {
   const ai = useAiSettings();
   const apiKey = useApiKeySettings(accessToken);
   const cache = useCacheSettings();
+  // The open tab is in the address (?tab=widget&section=search), so a link
+  // can open the right place.
+  const [tab, setTab] = useState('general');
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('tab');
+    if (fromUrl) setTab(fromUrl);
+  }, []);
+  const changeTab = (next: string) => {
+    setTab(next);
+    updateQuery({ tab: next, section: null });
+  };
 
   // One tenant fetch fills several tabs; each hook copies what it owns.
   useEffect(() => {
@@ -70,7 +82,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
+      <Tabs value={tab} onValueChange={changeTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">
             <Building2 className="h-4 w-4 mr-2" />

@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiPut } from '@/lib/api';
 import type { TenantCurrent } from './types';
 import { EMPTY_PURCHASE_COSTS, purchaseCostsFromSettings, purchaseCostsToSettings, type PurchaseCostsForm } from './purchase-costs-settings';
 import { EMPTY_SITE_AGENT, siteAgentFromSettings, siteAgentToSettings, type SiteAgentForm } from './site-agent-settings';
+import { EMPTY_SORT_OPTIONS, sortOptionsFromSettings, sortOptionsToSettings, type SortOptionsForm } from './sort-options-settings';
 import { EMPTY_TITLE_PATTERNS, titlePatternsFromSettings, titlePatternsToSettings, type TitlePatternsForm } from './title-pattern-settings';
 
-// State for the Widget tab (search options, theme colour, reCAPTCHA). All
-// three cards save through the same onSaveWidget payload.
+// State for the Widget tab. Every section saves through the one onSaveWidget
+// payload; `dirty` compares that payload with the one last loaded or saved.
 const RECAPTCHA_KEY_RE = /^6L[\w-]{38}$/;
 
 const DEFAULT_SALE_PRICES = [50000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000];
@@ -41,6 +42,8 @@ export function useWidgetSettings() {
   const [hideEmptySearchOptions, setHideEmptySearchOptions] = useState(true);
   // Share icon beside the heart on listing cards (default off).
   const [cardShareIcon, setCardShareIcon] = useState(false);
+  // "Sort by" choices on the website and the starting sort.
+  const [sortOptions, setSortOptions] = useState<SortOptionsForm>(EMPTY_SORT_OPTIONS);
   const [purchaseCosts, setPurchaseCosts] = useState<PurchaseCostsForm>(EMPTY_PURCHASE_COSTS);
   const [siteAgent, setSiteAgent] = useState<SiteAgentForm>(EMPTY_SITE_AGENT);
   const [titlePatterns, setTitlePatterns] = useState<TitlePatternsForm>(EMPTY_TITLE_PATTERNS);
@@ -48,6 +51,9 @@ export function useWidgetSettings() {
   const [siteLanguages, setSiteLanguages] = useState<string[]>(['en']);
   const [baseCurrency, setBaseCurrency] = useState('EUR');
   const [savingWidget, setSavingWidget] = useState(false);
+  // The payload as loaded / last saved (JSON); null until the tenant arrives.
+  const [baseline, setBaseline] = useState<string | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
 
   // Fills this tab from GET /api/dashboard/tenant (called by the page loader).
   const applyTenant = (res: TenantCurrent) => {
@@ -89,6 +95,7 @@ export function useWidgetSettings() {
     setMortgageInterestRate(typeof settings?.mortgageInterestRate === 'number' ? String(settings.mortgageInterestRate) : '');
     setHideEmptySearchOptions(settings?.hideEmptySearchOptions !== false);
     setCardShareIcon(settings?.cardShareIcon === true);
+    setSortOptions(sortOptionsFromSettings(settings?.sortOptions, settings?.defaultSort));
     setPurchaseCosts(purchaseCostsFromSettings(settings?.purchaseCosts));
     setSiteAgent(siteAgentFromSettings(settings?.siteAgent));
     setTitlePatterns(titlePatternsFromSettings(settings?.titlePatterns));
@@ -96,7 +103,54 @@ export function useWidgetSettings() {
     const first = settings?.defaultLanguage || 'en';
     setSiteLanguages([first, ...langs.filter((l) => l !== first)]);
     if (settings?.baseCurrency) setBaseCurrency(settings.baseCurrency);
+    setLoadTick((n) => n + 1);
   };
+
+  const payload = () => ({
+    bedroomOptions,
+    bathroomOptions,
+    priceOptions,
+    // Every type is sent, so clearing a box removes its floor.
+    minPrices: Object.fromEntries(
+      ['sale', 'development', 'rent', 'holiday_rent'].map((k) => [k, minPrices[k] > 0 ? minPrices[k] : null]),
+    ),
+    enabledListingTypes,
+    primaryColor,
+    wishlistIcon,
+    mapVariation,
+    mapTiles:
+      mapTiles.provider === 'maptiler'
+        ? { provider: 'maptiler', key: mapTiles.key.trim() }
+        : mapTiles.provider === 'custom'
+          ? { provider: 'custom', url: mapTiles.url.trim(), attribution: mapTiles.attribution.trim() }
+          : { provider: 'osm' },
+    // Empty strings clear them (undefined used to leave the old value).
+    recaptchaSiteKey: recaptchaSiteKey.trim(),
+    recaptchaSecretKey: recaptchaSecretKey.trim(),
+    similarPropertiesLimit,
+    // null clears it (back to the widget default).
+    mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
+    hideEmptySearchOptions,
+    cardShareIcon,
+    ...sortOptionsToSettings(sortOptions),
+    purchaseCosts: purchaseCostsToSettings(purchaseCosts),
+    siteAgent: siteAgentToSettings(siteAgent),
+    titlePatterns: titlePatternsToSettings(titlePatterns),
+    baseCurrency,
+  });
+  const current = JSON.stringify(payload());
+  const dirty = baseline !== null && current !== baseline;
+
+  // After applyTenant's state has rendered: that is the saved state.
+  useEffect(() => {
+    if (loadTick) setBaseline(JSON.stringify(payload()));
+    // Runs once per load; payload() reads this render's state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadTick]);
+
+  // Back to what is saved. A reload, not applyTenant: that skips settings
+  // never saved, so their edits would stay. The URL keeps tab and section.
+  const onDiscardWidget = () => window.location.reload();
 
   const onSaveWidget = async () => {
     const site = recaptchaSiteKey.trim();
@@ -115,38 +169,10 @@ export function useWidgetSettings() {
     }
     setSavingWidget(true);
     try {
-      await apiPut('/api/dashboard/tenant/settings', {
-        bedroomOptions,
-        bathroomOptions,
-        priceOptions,
-        // Every type is sent, so clearing a box removes its floor.
-        minPrices: Object.fromEntries(
-          ['sale', 'development', 'rent', 'holiday_rent'].map((k) => [k, minPrices[k] > 0 ? minPrices[k] : null]),
-        ),
-        enabledListingTypes,
-        primaryColor,
-        wishlistIcon,
-        mapVariation,
-        mapTiles:
-          mapTiles.provider === 'maptiler'
-            ? { provider: 'maptiler', key: mapTiles.key.trim() }
-            : mapTiles.provider === 'custom'
-              ? { provider: 'custom', url: mapTiles.url.trim(), attribution: mapTiles.attribution.trim() }
-              : { provider: 'osm' },
-        // Empty strings clear them (undefined used to leave the old value).
-        recaptchaSiteKey: site,
-        recaptchaSecretKey: secret,
-        similarPropertiesLimit,
-        // null clears it (back to the widget default).
-        mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
-        hideEmptySearchOptions,
-        cardShareIcon,
-        purchaseCosts: purchaseCostsToSettings(purchaseCosts),
-        siteAgent: siteAgentToSettings(siteAgent),
-        titlePatterns: titlePatternsToSettings(titlePatterns),
-        baseCurrency,
-      });
-      toast({ title: 'Widget settings saved', description: 'Search options have been updated.' });
+      const body = payload();
+      await apiPut('/api/dashboard/tenant/settings', body);
+      setBaseline(JSON.stringify(body));
+      toast({ title: 'Widget settings saved', description: 'Your website picks them up within a minute.' });
     } catch (err) {
       toast({ title: 'Failed to save widget settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
     } finally {
@@ -185,6 +211,8 @@ export function useWidgetSettings() {
     setHideEmptySearchOptions,
     cardShareIcon,
     setCardShareIcon,
+    sortOptions,
+    setSortOptions,
     purchaseCosts,
     setPurchaseCosts,
     siteAgent,
@@ -195,8 +223,10 @@ export function useWidgetSettings() {
     baseCurrency,
     setBaseCurrency,
     savingWidget,
+    dirty,
     applyTenant,
     onSaveWidget,
+    onDiscardWidget,
   };
 }
 

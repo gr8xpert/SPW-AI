@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 
@@ -45,6 +46,25 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
   const api = useApi();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  // On while there's a name, or once the client switches it on / edits. Off
+  // empties the details (no name = no agent); on again brings them back.
+  const [opened, setOpened] = useState(false);
+  const removed = useRef<SiteAgentForm | null>(null);
+  const on = opened || value.name.trim() !== '';
+  const edit = (next: SiteAgentForm) => {
+    setOpened(true);
+    onChange(next);
+  };
+  const toggle = (next: boolean) => {
+    if (next) {
+      setOpened(true);
+      if (removed.current) onChange(removed.current);
+    } else {
+      removed.current = value;
+      setOpened(false);
+      onChange(EMPTY_SITE_AGENT);
+    }
+  };
 
   const upload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -58,7 +78,7 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
       const res = await api.post('/api/dashboard/upload', form);
       const data = (res?.data ?? res) as { url?: string };
       if (!data?.url) throw new Error('The upload returned no address.');
-      onChange({ ...value, photo: data.url });
+      edit({ ...value, photo: data.url });
     } catch (e) {
       toast({ title: 'Photo upload failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
@@ -69,13 +89,17 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
 
   return (
     <div className="space-y-4 rounded-md border p-4">
-      <div className="space-y-1">
-        <Label>Website agent</Label>
-        <p className="text-xs text-muted-foreground">
-          The contact shown on property pages (property page design 02: in the side column, above the contact
-          form). Leave the name empty to show no agent.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="site-agent-on">Website agent</Label>
+          <p className="text-xs text-muted-foreground">
+            A contact shown on property pages (property page design 02: in the side column, above the contact
+            form). It needs at least a name.
+          </p>
+        </div>
+        <Switch id="site-agent-on" checked={on} onCheckedChange={toggle} />
       </div>
+      {on && (
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex flex-col items-center gap-2">
           <div className="h-24 w-24 overflow-hidden rounded-full border bg-muted">
@@ -89,7 +113,7 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
             {uploading ? 'Uploading…' : value.photo ? 'Change photo' : 'Upload photo'}
           </Button>
           {value.photo && (
-            <button type="button" className="text-xs text-muted-foreground underline" onClick={() => onChange({ ...value, photo: '' })}>
+            <button type="button" className="text-xs text-muted-foreground underline" onClick={() => edit({ ...value, photo: '' })}>
               Remove photo
             </button>
           )}
@@ -102,12 +126,13 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
                 id={`site-agent-${f.key}`}
                 placeholder={f.placeholder}
                 value={value[f.key]}
-                onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
+                onChange={(e) => edit({ ...value, [f.key]: e.target.value })}
               />
             </div>
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

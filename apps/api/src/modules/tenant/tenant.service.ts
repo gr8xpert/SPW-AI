@@ -20,6 +20,18 @@ export interface CacheClearResult {
   clearedAt: string; // ISO string
 }
 
+// The website's "Sort by" choices (widget RsSort; property search applySorting).
+const SORT_VALUES = [
+  'create_date_desc',
+  'create_date',
+  'write_date_desc',
+  'write_date',
+  'list_price',
+  'list_price_desc',
+  'is_featured_desc',
+  'location_id',
+];
+
 @Injectable()
 export class TenantService {
   private readonly logger = new Logger(TenantService.name);
@@ -168,6 +180,22 @@ export class TenantService {
         throw new BadRequestException(`Listing titles: unknown field ${unknown.map((t) => `{${t}}`).join(', ')}.`);
       }
       (publicSettings as { titlePatterns?: unknown }).titlePatterns = titles;
+    }
+    // Sort choices: known values only; null/empty = all of them. The default
+    // sort must be one of the offered choices, else the first one.
+    const sortIn = (publicSettings as { sortOptions?: unknown }).sortOptions;
+    if (sortIn !== undefined) {
+      const list = Array.isArray(sortIn) ? sortIn.filter((v): v is string => typeof v === 'string' && SORT_VALUES.includes(v)) : [];
+      (publicSettings as { sortOptions?: unknown }).sortOptions = list.length ? [...new Set(list)] : null;
+    }
+    const defaultIn = (publicSettings as { defaultSort?: unknown }).defaultSort;
+    if (defaultIn !== undefined) {
+      // This save's list when it sends one (null = all), else the saved one.
+      const offered = (sortIn !== undefined
+        ? (publicSettings as { sortOptions?: string[] | null }).sortOptions
+        : (tenant.settings as TenantSettings | null)?.sortOptions) ?? SORT_VALUES;
+      (publicSettings as { defaultSort?: unknown }).defaultSort =
+        typeof defaultIn === 'string' && offered.includes(defaultIn) ? defaultIn : offered[0];
     }
     const rateIn = (publicSettings as { mortgageInterestRate?: unknown }).mortgageInterestRate;
     if (rateIn != null && rateIn !== '' && mortgageRate(rateIn) == null) {
@@ -351,6 +379,8 @@ export class TenantService {
     // Default on: only an explicit false shows zero-count choices.
     if (s.hideEmptySearchOptions === false) config.hideEmptySearchOptions = false;
     if (s.cardShareIcon === true) config.cardShareIcon = true;
+    if (Array.isArray(s.sortOptions) && s.sortOptions.length) config.enabledSortOptions = s.sortOptions;
+    if (typeof s.defaultSort === 'string' && SORT_VALUES.includes(s.defaultSort)) config.defaultSort = s.defaultSort;
     const purchaseCosts = publicPurchaseCosts(s.purchaseCosts);
     if (purchaseCosts) config.purchaseCosts = purchaseCosts;
     const siteAgent = publicSiteAgent(s.siteAgent);

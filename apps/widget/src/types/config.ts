@@ -90,7 +90,10 @@ export interface WidgetConfig {
   mortgageInterestRate?: number;
   defaultListingType?: string;
   enabledListingTypes?: string[];
+  // Dashboard Settings → Widget → Sort Options: the "Sort by" choices and the
+  // sort results start in (newest first when unset).
   enabledSortOptions?: string[];
+  defaultSort?: string;
   radiusOptions?: number[];
   // Map background tiles (Settings → Widget → Map tiles). OpenStreetMap when unset.
   mapTiles?: { provider?: 'osm' | 'maptiler' | 'custom'; key?: string; url?: string; attribution?: string };

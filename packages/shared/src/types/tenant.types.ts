@@ -170,6 +170,10 @@ export interface TenantSettings {
   hideEmptySearchOptions?: boolean;
   // Share icon beside the wishlist heart on listing cards. Default off.
   cardShareIcon?: boolean;
+  // "Sort by" choices on the website (create_date_desc, list_price, ...);
+  // null/unset = all of them. defaultSort = how results start ordered.
+  sortOptions?: string[] | null;
+  defaultSort?: string;
   // The agent shown on property pages (design 02's side column and contact
   // section): the client's own public details. No name = not shown.
   siteAgent?: { name?: string; title?: string; phone?: string; whatsapp?: string; email?: string; photo?: string };

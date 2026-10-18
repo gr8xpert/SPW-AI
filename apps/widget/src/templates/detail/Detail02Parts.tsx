@@ -87,7 +87,7 @@ export function Highlights({ property, t }: { property: Property; t: T }) {
   );
 }
 
-/** The listing's features as buttons (names from the Features list). */
+/** The listing's features: a grid of names (names from the Features list). */
 export function FeatureButtons({ property, t }: { property: Property; t: T }) {
   const catalog = useSelector(selectors.getFeatures);
   const features = resolveFeatures(property.features, catalog);
@@ -96,7 +96,11 @@ export function FeatureButtons({ property, t }: { property: Property; t: T }) {
     <section class="rs-d02-section rs-d02-features">
       <h2 class="rs-d02-section__title">{t('detail_features', 'Features')}</h2>
       <ul class="rs-d02-features__list">
-        {features.map((f) => <li key={f.id} class="rs-d02-features__item">{f.name}</li>)}
+        {features.map((f) => (
+          <li key={f.id} class="rs-d02-features__item">
+            {f.name}
+          </li>
+        ))}
       </ul>
     </section>
   );

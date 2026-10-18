@@ -1679,6 +1679,10 @@ button.rs-more-filters-btn--active:hover {
 }
 .rs-search-template-07 .rs-t07-tools select.rs-select,
 .rs-search-template-07 .rs-t07-tools .rs-custom-select { width: auto; min-width: 0; }
+/* Sort keeps one width whatever is chosen; its list opens to the left,
+   since the tools sit at the right edge. */
+.rs-search-template-07 .rs-t07-tools .rs-sort__select { min-width: 190px; }
+.rs-search-template-07 .rs-t07-tools .rs-sort__select .rs-custom-select__dropdown { left: auto; right: 0; }
 
 /* Refine: outlined toggle buttons (RsQuickFeatures variation 2). */
 .rs_quick_features--buttons {
@@ -1751,4 +1755,5 @@ button.rs-more-filters-btn--active:hover {
   .rs-search-template-07 .rs-t07-tools .rs-selector select.rs-select { min-width: 76px; }
   .rs-search-template-07 .rs-t07-tools .rs-custom-select,
   .rs-search-template-07 .rs-t07-tools select.rs-select { flex: 1 1 auto; width: 100%; }
+  .rs-search-template-07 .rs-t07-tools .rs-sort__select { min-width: 0; }
 }

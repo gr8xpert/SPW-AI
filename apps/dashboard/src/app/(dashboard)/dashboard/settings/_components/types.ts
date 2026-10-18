@@ -78,6 +78,8 @@ export interface TenantSettings {
   mortgageInterestRate?: number | null;
   hideEmptySearchOptions?: boolean;
   cardShareIcon?: boolean;
+  sortOptions?: string[] | null;
+  defaultSort?: string;
   purchaseCosts?: Record<string, unknown>;
   siteAgent?: Record<string, unknown>;
   baseCurrency?: string;

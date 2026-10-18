@@ -32,6 +32,14 @@ export default function RsSort() {
     [sortOptions, t]
   );
 
+  // No sort picked yet: the site's default, or the first offered choice when
+  // the default isn't offered.
+  const defaultSort = config.defaultSort || 'create_date_desc';
+  const offered = (v: string) => sortOptions.some((o) => o.value === v);
+  const current = filters.sortBy && offered(filters.sortBy)
+    ? filters.sortBy
+    : offered(defaultSort) ? defaultSort : sortOptions[0]?.value;
+
   const handleChange = useCallback((value: string) => {
     setFilter('sortBy', value as SortOption);
     window.RealtySoft?.search();
@@ -44,7 +52,7 @@ export default function RsSort() {
       </label>
       <RsCustomSelect
         options={selectOptions}
-        value={filters.sortBy || 'create_date_desc'}
+        value={current}
         onChange={handleChange}
         class="rs-sort__select"
       />
