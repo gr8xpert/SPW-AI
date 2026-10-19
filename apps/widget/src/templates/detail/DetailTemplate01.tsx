@@ -27,6 +27,7 @@ import RsDetailPdf from '@/components/detail/RsDetailPdf';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
 import RsDetailPurchaseCosts from '@/components/detail/RsDetailPurchaseCosts';
 import Skeleton from '@/components/common/Skeleton';
+import RsDetailNotFound from '@/components/detail/RsDetailNotFound';
 import { resolveFeatures } from '@/core/feature-utils';
 import { getDataLoader } from '@/core/data-loader';
 import { actions } from '@/core/actions';
@@ -205,6 +206,7 @@ export default function DetailTemplate01() {
   const { t } = useLabels();
   const config = useConfig();
   const property = useSelector(selectors.getSelectedProperty);
+  const notFound = useSelector(selectors.getUI).detailNotFound;
   const [featuresOpen, setFeaturesOpen] = useState(false);
 
   // If selectedProperty was populated from a search result (thin data — up to
@@ -222,6 +224,7 @@ export default function DetailTemplate01() {
   }, [property?.reference, property?.__detailFull]);
 
   if (!property) {
+    if (notFound) return <RsDetailNotFound />;
     return (
       <div class="rs-detail">
         <Skeleton type="card" count={1} />

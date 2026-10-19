@@ -22,14 +22,16 @@ import RsDetailInquiryForm from './RsDetailInquiryForm';
 import RsDetailShare from './RsDetailShare';
 import RsDetailWishlist from './RsDetailWishlist';
 import RsDetailBack from './RsDetailBack';
+import RsDetailNotFound from './RsDetailNotFound';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
 
 export default function RsDetail() {
   const config = useConfig();
   const property = useSelector(selectors.getSelectedProperty);
+  const notFound = useSelector(selectors.getUI).detailNotFound;
 
   if (!property) {
-    return null;
+    return notFound ? <RsDetailNotFound /> : null;
   }
 
   return (

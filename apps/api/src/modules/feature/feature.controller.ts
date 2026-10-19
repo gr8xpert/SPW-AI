@@ -24,8 +24,12 @@ export class FeatureController {
   }
 
   @Get()
-  async findAll(@CurrentTenant() tenantId: number, @Query('category') category?: FeatureCategory) {
-    return this.featureService.findAll(tenantId, category);
+  async findAll(
+    @CurrentTenant() tenantId: number,
+    @Query('category') category?: FeatureCategory,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.featureService.findAll(tenantId, category, includeInactive === '1' || includeInactive === 'true');
   }
 
   @Put('reorder')

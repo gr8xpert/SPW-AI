@@ -1,6 +1,6 @@
 // Property page design 02: a full-width photo, then the title, summary and
 // description beside a sticky price / agent / inquiry column, the highlights
-// (facts), the features as buttons, the actions (purchase costs, share, brochure, EPC), a
+// (facts), taxes & fees, the features as buttons, the actions (purchase costs, share, brochure, EPC), a
 // photo grid, the map — and below the map only similar properties.
 import { useEffect, useState } from 'preact/hooks';
 import { useSelector } from '@/hooks/useStore';
@@ -24,11 +24,13 @@ import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailType from '@/components/detail/RsDetailType';
 import RsDetailRef from '@/components/detail/RsDetailRef';
 import Skeleton from '@/components/common/Skeleton';
-import { ActionRow, FeatureButtons, Highlights, PhotoGrid, SummaryLine, TypeHeading } from './Detail02Parts';
+import RsDetailNotFound from '@/components/detail/RsDetailNotFound';
+import { ActionRow, FeatureButtons, Highlights, PhotoGrid, SummaryLine, TaxesFees, TypeHeading } from './Detail02Parts';
 
 export default function DetailTemplate02() {
   const { t } = useLabels();
   const property = useSelector(selectors.getSelectedProperty);
+  const notFound = useSelector(selectors.getUI).detailNotFound;
   const [lightbox, setLightbox] = useState<number | null>(null);
 
   // A property picked from search results is thin (5 photos): load it in full.
@@ -44,6 +46,7 @@ export default function DetailTemplate02() {
   }, [property?.reference, property?.__detailFull]);
 
   if (!property) {
+    if (notFound) return <RsDetailNotFound />;
     return (
       <div class="rs-detail rs-detail-02">
         <Skeleton type="card" count={1} />
@@ -89,6 +92,7 @@ export default function DetailTemplate02() {
           <TypeHeading property={property} t={t} />
           <RsDetailDescription description={property.description} />
           <Highlights property={property} t={t} />
+          <TaxesFees property={property} t={t} />
           <FeatureButtons property={property} t={t} />
           <ActionRow property={property} t={t} />
           <PhotoGrid images={images} onOpen={setLightbox} t={t} />

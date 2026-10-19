@@ -13,6 +13,15 @@ const REQUEST_TIMEOUT_MS = 8_000;
 export const AI_TIMEOUT_MS = 45_000;
 const GET_ATTEMPTS = 3;
 
+// A response the API answered with an error; `status` tells a listing that
+// is gone (404) from a server or network problem.
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export class ApiClient {
   private apiUrl: string;
   private apiKey: string;
@@ -70,7 +79,7 @@ export class ApiClient {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.message || `API error: ${res.status}`);
+      throw new ApiError(body.message || `API error: ${res.status}`, res.status);
     }
 
     const json = await res.json();

@@ -20,6 +20,7 @@ import { applyPropertySeo } from './core/seo';
 import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
 import type { Property, SearchFilters, SearchResults, WidgetConfig } from './types';
 import { navigateTo } from './core/navigate';
+import { ApiError } from './core/api-client';
 import { hasTabPages, isCurrentPage, resultsPageFor } from './core/results-pages';
 
 let dataLoader: DataLoader | null = null;
@@ -155,6 +156,17 @@ function detailRefCandidates(config: WidgetConfig): string[] {
   if (queryRef && (slugIdx < 0 || !pathSegments[slugIdx + 1])) return [queryRef];
   const segment = slugIdx >= 0 ? pathSegments[slugIdx + 1] : pathSegments[pathSegments.length - 1];
   return segment ? extractRefCandidates(decodeURIComponent(segment), refFirst(config) ? 'start' : config.propertyRefPosition) : [];
+}
+
+// A page for a listing that no longer exists shouldn't stay in search engines.
+function markNotIndexable(): void {
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'robots';
+    document.head.appendChild(meta);
+  }
+  meta.content = 'noindex, follow';
 }
 
 // What the current page shows; set by setupPage(), read by the search handler
@@ -416,6 +428,9 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   }
   if (hasDetailTemplate && !store.getState().selectedProperty) {
     const candidates = detailRefCandidates(config);
+    // Gone = the API said 404 for every reading of the address (a sold or
+    // withdrawn listing behind an old link); a network failure is not that.
+    let gone = true;
     for (const ref of candidates) {
       try {
         // The first candidate was asked for while the lists loaded.
@@ -423,10 +438,17 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
         const property = early ?? await loader.getProperty(ref);
         if (run !== pageRun) return; // the visitor already moved on
         actions.setSelectedProperty(property);
+        gone = false;
         break;
       } catch (err) {
+        if (!(err instanceof ApiError && err.status === 404)) gone = false;
         console.warn(`[SPM] No property for ref "${ref}":`, err);
       }
+    }
+    if (run !== pageRun) return;
+    if (gone && !store.getState().selectedProperty) {
+      actions.mergeUI({ detailNotFound: true });
+      markNotIndexable();
     }
   }
 
@@ -487,6 +509,7 @@ export async function refresh(): Promise<void> {
   if (!pageConfig || !dataLoader) return;
   releaseDetached();
   actions.setSelectedProperty(null);
+  actions.mergeUI({ detailNotFound: false });
   actions.setResults(null);
   actions.setError(null);
   actions.setLockedFilters({});

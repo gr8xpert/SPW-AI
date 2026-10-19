@@ -28,6 +28,7 @@ const DEFAULT_STATE: SPMState = {
     detailOpen: false,
     initialized: false,
     highlightedPropertyId: null,
+    detailNotFound: false,
   },
   syncVersion: 0,
 };

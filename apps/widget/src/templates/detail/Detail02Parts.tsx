@@ -56,7 +56,6 @@ export function TypeHeading({ property, t }: { property: Property; t: T }) {
 export function Highlights({ property, t }: { property: Property; t: T }) {
   const config = useConfig();
   const { formatPrice } = useCurrency();
-  const fees = Number(property.communityFees) || 0;
   const rows: [string, string | number | null | undefined][] = [
     [t('detail_ref', 'Reference'), getDisplayReference(property, config)],
     [t('detail_price', 'Price'), formatPropertyPrice(property, (n: number) => formatPrice(n, property.currency), t, t('card_price_on_request', 'Price on Request'))],
@@ -69,7 +68,6 @@ export function Highlights({ property, t }: { property: Property; t: T }) {
     [t('detail_garden', 'Garden'), Number(property.gardenSize) > 0 ? `${Math.round(Number(property.gardenSize))} m²` : null],
     [t('detail_year_built', 'Year Built'), property.year],
     [t('detail_parking', 'Parking'), property.parking],
-    [t('detail_community_fees', 'Community Fees'), fees > 0 ? `${formatPrice(fees, property.currency)}/${t('detail_per_month', 'month')}` : null],
     [t('detail_energy_rating', 'Energy Rating'), property.energyRating],
   ];
   const shown = rows.filter(([, v]) => v != null && String(v).trim() !== '' && String(v) !== '0');
@@ -80,6 +78,31 @@ export function Highlights({ property, t }: { property: Property; t: T }) {
         <tbody>
           {shown.map(([label, value]) => (
             <tr key={label}><th scope="row">{label}:</th><td>{value}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+/** Community fees (monthly), IBI (annual), Basura (annual); hidden when none is entered. */
+export function TaxesFees({ property, t }: { property: Property; t: T }) {
+  const { formatPrice } = useCurrency();
+  // The API can send "0.00" (truthy), so compare numbers; 0 means not entered.
+  const rows: [string, number][] = [
+    [t('detail_community_fees_monthly', 'Community fees (monthly)'), Number(property.communityFees) || 0],
+    [t('detail_ibi_annual', 'IBI/Local Tax (annual)'), Number(property.ibiFees) || 0],
+    [t('detail_basura_annual', 'Basura/Garbage (annual)'), Number(property.basuraTax) || 0],
+  ];
+  const shown = rows.filter(([, v]) => v > 0);
+  if (!shown.length) return null;
+  return (
+    <section class="rs-d02-section rs-d02-fees">
+      <h2 class="rs-d02-section__title">{t('detail_taxes_fees', 'Taxes & Fees')}</h2>
+      <table class="rs-d02-facts">
+        <tbody>
+          {shown.map(([label, value]) => (
+            <tr key={label}><th scope="row">{label}:</th><td>{formatPrice(value, property.currency)}</td></tr>
           ))}
         </tbody>
       </table>

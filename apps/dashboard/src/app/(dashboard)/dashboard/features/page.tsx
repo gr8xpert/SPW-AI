@@ -187,7 +187,7 @@ export default function FeaturesPage() {
 
   const fetchFeatures = async (retriesLeft = 1) => {
     try {
-      const res = await api.get('/api/dashboard/features');
+      const res = await api.get('/api/dashboard/features?includeInactive=1');
       setFeatures(res?.data || []);
     } catch {
       if (retriesLeft > 0) {

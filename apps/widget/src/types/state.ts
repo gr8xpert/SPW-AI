@@ -41,6 +41,8 @@ export interface UIState {
   detailOpen: boolean;
   initialized: boolean;
   highlightedPropertyId: number | null;
+  // The property page's listing no longer exists (sold, withdrawn, deleted).
+  detailNotFound: boolean;
 }
 
 export type StateSlice = keyof SPMState;

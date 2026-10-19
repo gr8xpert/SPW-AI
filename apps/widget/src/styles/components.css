@@ -9136,3 +9136,38 @@ button.rs-d02-photos__tile {
   .rs-d02-hero .rs-detail__gallery-badges { display: flex; top: 12px; left: 12px; right: 60px; gap: 4px; }
   .rs-d02-hero .rs-detail__gallery-badges > * { font-size: 0.6875rem; padding: 4px 9px; }
 }
+
+/* Property page whose listing is gone (sold / withdrawn) */
+.rs-detail-not-found {
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 40px 24px;
+  text-align: center;
+  font-family: var(--rs-font);
+  color: var(--rs-text);
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+}
+.rs-detail-not-found__title {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+.rs-detail-not-found__text {
+  margin: 0 0 24px;
+  color: var(--rs-text-light);
+}
+.rs-detail-not-found__button {
+  display: inline-block;
+  padding: 12px 28px;
+  background: var(--rs-primary);
+  color: #fff !important;
+  border-radius: var(--rs-radius);
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: background var(--rs-transition);
+}
+.rs-detail-not-found__button:hover {
+  background: var(--rs-primary-hover);
+}

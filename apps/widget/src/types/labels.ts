@@ -61,6 +61,9 @@ export interface Labels {
   detail_location: string;
   detail_similar: string;
   detail_back: string;
+  detail_not_found_title: string;
+  detail_not_found_text: string;
+  detail_not_found_button: string;
   detail_share: string;
   detail_save: string;
   detail_saved: string;
@@ -69,6 +72,10 @@ export interface Labels {
   detail_pdf: string;
   detail_energy_rating: string;
   detail_community_fees: string;
+  detail_taxes_fees: string;
+  detail_community_fees_monthly: string;
+  detail_ibi_annual: string;
+  detail_basura_annual: string;
   detail_year_built: string;
   detail_floor: string;
   detail_orientation: string;

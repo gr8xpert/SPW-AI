@@ -99,6 +99,8 @@ export interface Property {
   parking?: string;
   energyRating?: string;
   communityFees?: number;
+  ibiFees?: number;
+  basuraTax?: number;
   status?: string;
   images: PropertyImage[];
   // API stores features as an array of feature IDs (FK to the global feature

@@ -1,4 +1,5 @@
 import { store } from './store';
+import { loadCurrencyChoice, saveCurrencyChoice } from './currency-choice';
 import type { SPMState, SearchFilters, LockedFilters, WidgetConfig } from '@/types';
 
 export const actions = {
@@ -17,8 +18,17 @@ export const actions = {
   setLocations: (locations: SPMState['locations']) => store.dispatch('SET_LOCATIONS', locations),
   setPropertyTypes: (types: SPMState['propertyTypes']) => store.dispatch('SET_PROPERTY_TYPES', types),
   setFeatures: (features: SPMState['features']) => store.dispatch('SET_FEATURES', features),
-  setCurrency: (currency: string) => store.dispatch('SET_CURRENCY', currency),
-  setCurrencyBase: (currency: string) => store.dispatch('SET_CURRENCY_BASE', currency),
+  setCurrency: (currency: string) => {
+    saveCurrencyChoice(currency);
+    store.dispatch('SET_CURRENCY', currency);
+  },
+  // Setting the site currency resets what's shown to it, so the visitor's own
+  // pick (kept across pages) is put back on top.
+  setCurrencyBase: (currency: string) => {
+    store.dispatch('SET_CURRENCY_BASE', currency);
+    const chosen = loadCurrencyChoice();
+    if (chosen && chosen !== currency) store.dispatch('SET_CURRENCY', chosen);
+  },
   setCurrencyRates: (rates: Record<string, number>) => store.dispatch('SET_CURRENCY_RATES', rates),
   setUI: (ui: SPMState['ui']) => store.dispatch('SET_UI', ui),
   mergeUI: (ui: Partial<SPMState['ui']>) => store.dispatch('MERGE_UI', ui),

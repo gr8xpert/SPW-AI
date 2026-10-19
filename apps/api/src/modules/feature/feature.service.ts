@@ -11,8 +11,14 @@ export class FeatureService {
     private featureRepository: Repository<Feature>,
   ) {}
 
-  async findAll(tenantId: number, category?: FeatureCategory): Promise<Array<Feature & { propertyCount: number }>> {
-    const where: any = { tenantId, isActive: true };
+  // includeInactive: the dashboard Features page must list hidden features too, or they can't be switched back on.
+  async findAll(
+    tenantId: number,
+    category?: FeatureCategory,
+    includeInactive = false,
+  ): Promise<Array<Feature & { propertyCount: number }>> {
+    const where: any = { tenantId };
+    if (!includeInactive) where.isActive = true;
     if (category) where.category = category;
     const features = await this.featureRepository.find({
       where,
