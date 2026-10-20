@@ -18,7 +18,17 @@ export async function mountAll(entries: ScanEntry[]): Promise<void> {
     console.log(`[SPM] Mounting [${i + 1}/${entries.length}]: ${name}`);
     await mountEntry(entry);
     console.log(`[SPM] Mounted [${i + 1}/${entries.length}]: ${name} OK`);
+    // One block per task: drawing a search box and a full results grid in one
+    // go held the page for ~1.7 s on a throttled phone (PageSpeed TBT,
+    // 2026-10-20). Between blocks the browser paints and answers taps.
+    if (i < entries.length - 1) await yieldToMain();
   }
+}
+
+function yieldToMain(): Promise<void> {
+  const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+  if (s?.yield) return s.yield();
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 async function mountEntry(entry: ScanEntry): Promise<void> {

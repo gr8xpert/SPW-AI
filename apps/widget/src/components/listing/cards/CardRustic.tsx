@@ -4,7 +4,7 @@ import { CardSlides, CardBadges, CardFavorite, CardImageCount, CardPrice } from 
 import { specRange } from '@/core/property-display';
 
 export default function CardRustic({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div

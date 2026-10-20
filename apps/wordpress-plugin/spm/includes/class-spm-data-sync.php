@@ -243,6 +243,7 @@ class SPM_Data_Sync {
             && get_option('spm_widget_version') !== $data['widgetVersion']) {
             update_option('spm_widget_version', $data['widgetVersion'], true);
         }
+        SPM_Plugin::check_module_loader();
         if (is_array($data) && isset($data['syncVersion'])) {
             update_option('spm_sync_version', (int) $data['syncVersion'], true);
         }

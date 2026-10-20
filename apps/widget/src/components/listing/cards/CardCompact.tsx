@@ -4,7 +4,7 @@ import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardBadges, CardFavorite, CardImageCount, CardPrice, CardSpecs } from './CardParts';
 
 export default function CardCompact({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, config, carouselImages, slideIndex, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div

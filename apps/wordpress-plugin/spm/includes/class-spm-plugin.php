@@ -209,7 +209,122 @@ class SPM_Plugin {
         // ?ver = the deployed widget's version (from the API), so every widget
         // release is a new URL for browsers and the CDN — no purge needed.
         $ver = (string) get_option('spm_widget_version', '');
-        wp_enqueue_script('spm-widget', $loader, [], $ver !== '' ? $ver : SPM_VERSION, true);
+        $ver = $ver !== '' ? $ver : SPM_VERSION;
+        $module = self::module_loader_url($loader);
+        add_filter('script_loader_tag', [$this, 'loader_tag'], 10, 2);
+        if ($module === '') {
+            wp_enqueue_script('spm-widget', $loader, [], $ver, true);
+            return;
+        }
+        // Modern browsers load the split build: the core plus only the
+        // designs this page uses (about half the JavaScript of the all-in-one
+        // file). Browsers without modules ignore it and run the all-in-one
+        // file instead (nomodule).
+        $this->module_loader = true;
+        wp_enqueue_script('spm-widget', $module, [], $ver, true);
+        wp_enqueue_script('spm-widget-legacy', $loader, [], $ver, true);
+    }
+
+    /**
+     * Heights the search designs end up (phone ≤768px, wider), measured
+     * 2026-10-20 — the same numbers as the widget's .rs-search-placeholder.
+     */
+    const SEARCH_HEIGHTS = [
+        '01' => [524, 96], '02' => [258, 42], '03' => [470, 146], '04' => [484, 118],
+        '05' => [559, 486], '06' => [161, 58], '07' => [458, 192],
+    ];
+
+    /**
+     * Space for the widget's blocks from the very first paint. The blocks are
+     * empty until the script runs, so the search box and the results used to
+     * appear in a 0px slot and push the whole page down (PageSpeed layout
+     * shift 0.5–0.7 on phones). :empty — once the widget draws, its own
+     * placeholder and then the real block take over.
+     */
+    public static function reserve_css() {
+        $site = (array) (self::site_config()['siteTemplates'] ?? []);
+        $phone = [];
+        $wide = [];
+        foreach (self::SEARCH_HEIGHTS as $n => list($h_phone, $h_wide)) {
+            $sel = '[data-spm-widget="search-template-' . $n . '"]:empty';
+            if (($site['search'] ?? 'search-template-01') === 'search-template-' . $n) {
+                $sel .= ',[data-spm-widget="site-search"]:empty';
+            }
+            $phone[] = $sel . '{min-height:' . $h_phone . 'px}';
+            $wide[] = $sel . '{min-height:' . $h_wide . 'px}';
+        }
+        $listing = '[data-spm-widget^="listing-template-"]:empty,[data-spm-widget="site-listing"]:empty{min-height:120vh}';
+        return implode('', $phone) . '@media (min-width:769px){' . implode('', $wide) . '}' . $listing;
+    }
+
+    /** True when this page loads the split build (see enqueue_loader). */
+    private $module_loader = false;
+
+    /**
+     * The split (ES module) build next to the all-in-one file, or '' when the
+     * loader isn't the standard spm-widget.umd.js (a site that points
+     * SPM_LOADER_URL elsewhere keeps exactly what it set).
+     */
+    public static function module_loader_url($loader) {
+        // Opt-in for now: on a slow phone connection the split build's files
+        // arrive one after another and the first photo showed later than
+        // with the all-in-one file (measured 2026-10-20).
+        if (!self::module_loader_enabled()) return '';
+        if (!preg_match('#/spm-widget\.umd\.js(\?.*)?$#', (string) $loader)) return '';
+        // A browser runs a module from another site only when that site
+        // allows it (CORS) — and skips the nomodule fallback, so without the
+        // header the widget wouldn't load at all. Use it only once checked.
+        $check = get_option('spm_widget_module', []);
+        if (empty($check['ok']) || ($check['ver'] ?? '') !== (string) get_option('spm_widget_version', '')) return '';
+        return preg_replace('#/spm-widget\.umd\.js#', '/spm-widget.es.js', $loader, 1);
+    }
+
+    /**
+     * Does the widget server let this site load the split build? Asked with
+     * the sync when the widget version changes, else at most every 6 hours.
+     */
+    public static function module_loader_enabled() {
+        return defined('SPM_MODULE_LOADER') && SPM_MODULE_LOADER;
+    }
+
+    public static function check_module_loader() {
+        if (!self::module_loader_enabled()) return;
+        $ver = (string) get_option('spm_widget_version', '');
+        $prev = get_option('spm_widget_module', []);
+        if (is_array($prev) && ($prev['ver'] ?? null) === $ver && time() - (int) ($prev['at'] ?? 0) < 6 * HOUR_IN_SECONDS) return;
+        $loader = defined('SPM_LOADER_URL') ? SPM_LOADER_URL : SPM_LOADER_DEFAULT;
+        $ok = false;
+        if (preg_match('#/spm-widget\.umd\.js(\?.*)?$#', (string) $loader)) {
+            $url = add_query_arg('ver', $ver !== '' ? $ver : SPM_VERSION, preg_replace('#/spm-widget\.umd\.js.*$#', '/spm-widget.es.js', $loader));
+            $origin = preg_replace('#^(https?://[^/]+).*$#i', '$1', home_url('/'));
+            $r = wp_remote_head($url, ['timeout' => 10, 'headers' => ['Origin' => $origin]]);
+            if (!is_wp_error($r) && (int) wp_remote_retrieve_response_code($r) === 200) {
+                $allow = trim((string) wp_remote_retrieve_header($r, 'access-control-allow-origin'));
+                $type = (string) wp_remote_retrieve_header($r, 'content-type');
+                $ok = ($allow === '*' || strcasecmp($allow, $origin) === 0) && stripos($type, 'javascript') !== false;
+            }
+        }
+        update_option('spm_widget_module', ['ok' => $ok, 'ver' => $ver, 'at' => time()], true);
+        // Saved property pages carry the script tags; redraw them on a switch.
+        if ($ok !== !empty($prev['ok']) && class_exists('SPM_Detail_Page')) SPM_Detail_Page::clear();
+    }
+
+    /**
+     * data-cfasync="false": Cloudflare Rocket Loader otherwise rewrites the
+     * widget's script and starts it late (seen on smartpropertywidget.com).
+     */
+    public function loader_tag($tag, $handle) {
+        if ($handle === 'spm-widget' && $this->module_loader) {
+            $tag = preg_replace('#\stype=(["\'])[^"\']*\1#', '', $tag);
+            return preg_replace('#<script\b#', '<script type="module" data-cfasync="false"', $tag, 1);
+        }
+        if ($handle === 'spm-widget') {
+            return preg_replace('#<script\b#', '<script data-cfasync="false"', $tag, 1);
+        }
+        if ($handle === 'spm-widget-legacy') {
+            return preg_replace('#<script\b#', '<script nomodule data-cfasync="false"', $tag, 1);
+        }
+        return $tag;
     }
 
     /**
@@ -274,10 +389,15 @@ class SPM_Plugin {
         // is when it isn't saved yet (SPM_Page_Results). Ordinary pages only:
         // a property page opens with its property, not a search.
         $page_results = null;
+        $cover_image = '';
         $page_id = is_singular() ? (int) get_queried_object_id() : 0;
         if ($page_id && !SPM_Rewrite::is_property_detail()) {
             $page_results = SPM_Page_Results::instance()->for_page($page_id, $lang);
-            if ($page_results) $config['pageResults'] = $page_results;
+            if ($page_results) {
+                $cover_image = (string) ($page_results['img'] ?? '');
+                unset($page_results['img']);
+                $config['pageResults'] = $page_results;
+            }
             $config['reportSearch'] = ['url' => rest_url('spm/v1/page-search'), 'page' => $page_id];
         }
 
@@ -289,18 +409,31 @@ class SPM_Plugin {
         $ver = (string) get_option('spm_widget_version', '');
         $loader = defined('SPM_LOADER_URL') ? SPM_LOADER_URL : SPM_LOADER_DEFAULT;
         $loader_src = add_query_arg('ver', $ver !== '' ? $ver : SPM_VERSION, $loader);
+        $module_src = self::module_loader_url($loader_src);
+        $cover_origin = $cover_image !== '' ? preg_replace('#^(https?://[^/]+).*$#i', '$1', $cover_image) : '';
 
         ?>
 <!-- Smart Property Widget v<?php echo esc_attr(SPM_VERSION); ?> -->
 <link rel="preconnect" href="<?php echo esc_url($api_origin); ?>" crossorigin>
+<?php if ($module_src !== '') : ?>
+<link rel="modulepreload" href="<?php echo esc_url($module_src); ?>">
+<?php else : ?>
 <link rel="preload" href="<?php echo esc_url($loader_src); ?>" as="script">
+<?php endif; ?>
+<?php if ($cover_image !== '') : /* the first card's photo: what PageSpeed times as the page's main content (LCP) */ ?>
+<?php if ($cover_origin !== '' && $cover_origin !== $api_origin) : ?>
+<link rel="preconnect" href="<?php echo esc_url($cover_origin); ?>">
+<?php endif; ?>
+<link rel="preload" href="<?php echo esc_url($cover_image); ?>" as="image" fetchpriority="high">
+<?php endif; ?>
 <?php if ($bundle_url) : ?>
 <link rel="preload" href="<?php echo esc_url($bundle_url); ?>" as="fetch" crossorigin="anonymous">
 <?php endif; ?>
 <?php if ($page_results) : ?>
 <link rel="preload" href="<?php echo esc_url($page_results['url']); ?>" as="fetch" crossorigin="anonymous">
 <?php endif; ?>
-<script>window.RealtySoftConfig = <?php echo wp_json_encode($config); ?>;</script>
+<style id="spm-reserve"><?php echo self::reserve_css(); // phpcs:ignore WordPress.Security.EscapeOutput -- built from fixed strings ?></style>
+<script data-cfasync="false">window.RealtySoftConfig = <?php echo wp_json_encode($config); ?>;</script>
 <?php
     }
 

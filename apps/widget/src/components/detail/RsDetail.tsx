@@ -12,6 +12,7 @@ import RsDetailStatus from './RsDetailStatus';
 import RsDetailDescription from './RsDetailDescription';
 import RsDetailFeatures from './RsDetailFeatures';
 import RsDetailSpecs from './RsDetailSpecs';
+import RsDetailTaxesFees from './RsDetailTaxesFees';
 import RsDetailResources from './RsDetailResources';
 import RsDetailVideoEmbed from './RsDetailVideoEmbed';
 import RsDetailTourEmbed from './RsDetailTourEmbed';
@@ -70,6 +71,7 @@ export default function RsDetail() {
 
           <RsDetailSpecs property={property} />
           <RsDetailDescription description={property.description} />
+          <RsDetailTaxesFees property={property} />
           <RsDetailFeatures features={property.features} />
           <RsDetailResources />
           {property.videoUrl && <RsDetailVideoEmbed />}

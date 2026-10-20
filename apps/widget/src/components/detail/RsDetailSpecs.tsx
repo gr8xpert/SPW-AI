@@ -1,6 +1,5 @@
 import { useMemo } from 'preact/hooks';
 import { useLabels } from '@/hooks/useLabels';
-import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
@@ -46,7 +45,6 @@ function m2(n: number | undefined): string | undefined {
 
 export default function RsDetailSpecs({ property: propertyProp }: Props) {
   const { t } = useLabels();
-  const { formatPrice } = useCurrency();
   const config = useConfig();
   const storeProperty = useSelector(selectors.getSelectedProperty);
   const property = propertyProp ?? storeProperty;
@@ -75,12 +73,9 @@ export default function RsDetailSpecs({ property: propertyProp }: Props) {
       { labelKey: 'detail_status', fallback: 'Status', value: property.status && STATUS_LABEL[property.status] ? t(...STATUS_LABEL[property.status]) : undefined },
       { labelKey: 'detail_address', fallback: 'Address', value: property.address },
       { labelKey: 'detail_zip', fallback: 'Zip Code', value: property.zipCode },
-      { labelKey: 'detail_community_fees', fallback: 'Community Fees',
-        value: property.communityFees != null && property.communityFees > 0
-          ? `${formatPrice(property.communityFees, property.currency)}/${t('detail_per_month', 'month')}`
-          : undefined },
+      // Community fees, IBI and Basura: the Taxes & Fees section (RsDetailTaxesFees).
     ];
-  }, [property, t, formatPrice, config]);
+  }, [property, t, config]);
 
   if (!property) return null;
 

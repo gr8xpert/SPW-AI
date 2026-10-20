@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.9
+Stable tag: 2.9.10
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,13 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.10 =
+* Faster pages (PageSpeed). The page head reserves each widget block's final height (per search design, phone and desktop) before the widget loads, so the search box and the results no longer push the page down as they appear (layout shift).
+* The first card's photo on a results page is preloaded in the page head, with a preconnect to its photo server, so it shows sooner.
+* The widget's scripts and settings carry `data-cfasync="false"`, so Cloudflare Rocket Loader no longer delays them.
+* Optional, off by default: `define('SPM_MODULE_LOADER', true);` loads the widget's split build (only the designs a page uses) in modern browsers, after checking that the widget server allows it (CORS). On slow phone connections it was slower to show the first photo, so it stays opt-in.
+* Needs the widget update released with it.
 
 = 2.9.9 =
 * Property pages have one address. Extra parameters (`?page=2`, `?ref=`, anything SPM does not use), an old title, a trailing slash or the other language's slug get a 301 to the clean address; tracking parameters (utm_*, gclid, fbclid, …) are kept. Stops crawlers looping through endless variants of a page.

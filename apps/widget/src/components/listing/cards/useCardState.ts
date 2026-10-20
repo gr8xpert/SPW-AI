@@ -36,7 +36,7 @@ const LISTING_TYPE_FALLBACK: Record<string, string> = {
  * the wishlist toggle, price formatting, click handling and the listing-type
  * label. Every design calls this once, so they all behave the same.
  */
-export function useCardState(property: Property) {
+export function useCardState(property: Property, index = 0) {
   const { t } = useLabels();
   const { formatPrice } = useCurrency();
   const config = useConfig();
@@ -135,8 +135,13 @@ export function useCardState(property: Property) {
   const listingLabelKey = LISTING_TYPE_LABEL[property.listingType] || 'card_for_sale';
   const listingFallback = LISTING_TYPE_FALLBACK[property.listingType] || 'For Sale';
 
+  // The first row's photos are what a visitor sees first (PageSpeed's LCP):
+  // fetch them now, ahead of everything else, instead of lazily.
+  const firstRow = index < 3;
+
   return {
     property,
+    firstRow,
     t,
     config,
     priceFormatter,

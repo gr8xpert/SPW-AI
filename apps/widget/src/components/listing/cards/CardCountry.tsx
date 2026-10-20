@@ -4,7 +4,7 @@ import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardBadges, CardFavorite, CardPrice } from './CardParts';
 
 export default function CardCountry({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, config, totalImages, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div

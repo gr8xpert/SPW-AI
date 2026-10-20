@@ -17,11 +17,13 @@ import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailSpecs from '@/components/detail/RsDetailSpecs';
 import RsDetailEnergyRating from '@/components/detail/RsDetailEnergyRating';
 import RsDetailDescription from '@/components/detail/RsDetailDescription';
+import RsDetailTaxesFees from '@/components/detail/RsDetailTaxesFees';
 import RsDetailVideoEmbed from '@/components/detail/RsDetailVideoEmbed';
 import RsDetailTourEmbed from '@/components/detail/RsDetailTourEmbed';
 import RsDetailMap from '@/components/detail/RsDetailMap';
 import RsDetailRelated from '@/components/detail/RsDetailRelated';
 import RsDetailInquiryForm from '@/components/detail/RsDetailInquiryForm';
+import RsDetailAgent from '@/components/detail/RsDetailAgent';
 import RsDetailWishlist from '@/components/detail/RsDetailWishlist';
 import RsDetailPdf from '@/components/detail/RsDetailPdf';
 import RsMortgageCalculator from '@/components/utility/RsMortgageCalculator';
@@ -276,6 +278,8 @@ export default function DetailTemplate01() {
 
           <RsDetailDescription description={property.description} />
 
+          <RsDetailTaxesFees property={property} />
+
           {property.videoUrl && <RsDetailVideoEmbed />}
 
           {property.virtualTourUrl && <RsDetailTourEmbed />}
@@ -301,6 +305,8 @@ export default function DetailTemplate01() {
           <RsDetailDownloadPdf />
 
           <RsDetailPdf />
+
+          <RsDetailAgent />
 
           <RsDetailInquiryForm property={property} />
 

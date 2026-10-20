@@ -4,7 +4,7 @@ import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts
 import { specRange } from '@/core/property-display';
 
 export default function CardMetro({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, listingLabelKey, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div

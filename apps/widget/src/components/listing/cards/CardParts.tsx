@@ -30,8 +30,10 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
           src={loadedSlides.has(i) ? (img.thumbnailUrl || img.url) : undefined}
           alt={img.alt || property.title}
           // Feed photos are full size (1600px); off-screen cards waiting their
-          // turn leaves the bandwidth to the ones the visitor can see.
-          loading="lazy"
+          // turn leaves the bandwidth to the ones the visitor can see. The
+          // first row's cover photos load at once, first in line.
+          loading={s.firstRow && i === 0 ? 'eager' : 'lazy'}
+          fetchpriority={s.firstRow && i === 0 ? 'high' : undefined}
           decoding="async"
           class={`rs-property-card__slide${i === slideIndex ? ' rs-property-card__slide--active' : ''}`}
         />

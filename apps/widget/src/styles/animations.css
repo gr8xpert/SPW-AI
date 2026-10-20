@@ -1,21 +1,31 @@
-/* 5. Skeleton shimmer — premium sweep */
+/* 5. Skeleton shimmer — premium sweep. A band slid with transform (done by
+   the GPU), not an animated background-position, which repainted every
+   skeleton every frame and slowed phones while the page loaded (PageSpeed
+   "non-composited animations", 2026-10-20). */
 @keyframes rs-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .rs-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--rs-bg-secondary);
+  border-radius: var(--rs-radius);
+}
+
+.rs-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     105deg,
-    var(--rs-bg-secondary) 0%,
-    var(--rs-bg-secondary) 35%,
+    transparent 30%,
     hsl(from var(--rs-border) h s l / 0.6) 50%,
-    var(--rs-bg-secondary) 65%,
-    var(--rs-bg-secondary) 100%
+    transparent 70%
   );
-  background-size: 200% 100%;
+  transform: translateX(-100%);
   animation: rs-shimmer 1.8s ease-in-out infinite;
-  border-radius: var(--rs-radius);
 }
 
 .rs-skeleton--text {
@@ -61,7 +71,34 @@
 
 .rs-skeleton-card__body {
   padding: 16px;
+  /* About a real card's text area, so cards replacing the skeleton don't
+     push the page down. */
+  min-height: 220px;
 }
+
+/* Search designs before they draw: as tall as each one ends up (measured
+   2026-10-20, phone ≤768px / wider), so nothing below them moves. */
+.rs-search-placeholder { min-height: 42px; }
+.rs-search-placeholder--01 { min-height: 524px; }
+.rs-search-placeholder--02 { min-height: 258px; }
+.rs-search-placeholder--03 { min-height: 470px; }
+.rs-search-placeholder--04 { min-height: 484px; }
+.rs-search-placeholder--05 { min-height: 559px; }
+.rs-search-placeholder--06 { min-height: 161px; }
+.rs-search-placeholder--07 { min-height: 458px; }
+@media (min-width: 769px) {
+  .rs-search-placeholder--01 { min-height: 96px; }
+  .rs-search-placeholder--02 { min-height: 42px; }
+  .rs-search-placeholder--03 { min-height: 146px; }
+  .rs-search-placeholder--04 { min-height: 118px; }
+  .rs-search-placeholder--05 { min-height: 486px; }
+  .rs-search-placeholder--06 { min-height: 58px; }
+  .rs-search-placeholder--07 { min-height: 192px; }
+}
+
+/* Inside the results grid the skeleton cards take the grid's own columns
+   (they used to sit in its first column only, one narrow card per row). */
+.rs-property-grid > .rs-skeleton-grid { display: contents; }
 
 .rs-skeleton-search {
   display: flex;
@@ -346,7 +383,7 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .rs-skeleton { animation: none; }
+  .rs-skeleton::after { animation: none; display: none; }
   .rs-card-enter { animation: none; opacity: 1; }
   .rs-card-hover:hover { transform: none; }
   .rs-property-card__image img { transition: none; }

@@ -5214,6 +5214,35 @@ button.rs-sidebar-mortgage-btn:hover {
   letter-spacing: -0.01em;
 }
 
+/* ── Taxes & Fees (design 01): one card per fee ── */
+.rs-detail-fees__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.rs-detail-fees__card {
+  padding: 18px 16px;
+  background: var(--rs-bg-secondary, #f8fafc);
+  border: 1px solid var(--rs-border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.rs-detail-fees__label {
+  font-size: 0.8125rem;
+  color: var(--rs-text-light);
+  margin-bottom: 6px;
+}
+.rs-detail-fees__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rs-text);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .rs-detail-fees__grid { grid-template-columns: 1fr; gap: 8px; }
+  .rs-detail-fees__card { padding: 14px 16px; }
+}
+
 /* ── Title ── */
 .rs-detail-title {
   font-size: 2rem;

@@ -3,7 +3,7 @@ import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardBadges, CardFavorite, CardPrice, CardSpecs } from './CardParts';
 
 export default function CardImmersive({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div

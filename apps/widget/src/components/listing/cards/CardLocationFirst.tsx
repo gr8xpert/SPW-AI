@@ -16,7 +16,7 @@ const T12_LABELS: Record<string, [string, string]> = {
 };
 
 export default function CardLocationFirst({ property, index = 0 }: CardProps) {
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   const t12BadgeLabel = T12_LABELS[property.listingType] ? t(...T12_LABELS[property.listingType]) : listingFallback.toUpperCase();
   const t12BadgeModifier = property.listingType || 'sale';

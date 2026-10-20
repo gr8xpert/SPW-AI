@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { useSelector } from '@/hooks/useStore';
 import { useLabels } from '@/hooks/useLabels';
 import { useFilters } from '@/hooks/useFilters';
+import { useConfig } from '@/hooks/useConfig';
 import { selectors } from '@/core/selectors';
 import { useCardDesign } from './cards/registry';
 import Skeleton from '@/components/common/Skeleton';
@@ -37,6 +38,7 @@ export default function RsPropertyGrid(props: RsPropertyGridProps) {
   const isLoading = own.enabled ? own.loading : pageLoading;
   const currentPage = useSelector(selectors.getCurrentPage);
   const { t } = useLabels();
+  const config = useConfig();
   const { setFilter } = useFilters();
   const gridRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
@@ -88,7 +90,9 @@ export default function RsPropertyGrid(props: RsPropertyGridProps) {
   if (isLoading || (!Card && results?.data.length)) {
     return frame(
       <div class={`rs-property-grid${layoutClass}`} style={gridStyle}>
-        <Skeleton type="card" count={parseInt(columns || '3', 10) * 2} />
+        {/* As many as the page will show, like the placeholder drawn before
+            the design loaded (core/placeholder), so nothing jumps. */}
+        <Skeleton type="card" count={Number(props.limit) || config.resultsPerPage || 12} />
       </div>,
     );
   }

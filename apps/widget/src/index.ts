@@ -11,7 +11,7 @@ import { isMounted, mountAll, releaseDetached, remountChangedSiteBlocks } from '
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
-import { isCurated, liftSearchBlocks, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
+import { isCurated, isPageResults, liftSearchBlocks, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
 import { installLegacyAPI, setRefreshHandler, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
 import { startTracking, trackSearch } from './core/tracker';
@@ -20,6 +20,7 @@ import { applyPropertySeo } from './core/seo';
 import { filtersFromQuery, filtersToQuery, writeSearchToUrl, type NameLists } from './core/search-url';
 import type { Property, SearchFilters, SearchResults, WidgetConfig } from './types';
 import { navigateTo } from './core/navigate';
+import { cardSkeletonHTML, isGridListing, searchPlaceholderHTML } from './core/placeholder';
 import { ApiError } from './core/api-client';
 import { hasTabPages, isCurrentPage, resultsPageFor } from './core/results-pages';
 
@@ -200,8 +201,16 @@ async function init(): Promise<void> {
   const entries = scanDOM();
   console.log('[SPM] Scan found', entries.length, 'elements:', entries.map(e => e.isTemplate ? e.templateId : e.componentType));
   for (const entry of entries) {
-    if (!entry.element.children.length) {
-      entry.element.innerHTML = '<div class="rs-skeleton" style="height:42px"></div>';
+    const el = entry.element;
+    if (el.children.length) continue;
+    // Keep the space the cards will need: a 42px bar under a listing that
+    // grows to 2,000px+ moved everything below it twice (PageSpeed layout
+    // shift 0.57, 2026-10-20). A page that already sizes the empty block
+    // itself (a "Loading…" placeholder) keeps its own placeholder.
+    if (isGridListing(entry.componentType)) {
+      el.innerHTML = cardSkeletonHTML(Number(entry.dataAttributes.limit) || config.resultsPerPage || 12, isPageResults(el));
+    } else if (el.offsetHeight <= 42) {
+      el.innerHTML = searchPlaceholderHTML(entry.componentType) ?? '<div class="rs-skeleton" style="height:42px"></div>';
     }
   }
 

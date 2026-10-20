@@ -172,9 +172,24 @@ class SPM_Page_Results {
         $entries = $this->entries();
         if (isset($entries[$id]) && $entries[$id]['key'] === $e['key']) {
             $entries[$id]['v'] = $file['syncVersion'];
+            $entries[$id]['img'] = self::cover_image($r['data']);
             update_option(self::OPTION, $entries, false);
         }
         return true;
+    }
+
+    /**
+     * The first card's photo — the biggest thing a visitor sees first. The
+     * page head preloads it so it doesn't wait for the widget (PageSpeed LCP).
+     * Same choice as the cards: lowest "order", its thumbnail if it has one.
+     */
+    private static function cover_image($data) {
+        $first = is_array($data) ? reset($data) : null;
+        $images = is_array($first) && isset($first['images']) && is_array($first['images']) ? $first['images'] : [];
+        if (!$images) return '';
+        usort($images, function ($a, $b) { return ((int) ($a['order'] ?? 0)) <=> ((int) ($b['order'] ?? 0)); });
+        $src = (string) ($images[0]['thumbnailUrl'] ?? '') ?: (string) ($images[0]['url'] ?? '');
+        return preg_match('#^https?://#i', $src) ? $src : '';
     }
 
     /** Called by the bundle sync: rebuild the files whose data moved on. */
@@ -193,7 +208,7 @@ class SPM_Page_Results {
         if (!$e) return null;
         $path = $this->dir . $e['file'];
         if (!file_exists($path)) return null;
-        return ['key' => $e['key'], 'url' => $this->url . $e['file'] . '?v=' . filemtime($path)];
+        return ['key' => $e['key'], 'url' => $this->url . $e['file'] . '?v=' . filemtime($path), 'img' => (string) ($e['img'] ?? '')];
     }
 
     private function remove_unused_files($entries) {

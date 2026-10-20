@@ -79,7 +79,8 @@ function Slides({ s }: { s: CardState }) {
               <img
                 src={loadedSlides.has(i) ? (img.thumbnailUrl || img.url) : undefined}
                 alt={img.alt || property.title}
-                loading="lazy"
+                loading={s.firstRow && i === 0 ? 'eager' : 'lazy'}
+                fetchpriority={s.firstRow && i === 0 ? 'high' : undefined}
                 decoding="async"
               />
             </div>
@@ -168,7 +169,7 @@ function Shell({ s, n, index, children }: { s: CardState; n: string; index: numb
 
 function ClassicCard({ property, index = 0, template }: CardProps & { template: number }) {
   useClassicCss();
-  const s = useCardState(property);
+  const s = useCardState(property, index);
   const { t, config } = s;
   const design = DESIGN[template];
   const n = String(design).padStart(2, '0');
