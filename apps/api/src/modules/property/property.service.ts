@@ -279,7 +279,18 @@ export class PropertyService {
       property.publishedAt = new Date();
     }
 
-    const saved = await this.propertyRepository.save(property);
+    // findOne loaded the relation objects; on save TypeORM takes the id from
+    // a loaded relation over the plain *Id column, so a changed locationId
+    // (or type/agent) was silently written back to the old value. Drop the
+    // loaded relations so the *Id columns win, then reload for the response.
+    delete (property as Partial<Property>).location;
+    delete (property as Partial<Property>).propertyType;
+    delete (property as Partial<Property>).agent;
+    delete (property as Partial<Property>).salesAgent;
+    delete (property as Partial<Property>).lastUpdatedByUser;
+
+    await this.propertyRepository.save(property);
+    const saved = await this.findOne(tenantId, id);
 
     if (dto.locationId !== undefined && dto.locationId !== oldLocationId) {
       if (oldLocationId) await this.locationService.decrementPropertyCount(tenantId, oldLocationId);
