@@ -3,7 +3,7 @@
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
 import CardShare from './CardShare';
 import type { CardState } from './useCardState';
-import { hasPrice, priceSuffix, priceTo, specRange } from '@/core/property-display';
+import { hasPrice, priceSuffix, priceTo, showBadge, specRange } from '@/core/property-display';
 
 interface PartProps {
   s: CardState;
@@ -63,23 +63,30 @@ export function CardSlides({ s, arrowSize = 16, arrowStroke = '2.5', dots = fals
 
 /** Listing type, "Own", "Featured" and "Key Ready" badges. */
 export function CardBadges({ s, own = true }: PartProps & { own?: boolean }) {
-  const { property, t, listingLabelKey, listingFallback } = s;
+  const { property, t, config, listingLabelKey, listingFallback } = s;
+  const type = showBadge(config, 'listingType');
+  const isOwn = own && property.isOwnProperty && showBadge(config, 'own');
+  const featured = property.isFeatured && showBadge(config, 'featured');
+  const keyReady = property.keyReady && showBadge(config, 'keyReady');
+  if (!type && !isOwn && !featured && !keyReady) return null;
   return (
     <div class="rs-property-card__badges">
-      <span class="rs-property-card__badge rs-property-card__badge--type">
-        {t(listingLabelKey, listingFallback)}
-      </span>
-      {own && property.isOwnProperty && (
+      {type && (
+        <span class="rs-property-card__badge rs-property-card__badge--type">
+          {t(listingLabelKey, listingFallback)}
+        </span>
+      )}
+      {isOwn && (
         <span class="rs-property-card__badge rs-property-card__badge--own">
           {t('card_own', 'Own')}
         </span>
       )}
-      {property.isFeatured && (
+      {featured && (
         <span class="rs-property-card__badge rs-property-card__badge--featured">
           {t('card_featured', 'Featured')}
         </span>
       )}
-      {property.keyReady && (
+      {keyReady && (
         <span class="rs-property-card__badge rs-property-card__badge--key-ready">
           {t('card_key_ready', 'Key Ready')}
         </span>

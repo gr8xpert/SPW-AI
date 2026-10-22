@@ -89,6 +89,12 @@ export class FeatureService {
     return this.featureRepository.save(feature);
   }
 
+  /** Shows or hides every feature of this client on the website. */
+  async setAllActive(tenantId: number, isActive: boolean): Promise<{ count: number }> {
+    const result = await this.featureRepository.update({ tenantId }, { isActive });
+    return { count: result.affected ?? 0 };
+  }
+
   async remove(tenantId: number, id: number): Promise<void> {
     const feature = await this.findOne(tenantId, id);
     await this.featureRepository.remove(feature);

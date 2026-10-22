@@ -417,6 +417,26 @@ export default function FeaturesPage() {
     }
   };
 
+  // The switch at the top: every feature shown on the website, or none.
+  const shownCount = features.filter((f) => f.isActive !== false).length;
+  const allShown = features.length > 0 && shownCount === features.length;
+  const [savingAll, setSavingAll] = useState(false);
+  const handleToggleAll = async (isActive: boolean) => {
+    setSavingAll(true);
+    try {
+      await api.put('/api/dashboard/features/bulk-visibility', { isActive });
+      toast({
+        title: isActive ? 'All features visible on website' : 'All features hidden from website',
+        description: isActive ? undefined : 'Switch on the ones the website should show.',
+      });
+      fetchFeatures();
+    } catch {
+      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
@@ -478,10 +498,17 @@ export default function FeaturesPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search features..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
-            Hide features with 0 properties
-          </label>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={allShown} onCheckedChange={handleToggleAll} disabled={savingAll || features.length === 0} />
+              Show all features on website
+              <span className="text-muted-foreground">({shownCount} of {features.length} shown)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
+              Hide features with 0 properties
+            </label>
+          </div>
         </CardContent>
       </Card>
 

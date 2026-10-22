@@ -3,7 +3,7 @@
 import { useCardState } from '../cards/useCardState';
 import type { Property } from '@/types';
 import type { CarouselLayout, SlideStyle } from './layouts';
-import { formatPropertyPrice } from '@/core/property-display';
+import { formatPropertyPrice, showBadge } from '@/core/property-display';
 import CardShare from '../cards/CardShare';
 
 interface SlideProps {
@@ -38,7 +38,7 @@ function BathIcon({ size }: { size: number }) {
 
 export default function CarouselSlide({ property, layout, index, className = '', placement, onNavigate }: SlideProps) {
   const s = useCardState(property);
-  const { t, propertyUrl, handleLinkClick, priceFormatter } = s;
+  const { t, config, propertyUrl, handleLinkClick, priceFormatter } = s;
 
   const image = (property.images ?? []).slice().sort((a, b) => a.order - b.order)[0];
   const price = formatPropertyPrice(property, priceFormatter, t, t('card_price_on_request', 'Price on Request'));
@@ -93,7 +93,7 @@ export default function CarouselSlide({ property, layout, index, className = '',
           <div class="rs-property-carousel__card-image-wrapper">
             {img}
             {share}
-            {property.isFeatured && <span class="rs-property-carousel__card-badge">{t('card_featured', 'Featured')}</span>}
+            {property.isFeatured && showBadge(config, 'featured') && <span class="rs-property-carousel__card-badge">{t('card_featured', 'Featured')}</span>}
           </div>
         </a>
         <div class="rs-property-carousel__card-info">

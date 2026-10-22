@@ -5,7 +5,7 @@
 // top-right.
 import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts';
-import { specRange } from '@/core/property-display';
+import { showBadge, specRange } from '@/core/property-display';
 
 const T12_LABELS: Record<string, [string, string]> = {
   sale: ['card_badge_sale', 'RESALE'],
@@ -17,7 +17,7 @@ const T12_LABELS: Record<string, [string, string]> = {
 
 export default function CardLocationFirst({ property, index = 0 }: CardProps) {
   const s = useCardState(property, index);
-  const { t, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
+  const { t, config, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   const t12BadgeLabel = T12_LABELS[property.listingType] ? t(...T12_LABELS[property.listingType]) : listingFallback.toUpperCase();
   const t12BadgeModifier = property.listingType || 'sale';
   return (
@@ -32,11 +32,20 @@ export default function CardLocationFirst({ property, index = 0 }: CardProps) {
         <CardSlides s={s} />
         <CardFavorite s={s} size={20} />
 
-        <div class="rs-property-card__badges">
-          <span class={`rs-property-card__badge rs-property-card__badge--t12 rs-property-card__badge--t12-${t12BadgeModifier}`}>
-            {t12BadgeLabel}
-          </span>
-        </div>
+        {(showBadge(config, 'listingType') || (property.keyReady && showBadge(config, 'keyReady'))) && (
+          <div class="rs-property-card__badges">
+            {showBadge(config, 'listingType') && (
+              <span class={`rs-property-card__badge rs-property-card__badge--t12 rs-property-card__badge--t12-${t12BadgeModifier}`}>
+                {t12BadgeLabel}
+              </span>
+            )}
+            {property.keyReady && showBadge(config, 'keyReady') && (
+              <span class="rs-property-card__badge rs-property-card__badge--t12 rs-property-card__badge--t12-key-ready">
+                {t('card_key_ready', 'Key Ready')}
+              </span>
+            )}
+          </div>
+        )}
 
         <CardImageCount s={s} />
       </div>

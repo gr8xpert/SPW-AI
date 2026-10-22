@@ -35,6 +35,9 @@ const SORT_VALUES = [
   'location_id',
 ];
 
+// Badges a site can switch off (widget core/property-display BadgeKey).
+const BADGE_KEYS = ['listingType', 'propertyType', 'reference', 'featured', 'own', 'keyReady'];
+
 @Injectable()
 export class TenantService {
   private readonly logger = new Logger(TenantService.name);
@@ -168,6 +171,12 @@ export class TenantService {
     const shareIcon = (publicSettings as { cardShareIcon?: unknown }).cardShareIcon;
     if (shareIcon !== undefined && typeof shareIcon !== 'boolean') {
       delete (publicSettings as { cardShareIcon?: unknown }).cardShareIcon;
+    }
+    // Badges switched off on the website: known keys only; empty = all shown.
+    const badgesIn = (publicSettings as { hiddenBadges?: unknown }).hiddenBadges;
+    if (badgesIn !== undefined) {
+      const list = Array.isArray(badgesIn) ? badgesIn.filter((v): v is string => typeof v === 'string' && BADGE_KEYS.includes(v)) : [];
+      (publicSettings as { hiddenBadges?: unknown }).hiddenBadges = [...new Set(list)];
     }
     const agentIn = (publicSettings as { siteAgent?: unknown }).siteAgent;
     if (agentIn !== undefined && (agentIn === null || typeof agentIn !== 'object' || Array.isArray(agentIn))) {
@@ -394,6 +403,7 @@ export class TenantService {
     // Default on: only an explicit false shows zero-count choices.
     if (s.hideEmptySearchOptions === false) config.hideEmptySearchOptions = false;
     if (s.cardShareIcon === true) config.cardShareIcon = true;
+    if (Array.isArray(s.hiddenBadges) && s.hiddenBadges.length) config.hiddenBadges = s.hiddenBadges;
     if (Array.isArray(s.sortOptions) && s.sortOptions.length) config.enabledSortOptions = s.sortOptions;
     if (typeof s.defaultSort === 'string' && SORT_VALUES.includes(s.defaultSort)) config.defaultSort = s.defaultSort;
     const purchaseCosts = publicPurchaseCosts(s.purchaseCosts);

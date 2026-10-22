@@ -42,6 +42,8 @@ export function useWidgetSettings() {
   const [hideEmptySearchOptions, setHideEmptySearchOptions] = useState(true);
   // Share icon beside the heart on listing cards (default off).
   const [cardShareIcon, setCardShareIcon] = useState(false);
+  // Badges switched off on cards and the property page photo (default: none).
+  const [hiddenBadges, setHiddenBadges] = useState<string[]>([]);
   // "Sort by" choices on the website and the starting sort.
   const [sortOptions, setSortOptions] = useState<SortOptionsForm>(EMPTY_SORT_OPTIONS);
   const [purchaseCosts, setPurchaseCosts] = useState<PurchaseCostsForm>(EMPTY_PURCHASE_COSTS);
@@ -95,6 +97,7 @@ export function useWidgetSettings() {
     setMortgageInterestRate(typeof settings?.mortgageInterestRate === 'number' ? String(settings.mortgageInterestRate) : '');
     setHideEmptySearchOptions(settings?.hideEmptySearchOptions !== false);
     setCardShareIcon(settings?.cardShareIcon === true);
+    setHiddenBadges(Array.isArray(settings?.hiddenBadges) ? settings.hiddenBadges : []);
     setSortOptions(sortOptionsFromSettings(settings?.sortOptions, settings?.defaultSort));
     setPurchaseCosts(purchaseCostsFromSettings(settings?.purchaseCosts));
     setSiteAgent(siteAgentFromSettings(settings?.siteAgent));
@@ -132,6 +135,7 @@ export function useWidgetSettings() {
     mortgageInterestRate: mortgageInterestRate.trim() === '' ? null : Number(mortgageInterestRate.replace(',', '.')),
     hideEmptySearchOptions,
     cardShareIcon,
+    hiddenBadges,
     ...sortOptionsToSettings(sortOptions),
     purchaseCosts: purchaseCostsToSettings(purchaseCosts),
     siteAgent: siteAgentToSettings(siteAgent),
@@ -211,6 +215,8 @@ export function useWidgetSettings() {
     setHideEmptySearchOptions,
     cardShareIcon,
     setCardShareIcon,
+    hiddenBadges,
+    setHiddenBadges,
     sortOptions,
     setSortOptions,
     purchaseCosts,

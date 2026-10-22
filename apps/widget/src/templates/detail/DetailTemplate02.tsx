@@ -20,11 +20,9 @@ import RsDetailWishlist from '@/components/detail/RsDetailWishlist';
 import RsDetailAgent from '@/components/detail/RsDetailAgent';
 import RsDetailBack from '@/components/detail/RsDetailBack';
 import RsDetailLightbox from '@/components/detail/RsDetailLightbox';
-import RsDetailStatus from '@/components/detail/RsDetailStatus';
-import RsDetailType from '@/components/detail/RsDetailType';
-import RsDetailRef from '@/components/detail/RsDetailRef';
 import Skeleton from '@/components/common/Skeleton';
 import RsDetailNotFound from '@/components/detail/RsDetailNotFound';
+import RsDetailGalleryBadges from '@/components/detail/RsDetailGalleryBadges';
 import { ActionRow, FeatureButtons, Highlights, PhotoGrid, SummaryLine, TaxesFees, TypeHeading } from './Detail02Parts';
 
 export default function DetailTemplate02() {
@@ -60,11 +58,7 @@ export default function DetailTemplate02() {
   return (
     <div class="rs-detail rs-detail-02">
       <div class="rs-d02-hero rs-detail__gallery-wrap">
-        <div class="rs-detail__gallery-badges">
-          <RsDetailStatus />
-          <RsDetailType />
-          <RsDetailRef />
-        </div>
+        <RsDetailGalleryBadges />
         <div class="rs-detail__gallery-heart rs-d02-hero__heart">
           <RsDetailWishlist propertyId={property.id} />
         </div>

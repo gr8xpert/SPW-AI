@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { FeatureService } from './feature.service';
-import { CreateFeatureDto, UpdateFeatureDto } from './dto';
+import { BulkVisibilityDto, CreateFeatureDto, UpdateFeatureDto } from './dto';
 import { ReorderDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -43,6 +43,13 @@ export class FeatureController {
   async bulkDelete(@CurrentTenant() tenantId: number, @Body() dto: { ids: number[] }) {
     const result = await this.featureService.bulkDelete(tenantId, dto.ids || []);
     if ((dto.ids || []).length > 0) await this.bump(tenantId, 'bulk delete');
+    return result;
+  }
+
+  @Put('bulk-visibility')
+  async bulkVisibility(@CurrentTenant() tenantId: number, @Body() dto: BulkVisibilityDto) {
+    const result = await this.featureService.setAllActive(tenantId, dto.isActive);
+    if (result.count > 0) await this.bump(tenantId, 'bulk visibility');
     return result;
   }
 

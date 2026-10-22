@@ -1,11 +1,11 @@
 // Listing template 10 — "metro": price band under the photo, spec chips.
 import { useCardState, type CardProps } from './useCardState';
 import { CardSlides, CardFavorite, CardImageCount, CardPrice } from './CardParts';
-import { specRange } from '@/core/property-display';
+import { showBadge, specRange } from '@/core/property-display';
 
 export default function CardMetro({ property, index = 0 }: CardProps) {
   const s = useCardState(property, index);
-  const { t, listingLabelKey, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
+  const { t, config, listingLabelKey, listingFallback, propertyUrl, handleClick, handleLinkClick, handleTouchStart, handleTouchEnd } = s;
   return (
     <div
       class="rs-property-card rs-property-card--metro rs-card-enter"
@@ -24,12 +24,19 @@ export default function CardMetro({ property, index = 0 }: CardProps) {
           <CardPrice s={s} short />
         </span>
         <div class="rs-property-card__metro-band-badges">
-          <span class="rs-property-card__metro-band-badge">
-            {t(listingLabelKey, listingFallback)}
-          </span>
-          {property.isOwnProperty && (
+          {showBadge(config, 'listingType') && (
+            <span class="rs-property-card__metro-band-badge">
+              {t(listingLabelKey, listingFallback)}
+            </span>
+          )}
+          {property.isOwnProperty && showBadge(config, 'own') && (
             <span class="rs-property-card__metro-band-badge rs-property-card__metro-band-badge--own">
               {t('card_own', 'Own')}
+            </span>
+          )}
+          {property.keyReady && showBadge(config, 'keyReady') && (
+            <span class="rs-property-card__metro-band-badge rs-property-card__metro-band-badge--key-ready">
+              {t('card_key_ready', 'Key Ready')}
             </span>
           )}
         </div>

@@ -1,5 +1,14 @@
 import type { Property, WidgetConfig } from '@/types';
 
+/** The badges a site can switch off (Dashboard → Settings → Widget → Badges):
+ *  listingType = For Sale / Rent… (cards' type badge, property page status),
+ *  propertyType + reference = property page photo only. */
+export type BadgeKey = 'listingType' | 'propertyType' | 'reference' | 'featured' | 'own' | 'keyReady';
+
+export function showBadge(config: Pick<WidgetConfig, 'hiddenBadges'>, key: BadgeKey): boolean {
+  return !config.hiddenBadges?.includes(key);
+}
+
 // Returns the reference to display on cards + detail. When the tenant enabled
 // useAgentReferenceAsDisplay AND the property has an agentReference (MLSC-style
 // client number), that wins. Otherwise falls back to the widget's own reference.

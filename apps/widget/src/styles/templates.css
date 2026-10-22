@@ -1421,6 +1421,9 @@ button.rs-more-filters-btn--active:hover {
 .rs-property-card--location-first .rs-property-card__badge--t12-offplan {
   background: #16a34a;
 }
+.rs-property-card--location-first .rs-property-card__badge--t12-key-ready {
+  background: #0f766e;
+}
 
 /* Image count bottom-right with camera icon */
 .rs-property-card--location-first .rs-property-card__image-count {

@@ -9,11 +9,8 @@ import RsDetailDownloadPdf from '@/components/detail/RsDetailDownloadPdf';
 import RsDetailGallery from '@/components/detail/RsDetailGallery';
 import RsDetailTitle from '@/components/detail/RsDetailTitle';
 import RsDetailPrice from '@/components/detail/RsDetailPrice';
-import RsDetailRef from '@/components/detail/RsDetailRef';
 import RsDetailLocation from '@/components/detail/RsDetailLocation';
 import RsDetailAddress from '@/components/detail/RsDetailAddress';
-import RsDetailType from '@/components/detail/RsDetailType';
-import RsDetailStatus from '@/components/detail/RsDetailStatus';
 import RsDetailSpecs from '@/components/detail/RsDetailSpecs';
 import RsDetailEnergyRating from '@/components/detail/RsDetailEnergyRating';
 import RsDetailDescription from '@/components/detail/RsDetailDescription';
@@ -33,6 +30,7 @@ import RsDetailNotFound from '@/components/detail/RsDetailNotFound';
 import { resolveFeatures } from '@/core/feature-utils';
 import { getDataLoader } from '@/core/data-loader';
 import { actions } from '@/core/actions';
+import RsDetailGalleryBadges from '@/components/detail/RsDetailGalleryBadges';
 import type { Feature } from '@/types';
 
 function FeaturesModal({ features, onClose }: { features: Feature[]; onClose: () => void }) {
@@ -237,18 +235,14 @@ export default function DetailTemplate01() {
   const url = typeof window !== 'undefined' ? window.location.href : '';
   const featureCatalog = useSelector(selectors.getFeatures);
   const resolvedFeatures = resolveFeatures(property.features, featureCatalog);
-  // Show the toggle button whenever the property has feature IDs, even if
-  // the catalog hasn't resolved any yet — keeps UI stable during late loads.
-  const featureCount = property.features?.length || 0;
+  // Only the features shown on the website: the catalog holds just those, so
+  // ones the client switched off (Features page) are neither counted nor listed.
+  const featureCount = resolvedFeatures.length;
 
   return (
     <div class="rs-detail">
       <div class="rs-detail__gallery-wrap">
-        <div class="rs-detail__gallery-badges">
-          <RsDetailStatus />
-          <RsDetailType />
-          <RsDetailRef />
-        </div>
+        <RsDetailGalleryBadges />
         <div class="rs-detail__gallery-heart">
           <RsDetailWishlist propertyId={property.id} />
         </div>

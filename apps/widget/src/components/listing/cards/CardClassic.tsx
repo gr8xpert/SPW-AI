@@ -4,7 +4,7 @@
 import { useEffect } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import RsWishlistIcon from '@/components/common/RsWishlistIcon';
-import { getDisplayReference, specRange } from '@/core/property-display';
+import { getDisplayReference, showBadge, specRange } from '@/core/property-display';
 import css from '@/styles/listing-classic.css?inline';
 import { useCardState, type CardProps, type CardState } from './useCardState';
 import { CardPrice } from './CardParts';
@@ -107,12 +107,15 @@ function Slides({ s }: { s: CardState }) {
 }
 
 function Status({ s, n }: { s: CardState; n: string }) {
-  const { property, t, listingLabelKey, listingFallback } = s;
+  const { property, t, config, listingLabelKey, listingFallback } = s;
   return (
     <div class={`rs_card_status rs-template-card-${n}__status`}>
-      <span class={`rs-card__tag ${TAG_CLASS[property.listingType] || TAG_CLASS.sale}`}>{t(listingLabelKey, listingFallback)}</span>
-      {property.isFeatured && <span class="rs-card__tag rs-card__tag--featured">{t('card_featured', 'Featured')}</span>}
-      {property.isOwnProperty && <span class="rs-card__tag rs-card__tag--own">{t('card_own', 'Own')}</span>}
+      {showBadge(config, 'listingType') && (
+        <span class={`rs-card__tag ${TAG_CLASS[property.listingType] || TAG_CLASS.sale}`}>{t(listingLabelKey, listingFallback)}</span>
+      )}
+      {property.isFeatured && showBadge(config, 'featured') && <span class="rs-card__tag rs-card__tag--featured">{t('card_featured', 'Featured')}</span>}
+      {property.isOwnProperty && showBadge(config, 'own') && <span class="rs-card__tag rs-card__tag--own">{t('card_own', 'Own')}</span>}
+      {property.keyReady && showBadge(config, 'keyReady') && <span class="rs-card__tag rs-card__tag--key-ready">{t('card_key_ready', 'Key Ready')}</span>}
     </div>
   );
 }

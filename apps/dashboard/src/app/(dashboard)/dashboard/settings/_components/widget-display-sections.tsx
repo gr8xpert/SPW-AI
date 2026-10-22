@@ -6,12 +6,13 @@ import type { WidgetSettings } from './use-widget-settings';
 import { PurchaseCostsSettings } from './purchase-costs-settings';
 import { SiteAgentSettings } from './site-agent-settings';
 import { TitlePatternSettings } from './title-pattern-settings';
+import { BadgeSettings } from './badge-settings';
 import { ChoiceButtons, SettingBlock, SwitchRow } from './widget-ui';
 
 // Widget tab → Listing cards and Property page.
 
 export function WidgetCardsSection({ widget }: { widget: WidgetSettings }) {
-  const { wishlistIcon, setWishlistIcon, cardShareIcon, setCardShareIcon, titlePatterns, setTitlePatterns, siteLanguages } = widget;
+  const { wishlistIcon, setWishlistIcon, cardShareIcon, setCardShareIcon, hiddenBadges, setHiddenBadges, titlePatterns, setTitlePatterns, siteLanguages } = widget;
   return (
     <div className="space-y-6">
       <SettingBlock
@@ -37,6 +38,8 @@ export function WidgetCardsSection({ widget }: { widget: WidgetSettings }) {
         checked={cardShareIcon}
         onCheckedChange={setCardShareIcon}
       />
+
+      <BadgeSettings hidden={hiddenBadges} onChange={setHiddenBadges} />
 
       <TitlePatternSettings value={titlePatterns} onChange={setTitlePatterns} languages={siteLanguages} />
     </div>

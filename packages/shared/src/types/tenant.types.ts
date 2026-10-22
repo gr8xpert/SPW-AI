@@ -172,6 +172,9 @@ export interface TenantSettings {
   hideEmptySearchOptions?: boolean;
   // Share icon beside the wishlist heart on listing cards. Default off.
   cardShareIcon?: boolean;
+  // Badges switched off on listing cards and the property page photo
+  // (listingType, propertyType, reference, featured, own, keyReady). Empty = all shown.
+  hiddenBadges?: string[];
   // "Sort by" choices on the website (create_date_desc, list_price, ...);
   // null/unset = all of them. defaultSort = how results start ordered.
   sortOptions?: string[] | null;

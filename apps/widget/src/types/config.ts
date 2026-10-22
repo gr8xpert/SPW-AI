@@ -25,6 +25,9 @@ export interface WidgetConfig {
   // Dashboard → Settings → Widget: share icon beside the heart on listing
   // cards and carousels. Off unless switched on.
   cardShareIcon?: boolean;
+  // Dashboard → Settings → Widget → Badges: badges switched off on listing
+  // cards and the property page photo (see BadgeKey). Absent = all shown.
+  hiddenBadges?: string[];
   // Dashboard → Settings → Widget: purchase costs calculator (rates in %,
   // optional calculator page). Absent = switched off.
   purchaseCosts?: PurchaseCostsConfig;

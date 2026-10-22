@@ -4372,6 +4372,10 @@ button.rs-property-card__rustic-cta:hover {
   background: #e63946;
 }
 
+.rs-property-card__metro-band-badge--key-ready {
+  background: #15803d;
+}
+
 .rs-property-card--metro .rs-property-card__body {
   padding: 14px 16px 16px;
   cursor: pointer;
@@ -6691,6 +6695,19 @@ a.rs-detail-related__card:hover .rs-detail-related__image img {
   background: var(--rs-primary);
   color: #fff;
   box-shadow: 0 1px 3px color-mix(in srgb, var(--rs-primary) 30%, transparent);
+}
+
+/* Same shape as the status badge, in the cards' Key Ready green. */
+.rs-detail-key-ready {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: #15803d;
+  color: #fff;
 }
 
 /* ── Detail spec badges (standalone bed/bath/area etc.) ── */
