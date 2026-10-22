@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { initialsOf, useAgentOptions } from '@/hooks/use-agents';
+import { useSettingsText } from '../_i18n';
 
 // The agent shown on every property page (design 02's side column, above the
 // form): one of the "Show on website" people from the Agents page, or none —
@@ -28,6 +29,7 @@ export function siteAgentToSettings(form: SiteAgentForm) {
 const NONE = 'none';
 
 export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; onChange: (v: SiteAgentForm) => void }) {
+  const t = useSettingsText().siteAgent;
   const options = useAgentOptions();
   const people = (options.data ?? []).filter((a) => a.showOnWebsite);
   const picked = people.find((a) => String(a.id) === value.userId) ?? null;
@@ -35,22 +37,21 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
   return (
     <div className="space-y-3 rounded-md border p-4" data-testid="site-agent">
       <div className="space-y-1">
-        <Label>Website agent</Label>
+        <Label>{t.title}</Label>
         <p className="text-xs text-muted-foreground">
-          Shown on every property page (property page design 02: in the side column, above the contact form). None = each
-          listing shows its own agent. Only people with &quot;Show on website&quot; on the{' '}
-          <Link href="/dashboard/team" className="underline">Agents page</Link> can be picked; edit their photo and details there.
+          {t.helpBefore}{' '}
+          <Link href="/dashboard/team" className="underline">{t.agentsPage}</Link> {t.helpAfter}
         </p>
       </div>
       <Select value={value.userId || NONE} onValueChange={(v) => onChange({ userId: v === NONE ? '' : v })}>
-        <SelectTrigger className="sm:max-w-sm" aria-label="Website agent"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="sm:max-w-sm" aria-label={t.title}><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={NONE}>None (each listing&apos;s own agent)</SelectItem>
+          <SelectItem value={NONE}>{t.none}</SelectItem>
           {people.map((a) => (
             <SelectItem key={a.id} value={String(a.id)}>{a.name || a.email}</SelectItem>
           ))}
           {value.userId && !picked && !options.isLoading && (
-            <SelectItem value={value.userId}>Not on the website any more</SelectItem>
+            <SelectItem value={value.userId}>{t.gone}</SelectItem>
           )}
         </SelectContent>
       </Select>
@@ -67,7 +68,7 @@ export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; o
           <div className="min-w-0 text-sm">
             <p className="font-medium">{picked.name}</p>
             <p className="truncate text-muted-foreground">
-              {[picked.title, picked.phone, picked.whatsapp && `WhatsApp ${picked.whatsapp}`, picked.publicEmail].filter(Boolean).join(' · ') || 'No details yet'}
+              {[picked.title, picked.phone, picked.whatsapp && `WhatsApp ${picked.whatsapp}`, picked.publicEmail].filter(Boolean).join(' · ') || t.noDetails}
             </p>
           </div>
         </div>

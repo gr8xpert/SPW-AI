@@ -25,6 +25,7 @@ import {
 } from '../../use-buyer-match';
 import { SendDialog } from './send-dialog';
 import { TimelineChips } from './timeline-chips';
+import { useCommonText } from '@/i18n/common';
 
 // ISO from the API → the value a datetime-local input wants (local time).
 function toLocalInput(iso: string | null): string {
@@ -143,6 +144,7 @@ export function SuggestedTab({ buyer }: { buyer: Buyer }) {
 
 function SuggestionRow({ s, checked, onToggle }: { s: Suggestion; checked: boolean; onToggle: () => void }) {
   const t = useBuyerText().suggested;
+  const tc = useCommonText();
   const { toast } = useToast();
   const update = useUpdateSuggestion();
   const remove = useRemoveSuggestion();
@@ -185,7 +187,7 @@ function SuggestionRow({ s, checked, onToggle }: { s: Suggestion; checked: boole
         <p className="truncate font-medium">{p ? nameOf(p.title) || p.reference : '—'}</p>
         {p ? (
           <p className="text-muted-foreground">
-            {[nameOf(p.location?.name), p.bedrooms ? t.beds(p.bedrooms) : '', formatRowPrice(p)].filter(Boolean).join(' · ')}
+            {[nameOf(p.location?.name), p.bedrooms ? t.beds(p.bedrooms) : '', formatRowPrice(p, tc.table.poa, tc.table.periods)].filter(Boolean).join(' · ')}
           </p>
         ) : null}
       </div>

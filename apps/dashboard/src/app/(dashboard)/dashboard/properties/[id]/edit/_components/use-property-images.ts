@@ -7,6 +7,7 @@ import type { PropertyImage } from '@spm/shared';
 import type { useApi } from '@/hooks/use-api';
 import type { useToast } from '@/hooks/use-toast';
 import type { MediaFileItem } from './types';
+import { usePropertiesText } from '../../../_i18n';
 
 interface UploadedFile { id: number; url: string; originalFilename: string; sortOrder: number; }
 
@@ -26,6 +27,7 @@ export function usePropertyImages({
   toast: ReturnType<typeof useToast>['toast'];
   propertyId: number;
 }) {
+  const t = usePropertiesText();
   const [images, setImages] = useState<MediaFileItem[]>([]);
   const feedImagesRef = useRef<Array<{ url: string; order?: number; alt?: string }>>([]);
   const imagesChangedRef = useRef(false);
@@ -78,11 +80,11 @@ export function usePropertyImages({
         );
       } catch {
         setImages((prev) => prev.filter((img) => img.tempId !== tempId));
-        toast({ title: 'Upload failed', description: `Failed to upload ${file.name}`, variant: 'destructive' });
+        toast({ title: t.common.uploadFailed, description: t.common.uploadFailedFile(file.name), variant: 'destructive' });
       }
     }
     e.target.value = '';
-  }, [api, toast, propertyId]);
+  }, [api, toast, propertyId, t]);
 
   const handleRemoveImage = useCallback(async (fileId: number) => {
     try {
@@ -90,9 +92,9 @@ export function usePropertyImages({
       imagesChangedRef.current = true;
       setImages((prev) => prev.filter((img) => img.id !== fileId));
     } catch {
-      toast({ title: 'Error', description: 'Failed to delete image.', variant: 'destructive' });
+      toast({ title: t.common.error, description: t.edit.deleteImageFailed, variant: 'destructive' });
     }
-  }, [api, toast]);
+  }, [api, toast, t]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -106,11 +108,11 @@ export function usePropertyImages({
       // Persist new order to server
       const fileIds = reordered.map((img) => img.id);
       api.put(`/api/dashboard/upload/property/${propertyId}/order`, { fileIds }).catch(() => {
-        toast({ title: 'Error', description: 'Failed to save image order.', variant: 'destructive' });
+        toast({ title: t.common.error, description: t.edit.imageOrderFailed, variant: 'destructive' });
       });
       return reordered;
     });
-  }, [api, propertyId, toast]);
+  }, [api, propertyId, toast, t]);
 
   /** The photos to save, or undefined when nothing changed here. Feed photos stay first. */
   const imagesForSave = (): Array<{ url: string; alt: string }> | undefined => {

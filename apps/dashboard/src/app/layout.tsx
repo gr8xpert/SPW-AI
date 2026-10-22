@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { Providers } from './providers';
 import { getCurrentSession } from '@/lib/server-session';
+import { toDashboardLanguage } from '@/i18n/languages';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,7 +20,7 @@ export default async function RootLayout({
   const session = await getCurrentSession();
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={toDashboardLanguage(session?.user?.dashboardLanguage)} suppressHydrationWarning>
       <body className={inter.className}>
         <Providers session={session}>{children}</Providers>
       </body>

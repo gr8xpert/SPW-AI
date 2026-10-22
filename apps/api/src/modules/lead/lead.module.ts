@@ -10,6 +10,8 @@ import { LeadStatsController } from './lead-stats.controller';
 import { InquiryController, ShareFavoritesController, VisitorCountryController } from './website-forms.controller';
 import { FormMailService } from './form-mail.service';
 import { BuyerController } from './buyer/buyer.controller';
+import { NewLeadController } from './buyer/new-lead.controller';
+import { NewLeadService } from './buyer/new-lead.service';
 import { BuyerService } from './buyer/buyer.service';
 import { BuyerStageService } from './buyer/buyer-stage.service';
 import { BuyerSettingsService } from './buyer/buyer-settings.service';
@@ -92,7 +94,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
   // first: their static routes (import/…, board, tasks/…, suggestions/…)
   // must win over BuyerController's /:id.
   controllers: [
-    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, MetaLeadController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
+    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, MetaLeadController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, NewLeadController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
     PublicBuyerQuestionsController, PublicBuyerWishlistController, BuyerTrackingController,
     PublicBuyerPageController, BuyerPageFallbackController,
   ],
@@ -103,6 +105,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
     BuyerService,
     BuyerStageService,
     BuyerSettingsService,
+    NewLeadService,
     BuyerQuestionService,
     BuyerTaskService,
     BuyerFileService,

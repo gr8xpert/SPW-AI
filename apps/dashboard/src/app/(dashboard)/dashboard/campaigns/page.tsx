@@ -62,6 +62,9 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { CampaignsNav } from './_components/campaigns-nav';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { formatRate, useCampaignsText } from './_i18n';
 
 interface Template {
   id: number;
@@ -85,12 +88,13 @@ interface Campaign {
   template?: Template;
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' }> = {
-  draft: { label: 'Draft', variant: 'secondary' },
-  scheduled: { label: 'Scheduled', variant: 'warning' },
-  sending: { label: 'Sending', variant: 'default' },
-  sent: { label: 'Sent', variant: 'success' },
-  cancelled: { label: 'Cancelled', variant: 'destructive' },
+// The label comes from t.status[code] at render.
+const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' }> = {
+  draft: { variant: 'secondary' },
+  scheduled: { variant: 'warning' },
+  sending: { variant: 'default' },
+  sent: { variant: 'success' },
+  cancelled: { variant: 'destructive' },
 };
 
 const emptyForm = { name: '', subject: '', bodyHtml: '' };
@@ -116,6 +120,8 @@ function CampaignsPageInner() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useCampaignsText();
+  const { locale } = useLanguage();
 
   const fetchCampaigns = async () => {
     if (!api.isReady) return;
@@ -124,7 +130,7 @@ function CampaignsPageInner() {
       const body = res?.data || res;
       setCampaigns(Array.isArray(body) ? body : body.data || []);
     } catch {
-      toast({ title: 'Failed to load campaigns', variant: 'destructive' });
+      toast({ title: t.list.toasts.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -149,20 +155,20 @@ function CampaignsPageInner() {
         bodyHtml: templateForm.bodyHtml,
         type: 'custom',
       });
-      toast({ title: 'Template created' });
+      toast({ title: t.list.toasts.templateCreated });
       setIsTemplateOpen(false);
       setTemplateForm(emptyTemplateForm);
       fetchTemplates();
       const body = res?.data || res;
       if (body?.id) setSelectedTemplateId(body.id);
     } catch (e: any) {
-      toast({ title: 'Failed to create template', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.templateCreateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleCreateCampaign = async () => {
     if (!selectedTemplateId) {
-      toast({ title: 'Please select or create a template first', variant: 'destructive' });
+      toast({ title: t.list.toasts.selectTemplateFirst, variant: 'destructive' });
       return;
     }
     try {
@@ -171,13 +177,13 @@ function CampaignsPageInner() {
         subject: form.subject || undefined,
         templateId: selectedTemplateId,
       });
-      toast({ title: 'Campaign created' });
+      toast({ title: t.list.toasts.campaignCreated });
       setIsCreateOpen(false);
       setForm(emptyForm);
       setSelectedTemplateId(null);
       fetchCampaigns();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -185,28 +191,28 @@ function CampaignsPageInner() {
     if (!sendingCampaign) return;
     try {
       await api.post(`/api/dashboard/campaigns/${sendingCampaign.id}/send`);
-      toast({ title: 'Campaign is being sent' });
+      toast({ title: t.list.toasts.sending });
       setIsSendOpen(false);
       setSendingCampaign(null);
       fetchCampaigns();
     } catch (e: any) {
-      toast({ title: 'Failed to send', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.sendFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleCancel = async (campaign: Campaign) => {
     try {
       await api.post(`/api/dashboard/campaigns/${campaign.id}/cancel`);
-      toast({ title: 'Campaign cancelled' });
+      toast({ title: t.list.toasts.cancelled });
       fetchCampaigns();
     } catch (e: any) {
-      toast({ title: 'Failed to cancel', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.cancelFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleDelete = async () => {
     if (!deletingCampaign) return;
-    toast({ title: 'Delete not available for campaigns', variant: 'destructive' });
+    toast({ title: t.list.toasts.deleteUnavailable, variant: 'destructive' });
     setIsDeleteOpen(false);
     setDeletingCampaign(null);
   };
@@ -229,13 +235,13 @@ function CampaignsPageInner() {
         subject: templateForm.subject,
         bodyHtml: templateForm.bodyHtml,
       });
-      toast({ title: 'Template updated' });
+      toast({ title: t.list.toasts.templateUpdated });
       setIsEditTemplateOpen(false);
       setEditingTemplate(null);
       setTemplateForm(emptyTemplateForm);
       fetchTemplates();
     } catch (e: any) {
-      toast({ title: 'Failed to update template', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.templateUpdateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -243,12 +249,12 @@ function CampaignsPageInner() {
     if (!deletingTemplate) return;
     try {
       await api.delete(`/api/dashboard/email-templates/${deletingTemplate.id}`);
-      toast({ title: 'Template deleted' });
+      toast({ title: t.list.toasts.templateDeleted });
       setIsDeleteTemplateOpen(false);
       setDeletingTemplate(null);
       fetchTemplates();
     } catch (e: any) {
-      toast({ title: 'Cannot delete template', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.templateDeleteFailed, description: e.message, variant: 'destructive' });
       setIsDeleteTemplateOpen(false);
       setDeletingTemplate(null);
     }
@@ -268,34 +274,36 @@ function CampaignsPageInner() {
   };
 
   const formatDate = (d: string) => {
-    try { return new Date(d).toLocaleDateString(); } catch { return d; }
+    try { return new Date(d).toLocaleDateString(locale); } catch { return d; }
   };
 
   return (
     <div className="space-y-6">
       <div className="page-header animate-fade-in">
         <div>
-          <h1 className="page-title">Email Campaigns</h1>
-          <p className="page-description mt-1">Create and manage email marketing campaigns</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.list.description}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsTemplateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Template
+            {t.list.newTemplate}
           </Button>
           <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setSelectedTemplateId(templates[0]?.id || null); setIsCreateOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
-            New Campaign
+            {t.list.newCampaign}
           </Button>
         </div>
       </div>
+
+      <CampaignsNav />
 
       <div
         className="grid gap-4 md:grid-cols-4"
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.list.totalCampaigns}</CardTitle>
             <div className="stat-card-icon">
               <Mail className="h-4 w-4" />
             </div>
@@ -304,7 +312,7 @@ function CampaignsPageInner() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Sent</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.list.sent}</CardTitle>
             <div className="stat-card-icon">
               <Send className="h-4 w-4" />
             </div>
@@ -313,7 +321,7 @@ function CampaignsPageInner() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.list.scheduled}</CardTitle>
             <div className="stat-card-icon">
               <Mail className="h-4 w-4" />
             </div>
@@ -322,7 +330,7 @@ function CampaignsPageInner() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Drafts</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.list.drafts}</CardTitle>
             <div className="stat-card-icon">
               <Mail className="h-4 w-4" />
             </div>
@@ -335,7 +343,7 @@ function CampaignsPageInner() {
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search campaigns..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder={t.list.searchPlaceholder} className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -343,37 +351,37 @@ function CampaignsPageInner() {
       {/* Email Templates */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Email Templates</CardTitle>
+          <CardTitle>{t.list.templatesTitle}</CardTitle>
           <Button variant="outline" size="sm" onClick={() => { setTemplateForm(emptyTemplateForm); setIsTemplateOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
-            New Template
+            {t.list.newTemplate}
           </Button>
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
-            <p className="text-center py-6 text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
+            <p className="text-center py-6 text-sm text-muted-foreground">{t.list.noTemplates}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>{t.common.name}</TableHead>
+                  <TableHead>{t.common.subject}</TableHead>
+                  <TableHead>{t.list.type}</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.name}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-[300px]">{t.subject}</TableCell>
-                    <TableCell><Badge variant="outline">{t.type || 'custom'}</Badge></TableCell>
+                {templates.map((tpl) => (
+                  <TableRow key={tpl.id}>
+                    <TableCell className="font-medium">{tpl.name}</TableCell>
+                    <TableCell className="text-muted-foreground truncate max-w-[300px]">{tpl.subject}</TableCell>
+                    <TableCell><Badge variant="outline">{t.list.templateTypes[tpl.type || 'custom'] || tpl.type || 'custom'}</Badge></TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEditTemplate(t)}>
+                        <Button variant="ghost" size="icon" onClick={() => openEditTemplate(tpl)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setDeletingTemplate(t); setIsDeleteTemplateOpen(true); }}>
+                        <Button variant="ghost" size="icon" onClick={() => { setDeletingTemplate(tpl); setIsDeleteTemplateOpen(true); }}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -387,7 +395,7 @@ function CampaignsPageInner() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All Campaigns</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t.list.allCampaigns}</CardTitle></CardHeader>
         <CardContent>
           {api.isLoading && campaigns.length === 0 ? (
             <div className="flex justify-center py-8">
@@ -395,30 +403,31 @@ function CampaignsPageInner() {
             </div>
           ) : campaigns.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No campaigns yet</p>
+              <p className="text-muted-foreground">{t.list.noCampaigns}</p>
               <Button className="mt-4" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create your first campaign
+                {t.list.createFirst}
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Campaign</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Recipients</TableHead>
-                  <TableHead>Open Rate</TableHead>
-                  <TableHead>Click Rate</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>{t.list.colCampaign}</TableHead>
+                  <TableHead>{t.common.status}</TableHead>
+                  <TableHead>{t.list.colRecipients}</TableHead>
+                  <TableHead>{t.list.colOpenRate}</TableHead>
+                  <TableHead>{t.list.colClickRate}</TableHead>
+                  <TableHead>{t.list.colCreated}</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCampaigns.map((campaign) => {
-                  const openRate = campaign.sentCount > 0 ? ((campaign.openCount / campaign.sentCount) * 100).toFixed(1) : '-';
-                  const clickRate = campaign.sentCount > 0 ? ((campaign.clickCount / campaign.sentCount) * 100).toFixed(1) : '-';
+                  const openRate = campaign.sentCount > 0 ? formatRate((campaign.openCount / campaign.sentCount) * 100, locale) : '-';
+                  const clickRate = campaign.sentCount > 0 ? formatRate((campaign.clickCount / campaign.sentCount) * 100, locale) : '-';
                   const cfg = statusConfig[campaign.status] || statusConfig.draft;
+                  const statusLabel = t.status[campaign.status] || t.status.draft;
 
                   return (
                     <TableRow key={campaign.id}>
@@ -429,16 +438,16 @@ function CampaignsPageInner() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                        <Badge variant={cfg.variant}>{statusLabel}</Badge>
                         {campaign.scheduledAt && (
                           <p className="text-xs text-muted-foreground mt-1">{formatDate(campaign.scheduledAt)}</p>
                         )}
                       </TableCell>
                       <TableCell>
                         {campaign.status === 'sent'
-                          ? campaign.sentCount.toLocaleString()
+                          ? campaign.sentCount.toLocaleString(locale)
                           : campaign.totalRecipients > 0
-                          ? `${campaign.totalRecipients.toLocaleString()} (pending)`
+                          ? t.list.pending(campaign.totalRecipients.toLocaleString(locale))
                           : '-'}
                       </TableCell>
                       <TableCell>
@@ -463,18 +472,18 @@ function CampaignsPageInner() {
                             {campaign.status === 'draft' && (
                               <DropdownMenuItem onClick={() => { setSendingCampaign(campaign); setIsSendOpen(true); }}>
                                 <Play className="h-4 w-4 mr-2" />
-                                Send Now
+                                {t.list.sendNow}
                               </DropdownMenuItem>
                             )}
                             {(campaign.status === 'scheduled' || campaign.status === 'sending') && (
                               <DropdownMenuItem onClick={() => handleCancel(campaign)}>
                                 <Pause className="h-4 w-4 mr-2" />
-                                Cancel
+                                {t.list.cancelCampaign}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingCampaign(campaign); setIsDeleteOpen(true); }}>
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
+                              {t.common.delete}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -492,39 +501,39 @@ function CampaignsPageInner() {
       <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) setForm(emptyForm); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Campaign</DialogTitle>
-            <DialogDescription>Create a new email campaign</DialogDescription>
+            <DialogTitle>{t.list.createDialog.title}</DialogTitle>
+            <DialogDescription>{t.list.createDialog.description}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Campaign Name *</Label>
-              <Input placeholder="April Newsletter" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Label>{t.list.createDialog.nameLabel}</Label>
+              <Input placeholder={t.list.createDialog.namePlaceholder} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Subject Line</Label>
-              <Input placeholder="Check out our latest properties" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+              <Label>{t.list.createDialog.subjectLabel}</Label>
+              <Input placeholder={t.list.createDialog.subjectPlaceholder} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Template</Label>
+              <Label>{t.common.template}</Label>
               {templates.length === 0 ? (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md">
-                  No templates yet.{' '}
+                  {t.list.createDialog.noTemplates}{' '}
                   <button className="text-primary underline" onClick={() => { setIsCreateOpen(false); setIsTemplateOpen(true); }}>
-                    Create one first
+                    {t.list.createDialog.createOneFirst}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {templates.map((t) => (
+                  {templates.map((tpl) => (
                     <button
-                      key={t.id}
+                      key={tpl.id}
                       className={cn(
                         'w-full text-left p-3 border rounded-md transition-colors',
-                        selectedTemplateId === t.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                        selectedTemplateId === tpl.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                       )}
-                      onClick={() => setSelectedTemplateId(t.id)}
+                      onClick={() => setSelectedTemplateId(tpl.id)}
                     >
-                      <p className="font-medium text-sm">{t.name}</p>
+                      <p className="font-medium text-sm">{tpl.name}</p>
                     </button>
                   ))}
                 </div>
@@ -532,10 +541,10 @@ function CampaignsPageInner() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t.common.cancel}</Button>
             <Button onClick={handleCreateCampaign} disabled={!form.name || !selectedTemplateId || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create Campaign
+              {t.list.createDialog.submit}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -545,22 +554,22 @@ function CampaignsPageInner() {
       <Dialog open={isTemplateOpen} onOpenChange={(open) => { setIsTemplateOpen(open); if (!open) setTemplateForm(emptyTemplateForm); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>New Email Template</DialogTitle>
-            <DialogDescription>Create a reusable email template for campaigns</DialogDescription>
+            <DialogTitle>{t.list.templateDialog.title}</DialogTitle>
+            <DialogDescription>{t.list.templateDialog.description}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Template Name *</Label>
-              <Input placeholder="Newsletter Template" value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
+              <Label>{t.list.templateDialog.nameLabel}</Label>
+              <Input placeholder={t.list.templateDialog.namePlaceholder} value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Default Subject *</Label>
-              <Input placeholder="Your monthly property update" value={templateForm.subject} onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })} />
+              <Label>{t.list.templateDialog.subjectLabel}</Label>
+              <Input placeholder={t.list.templateDialog.subjectPlaceholder} value={templateForm.subject} onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>HTML Body *</Label>
+              <Label>{t.list.templateDialog.bodyLabel}</Label>
               <Textarea
-                placeholder="<h1>Hello {{name}}</h1><p>Check out our latest properties...</p>"
+                placeholder={t.list.templateDialog.bodyPlaceholder}
                 className="font-mono text-sm min-h-[200px]"
                 value={templateForm.bodyHtml}
                 onChange={(e) => setTemplateForm({ ...templateForm, bodyHtml: e.target.value })}
@@ -568,10 +577,10 @@ function CampaignsPageInner() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTemplateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsTemplateOpen(false)}>{t.common.cancel}</Button>
             <Button onClick={handleCreateTemplate} disabled={!templateForm.name || !templateForm.subject || !templateForm.bodyHtml || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create Template
+              {t.list.templateDialog.submit}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -581,14 +590,14 @@ function CampaignsPageInner() {
       <AlertDialog open={isSendOpen} onOpenChange={setIsSendOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Send Campaign</AlertDialogTitle>
+            <AlertDialogTitle>{t.list.sendDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to send &quot;{sendingCampaign?.name}&quot;? This will email all matching contacts.
+              {t.list.sendDialog.text(sendingCampaign?.name ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSend}>Send Now</AlertDialogAction>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSend}>{t.list.sendNow}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -597,15 +606,15 @@ function CampaignsPageInner() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+            <AlertDialogTitle>{t.list.deleteDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingCampaign?.name}&quot;? This action cannot be undone.
+              {t.list.deleteDialog.text(deletingCampaign?.name ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -615,20 +624,20 @@ function CampaignsPageInner() {
       <Dialog open={isEditTemplateOpen} onOpenChange={(open) => { setIsEditTemplateOpen(open); if (!open) { setEditingTemplate(null); setTemplateForm(emptyTemplateForm); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Template</DialogTitle>
-            <DialogDescription>Modify the email template</DialogDescription>
+            <DialogTitle>{t.list.templateDialog.editTitle}</DialogTitle>
+            <DialogDescription>{t.list.templateDialog.editDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Template Name *</Label>
+              <Label>{t.list.templateDialog.nameLabel}</Label>
               <Input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Default Subject *</Label>
+              <Label>{t.list.templateDialog.subjectLabel}</Label>
               <Input value={templateForm.subject} onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>HTML Body *</Label>
+              <Label>{t.list.templateDialog.bodyLabel}</Label>
               <Textarea
                 className="font-mono text-sm min-h-[200px]"
                 value={templateForm.bodyHtml}
@@ -637,10 +646,10 @@ function CampaignsPageInner() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditTemplateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditTemplateOpen(false)}>{t.common.cancel}</Button>
             <Button onClick={handleUpdateTemplate} disabled={!templateForm.name || !templateForm.subject || !templateForm.bodyHtml || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.common.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -650,15 +659,15 @@ function CampaignsPageInner() {
       <AlertDialog open={isDeleteTemplateOpen} onOpenChange={setIsDeleteTemplateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogTitle>{t.list.deleteTemplateDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingTemplate?.name}&quot;? Templates used by existing campaigns cannot be deleted.
+              {t.list.deleteTemplateDialog.text(deletingTemplate?.name ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteTemplate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -674,8 +683,9 @@ function cn(...classes: (string | boolean | undefined)[]) {
 import { LockedRouteGuard } from '@/components/locked-route-guard';
 
 export default function CampaignsPage() {
+  const t = useCampaignsText();
   return (
-    <LockedRouteGuard addon="emailCampaign" featureName="Email Campaigns">
+    <LockedRouteGuard addon="emailCampaign" featureName={t.featureName}>
       <CampaignsPageInner />
     </LockedRouteGuard>
   );

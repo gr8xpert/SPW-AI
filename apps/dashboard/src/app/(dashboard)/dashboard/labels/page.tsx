@@ -53,6 +53,7 @@ import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { useBulkJob } from '@/hooks/use-bulk-job';
+import { useLabelsText, nameOf } from './_i18n';
 
 interface Label {
   id: number;
@@ -61,28 +62,23 @@ interface Label {
   isCustom: boolean;
 }
 
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
-  it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
-  da: 'Danish', pl: 'Polish', cs: 'Czech', fi: 'Finnish',
-};
-
+// Tab names come from t.categories by id.
 const labelCategories = [
-  { id: 'search', name: 'Search Form' },
-  { id: 'results', name: 'Search Results' },
-  { id: 'card', name: 'Property Card' },
-  { id: 'detail', name: 'Property Detail' },
-  { id: 'inquiry', name: 'Inquiry Form' },
-  { id: 'wishlist', name: 'Wishlist' },
-  { id: 'map', name: 'Map' },
-  { id: 'chat', name: 'AI Chat' },
-  { id: 'pagination', name: 'Pagination' },
-  { id: 'mortgage', name: 'Mortgage Calculator' },
-  { id: 'calculator', name: 'Purchase Costs Calculator' },
-  { id: 'buyer', name: 'Buyer Emails & PDF' },
-  { id: 'wishlist_form', name: 'Wishlist Form' },
-  { id: 'buyer_page', name: 'Buyer Page' },
-  { id: 'general', name: 'General' },
+  { id: 'search' },
+  { id: 'results' },
+  { id: 'card' },
+  { id: 'detail' },
+  { id: 'inquiry' },
+  { id: 'wishlist' },
+  { id: 'map' },
+  { id: 'chat' },
+  { id: 'pagination' },
+  { id: 'mortgage' },
+  { id: 'calculator' },
+  { id: 'buyer' },
+  { id: 'wishlist_form' },
+  { id: 'buyer_page' },
+  { id: 'general' },
 ];
 
 const CATEGORY_PREFIXES: Record<string, string[]> = {
@@ -130,6 +126,7 @@ export default function LabelsPage() {
   const [translatingId, setTranslatingId] = useState<number | null>(null);
   const [isBulkTranslating, setIsBulkTranslating] = useState(false);
   const aiTranslation = useAiTranslationGuard();
+  const t = useLabelsText();
 
   const api = useApi();
   // Server-tracked, so progress survives a refresh or leaving the page and a
@@ -140,8 +137,8 @@ export default function LabelsPage() {
     onFinished: (st) => {
       toast(
         st.status === 'completed' && st.failed === 0
-          ? { title: 'Bulk translation complete', description: `${st.completed} labels translated` }
-          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+          ? { title: t.toast.bulkComplete, description: t.toast.bulkCompleteText(st.completed) }
+          : { title: t.toast.bulkErrors, description: t.toast.bulkErrorsText(st.failed, st.total), variant: 'destructive' },
       );
       fetchLabels();
     },
@@ -164,7 +161,7 @@ export default function LabelsPage() {
       const res = await api.get('/api/dashboard/labels');
       setLabels(res?.data || []);
     } catch {
-      toast({ title: 'Failed to load labels', variant: 'destructive' });
+      toast({ title: t.toast.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -184,13 +181,13 @@ export default function LabelsPage() {
         if (val.trim()) translations[lang] = val.trim();
       }
       await api.put(`/api/dashboard/labels/${editingLabel.id}`, { translations });
-      toast({ title: 'Label updated' });
+      toast({ title: t.toast.updated });
       setIsEditOpen(false);
       setEditingLabel(null);
       setEditValues({});
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Failed to save', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.saveFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -204,12 +201,12 @@ export default function LabelsPage() {
         translations,
         isCustom: true,
       });
-      toast({ title: 'Label created' });
+      toast({ title: t.toast.created });
       setIsAddOpen(false);
       setNewLabelForm({ key: '', en: '', es: '' });
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -217,22 +214,22 @@ export default function LabelsPage() {
     if (!deletingLabel) return;
     try {
       await api.delete(`/api/dashboard/labels/${deletingLabel.id}`);
-      toast({ title: 'Label deleted' });
+      toast({ title: t.toast.deleted });
       setIsDeleteOpen(false);
       setDeletingLabel(null);
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.deleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleInitialize = async () => {
     try {
       await api.post('/api/dashboard/labels/initialize');
-      toast({ title: 'Default labels initialized' });
+      toast({ title: t.toast.initialized });
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Failed to initialize', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.initFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -249,7 +246,7 @@ export default function LabelsPage() {
 
       const missingLangs = languages.filter(l => l !== 'en' && !editValues[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setIsTranslating(false);
         return;
       }
@@ -265,10 +262,10 @@ export default function LabelsPage() {
         }
         setEditValues(newVals);
       }
-      toast({ title: `Translated to ${missingLangs.length} languages` });
+      toast({ title: t.toast.translatedTo(missingLangs.length) });
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
     }
@@ -280,7 +277,7 @@ export default function LabelsPage() {
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !label.translations[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setTranslatingId(null);
         return;
       }
@@ -288,10 +285,10 @@ export default function LabelsPage() {
         targetLanguages: missingLangs,
         sourceLanguage: 'en',
       });
-      toast({ title: `Translated "${label.key}"` });
+      toast({ title: t.toast.translatedName(label.key) });
       fetchLabels();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setTranslatingId(null);
     }
@@ -303,7 +300,7 @@ export default function LabelsPage() {
     try {
       const targetLangs = languages.filter(l => l !== 'en');
       if (targetLangs.length === 0) {
-        toast({ title: 'No target languages configured. Add languages in Settings.' });
+        toast({ title: t.toast.noTargetLanguages });
         return;
       }
       const res = await api.post('/api/dashboard/translate/labels/bulk', {
@@ -315,11 +312,11 @@ export default function LabelsPage() {
       if (jobId) bulkTranslate.track(jobId);
       toast(
         res?.data?.alreadyRunning
-          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
-          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+          ? { title: t.toast.bulkAlready, description: t.toast.bulkAlreadyText }
+          : { title: t.toast.bulkStarted, description: t.toast.bulkStartedText },
       );
     } catch (e: any) {
-      toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsBulkTranslating(false);
     }
@@ -350,14 +347,14 @@ export default function LabelsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Labels</h1>
-          <p className="page-description mt-1">Manage UI text translations for your widget</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {languages.length > 1 && (
-            <Button size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+            <Button size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? t.lockedLong : undefined}>
               {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
+              {bulkTranslate.running ? t.translating(bulkTranslate.progress) : t.aiTranslateAll}
             </Button>
           )}
         </div>
@@ -366,7 +363,7 @@ export default function LabelsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Labels</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.totalLabels}</CardTitle>
             <div className="stat-card-icon">
               <Edit className="h-4 w-4" />
             </div>
@@ -375,7 +372,7 @@ export default function LabelsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Languages</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.languages}</CardTitle>
             <div className="stat-card-icon">
               <Sparkles className="h-4 w-4" />
             </div>
@@ -384,7 +381,7 @@ export default function LabelsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Missing Translations</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.missingTranslations}</CardTitle>
             <div className="stat-card-icon">
               <Search className="h-4 w-4" />
             </div>
@@ -397,7 +394,7 @@ export default function LabelsPage() {
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search labels by key or translation..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder={t.searchPlaceholder} className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -405,7 +402,7 @@ export default function LabelsPage() {
       <Tabs value={activeCategory} onValueChange={setActiveCategory}>
         <TabsList>
           {labelCategories.map((cat) => (
-            <TabsTrigger key={cat.id} value={cat.id}>{cat.name}</TabsTrigger>
+            <TabsTrigger key={cat.id} value={cat.id}>{nameOf(t.categories, cat.id)}</TabsTrigger>
           ))}
         </TabsList>
 
@@ -413,27 +410,27 @@ export default function LabelsPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {search.trim() ? `Search results in all tabs (${filteredLabels.length})` : `${labelCategories.find((c) => c.id === activeCategory)?.name} Labels`}
+                {search.trim() ? t.searchResultsAll(filteredLabels.length) : t.categoryLabels(nameOf(t.categories, activeCategory))}
               </CardTitle>
-              <CardDescription>Click the edit button to manage translations</CardDescription>
+              <CardDescription>{t.clickEdit}</CardDescription>
             </CardHeader>
             <CardContent>
               {api.isLoading && labels.length === 0 ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
               ) : labels.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No labels yet. Initialize defaults or add custom labels.</p>
-                  <Button onClick={handleInitialize}>Initialize Default Labels</Button>
+                  <p className="text-muted-foreground mb-4">{t.empty}</p>
+                  <Button onClick={handleInitialize}>{t.initializeDefaults}</Button>
                 </div>
               ) : filteredLabels.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">No labels match the current filter.</p>
+                <p className="text-center py-8 text-muted-foreground">{t.noMatch}</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[200px]">Key</TableHead>
-                      <TableHead>English</TableHead>
-                      {languages.length > 1 && <TableHead className="w-[120px]">Translations</TableHead>}
+                      <TableHead className="w-[200px]">{t.colKey}</TableHead>
+                      <TableHead>{t.colEnglish}</TableHead>
+                      {languages.length > 1 && <TableHead className="w-[120px]">{t.colTranslations}</TableHead>}
                       <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -446,7 +443,7 @@ export default function LabelsPage() {
                             <code className="text-xs bg-muted px-2 py-1 rounded">{label.key}</code>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {label.translations.en || <span className="text-muted-foreground italic">Missing</span>}
+                            {label.translations.en || <span className="text-muted-foreground italic">{t.missing}</span>}
                           </TableCell>
                           {languages.length > 1 && (
                             <TableCell>
@@ -465,7 +462,7 @@ export default function LabelsPage() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               {languages.length > 1 && (
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleQuickTranslate(label)} disabled={translatingId === label.id} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : 'AI translate this label'}>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleQuickTranslate(label)} disabled={translatingId === label.id} title={aiTranslation.locked ? t.lockedShort : t.translateThis}>
                                   {aiTranslation.locked ? <Lock className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                                 </Button>
                               )}
@@ -486,25 +483,25 @@ export default function LabelsPage() {
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingLabel(null); setEditValues({}); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Label</DialogTitle>
+            <DialogTitle>{t.editTitle}</DialogTitle>
             <DialogDescription>
               <code className="text-xs bg-muted px-2 py-1 rounded">{editingLabel?.key}</code>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <UILabel>English</UILabel>
+              <UILabel>{t.english}</UILabel>
               <Input value={editValues.en || ''} onChange={(e) => setEditValues({ ...editValues, en: e.target.value })} />
             </div>
             {languages.filter(l => l !== 'en').length > 0 && (
               <div className="border rounded-md">
                 <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
                   <span className="text-sm font-medium">
-                    Translations ({languages.filter(l => l !== 'en' && editValues[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
+                    {t.translationsCount(languages.filter(l => l !== 'en' && editValues[l]?.trim()).length, languages.filter(l => l !== 'en').length)}
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !editValues.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !editValues.en?.trim()} title={aiTranslation.locked ? t.lockedShort : undefined}>
                     {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                    AI Translate
+                    {t.aiTranslate}
                   </Button>
                 </div>
                 <div className="max-h-[280px] overflow-y-auto p-3 space-y-2">
@@ -513,7 +510,7 @@ export default function LabelsPage() {
                       <span className="text-xs font-medium uppercase w-8 text-muted-foreground shrink-0">{lang}</span>
                       <Input
                         className="h-8 text-sm"
-                        placeholder={LANG_NAMES[lang] || lang}
+                        placeholder={nameOf(t.langNames, lang)}
                         value={editValues[lang] || ''}
                         onChange={(e) => setEditValues({ ...editValues, [lang]: e.target.value })}
                       />
@@ -529,10 +526,10 @@ export default function LabelsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleSaveEdit} disabled={!editValues.en?.trim() || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -542,29 +539,29 @@ export default function LabelsPage() {
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setNewLabelForm({ key: '', en: '', es: '' }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Label</DialogTitle>
-            <DialogDescription>Create a new custom label with translations</DialogDescription>
+            <DialogTitle>{t.addTitle}</DialogTitle>
+            <DialogDescription>{t.addDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <UILabel>Key</UILabel>
+              <UILabel>{t.key}</UILabel>
               <Input placeholder="search_my_label" value={newLabelForm.key} onChange={(e) => setNewLabelForm({ ...newLabelForm, key: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Use format: category_label_name (e.g. bedrooms_label, detail_price, card_view_details)</p>
+              <p className="text-xs text-muted-foreground">{t.keyHint}</p>
             </div>
             <div className="space-y-2">
-              <UILabel>English</UILabel>
+              <UILabel>{t.english}</UILabel>
               <Input placeholder="My Label" value={newLabelForm.en} onChange={(e) => setNewLabelForm({ ...newLabelForm, en: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <UILabel>Spanish</UILabel>
+              <UILabel>{t.spanish}</UILabel>
               <Input placeholder="Mi Etiqueta" value={newLabelForm.es} onChange={(e) => setNewLabelForm({ ...newLabelForm, es: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleCreate} disabled={!newLabelForm.key || !newLabelForm.en || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create
+              {t.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -574,16 +571,16 @@ export default function LabelsPage() {
       <AlertDialog open={isBulkTranslateOpen} onOpenChange={setIsBulkTranslateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>AI Translate All Labels</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will translate all {labels.length} labels to {languages.filter(l => l !== 'en').length} languages using AI.
+              {t.bulkText(labels.length, languages.filter(l => l !== 'en').length)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Start Translation
+              {t.startTranslation}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -593,15 +590,15 @@ export default function LabelsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Label</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingLabel?.key}&quot;? This action cannot be undone.
+              {t.deleteText(deletingLabel?.key ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

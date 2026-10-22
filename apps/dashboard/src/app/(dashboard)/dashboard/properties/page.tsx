@@ -52,7 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
-import { PROPERTY_SOURCE_LABELS } from '@/lib/utils';
+import { PROPERTY_SOURCE_LABELS, propertySourceLabel } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
@@ -60,6 +60,9 @@ import { BulkSeoDialog } from '@/components/bulk-seo-dialog';
 import { useBulkJob } from '@/hooks/use-bulk-job';
 import { propertyKeys, useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { PageNumbers } from '@/components/ui/page-numbers';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { labelOf, usePropertiesText } from './_i18n';
+import { useCommonText } from '@/i18n/common';
 
 interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
 
@@ -81,6 +84,9 @@ function displayName(name: Record<string, string> | string): string {
 
 export default function PropertiesPage() {
   const { toast } = useToast();
+  const t = usePropertiesText();
+  const tc = useCommonText();
+  const { locale } = useLanguage();
   const { addons, known: addonsKnown } = useDashboardAddons();
   // Not greyed out while the plan is still loading (see useDashboardAddons).
   const canAddProperty = addons.addProperty || !addonsKnown;
@@ -211,8 +217,8 @@ export default function PropertiesPage() {
       // Translated titles show in the table, so reload it.
       void queryClient.invalidateQueries({ queryKey: propertyKeys.lists() });
       toast({
-        title: s.status === 'completed' ? 'Bulk translation complete' : 'Bulk translation finished with errors',
-        description: `${s.completed - s.failed} succeeded, ${s.failed} failed out of ${s.total} translations.`,
+        title: s.status === 'completed' ? t.list.bulkComplete : t.list.bulkWithErrors,
+        description: t.list.bulkResult(s.completed - s.failed, s.failed, s.total),
         variant: s.failed > 0 ? 'destructive' : 'default',
       });
     },
@@ -224,19 +230,19 @@ export default function PropertiesPage() {
         '/api/dashboard/translate/properties/bulk',
         { targetLanguages },
       );
-      if (!res.data?.jobId) throw new Error('No job ID returned');
+      if (!res.data?.jobId) throw new Error(t.list.noJobId);
       return res.data;
     },
     onSuccess: ({ jobId, alreadyRunning }) => {
       bulkTranslate.track(jobId);
       toast(
         alreadyRunning
-          ? { title: 'Bulk translation is already running', description: 'Showing the progress of the run in flight — no second run was started.' }
-          : { title: 'Bulk translation started', description: 'Translating all properties in the background. You can leave this page — progress shows on the button.' },
+          ? { title: t.list.bulkAlready, description: t.list.bulkAlreadyDescription }
+          : { title: t.list.bulkStarted, description: t.list.bulkStartedDescription },
       );
     },
     onError: (err) => {
-      toast({ title: 'Bulk translate failed', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: t.list.bulkFailed, description: (err as Error).message || t.common.unexpectedError, variant: 'destructive' });
     },
   });
   const bulkTranslating = startBulkTranslate.isPending || bulkTranslate.running;
@@ -248,15 +254,15 @@ export default function PropertiesPage() {
   const deleteProperty = useMutation({
     mutationFn: (property: Property) => apiDelete(`/api/dashboard/properties/${property.id}`),
     onSuccess: (_res, property) => {
-      toast({ title: 'Property deleted', description: `Property ${property.reference || property.id} has been deleted.` });
+      toast({ title: t.deleteDialog.deleted, description: t.deleteDialog.deletedDescription(String(property.reference || property.id)) });
       // All property keys, not just lists: a cached detail of this row
       // would otherwise still open after the delete.
       void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
     },
     onError: (err: any) => {
       toast({
-        title: 'Delete failed',
-        description: err?.response?.data?.message || err?.message || 'Could not delete property.',
+        title: t.deleteDialog.failed,
+        description: err?.response?.data?.message || err?.message || t.deleteDialog.failedDescription,
         variant: 'destructive',
       });
     },
@@ -264,12 +270,10 @@ export default function PropertiesPage() {
 
   const onBulkTranslate = () => {
     if (tenantLanguages.length < 2) {
-      toast({ title: 'Multiple languages required', description: 'Enable at least 2 languages in Settings to use AI translation.', variant: 'destructive' });
+      toast({ title: t.list.multipleLanguages, description: t.list.multipleLanguagesDescription, variant: 'destructive' });
       return;
     }
-    const confirmed = window.confirm(
-      `Translate all properties to ${tenantLanguages.length - 1} language(s)? This runs in the background and may take several minutes for large catalogs.`,
-    );
+    const confirmed = window.confirm(t.list.confirmTranslate(tenantLanguages.length - 1));
     if (!confirmed) return;
     startBulkTranslate.mutate(tenantLanguages);
   };
@@ -279,8 +283,8 @@ export default function PropertiesPage() {
       {/* Header */}
       <div className="page-header animate-fade-in">
         <div>
-          <h1 className="page-title">Properties</h1>
-          <p className="page-description mt-1">Manage your property listings</p>
+          <h1 className="page-title">{t.list.title}</h1>
+          <p className="page-description mt-1">{t.list.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <BulkSeoDialog tenantLanguages={configuredLanguages?.length ? configuredLanguages : DEFAULT_LANGUAGES} />
@@ -289,12 +293,12 @@ export default function PropertiesPage() {
               {bulkTranslating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Translating {bulkTranslate.progress}%
+                  {t.list.translating(bulkTranslate.progress)}
                 </>
               ) : (
                 <>
                   <Languages className="h-4 w-4 mr-2" />
-                  Translate All
+                  {t.list.translateAll}
                 </>
               )}
             </Button>
@@ -303,7 +307,7 @@ export default function PropertiesPage() {
             <Button asChild className="shadow-sm">
               <Link href="/dashboard/properties/create">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Property
+                {t.list.addProperty}
               </Link>
             </Button>
           ) : (
@@ -311,10 +315,10 @@ export default function PropertiesPage() {
               type="button"
               className="shadow-sm"
               onClick={() => setLockOpen(true)}
-              title="Add Property is a paid add-on"
+              title={t.list.addPropertyLocked}
             >
               <Lock className="h-4 w-4 mr-2" />
-              Add Property
+              {t.list.addProperty}
             </Button>
           )}
         </div>
@@ -323,27 +327,27 @@ export default function PropertiesPage() {
       <LockedFeatureDialog
         open={lockOpen}
         onOpenChange={setLockOpen}
-        featureName="Add Property"
+        featureName={t.list.addProperty}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete property?</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete property <span className="font-semibold">{deleteTarget?.reference}</span>. This action cannot be undone.
+              {t.deleteDialog.before}<span className="font-semibold">{deleteTarget?.reference}</span>{t.deleteDialog.after}
               {deleteTarget && deleteTarget.source !== 'manual' && (
-                <> It was imported from the {PROPERTY_SOURCE_LABELS[deleteTarget.source] || deleteTarget.source} feed, so the next import adds it back while the feed still lists it.</>
+                <>{t.deleteDialog.feedNote(PROPERTY_SOURCE_LABELS[deleteTarget.source] || deleteTarget.source)}</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => { if (deleteTarget) deleteProperty.mutate(deleteTarget); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t.common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -356,7 +360,7 @@ export default function PropertiesPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by reference, title..."
+                placeholder={t.list.searchPlaceholder}
                 className="pl-10"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -368,7 +372,7 @@ export default function PropertiesPage() {
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              Filters
+              {t.list.filters}
               {hasActiveFilters && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">!</Badge>
               )}
@@ -378,61 +382,61 @@ export default function PropertiesPage() {
 
           {location && (
             <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Location:</span>
+              <span className="text-muted-foreground">{t.list.location}</span>
               <Badge variant="secondary" className="gap-1 pr-1" data-testid="location-filter">
                 {location.name}
-                <button type="button" onClick={clearLocation} aria-label="Remove location filter" className="rounded-full p-0.5 hover:bg-muted">
+                <button type="button" onClick={clearLocation} aria-label={t.list.removeLocationFilter} className="rounded-full p-0.5 hover:bg-muted">
                   <X className="h-3 w-3" />
                 </button>
               </Badge>
-              <span className="text-xs text-muted-foreground">including the places inside it</span>
+              <span className="text-xs text-muted-foreground">{t.list.includingInside}</span>
             </div>
           )}
 
           {filtersOpen && (
             <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium">Filters</p>
+                <p className="text-sm font-medium">{t.list.filters}</p>
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
-                    <X className="h-3 w-3 mr-1" /> Clear all
+                    <X className="h-3 w-3 mr-1" /> {t.list.clearAll}
                   </Button>
                 )}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.status}</Label>
                   <Select value={status} onValueChange={(v) => { setStatus(v === 'all' ? '' : v); setPage(1); }}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All statuses" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allStatuses} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="sold">Sold</SelectItem>
-                      <SelectItem value="rented">Rented</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
+                      <SelectItem value="all">{t.list.allStatuses}</SelectItem>
+                      <SelectItem value="draft">{t.status.draft}</SelectItem>
+                      <SelectItem value="active">{t.status.active}</SelectItem>
+                      <SelectItem value="sold">{t.status.sold}</SelectItem>
+                      <SelectItem value="rented">{t.status.rented}</SelectItem>
+                      <SelectItem value="archived">{t.status.archived}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Listing Type</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.listingType}</Label>
                   <Select value={listingType} onValueChange={(v) => { setListingType(v === 'all' ? '' : v); setPage(1); }}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All types" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allTypes} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
-                      <SelectItem value="sale">For Sale</SelectItem>
-                      <SelectItem value="rent">For Rent</SelectItem>
-                      <SelectItem value="holiday_rent">Holiday Rental</SelectItem>
-                      <SelectItem value="development">Development</SelectItem>
+                      <SelectItem value="all">{t.list.allTypes}</SelectItem>
+                      <SelectItem value="sale">{t.listingType.sale}</SelectItem>
+                      <SelectItem value="rent">{t.listingType.rent}</SelectItem>
+                      <SelectItem value="holiday_rent">{t.listingType.holiday_rent}</SelectItem>
+                      <SelectItem value="development">{t.listingType.development}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Property Type</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.propertyType}</Label>
                   <Select value={propertyTypeId} onValueChange={(v) => { setPropertyTypeId(v === 'all' ? '' : v); setPage(1); }}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All property types" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allPropertyTypes} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All property types</SelectItem>
+                      <SelectItem value="all">{t.list.allPropertyTypes}</SelectItem>
                       {propertyTypes.map((pt) => (
                         <SelectItem key={pt.id} value={pt.id.toString()}>{displayName(pt.name)}</SelectItem>
                       ))}
@@ -440,30 +444,30 @@ export default function PropertiesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Source</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.source}</Label>
                   <Select value={source} onValueChange={(v) => { setSource(v === 'all' ? '' : v); setPage(1); }}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All sources" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allSources} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All sources</SelectItem>
+                      <SelectItem value="all">{t.list.allSources}</SelectItem>
                       {/* Every properties.source value, so Kyero/Odoo imports can be filtered too. */}
                       {(Object.keys(PROPERTY_SOURCE_LABELS) as PropertySource[]).map((s) => (
-                        <SelectItem key={s} value={s}>{PROPERTY_SOURCE_LABELS[s]}</SelectItem>
+                        <SelectItem key={s} value={s}>{propertySourceLabel(s, tc.manualSource)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Own Property</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.ownProperty}</Label>
                   <div className="flex items-center gap-2 h-8">
                     <Switch checked={isOwnProperty} onCheckedChange={(v) => { setIsOwnProperty(v); setPage(1); }} />
-                    <span className="text-sm text-muted-foreground">{isOwnProperty ? 'Yes' : 'All'}</span>
+                    <span className="text-sm text-muted-foreground">{isOwnProperty ? t.common.yes : t.common.all}</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Featured</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.featured}</Label>
                   <div className="flex items-center gap-2 h-8">
                     <Switch checked={isFeatured} onCheckedChange={(v) => { setIsFeatured(v); setPage(1); }} />
-                    <span className="text-sm text-muted-foreground">{isFeatured ? 'Yes' : 'All'}</span>
+                    <span className="text-sm text-muted-foreground">{isFeatured ? t.common.yes : t.common.all}</span>
                   </div>
                 </div>
               </div>
@@ -478,11 +482,11 @@ export default function PropertiesPage() {
           {/* Total beside the heading: the "Showing x to y of n" line below only
               appears when there is more than one page. */}
           <CardTitle data-testid="properties-heading">
-            {hasActiveFilters || location || search.trim() ? 'Matching Properties' : 'All Properties'}
+            {hasActiveFilters || location || search.trim() ? t.list.matching : t.list.allProperties}
             {meta && (
               <>
                 {' '}
-                <span className="font-normal text-muted-foreground">({meta.total.toLocaleString()})</span>
+                <span className="font-normal text-muted-foreground">({meta.total.toLocaleString(locale)})</span>
               </>
             )}
           </CardTitle>
@@ -495,19 +499,19 @@ export default function PropertiesPage() {
           ) : isError ? (
             <div className="flex flex-col items-center justify-center py-8 text-destructive">
               <AlertCircle className="h-8 w-8 mb-2" />
-              <p>Failed to load properties</p>
+              <p>{t.list.loadFailed}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {error instanceof Error ? error.message : 'Unknown error'}
+                {error instanceof Error ? error.message : t.common.unknownError}
               </p>
             </div>
           ) : properties.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No properties found</p>
+              <p className="text-muted-foreground">{t.list.noProperties}</p>
               {canAddProperty ? (
                 <Button asChild className="mt-4">
                   <Link href="/dashboard/properties/create">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add your first property
+                    {t.list.addFirst}
                   </Link>
                 </Button>
               ) : (
@@ -517,7 +521,7 @@ export default function PropertiesPage() {
                   onClick={() => setLockOpen(true)}
                 >
                   <Lock className="h-4 w-4 mr-2" />
-                  Add your first property
+                  {t.list.addFirst}
                 </Button>
               )}
             </div>
@@ -527,8 +531,8 @@ export default function PropertiesPage() {
                 rows={properties.map((property: Property) => ({ ...property, image: property.images?.[0]?.url ?? null, property }))}
                 columns={['image', 'reference', 'title', 'location', 'price', 'bedsBaths']}
                 extra={[
-                  { key: 'status', header: 'Status', cell: ({ property }) => <Badge variant={statusColors[property.status]}>{property.status}</Badge> },
-                  { key: 'source', header: 'Source', cell: ({ property }) => <Badge variant="outline" className="capitalize">{property.source}</Badge> },
+                  { key: 'status', header: t.list.status, cell: ({ property }) => <Badge variant={statusColors[property.status]}>{labelOf(t.status, property.status)}</Badge> },
+                  { key: 'source', header: t.list.source, cell: ({ property }) => <Badge variant="outline">{propertySourceLabel(property.source, tc.manualSource)}</Badge> },
                 ]}
                 actions={({ property }) => (
                   <DropdownMenu>
@@ -537,17 +541,17 @@ export default function PropertiesPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> View</Link>
+                        <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> {t.common.view}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
+                        <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> {t.common.edit}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
                         disabled={deleteProperty.isPending}
                         onSelect={() => setDeleteTarget(property)}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        <Trash2 className="h-4 w-4 mr-2" /> {t.common.delete}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -557,8 +561,11 @@ export default function PropertiesPage() {
               {meta && meta.pages > 1 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t">
                   <p className="text-sm text-muted-foreground">
-                    Showing {(meta.page - 1) * meta.limit + 1} to{' '}
-                    {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} results
+                    {t.list.showing(
+                      ((meta.page - 1) * meta.limit + 1).toLocaleString(locale),
+                      Math.min(meta.page * meta.limit, meta.total).toLocaleString(locale),
+                      meta.total.toLocaleString(locale),
+                    )}
                   </p>
                   <PageNumbers page={page} pages={meta.pages} onChange={changePage} />
                 </div>

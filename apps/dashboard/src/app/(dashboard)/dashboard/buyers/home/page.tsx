@@ -14,11 +14,12 @@ import { FilterSelect } from '../_components/filter-select';
 import { useBuyerAgents } from '../use-buyers';
 import { nameOf } from '../use-buyer-match';
 import { useBuyerHome, useMyDigest, useSetMyDigest } from '../use-buyer-viewings';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 const MANAGERS = new Set(['admin', 'webmaster', 'super_admin']);
 
 function when(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(dashboardLocale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function Section({ title, icon: Icon, count, children, testid }: { title: string; icon: typeof Bell; count?: number; children: React.ReactNode; testid: string }) {
@@ -130,7 +131,7 @@ function HomeInner() {
             <Section title={h.today} icon={CheckSquare} count={d.todayTasks.length} testid="home-today">
               {d.todayTasks.length ? (
                 <ul className="space-y-1.5">{d.todayTasks.map((x) => (
-                  <li key={x.id} className="flex flex-wrap gap-x-2"><span className="tabular-nums text-muted-foreground">{new Date(x.dueAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>{x.title} · {buyerLink(x.buyerId, x.buyer, 'tasks')}</li>
+                  <li key={x.id} className="flex flex-wrap gap-x-2"><span className="tabular-nums text-muted-foreground">{new Date(x.dueAt).toLocaleTimeString(dashboardLocale(), { hour: '2-digit', minute: '2-digit' })}</span>{x.title} · {buyerLink(x.buyerId, x.buyer, 'tasks')}</li>
                 ))}</ul>
               ) : empty}
             </Section>

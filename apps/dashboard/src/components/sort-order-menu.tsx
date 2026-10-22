@@ -13,13 +13,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useSharedText } from '@/i18n/shared';
 
 type SortBy = 'name' | 'name-desc' | 'count';
 
-const OPTIONS: Array<{ by: SortBy; label: string; icon: typeof ArrowDownAZ }> = [
-  { by: 'name', label: 'A to Z', icon: ArrowDownAZ },
-  { by: 'name-desc', label: 'Z to A', icon: ArrowDownZA },
-  { by: 'count', label: 'Most listings first', icon: ArrowDownWideNarrow },
+// Labels are looked up by `by` in the shared text at render.
+const OPTIONS: Array<{ by: SortBy; icon: typeof ArrowDownAZ }> = [
+  { by: 'name', icon: ArrowDownAZ },
+  { by: 'name-desc', icon: ArrowDownZA },
+  { by: 'count', icon: ArrowDownWideNarrow },
 ];
 
 /**
@@ -30,16 +32,17 @@ const OPTIONS: Array<{ by: SortBy; label: string; icon: typeof ArrowDownAZ }> = 
 export function SortOrderMenu({ endpoint, onSorted }: { endpoint: string; onSorted: () => void }) {
   const api = useApi();
   const { toast } = useToast();
+  const t = useSharedText().sortOrder;
   const [sorting, setSorting] = useState(false);
 
   const sort = async (by: SortBy, label: string) => {
     setSorting(true);
     try {
       await api.put(endpoint, { by });
-      toast({ title: `Sorted ${label}`, description: 'Your website shows the new order.' });
+      toast({ title: t.sorted(label), description: t.sortedText });
       onSorted();
     } catch {
-      toast({ title: 'Could not sort', description: 'Nothing was changed. Try again.', variant: 'destructive' });
+      toast({ title: t.failed, description: t.failedText, variant: 'destructive' });
     } finally {
       setSorting(false);
     }
@@ -50,18 +53,18 @@ export function SortOrderMenu({ endpoint, onSorted }: { endpoint: string; onSort
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={sorting}>
           {sorting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowUpDown className="h-4 w-4 mr-2" />}
-          Sort
+          {t.button}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-          Replaces the current order on every level. Drag rows to fine-tune. Your website uses this order.
+          {t.help}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {OPTIONS.map(({ by, label, icon: Icon }) => (
-          <DropdownMenuItem key={by} onClick={() => sort(by, label)}>
+        {OPTIONS.map(({ by, icon: Icon }) => (
+          <DropdownMenuItem key={by} onClick={() => sort(by, t.options[by])}>
             <Icon className="h-4 w-4 mr-2" />
-            {label}
+            {t.options[by]}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

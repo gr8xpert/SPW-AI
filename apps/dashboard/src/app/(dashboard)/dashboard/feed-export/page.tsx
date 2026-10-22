@@ -18,6 +18,7 @@ import {
   type UrlFeedSettings,
 } from '@/components/feed-export/url-feed-parts';
 import { LockedRouteGuard } from '@/components/locked-route-guard';
+import { useFeedExportText } from '@/components/feed-export/_i18n';
 
 // GET /api/dashboard/feed-export: the top-level fields are the Kyero XML
 // feed's; `json` is the JSON feed's own settings and key.
@@ -85,6 +86,7 @@ function FeedExportPageInner() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useFeedExportText();
 
   useEffect(() => setTab(tabFromUrl()), []);
 
@@ -153,10 +155,10 @@ function FeedExportPageInner() {
           listingScope: s.listingScope,
         });
       }
-      toast({ title: `${feed === 'kyero' ? 'Kyero XML' : 'JSON'} settings saved` });
+      toast({ title: t.page.settingsSaved(feed === 'kyero' ? 'Kyero XML' : 'JSON') });
       fetchConfig(feed);
     } catch (e: any) {
-      toast({ title: 'Failed to save', description: e.message, variant: 'destructive' });
+      toast({ title: t.page.saveFailed, description: e.message, variant: 'destructive' });
     } finally {
       setSaving(null);
     }
@@ -166,22 +168,22 @@ function FeedExportPageInner() {
     const name = feed === 'kyero' ? 'Kyero XML' : 'JSON';
     try {
       await api.post(feed === 'kyero' ? '/api/dashboard/feed-export/regenerate-key' : '/api/dashboard/feed-export/json/regenerate-key');
-      toast({ title: `${name} key regenerated`, description: `The old ${name} URL no longer works.` });
+      toast({ title: t.page.keyRegenerated(name), description: t.page.oldUrlDead(name) });
       fetchConfig(feed);
     } catch (e: any) {
-      toast({ title: 'Failed to regenerate', description: e.message, variant: 'destructive' });
+      toast({ title: t.page.regenerateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
-  const copyToClipboard = (text: string, type: string) => {
+  const copyToClipboard = (text: string, type: string, description: string) => {
     navigator.clipboard.writeText(text);
     setCopied(type);
-    toast({ title: 'Copied to clipboard', description: `${type} copied.` });
+    toast({ title: t.page.copied, description });
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const reportStatus = (t: Tab) => (s: ExportStatus) =>
-    setStatus((prev) => (prev[t] === s ? prev : { ...prev, [t]: s }));
+  const reportStatus = (which: Tab) => (s: ExportStatus) =>
+    setStatus((prev) => (prev[which] === s ? prev : { ...prev, [which]: s }));
 
   const tenantSlug = config?.tenantSlug || 'my-agency';
   // Portals (Kyero etc.) can only fetch a URL, so the key goes in it.
@@ -205,20 +207,20 @@ function FeedExportPageInner() {
       <>
         <FeedUrlCard
           icon={isKyero ? <FileCode className="h-5 w-5" /> : <FileJson className="h-5 w-5" />}
-          title={isKyero ? 'Kyero XML' : 'JSON feed'}
+          title={isKyero ? 'Kyero XML' : t.page.jsonFeed}
           description={isKyero
-            ? 'Kyero XML v3 — give this URL to Kyero or any portal that reads Kyero XML'
-            : 'Your listings as JSON, for custom integrations and developers'}
+            ? t.page.kyeroDescription
+            : t.page.jsonDescription}
           shownUrl={feedUrl(file, shownKey)}
           url={feedUrl(file, key)}
           propertyCount={(isKyero ? config?.propertyCount : config?.json?.propertyCount) ?? 0}
           enabled={isKyero ? kyeroOn : jsonOn}
           copied={copied === `${name} URL`}
-          onCopy={() => copyToClipboard(feedUrl(file, key), `${name} URL`)}
+          onCopy={() => copyToClipboard(feedUrl(file, key), `${name} URL`, t.page.urlCopied(name))}
         >
           {isKyero && !!config?.skippedCount && (
             <details className="rounded-md border p-3 text-sm">
-              <summary className="cursor-pointer">{config.skippedCount} listing(s) left out of the Kyero feed</summary>
+              <summary className="cursor-pointer">{t.page.leftOutOfKyero(config.skippedCount)}</summary>
               <ul className="mt-2 space-y-1 text-muted-foreground">
                 {(config.skipped || []).map((s) => (
                   <li key={s.reference}><span className="font-mono">{s.reference}</span> — {s.reason}</li>
@@ -243,7 +245,7 @@ function FeedExportPageInner() {
           showKey={showKey === feed}
           onToggleShow={() => setShowKey(showKey === feed ? null : feed)}
           copied={copied === `${name} key`}
-          onCopy={() => copyToClipboard(key, `${name} key`)}
+          onCopy={() => copyToClipboard(key, `${name} key`, t.page.keyCopied(name))}
           onRegenerate={() => regenerateKey(feed)}
         />
         <AccessLogCard feedName={name} logs={logs.filter((l) => l.format === (isKyero ? 'xml' : 'json'))} />
@@ -259,8 +261,8 @@ function FeedExportPageInner() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Feed Export</h1>
-          <p className="page-description mt-1">Send your properties to portals — each tab is one portal or feed</p>
+          <h1 className="page-title">{t.page.title}</h1>
+          <p className="page-description mt-1">{t.page.description}</p>
         </div>
       </div>
 
@@ -299,8 +301,9 @@ function FeedExportPageInner() {
 }
 
 export default function FeedExportPage() {
+  const t = useFeedExportText();
   return (
-    <LockedRouteGuard addon="feedExport" featureName="Feed Export">
+    <LockedRouteGuard addon="feedExport" featureName={t.page.title}>
       <FeedExportPageInner />
     </LockedRouteGuard>
   );

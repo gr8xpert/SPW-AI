@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import axios from 'axios';
+import { toDashboardLanguage } from '@/i18n/languages';
 
 // Server-side calls (NextAuth authorize, refresh) use API_URL which resolves
 // inside the Docker network (http://api:3001). Falls back to the public URL
@@ -103,6 +104,7 @@ export const authOptions: NextAuthOptions = {
               accessToken,
               refreshToken,
               ...(user.mfaSetup ? { mfaSetup: true } : {}),
+              dashboardLanguage: toDashboardLanguage(user.dashboardLanguage),
             };
           }
 
@@ -121,7 +123,14 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // The language picker saved a new language on the user: keep it in the
+      // session too, so the next page load renders in it.
+      if (trigger === 'update' && session?.dashboardLanguage) {
+        token.dashboardLanguage = toDashboardLanguage(session.dashboardLanguage);
+        return token;
+      }
+
       // Initial sign-in: seed the NextAuth token from the credentials result.
       if (user) {
         token.id = user.id;
@@ -133,6 +142,7 @@ export const authOptions: NextAuthOptions = {
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = readJwtExpiryMs(user.accessToken);
         token.mfaSetup = !!user.mfaSetup;
+        token.dashboardLanguage = user.dashboardLanguage;
         return token;
       }
 
@@ -152,6 +162,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as number;
         session.user.mfaSetup = !!token.mfaSetup;
+        session.user.dashboardLanguage = toDashboardLanguage(token.dashboardLanguage);
         session.accessToken = token.accessToken as string;
         session.error = token.error;
       }

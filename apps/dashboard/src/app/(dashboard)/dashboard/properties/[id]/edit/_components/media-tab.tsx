@@ -16,14 +16,15 @@ import { TabsContent } from '@/components/ui/tabs';
 import type { useApi } from '@/hooks/use-api';
 import type { useToast } from '@/hooks/use-toast';
 import type { FormField, FormSectionProps, PropertyFormData } from './types';
+import { usePropertiesText, type PropertiesText } from '../../../_i18n';
 
 type FloorPlans = PropertyFormData['floorPlans'];
 
-const LINK_FIELDS: Array<[FormField, string, string]> = [
-  ['videoUrl', 'Video URL', 'https://youtube.com/...'], ['virtualTourUrl', 'Virtual Tour URL', 'https://matterport.com/...'],
-  ['externalLink', 'External Link', 'https://...'],
-  ['blogUrl', 'Blog URL', 'https://yourblog.com/...'], ['mapLink', 'Map Link', 'https://maps.google.com/...'],
-  ['websiteUrl', 'Website URL', 'https://yoursite.com/...'],
+const LINK_FIELDS: Array<[FormField, keyof PropertiesText['fields'], string]> = [
+  ['videoUrl', 'videoUrl', 'https://youtube.com/...'], ['virtualTourUrl', 'virtualTourUrl', 'https://matterport.com/...'],
+  ['externalLink', 'externalLink', 'https://...'],
+  ['blogUrl', 'blogUrl', 'https://yourblog.com/...'], ['mapLink', 'mapLink', 'https://maps.google.com/...'],
+  ['websiteUrl', 'websiteUrl', 'https://yoursite.com/...'],
 ];
 
 export function MediaTab({
@@ -43,6 +44,7 @@ export function MediaTab({
   api: ReturnType<typeof useApi<any>>;
   toast: ReturnType<typeof useToast>['toast'];
 }) {
+  const t = usePropertiesText();
   const floorPlanFileRef = useRef<HTMLInputElement>(null);
 
   const onFloorPlanFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +64,7 @@ export function MediaTab({
         onFloorPlansChange((prev) => [...prev, ...uploaded]);
       }
     } catch (err: any) {
-      toast({ title: 'Upload failed', description: err?.message || String(err), variant: 'destructive' });
+      toast({ title: t.common.uploadFailed, description: err?.message || String(err), variant: 'destructive' });
     } finally {
       setIsUploadingFloorPlan(false);
       e.target.value = '';
@@ -72,11 +74,11 @@ export function MediaTab({
   return (
     <TabsContent value="media" className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>Media & Link URLs</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t.edit.mediaTitle}</CardTitle></CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
             {LINK_FIELDS.map(([field, label, ph]) => (
-              <div key={field} className="space-y-2"><Label>{label}</Label><Input value={formData[field] as string} onChange={(e) => onChange(field, e.target.value)} placeholder={ph} /></div>
+              <div key={field} className="space-y-2"><Label>{t.fields[label]}</Label><Input value={formData[field] as string} onChange={(e) => onChange(field, e.target.value)} placeholder={ph} /></div>
             ))}
           </div>
         </CardContent>
@@ -84,12 +86,12 @@ export function MediaTab({
 
       <Card>
         <CardHeader>
-          <CardTitle>Floor Plans</CardTitle>
-          <CardDescription>Upload or link one or more floor plan images / PDFs. Shown on the property detail page.</CardDescription>
+          <CardTitle>{t.edit.floorPlans}</CardTitle>
+          <CardDescription>{t.edit.floorPlansDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {formData.floorPlans.length === 0 && (
-            <p className="text-sm text-muted-foreground">No floor plans added yet.</p>
+            <p className="text-sm text-muted-foreground">{t.edit.noFloorPlans}</p>
           )}
           {formData.floorPlans.map((plan, idx) => (
             <div key={idx} className="flex items-start gap-2 rounded-md border p-3">
@@ -98,12 +100,12 @@ export function MediaTab({
                   <Input
                     value={plan.url}
                     onChange={(e) => onFloorPlansChange((prev) => prev.map((p, i) => i === idx ? { ...p, url: e.target.value } : p))}
-                    placeholder="https://... or upload below"
+                    placeholder={t.edit.floorPlanUrlPlaceholder}
                   />
                   <Input
                     value={plan.label || ''}
                     onChange={(e) => onFloorPlansChange((prev) => prev.map((p, i) => i === idx ? { ...p, label: e.target.value } : p))}
-                    placeholder="Label (optional, e.g. Ground floor)"
+                    placeholder={t.edit.floorPlanLabelPlaceholder}
                   />
                 </div>
                 {plan.url && (
@@ -117,7 +119,7 @@ export function MediaTab({
                 variant="ghost"
                 size="icon"
                 onClick={() => onFloorPlansChange((prev) => prev.filter((_, i) => i !== idx))}
-                title="Remove this floor plan"
+                title={t.edit.removeFloorPlan}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -130,7 +132,7 @@ export function MediaTab({
               size="sm"
               onClick={() => onFloorPlansChange((prev) => [...prev, { url: '', label: '' }])}
             >
-              Add floor plan row
+              {t.edit.addFloorPlanRow}
             </Button>
             <input
               ref={floorPlanFileRef}
@@ -148,7 +150,7 @@ export function MediaTab({
               disabled={isUploadingFloorPlan}
             >
               {isUploadingFloorPlan ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-              Upload floor plan(s)
+              {t.edit.uploadFloorPlans}
             </Button>
           </div>
         </CardContent>

@@ -62,8 +62,9 @@ export function unwrap<T>(res: unknown): T {
   return (r && typeof r === 'object' && 'data' in r ? r.data : res) as T;
 }
 
-export function errorText(err: unknown): string {
+// `fallback` is shown when the error carries no message (t.common.somethingWrong).
+export function errorText(err: unknown, fallback = 'Something went wrong'): string {
   const e = err as { response?: { data?: { message?: string | string[] } }; message?: string };
   const m = e?.response?.data?.message;
-  return Array.isArray(m) ? m.join(', ') : m || e?.message || 'Something went wrong';
+  return Array.isArray(m) ? m.join(', ') : m || e?.message || fallback;
 }

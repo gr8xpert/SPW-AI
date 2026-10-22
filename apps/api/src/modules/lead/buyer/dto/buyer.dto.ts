@@ -347,3 +347,14 @@ export class BuyerSettingsDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50)
   hotScore?: number;
 }
+
+// New Leads: the role that moves a website lead into Contacts.
+export class NewLeadRoleDto {
+  @IsIn(BUYER_ROLES)
+  role: BuyerRole;
+}
+
+export class ListNewLeadsDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  page?: number;
+}

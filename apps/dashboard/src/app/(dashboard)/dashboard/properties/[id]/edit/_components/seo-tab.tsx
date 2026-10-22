@@ -16,6 +16,7 @@ import {
 import { TabsContent } from '@/components/ui/tabs';
 import { LanguageSelect, MultilingualInput, MultilingualTextarea } from './multilingual-fields';
 import type { FormSectionProps, MultilingualChangeHandler } from './types';
+import { usePropertiesText } from '../../../_i18n';
 
 export function SeoTab({
   formData,
@@ -45,14 +46,15 @@ export function SeoTab({
   useCustomSchema: boolean;
   onUseCustomSchemaChange: (checked: boolean) => void;
 }) {
+  const t = usePropertiesText();
   return (
     <TabsContent value="seo" className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle>SEO Settings</CardTitle>
-              <CardDescription>Search engine optimization fields</CardDescription>
+              <CardTitle>{t.form.seoSettings}</CardTitle>
+              <CardDescription>{t.form.seoDescription}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <LanguageSelect value={seoLang} onChange={onSeoLangChange} />
@@ -61,24 +63,24 @@ export function SeoTab({
                 size="sm"
                 onClick={onGenerateSeo}
                 disabled={isGeneratingSeo || disabled}
-                title={aiLocked ? 'AI SEO is a premium add-on — contact your account manager to unlock' : 'Generate SEO fields for all tenant languages'}
+                title={aiLocked ? t.edit.aiSeoLocked : t.edit.generateSeoTitle}
               >
                 {isGeneratingSeo ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiLocked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
-                {isGeneratingSeo ? 'Generating…' : 'Generate SEO with AI'}
+                {isGeneratingSeo ? t.edit.generating : t.edit.generateSeo}
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Slug</Label>
+            <Label>{t.fields.slug}</Label>
             <Input value={formData.slug} onChange={(e) => onChange('slug', e.target.value)} placeholder="luxury-villa-nueva-andalucia" />
-            <p className="text-xs text-muted-foreground">Leave empty to use the default format from Settings. Enter a custom slug to override for this property only.</p>
+            <p className="text-xs text-muted-foreground">{t.form.slugHint}</p>
           </div>
-          <MultilingualInput label="Page Title" lang={seoLang} value={formData.pageTitle} onChange={(lang, val) => onMultilingualChange('pageTitle', lang, val)} />
-          <MultilingualInput label="Meta Title" lang={seoLang} value={formData.metaTitle} onChange={(lang, val) => onMultilingualChange('metaTitle', lang, val)} />
-          <MultilingualTextarea label="Meta Description" lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => onMultilingualChange('metaDescription', lang, val)} rows={3} />
-          <MultilingualInput label="Meta Keywords" lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => onMultilingualChange('metaKeywords', lang, val)} placeholder="Keywords separated by commas" />
+          <MultilingualInput label={t.fields.pageTitle} lang={seoLang} value={formData.pageTitle} onChange={(lang, val) => onMultilingualChange('pageTitle', lang, val)} />
+          <MultilingualInput label={t.fields.metaTitle} lang={seoLang} value={formData.metaTitle} onChange={(lang, val) => onMultilingualChange('metaTitle', lang, val)} />
+          <MultilingualTextarea label={t.fields.metaDescription} lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => onMultilingualChange('metaDescription', lang, val)} rows={3} />
+          <MultilingualInput label={t.fields.metaKeywords} lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => onMultilingualChange('metaKeywords', lang, val)} placeholder={t.form.keywordsPlaceholder} />
         </CardContent>
       </Card>
 
@@ -86,9 +88,9 @@ export function SeoTab({
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle>SEO Schema (JSON-LD)</CardTitle>
+              <CardTitle>{t.edit.schemaTitle}</CardTitle>
               <CardDescription>
-                Override the auto-generated <code>RealEstateListing</code> schema.org block. Leave OFF to use the default schema built from the property&apos;s fields.
+                {t.edit.schemaBefore}<code>RealEstateListing</code>{t.edit.schemaAfter}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -99,7 +101,7 @@ export function SeoTab({
                   if (!checked) onChange('seoSchemaJson', '');
                 }}
               />
-              <Label className="text-sm">Use custom schema</Label>
+              <Label className="text-sm">{t.edit.useCustomSchema}</Label>
             </div>
           </div>
         </CardHeader>
@@ -111,10 +113,10 @@ export function SeoTab({
                 size="sm"
                 onClick={onGenerateSchema}
                 disabled={isGeneratingSchema || disabled}
-                title={aiLocked ? 'AI Schema is a premium add-on — contact your account manager to unlock' : 'Generate a schema.org JSON-LD block from this property’s fields'}
+                title={aiLocked ? t.edit.aiSchemaLocked : t.edit.generateSchemaTitle}
               >
                 {isGeneratingSchema ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiLocked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
-                {isGeneratingSchema ? 'Generating…' : 'Generate schema with AI'}
+                {isGeneratingSchema ? t.edit.generating : t.edit.generateSchema}
               </Button>
             </div>
             <Textarea
@@ -125,7 +127,7 @@ export function SeoTab({
               className="font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground">
-              Paste valid JSON-LD or generate one with AI. Validated on save — invalid JSON will surface an error and the widget will fall back to the auto-generated schema until fixed.
+              {t.edit.schemaHint}
             </p>
           </CardContent>
         )}

@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost } from '@/lib/api';
 import type { CacheClearResponse, TenantCurrent } from './types';
+import { useSettingsText } from '../_i18n';
 
 // API Keys tab: last4 of the widget key (own endpoint) + rotate.
 export function useApiKeySettings(accessToken: string | undefined) {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.apiKeys;
   const [apiKeyLast4, setApiKeyLast4] = useState<string | null>(null);
   const [revealedApiKey, setRevealedApiKey] = useState<string | null>(null);
   const [rotatingApiKey, setRotatingApiKey] = useState(false);
@@ -22,9 +25,7 @@ export function useApiKeySettings(accessToken: string | undefined) {
   }, [accessToken]);
 
   const onRotateApiKey = async () => {
-    const confirmed = window.confirm(
-      'Regenerate your API key? The current key will stop working immediately. You must update your widget and any integrations with the new key.',
-    );
+    const confirmed = window.confirm(t.confirm);
     if (!confirmed) return;
     setRotatingApiKey(true);
     try {
@@ -34,13 +35,13 @@ export function useApiKeySettings(accessToken: string | undefined) {
       setRevealedApiKey(res.data.apiKey);
       setApiKeyLast4(res.data.apiKeyLast4);
       toast({
-        title: 'API key regenerated',
-        description: 'Copy the new key now — it will not be shown again.',
+        title: t.regenerated,
+        description: t.regeneratedText,
       });
     } catch (err) {
       toast({
-        title: 'Failed to regenerate API key',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.regenerateFailed,
+        description: (err as Error).message || st.common.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -58,6 +59,8 @@ export type ApiKeySettings = ReturnType<typeof useApiKeySettings>;
 // "clear cache" script operators used to run by hand.
 export function useCacheSettings() {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.cache;
   const [syncVersion, setSyncVersion] = useState<number | null>(null);
   const [lastClearedAt, setLastClearedAt] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
@@ -71,9 +74,7 @@ export function useCacheSettings() {
 
   const onClearCache = async () => {
     if (clearingCache) return;
-    const confirmed = window.confirm(
-      'Clear widget cache now? Your site will refetch listings on the next request. This cannot be undone.',
-    );
+    const confirmed = window.confirm(t.confirm);
     if (!confirmed) return;
 
     setClearingCache(true);
@@ -82,13 +83,13 @@ export function useCacheSettings() {
       setSyncVersion(res.data.syncVersion);
       setLastClearedAt(res.data.clearedAt);
       toast({
-        title: 'Widget cache cleared',
-        description: `New sync version: ${res.data.syncVersion}. Downstream widgets pick this up on their next poll.`,
+        title: t.cleared,
+        description: t.clearedText(res.data.syncVersion),
       });
     } catch (err) {
       toast({
-        title: 'Failed to clear cache',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.clearFailed,
+        description: (err as Error).message || st.common.unexpectedError,
         variant: 'destructive',
       });
     } finally {

@@ -12,8 +12,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LANGUAGES } from './types';
+import { labelOf, usePropertiesText } from '../../../_i18n';
 
 export function LanguageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = usePropertiesText();
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-[160px]">
@@ -22,7 +24,7 @@ export function LanguageSelect({ value, onChange }: { value: string; onChange: (
       </SelectTrigger>
       <SelectContent>
         {LANGUAGES.map((lang) => (
-          <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+          <SelectItem key={lang.code} value={lang.code}>{labelOf(t.languages, lang.code, lang.label)}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -32,11 +34,12 @@ export function LanguageSelect({ value, onChange }: { value: string; onChange: (
 export function MultilingualInput({
   label, lang, value, onChange, placeholder,
 }: { label: string; lang: string; value: Record<string, string>; onChange: (lang: string, val: string) => void; placeholder?: string; }) {
-  const langLabel = LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase();
+  const t = usePropertiesText();
+  const langLabel = labelOf(t.languages, lang, LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase());
   return (
     <div className="space-y-2">
       <Label>{label} ({langLabel})</Label>
-      <Input placeholder={placeholder || `${label} in ${langLabel}`} value={value[lang] || ''} onChange={(e) => onChange(lang, e.target.value)} />
+      <Input placeholder={placeholder || t.form.inLanguage(label, langLabel)} value={value[lang] || ''} onChange={(e) => onChange(lang, e.target.value)} />
     </div>
   );
 }
@@ -44,11 +47,12 @@ export function MultilingualInput({
 export function MultilingualTextarea({
   label, lang, value, onChange, rows = 6,
 }: { label: string; lang: string; value: Record<string, string>; onChange: (lang: string, val: string) => void; rows?: number; }) {
-  const langLabel = LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase();
+  const t = usePropertiesText();
+  const langLabel = labelOf(t.languages, lang, LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase());
   return (
     <div className="space-y-2">
       <Label>{label} ({langLabel})</Label>
-      <Textarea placeholder={`${label} in ${langLabel}`} rows={rows} value={value[lang] || ''} onChange={(e) => onChange(lang, e.target.value)} />
+      <Textarea placeholder={t.form.inLanguage(label, langLabel)} rows={rows} value={value[lang] || ''} onChange={(e) => onChange(lang, e.target.value)} />
     </div>
   );
 }

@@ -11,9 +11,13 @@ import { apiPut } from '@/lib/api';
 import { SLUG_FORMAT_OPTIONS, ALL_LANGUAGES, SlugFormat } from './types';
 import { useToast } from '@/hooks/use-toast';
 import type { GeneralSettings } from './use-general-settings';
+import { languageName, useSettingsText } from '../_i18n';
 
 export function GeneralTab({ general }: { general: GeneralSettings }) {
   const { toast } = useToast();
+  const t = useSettingsText();
+  const g = t.general;
+  const nameOf = (code: string) => languageName(t, code) || code.toUpperCase();
   const {
     generalForm,
     savingGeneral,
@@ -40,9 +44,9 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
     <TabsContent value="general">
       <Card>
         <CardHeader>
-          <CardTitle>General Settings</CardTitle>
+          <CardTitle>{g.title}</CardTitle>
           <CardDescription>
-            Configure your company information and preferences
+            {g.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,19 +56,19 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
           >
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="companyName">Company Name</Label>
+                <Label htmlFor="companyName">{g.companyName}</Label>
                 <Input
                   id="companyName"
                   {...generalForm.register('companyName')}
                 />
                 {generalForm.formState.errors.companyName && (
                   <p className="text-sm text-destructive">
-                    {generalForm.formState.errors.companyName.message}
+                    {g.companyNameRequired}
                   </p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="domain">Website Domain</Label>
+                <Label htmlFor="domain">{g.domain}</Label>
                 <Input
                   id="domain"
                   placeholder="yourdomain.com"
@@ -74,41 +78,41 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="defaultLanguage">Default Language</Label>
+                <Label htmlFor="defaultLanguage">{g.defaultLanguage}</Label>
                 <select
                   id="defaultLanguage"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   {...generalForm.register('defaultLanguage')}
                 >
                   {enabledLanguages.map(code => (
-                    <option key={code} value={code}>{ALL_LANGUAGES[code] || code.toUpperCase()}</option>
+                    <option key={code} value={code}>{nameOf(code)}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Property Slug Format</Label>
+                <Label>{g.slugFormat}</Label>
                 <Select value={slugFormat} onValueChange={(v) => setSlugFormat(v as SlugFormat)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SLUG_FORMAT_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {g.slugFormats[opt.value]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Default URL format for property detail pages. Individual properties can override this with a custom slug.
+                  {g.slugHelp}
                 </p>
                 {SLUG_FORMAT_OPTIONS.find((o) => o.value === slugFormat) && (
                   <p className="text-xs text-muted-foreground">
-                    Example: <code className="bg-muted rounded px-1">{SLUG_FORMAT_OPTIONS.find((o) => o.value === slugFormat)!.example}</code>
+                    {g.example} <code className="bg-muted rounded px-1">{SLUG_FORMAT_OPTIONS.find((o) => o.value === slugFormat)!.example}</code>
                   </p>
                 )}
               </div>
             </div>
             <Button type="submit" disabled={savingGeneral}>
-              {savingGeneral ? 'Saving...' : 'Save Changes'}
+              {savingGeneral ? t.common.saving : g.saveChanges}
             </Button>
           </form>
         </CardContent>
@@ -118,18 +122,17 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Languages className="h-5 w-5" />
-            Languages
+            {g.languages.title}
           </CardTitle>
           <CardDescription>
-            Languages enabled here apply across property types, features, labels, and property translations.
-            English is always enabled as the base language.
+            {g.languages.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {enabledLanguages.map(code => (
               <span key={code} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-medium">
-                {ALL_LANGUAGES[code] || code.toUpperCase()}
+                {nameOf(code)}
                 {code !== 'en' && (
                   <button
                     type="button"
@@ -141,10 +144,10 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
                       setSavingLangs(true);
                       try {
                         await apiPut('/api/dashboard/tenant/settings', { languages: updated });
-                        toast({ title: `Removed ${ALL_LANGUAGES[code] || code}` });
+                        toast({ title: g.languages.removed(languageName(t, code) || code) });
                       } catch {
                         setEnabledLanguages(enabledLanguages);
-                        toast({ title: 'Failed to remove language', variant: 'destructive' });
+                        toast({ title: g.languages.removeFailed, variant: 'destructive' });
                       } finally {
                         setSavingLangs(false);
                       }
@@ -166,23 +169,23 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
                   setSavingLangs(true);
                   try {
                     await apiPut('/api/dashboard/tenant/settings', { languages: updated });
-                    toast({ title: `Added ${ALL_LANGUAGES[code] || code}` });
+                    toast({ title: g.languages.added(languageName(t, code) || code) });
                   } catch {
                     setEnabledLanguages(enabledLanguages);
-                    toast({ title: 'Failed to add language', variant: 'destructive' });
+                    toast({ title: g.languages.addFailed, variant: 'destructive' });
                   } finally {
                     setSavingLangs(false);
                   }
                 }}
               >
                 <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Add a language..." />
+                  <SelectValue placeholder={g.languages.add} />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(ALL_LANGUAGES)
                     .filter(([code]) => !enabledLanguages.includes(code))
-                    .map(([code, name]) => (
-                      <SelectItem key={code} value={code}>{name}</SelectItem>
+                    .map(([code]) => (
+                      <SelectItem key={code} value={code}>{nameOf(code)}</SelectItem>
                     ))}
                 </SelectContent>
               </Select>
@@ -196,15 +199,15 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Brochure / PDF
+            {g.brochure.title}
           </CardTitle>
           <CardDescription>
-            Contact details shown in the branded property brochure header/footer, plus the default brochure layout for new properties.
+            {g.brochure.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="brochureLogoUrl">Logo URL</Label>
+            <Label htmlFor="brochureLogoUrl">{g.brochure.logoUrl}</Label>
             <Input
               id="brochureLogoUrl"
               placeholder="https://yourdomain.com/logo.png"
@@ -212,17 +215,17 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
               onChange={(e) => setBrochureLogoUrl(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Public URL of your logo (PNG/JPG/SVG). Shown in the branded PDF header. Upload your logo to your website or any image host first, then paste the URL here.
+              {g.brochure.logoHelp}
             </p>
             {brochureLogoUrl && (
               <div className="mt-2 rounded border bg-muted p-2 inline-block">
-                <img src={brochureLogoUrl} alt="Logo preview" className="h-12 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <img src={brochureLogoUrl} alt={g.brochure.logoPreview} className="h-12 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               </div>
             )}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="brochureContactEmail">Contact Email</Label>
+              <Label htmlFor="brochureContactEmail">{g.brochure.contactEmail}</Label>
               <Input
                 id="brochureContactEmail"
                 type="email"
@@ -232,7 +235,7 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="brochureContactPhone">Contact Phone</Label>
+              <Label htmlFor="brochureContactPhone">{g.brochure.contactPhone}</Label>
               <Input
                 id="brochureContactPhone"
                 placeholder="+34 600 000 000"
@@ -242,9 +245,9 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Default Brochure Variant</Label>
+            <Label>{g.brochure.defaultVariant}</Label>
             <p className="text-xs text-muted-foreground">
-              Used when a property brochure variant is set to <em>Inherit</em>. Individual properties can override this.
+              {g.brochure.variantHelpBefore} <em>{g.brochure.inherit}</em>{g.brochure.variantHelpAfter}
             </p>
             <div className="flex gap-2">
               <button
@@ -252,9 +255,9 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
                 onClick={() => setDefaultBrochureVariant('branded')}
                 className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${defaultBrochureVariant === 'branded' ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
               >
-                Branded
+                {g.brochure.branded}
                 <p className="mt-1 text-xs font-normal text-muted-foreground">
-                  Logo, QR code, contact in header/footer
+                  {g.brochure.brandedHelp}
                 </p>
               </button>
               <button
@@ -262,15 +265,15 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
                 onClick={() => setDefaultBrochureVariant('unbranded')}
                 className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${defaultBrochureVariant === 'unbranded' ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-muted'}`}
               >
-                Unbranded
+                {g.brochure.unbranded}
                 <p className="mt-1 text-xs font-normal text-muted-foreground">
-                  Blank header, page numbers only in footer
+                  {g.brochure.unbrandedHelp}
                 </p>
               </button>
             </div>
           </div>
           <Button onClick={onSaveBrochure} disabled={savingBrochure}>
-            {savingBrochure ? 'Saving...' : 'Save Brochure Settings'}
+            {savingBrochure ? t.common.saving : g.brochure.save}
           </Button>
         </CardContent>
       </Card>

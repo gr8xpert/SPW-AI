@@ -16,11 +16,13 @@ import {
 import { Edit, Globe, KeyRound, MoreHorizontal, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LockedRouteGuard } from '@/components/locked-route-guard';
-import { AgentDialog, ACCESS_LABELS } from './_components/agent-dialog';
+import { AgentDialog } from './_components/agent-dialog';
+import { useTeamText } from './_i18n';
 import { initialsOf, useAgents, useAgentStats, useRemoveAgent, useResetAgentPassword, type Agent } from '@/hooks/use-agents';
 
 function AgentsPageInner() {
   const { toast } = useToast();
+  const t = useTeamText();
   const { data: session } = useSession();
   const agents = useAgents();
   const stats = useAgentStats();
@@ -44,10 +46,10 @@ function AgentsPageInner() {
     if (!resetFor) return;
     try {
       await reset.mutateAsync({ id: resetFor.id, newPassword });
-      toast({ title: 'Password changed' });
+      toast({ title: t.passwordChanged });
       setResetFor(null);
     } catch (e) {
-      toast({ title: 'Could not change the password', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: t.passwordChangeFailed, description: (e as Error).message, variant: 'destructive' });
     }
   };
 
@@ -55,9 +57,9 @@ function AgentsPageInner() {
     if (!removing) return;
     try {
       await remove.mutateAsync(removing.id);
-      toast({ title: 'Agent removed' });
+      toast({ title: t.agentRemoved });
     } catch (e) {
-      toast({ title: 'Could not remove', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: t.removeFailed, description: (e as Error).message, variant: 'destructive' });
     } finally {
       setRemoving(null);
     }
@@ -67,26 +69,25 @@ function AgentsPageInner() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Agents</h1>
+          <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">
-            Everyone in your agency, for your website and your buyers. Tick &quot;Show on website&quot; for property pages and
-            &quot;Works with buyers&quot; for Buyer Match.
+            {t.description}
           </p>
         </div>
         <Button className="shadow-sm" onClick={() => open(null)} data-testid="agent-add">
-          <UserPlus className="mr-2 h-4 w-4" /> Add agent
+          <UserPlus className="mr-2 h-4 w-4" /> {t.addAgent}
         </Button>
       </div>
 
       {stats.data && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: 'Logins', value: `${stats.data.currentUsers} / ${stats.data.maxUsers}`, icon: Users },
-            { label: 'Managers', value: stats.data.admins, icon: Shield },
-            { label: 'On the website', value: list.filter((a) => a.showOnWebsite && a.isActive).length, icon: Globe },
-            { label: 'Work with buyers', value: list.filter((a) => a.worksBuyers && a.isActive).length, icon: UserPlus },
+            { key: 'logins', label: t.stats.logins, value: `${stats.data.currentUsers} / ${stats.data.maxUsers}`, icon: Users },
+            { key: 'managers', label: t.stats.managers, value: stats.data.admins, icon: Shield },
+            { key: 'onWebsite', label: t.stats.onWebsite, value: list.filter((a) => a.showOnWebsite && a.isActive).length, icon: Globe },
+            { key: 'workWithBuyers', label: t.stats.workWithBuyers, value: list.filter((a) => a.worksBuyers && a.isActive).length, icon: UserPlus },
           ].map((s) => (
-            <Card key={s.label}>
+            <Card key={s.key}>
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="stat-card-icon"><s.icon className="h-5 w-5" /></div>
                 <div className="min-w-0">
@@ -104,7 +105,7 @@ function AgentsPageInner() {
           {agents.isLoading ? (
             <div className="flex justify-center py-10"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>
           ) : list.length === 0 ? (
-            <p className="py-10 text-center text-muted-foreground">No agents yet</p>
+            <p className="py-10 text-center text-muted-foreground">{t.empty}</p>
           ) : (
             <ul className="divide-y" data-testid="agent-list">
               {list.map((a) => (
@@ -121,34 +122,34 @@ function AgentsPageInner() {
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-medium">{a.name || a.email}</span>
                       {a.title && <span className="text-sm text-muted-foreground">{a.title}</span>}
-                      {!a.isActive && <Badge variant="destructive">Inactive</Badge>}
+                      {!a.isActive && <Badge variant="destructive">{t.inactive}</Badge>}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <Badge variant={a.access === 'manager' ? 'default' : 'secondary'}>
                         {a.access === 'manager' && <Shield className="mr-1 h-3 w-3" />}
-                        {ACCESS_LABELS[a.access]}
+                        {t.access[a.access]}
                       </Badge>
-                      {a.worksBuyers && <Badge variant="outline">Buyers</Badge>}
-                      {a.showOnWebsite && <Badge variant="outline"><Globe className="mr-1 h-3 w-3" />Website</Badge>}
+                      {a.worksBuyers && <Badge variant="outline">{t.buyersBadge}</Badge>}
+                      {a.showOnWebsite && <Badge variant="outline"><Globe className="mr-1 h-3 w-3" />{t.websiteBadge}</Badge>}
                       {a.email && <span className="truncate text-xs text-muted-foreground">{a.email}</span>}
                     </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Actions"><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" aria-label={t.actions}><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => open(a)}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => open(a)}><Edit className="mr-2 h-4 w-4" /> {t.edit}</DropdownMenuItem>
                       {a.canLogin && (
                         <DropdownMenuItem onClick={() => { setNewPassword(''); setResetFor(a); }}>
-                          <KeyRound className="mr-2 h-4 w-4" /> Change password
+                          <KeyRound className="mr-2 h-4 w-4" /> {t.changePassword}
                         </DropdownMenuItem>
                       )}
                       {a.id !== selfId && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => setRemoving(a)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Remove
+                            <Trash2 className="mr-2 h-4 w-4" /> {t.remove}
                           </DropdownMenuItem>
                         </>
                       )}
@@ -166,16 +167,16 @@ function AgentsPageInner() {
       <Dialog open={!!resetFor} onOpenChange={(o) => !o && setResetFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>A new password for {resetFor?.name || resetFor?.email}</DialogDescription>
+            <DialogTitle>{t.changePassword}</DialogTitle>
+            <DialogDescription>{t.newPasswordFor(resetFor?.name || resetFor?.email || '')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <Label htmlFor="new-password">New password</Label>
-            <Input id="new-password" type="password" placeholder="At least 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <Label htmlFor="new-password">{t.newPassword}</Label>
+            <Input id="new-password" type="password" placeholder={t.passwordPlaceholder} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetFor(null)}>Cancel</Button>
-            <Button onClick={doReset} disabled={reset.isPending || newPassword.length < 8}>{reset.isPending ? 'Saving…' : 'Change password'}</Button>
+            <Button variant="outline" onClick={() => setResetFor(null)}>{t.cancel}</Button>
+            <Button onClick={doReset} disabled={reset.isPending || newPassword.length < 8}>{reset.isPending ? t.saving : t.changePassword}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -183,16 +184,14 @@ function AgentsPageInner() {
       <AlertDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {removing?.name || removing?.email}?</AlertDialogTitle>
+            <AlertDialogTitle>{t.removeTitle(removing?.name || removing?.email || '')}</AlertDialogTitle>
             <AlertDialogDescription>
-              They can no longer log in and disappear from the website. Their buyers and listings stay, without an agent.
-              Someone with buyer history or support tickets can&apos;t be removed (it would delete that history): switch
-              them to Inactive instead (Edit).
+              {t.removeText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={doRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={doRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t.remove}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -201,8 +200,9 @@ function AgentsPageInner() {
 }
 
 export default function AgentsPage() {
+  const t = useTeamText();
   return (
-    <LockedRouteGuard addon="team" featureName="Agents">
+    <LockedRouteGuard addon="team" featureName={t.title}>
       <AgentsPageInner />
     </LockedRouteGuard>
   );

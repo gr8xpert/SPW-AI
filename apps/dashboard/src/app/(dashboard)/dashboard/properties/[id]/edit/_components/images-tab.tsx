@@ -27,10 +27,12 @@ import {
 } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import type { MediaFileItem } from './types';
+import { usePropertiesText } from '../../../_i18n';
 
 function SortableImage({
   image, isMain, onRemove,
 }: { image: MediaFileItem; isMain: boolean; onRemove: (id: number) => void; }) {
+  const t = usePropertiesText();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -52,7 +54,7 @@ function SortableImage({
             </Button>
           </div>
           {isMain && (
-            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">Main</div>
+            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">{t.common.main}</div>
           )}
         </>
       )}
@@ -73,6 +75,7 @@ export function ImagesTab({
   onRemove: (id: number) => void;
   onDragEnd: (event: DragEndEvent) => void;
 }) {
+  const t = usePropertiesText();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -82,16 +85,16 @@ export function ImagesTab({
     <TabsContent value="images" className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Property Images</CardTitle>
-          <CardDescription>Upload images and drag to reorder. The first image becomes the main photo.</CardDescription>
+          <CardTitle>{t.form.propertyImages}</CardTitle>
+          <CardDescription>{t.form.imagesDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex flex-col items-center justify-center pt-5 pb-6">
                 <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                <p className="text-xs text-muted-foreground">PNG, JPG, WebP up to 10MB</p>
+                <p className="text-sm text-muted-foreground"><span className="font-semibold">{t.form.clickToUpload}</span>{t.form.orDragDrop}</p>
+                <p className="text-xs text-muted-foreground">{t.form.fileTypes}</p>
               </div>
               <input type="file" className="hidden" accept="image/*" multiple onChange={onUpload} />
             </label>
@@ -99,14 +102,14 @@ export function ImagesTab({
             {feedImages.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">
-                  From the feed ({feedImages.length}) <span className="font-normal text-muted-foreground">— kept in step with the feed, shown first</span>
+                  {t.edit.fromFeed(feedImages.length)} <span className="font-normal text-muted-foreground">{t.edit.fromFeedNote}</span>
                 </p>
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
                   {feedImages.map((img, index) => (
                     <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden border">
                       <img src={img.url} alt={img.alt || ''} loading="lazy" className="object-cover w-full h-full" />
                       {index === 0 && (
-                        <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">Main</div>
+                        <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">{t.common.main}</div>
                       )}
                     </div>
                   ))}
@@ -116,7 +119,7 @@ export function ImagesTab({
 
             {images.length > 0 && (
               <div className="space-y-2">
-                {feedImages.length > 0 && <p className="text-sm font-medium">Uploaded here ({images.length})</p>}
+                {feedImages.length > 0 && <p className="text-sm font-medium">{t.edit.uploadedHere(images.length)}</p>}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                   <SortableContext items={images.map((img) => img.id)} strategy={rectSortingStrategy}>
                     <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
@@ -132,7 +135,7 @@ export function ImagesTab({
             {images.length === 0 && feedImages.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No photos yet</p>
+                <p>{t.edit.noPhotos}</p>
               </div>
             )}
           </div>

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Lock, Sparkles, Mail } from 'lucide-react';
+import { useCommonText } from '@/i18n/common';
 
 interface LockedFeatureDialogProps {
   open: boolean;
@@ -22,17 +23,6 @@ interface LockedFeatureDialogProps {
   // requiredTier is the minimum tier that grants access to this feature.
   requiredTier?: 2 | 3;
 }
-
-const TIER_COPY: Record<2 | 3, { description: string }> = {
-  2: {
-    description:
-      'Tier 2 unlocks the full property module: listings, locations, feeds, contacts, leads, team management, and analytics. Contact your account manager to upgrade.',
-  },
-  3: {
-    description:
-      'Tier 3 includes everything in Tier 2 plus AI Chat, AI translation & SEO, and email campaigns. Contact your account manager to upgrade.',
-  },
-};
 
 // Shown when the tenant clicks a locked sidebar item or action button.
 // Single shared component so every lock prompt has the same copy + CTA.
@@ -46,7 +36,8 @@ export function LockedFeatureDialog({
   description,
   requiredTier,
 }: LockedFeatureDialogProps) {
-  const tierCopy = requiredTier ? TIER_COPY[requiredTier] : null;
+  const t = useCommonText().lockedDialog;
+  const tierCopy = requiredTier === 2 ? t.tier2 : requiredTier === 3 ? t.tier3 : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,19 +47,15 @@ export function LockedFeatureDialog({
             <Lock className="h-5 w-5 text-primary" />
           </div>
           <DialogTitle>
-            {requiredTier
-              ? `Upgrade to unlock ${featureName}`
-              : `${featureName} is a paid add-on`}
+            {requiredTier ? t.upgradeTitle(featureName) : t.addonTitle(featureName)}
           </DialogTitle>
           <DialogDescription>
-            {description ??
-              tierCopy?.description ??
-              `Unlock ${featureName} to add it to your dashboard. Contact your account manager to upgrade your subscription.`}
+            {description ?? tierCopy ?? t.addonText(featureName)}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Maybe later
+            {t.later}
           </Button>
           {/* Tier upgrades aren't self-serve — super-admin handles them
               per request. Route this CTA to a mailto so the client can
@@ -83,14 +70,14 @@ export function LockedFeatureDialog({
                 )}`}
               >
                 <Mail className="mr-2 h-4 w-4" />
-                Contact account manager
+                {t.contact}
               </a>
             </Button>
           ) : (
             <Button asChild onClick={() => onOpenChange(false)}>
               <Link href="/dashboard/billing">
                 <Sparkles className="mr-2 h-4 w-4" />
-                View plans
+                {t.viewPlans}
               </Link>
             </Button>
           )}

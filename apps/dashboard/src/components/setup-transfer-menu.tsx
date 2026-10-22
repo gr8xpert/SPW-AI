@@ -21,8 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
-
-type Kind = 'locations' | 'property-types';
+import { useSharedText, type SetupKind as Kind } from '@/i18n/shared';
 
 interface ImportReport {
   applied: boolean;
@@ -44,11 +43,6 @@ interface ImportReport {
   untouched: number;
 }
 
-const LABELS: Record<Kind, { one: string; many: string }> = {
-  locations: { one: 'location', many: 'locations' },
-  'property-types': { one: 'property type', many: 'property types' },
-};
-
 // The API wraps every response as { data }.
 const unwrap = <T,>(res: any): T => res?.data ?? res;
 
@@ -66,7 +60,7 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportReport | null>(null);
-  const label = LABELS[kind];
+  const t = useSharedText().setupTransfer;
   const base = `/api/dashboard/${kind}`;
 
   const exportSetup = async () => {
@@ -80,9 +74,9 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
       a.download = `${kind}-setup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast({ title: 'Setup exported', description: `${data?.count ?? 0} ${label.many} saved. Import the file in the other client's dashboard.` });
+      toast({ title: t.exported, description: t.exportedText(data?.count ?? 0, kind) });
     } catch (e) {
-      toast({ title: 'Could not export', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' });
+      toast({ title: t.exportFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -102,7 +96,7 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
       setPreview(await send(f, false));
       setFile(f);
     } catch (e) {
-      toast({ title: 'Could not read the file', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' });
+      toast({ title: t.readFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -114,14 +108,14 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
     try {
       const r = await send(file, true);
       toast({
-        title: 'Setup imported',
-        description: `${r.changed} ${r.changed === 1 ? label.one : label.many} updated${r.merged ? `, ${r.merged} duplicate(s) merged` : ''}. Your website uses the new setup.`,
+        title: t.imported,
+        description: t.importedText(r.changed, r.merged, kind),
       });
       setPreview(null);
       setFile(null);
       onImported();
     } catch (e) {
-      toast({ title: 'Could not import', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' });
+      toast({ title: t.importFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -129,15 +123,15 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
 
   const rows: Array<[string, number | undefined]> = preview
     ? [
-        ['Moved to a different parent', preview.moved],
-        ['Renamed', preview.renamed],
-        ['New order', preview.reordered],
-        ['Other spellings copied', preview.aliasesSet],
-        ['Map points copied', preview.coordsSet],
-        ['Duplicates merged into one', preview.merged],
-        ['Left under current parent (file’s parent not in this account)', preview.keptInPlace],
-        ['Not moved (same name already there)', preview.clashes],
-        ['Skipped (more than one possible match)', preview.ambiguous],
+        [t.rows.moved, preview.moved],
+        [t.rows.renamed, preview.renamed],
+        [t.rows.reordered, preview.reordered],
+        [t.rows.aliases, preview.aliasesSet],
+        [t.rows.coords, preview.coordsSet],
+        [t.rows.merged, preview.merged],
+        [t.rows.keptInPlace, preview.keptInPlace],
+        [t.rows.clashes, preview.clashes],
+        [t.rows.ambiguous, preview.ambiguous],
       ]
     : [];
 
@@ -147,21 +141,21 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowLeftRight className="h-4 w-4 mr-2" />}
-            Copy setup
+            {t.button}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-            Copy this {label.one} arrangement to another client. Only {label.many} both clients have are changed — nothing is added or deleted.
+            {t.menuHelp(kind)}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={exportSetup}>
             <Download className="h-4 w-4 mr-2" />
-            Export setup
+            {t.export}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => fileInput.current?.click()}>
             <Upload className="h-4 w-4 mr-2" />
-            Import setup…
+            {t.import}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -176,14 +170,9 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
       <Dialog open={!!preview} onOpenChange={(open) => { if (!open && !busy) { setPreview(null); setFile(null); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import {label.one} setup</DialogTitle>
+            <DialogTitle>{t.dialogTitle(kind)}</DialogTitle>
             <DialogDescription>
-              {preview && (
-                <>
-                  {preview.matched} of your {preview.accountRows} {label.many} were found in the file
-                  {preview.changed > 0 ? `; ${preview.changed} will change.` : ' and already match it.'}
-                </>
-              )}
+              {preview && t.found(preview.matched, preview.accountRows, preview.changed, kind)}
             </DialogDescription>
           </DialogHeader>
           {preview && (
@@ -199,19 +188,19 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
                   ))}
               </ul>
               <p className="text-muted-foreground">
-                {preview.untouched} of your {label.many} are not in the file and stay as they are.
+                {t.untouched(preview.untouched, kind)}
                 {preview.notInAccount > 0 && (
-                  <> {preview.notInAccount} {label.many} in the file are not in this account and will not be added
-                    {preview.notInAccountSample.length > 0 && <> (e.g. {preview.notInAccountSample.slice(0, 5).join(', ')})</>}.</>
+                  <> {t.notInAccount(preview.notInAccount, kind)}
+                    {preview.notInAccountSample.length > 0 && <> {t.example(preview.notInAccountSample.slice(0, 5).join(', '))}</>}.</>
                 )}
               </p>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" disabled={busy} onClick={() => { setPreview(null); setFile(null); }}>Cancel</Button>
+            <Button variant="outline" disabled={busy} onClick={() => { setPreview(null); setFile(null); }}>{t.cancel}</Button>
             <Button disabled={busy || !preview || (preview.changed === 0 && preview.merged === 0)} onClick={apply}>
               {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Apply
+              {t.apply}
             </Button>
           </DialogFooter>
         </DialogContent>

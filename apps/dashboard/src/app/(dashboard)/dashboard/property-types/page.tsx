@@ -72,6 +72,7 @@ import { SortOrderMenu } from '@/components/sort-order-menu';
 import { SetupTransferMenu } from '@/components/setup-transfer-menu';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { useBulkJob } from '@/hooks/use-bulk-job';
+import { usePropertyTypesText, nameOf } from './_i18n';
 
 interface PropertyType {
   id: number;
@@ -83,12 +84,6 @@ interface PropertyType {
   sortOrder?: number;
   isActive?: boolean;
 }
-
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
-  it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
-  da: 'Danish', pl: 'Polish', cs: 'Czech', fi: 'Finnish',
-};
 
 const iconMap: Record<string, React.ReactNode> = {
   castle: <Castle className="h-4 w-4" />,
@@ -120,6 +115,7 @@ export default function PropertyTypesPage() {
   const [bulkParentId, setBulkParentId] = useState<number | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
+  const t = usePropertyTypesText();
 
   const api = useApi();
   // Server-tracked, so progress survives a refresh or leaving the page and a
@@ -130,8 +126,8 @@ export default function PropertyTypesPage() {
     onFinished: (st) => {
       toast(
         st.status === 'completed' && st.failed === 0
-          ? { title: 'Bulk translation complete', description: `${st.completed} property types translated` }
-          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+          ? { title: t.toast.bulkComplete, description: t.toast.bulkCompleteText(st.completed) }
+          : { title: t.toast.bulkErrors, description: t.toast.bulkErrorsText(st.failed, st.total), variant: 'destructive' },
       );
       fetchTypes();
     },
@@ -147,22 +143,22 @@ export default function PropertyTypesPage() {
         // Only mention what actually happened — listing four zeroes reads as a
         // failure even when the tree was simply already tidy.
         const parts = [
-          r.parentsCreated ? `+${r.parentsCreated} parent group${r.parentsCreated === 1 ? '' : 's'}` : '',
-          r.childrenAttached ? `${r.childrenAttached} grouped` : '',
-          r.typesMerged ? `${r.typesMerged} duplicate${r.typesMerged === 1 ? '' : 's'} merged` : '',
-          r.detached ? `${r.detached} moved to top level` : '',
-          r.skipped ? `${r.skipped} skipped` : '',
+          r.parentsCreated ? t.toast.parentsCreated(r.parentsCreated) : '',
+          r.childrenAttached ? t.toast.childrenAttached(r.childrenAttached) : '',
+          r.typesMerged ? t.toast.typesMerged(r.typesMerged) : '',
+          r.detached ? t.toast.detached(r.detached) : '',
+          r.skipped ? t.toast.skipped(r.skipped) : '',
         ].filter(Boolean);
         toast({
-          title: 'AI organize complete',
-          description: parts.length ? parts.join(', ') : 'Everything already looks right',
+          title: t.toast.organizeComplete,
+          description: parts.length ? parts.join(', ') : t.toast.alreadyRight,
         });
       } else {
-        toast({ title: 'AI organize finished', description: 'No changes needed' });
+        toast({ title: t.toast.organizeFinished, description: t.toast.noChanges });
       }
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+      toast({ title: t.toast.organizeFailed, description: e?.message, variant: 'destructive' });
     } finally {
       setIsAiOrganizing(false);
     }
@@ -188,7 +184,7 @@ export default function PropertyTypesPage() {
         setTimeout(() => fetchTypes(retriesLeft - 1), 800);
         return;
       }
-      toast({ title: 'Failed to load property types', variant: 'destructive' });
+      toast({ title: t.toast.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -208,12 +204,12 @@ export default function PropertyTypesPage() {
         parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
       });
-      toast({ title: 'Property type created' });
+      toast({ title: t.toast.created });
       setIsAddOpen(false);
       setForm({ names: {}, slug: '', icon: '', parentId: null });
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -226,13 +222,13 @@ export default function PropertyTypesPage() {
         parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
       });
-      toast({ title: 'Property type updated' });
+      toast({ title: t.toast.updated });
       setIsEditOpen(false);
       setEditingType(null);
       setForm({ names: {}, slug: '', icon: '', parentId: null });
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.updateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -240,12 +236,12 @@ export default function PropertyTypesPage() {
     if (!deletingType) return;
     try {
       await api.delete(`/api/dashboard/property-types/${deletingType.id}`);
-      toast({ title: 'Property type deleted' });
+      toast({ title: t.toast.deleted });
       setIsDeleteOpen(false);
       setDeletingType(null);
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.deleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -269,7 +265,7 @@ export default function PropertyTypesPage() {
       });
       const missingLangs = languages.filter(l => l !== 'en' && !form.names[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setIsTranslating(false);
         return;
       }
@@ -285,10 +281,10 @@ export default function PropertyTypesPage() {
         }
         setForm(prev => ({ ...prev, names: newNames }));
       }
-      toast({ title: `Translated to ${missingLangs.length} languages` });
+      toast({ title: t.toast.translatedTo(missingLangs.length) });
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
     }
@@ -300,7 +296,7 @@ export default function PropertyTypesPage() {
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !type.name[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setTranslatingId(null);
         return;
       }
@@ -308,10 +304,10 @@ export default function PropertyTypesPage() {
         targetLanguages: missingLangs,
         sourceLanguage: 'en',
       });
-      toast({ title: `Translated "${type.name.en}"` });
+      toast({ title: t.toast.translatedName(type.name.en) });
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setTranslatingId(null);
     }
@@ -323,7 +319,7 @@ export default function PropertyTypesPage() {
     try {
       const targetLangs = languages.filter(l => l !== 'en');
       if (targetLangs.length === 0) {
-        toast({ title: 'No target languages configured. Add languages in Settings.' });
+        toast({ title: t.toast.noTargetLanguages });
         return;
       }
       const res = await api.post('/api/dashboard/translate/property-types/bulk', {
@@ -335,11 +331,11 @@ export default function PropertyTypesPage() {
       if (jobId) bulkTranslate.track(jobId);
       toast(
         res?.data?.alreadyRunning
-          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
-          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+          ? { title: t.toast.bulkAlready, description: t.toast.bulkAlreadyText }
+          : { title: t.toast.bulkStarted, description: t.toast.bulkStartedText },
       );
     } catch (e: any) {
-      toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsBulkTranslating(false);
     }
@@ -385,12 +381,12 @@ export default function PropertyTypesPage() {
     if (ids.length === 0) return;
     try {
       await api.put('/api/dashboard/property-types/bulk-move', { ids, parentId: bulkParentId });
-      toast({ title: `Moved ${ids.length} type${ids.length === 1 ? '' : 's'}` });
+      toast({ title: t.toast.bulkMoved(ids.length) });
       setIsBulkMoveOpen(false);
       setSelectedIds(new Set());
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Bulk move failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkMoveFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -399,12 +395,12 @@ export default function PropertyTypesPage() {
     if (ids.length === 0) return;
     try {
       await api.put('/api/dashboard/property-types/bulk-delete', { ids });
-      toast({ title: `Deleted ${ids.length} type${ids.length === 1 ? '' : 's'}` });
+      toast({ title: t.toast.bulkDeleted(ids.length) });
       setIsBulkDeleteOpen(false);
       setSelectedIds(new Set());
       fetchTypes();
     } catch (e: any) {
-      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkDeleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -430,9 +426,9 @@ export default function PropertyTypesPage() {
     });
     try {
       await api.put('/api/dashboard/property-types/reorder', { items });
-      toast({ title: 'Order updated' });
+      toast({ title: t.toast.orderUpdated });
     } catch {
-      toast({ title: 'Failed to reorder', variant: 'destructive' });
+      toast({ title: t.toast.reorderFailed, variant: 'destructive' });
       fetchTypes();
     }
   };
@@ -446,10 +442,10 @@ export default function PropertyTypesPage() {
     const newActive = !(type.isActive ?? true);
     try {
       await api.put(`/api/dashboard/property-types/${type.id}`, { isActive: newActive });
-      toast({ title: newActive ? 'Type visible on website' : 'Type hidden from website' });
+      toast({ title: newActive ? t.toast.shown : t.toast.hidden });
       fetchTypes();
     } catch {
-      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+      toast({ title: t.toast.visibilityFailed, variant: 'destructive' });
     }
   };
 
@@ -457,53 +453,53 @@ export default function PropertyTypesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Property Types</h1>
-          <p className="page-description mt-1">Manage property type classifications</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <div className="flex gap-2">
           <SortOrderMenu endpoint="/api/dashboard/property-types/sort" onSorted={() => fetchTypes()} />
           <SetupTransferMenu kind="property-types" onImported={() => fetchTypes()} />
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            AI Organize
+            {t.aiOrganize}
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? t.lockedLong : undefined}>
               {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
+              {bulkTranslate.running ? t.translating(bulkTranslate.progress) : t.aiTranslateAll}
             </Button>
           )}
           <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '', parentId: null }); }}>
             <DialogTrigger asChild>
-              <Button className="shadow-sm"><Plus className="h-4 w-4 mr-2" />Add Type</Button>
+              <Button className="shadow-sm"><Plus className="h-4 w-4 mr-2" />{t.addType}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Property Type</DialogTitle>
-                <DialogDescription>Create a new property type classification</DialogDescription>
+                <DialogTitle>{t.addTitle}</DialogTitle>
+                <DialogDescription>{t.addDescription}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Name (English)</Label>
+                  <Label>{t.nameEnglish}</Label>
                   <Input placeholder="Villa" value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Slug</Label>
+                  <Label>{t.slug}</Label>
                   <Input placeholder="villa" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Icon</Label>
+                  <Label>{t.icon}</Label>
                   <Input placeholder="home, building, castle" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Parent Type <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+                  <Label>{t.parentType} <span className="text-xs text-muted-foreground font-normal">{t.optional}</span></Label>
                   <Select
                     value={form.parentId == null ? 'none' : String(form.parentId)}
                     onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
                   >
-                    <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t.noParent} /></SelectTrigger>
                     <SelectContent className="max-h-72">
-                      <SelectItem value="none">— No parent (top level) —</SelectItem>
+                      <SelectItem value="none">{t.noParentOption}</SelectItem>
                       {orderedTypes.map((t) => (
                         <SelectItem key={t.id} value={String(t.id)}>{'  '.repeat(t._depth)}{t.name.en || Object.values(t.name)[0]}</SelectItem>
                       ))}
@@ -512,10 +508,10 @@ export default function PropertyTypesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
                 <Button onClick={handleCreate} disabled={!form.names.en || !form.slug || api.isLoading}>
                   {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create
+                  {t.create}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -527,12 +523,12 @@ export default function PropertyTypesPage() {
         <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search property types..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder={t.searchPlaceholder} className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
-              Hide types with 0 properties
+              {t.hideEmpty}
             </label>
           </div>
         </CardContent>
@@ -541,12 +537,12 @@ export default function PropertyTypesPage() {
       {selectedIds.size > 0 && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-3 flex items-center justify-between gap-4">
-            <div className="text-sm"><strong>{selectedIds.size}</strong> type{selectedIds.size === 1 ? '' : 's'} selected</div>
+            <div className="text-sm"><strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}</div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
-              <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>Move under parent…</Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
+              <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>{t.moveUnderParent}</Button>
               <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Trash2 className="h-4 w-4 mr-1" /> {t.delete}
               </Button>
             </div>
           </CardContent>
@@ -555,7 +551,7 @@ export default function PropertyTypesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Property Types ({filteredTypes.length})</CardTitle>
+          <CardTitle>{t.allTypes(filteredTypes.length)}</CardTitle>
         </CardHeader>
         <CardContent>
           {api.isLoading && types.length === 0 ? (
@@ -563,7 +559,7 @@ export default function PropertyTypesPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : types.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No property types yet. Click &quot;Add Type&quot; to create one.</p>
+            <p className="text-center py-8 text-muted-foreground">{t.empty}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -578,11 +574,11 @@ export default function PropertyTypesPage() {
                     />
                   </TableHead>
                   <TableHead className="w-[50px]"></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  {languages.length > 1 && <TableHead>Translations</TableHead>}
-                  <TableHead>Properties</TableHead>
-                  <TableHead className="w-[100px]">Visible</TableHead>
+                  <TableHead>{t.colName}</TableHead>
+                  <TableHead>{t.colSlug}</TableHead>
+                  {languages.length > 1 && <TableHead>{t.colTranslations}</TableHead>}
+                  <TableHead>{t.colProperties}</TableHead>
+                  <TableHead className="w-[100px]">{t.colVisible}</TableHead>
                   <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -645,7 +641,7 @@ export default function PropertyTypesPage() {
                       <TableCell>
                         <div
                           className="flex items-center gap-1.5"
-                          title={type.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+                          title={type.isActive !== false ? t.visibleOnWebsite : t.hiddenFromWebsite}
                         >
                           {type.isActive !== false ? (
                             <Eye className="h-3.5 w-3.5 text-muted-foreground" />
@@ -668,17 +664,17 @@ export default function PropertyTypesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEdit(type)}>
-                              <Edit className="h-4 w-4 mr-2" />Edit
+                              <Edit className="h-4 w-4 mr-2" />{t.edit}
                             </DropdownMenuItem>
                             {languages.length > 1 && (
                               <DropdownMenuItem onClick={() => handleQuickTranslate(type)}>
                                 {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                                AI Translate
+                                {t.aiTranslate}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingType(type); setIsDeleteOpen(true); }}>
-                              <Trash2 className="h-4 w-4 mr-2" />Delete
+                              <Trash2 className="h-4 w-4 mr-2" />{t.delete}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -696,33 +692,33 @@ export default function PropertyTypesPage() {
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm({ names: {}, slug: '', icon: '', parentId: null }); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Property Type</DialogTitle>
-            <DialogDescription>Update details and translations</DialogDescription>
+            <DialogTitle>{t.editTitle}</DialogTitle>
+            <DialogDescription>{t.editDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Name (English)</Label>
+              <Label>{t.nameEnglish}</Label>
               <Input value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Slug</Label>
+                <Label>{t.slug}</Label>
                 <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label>{t.icon}</Label>
                 <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Parent Type <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Label>{t.parentType} <span className="text-xs text-muted-foreground font-normal">{t.optional}</span></Label>
               <Select
                 value={form.parentId == null ? 'none' : String(form.parentId)}
                 onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
               >
-                <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t.noParent} /></SelectTrigger>
                 <SelectContent className="max-h-72">
-                  <SelectItem value="none">— No parent (top level) —</SelectItem>
+                  <SelectItem value="none">{t.noParentOption}</SelectItem>
                   {orderedTypes
                     .filter((t) => !editingType || t.id !== editingType.id)
                     .map((t) => (
@@ -735,11 +731,11 @@ export default function PropertyTypesPage() {
               <div className="border rounded-md">
                 <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
                   <span className="text-sm font-medium">
-                    Translations ({languages.filter(l => l !== 'en' && form.names[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
+                    {t.translationsCount(languages.filter(l => l !== 'en' && form.names[l]?.trim()).length, languages.filter(l => l !== 'en').length)}
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? t.lockedShort : undefined}>
                     {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                    AI Translate
+                    {t.aiTranslate}
                   </Button>
                 </div>
                 <div className="max-h-[280px] overflow-y-auto p-3 space-y-2">
@@ -748,7 +744,7 @@ export default function PropertyTypesPage() {
                       <span className="text-xs font-medium uppercase w-8 text-muted-foreground shrink-0">{lang}</span>
                       <Input
                         className="h-8 text-sm"
-                        placeholder={LANG_NAMES[lang] || lang}
+                        placeholder={nameOf(t.langNames, lang)}
                         value={form.names[lang] || ''}
                         onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })}
                       />
@@ -764,10 +760,10 @@ export default function PropertyTypesPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleUpdate} disabled={!form.names.en || !form.slug || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -777,16 +773,16 @@ export default function PropertyTypesPage() {
       <AlertDialog open={isBulkTranslateOpen} onOpenChange={setIsBulkTranslateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>AI Translate All Property Types</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will translate all {types.length} property types to {languages.filter(l => l !== 'en').length} languages using AI.
+              {t.bulkText(types.length, languages.filter(l => l !== 'en').length)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Start Translation
+              {t.startTranslation}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -796,18 +792,18 @@ export default function PropertyTypesPage() {
       <Dialog open={isBulkMoveOpen} onOpenChange={setIsBulkMoveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Move {selectedIds.size} type{selectedIds.size === 1 ? '' : 's'} under a parent</DialogTitle>
-            <DialogDescription>Choose a parent type. Selected items become its children. Select &quot;No parent&quot; to make them top-level.</DialogDescription>
+            <DialogTitle>{t.bulkMoveTitle(selectedIds.size)}</DialogTitle>
+            <DialogDescription>{t.bulkMoveText}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            <Label>Parent Type</Label>
+            <Label>{t.parentType}</Label>
             <Select
               value={bulkParentId == null ? 'none' : String(bulkParentId)}
               onValueChange={(v) => setBulkParentId(v === 'none' ? null : Number(v))}
             >
-              <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t.noParent} /></SelectTrigger>
               <SelectContent className="max-h-72">
-                <SelectItem value="none">— No parent (top level) —</SelectItem>
+                <SelectItem value="none">{t.noParentOption}</SelectItem>
                 {orderedTypes
                   .filter((t) => !selectedIds.has(t.id))
                   .map((t) => (<SelectItem key={t.id} value={String(t.id)}>{'  '.repeat(t._depth)}{t.name.en || Object.values(t.name)[0]}</SelectItem>))}
@@ -815,8 +811,8 @@ export default function PropertyTypesPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>Cancel</Button>
-            <Button onClick={handleBulkMove}>Move {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}</Button>
+            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>{t.cancel}</Button>
+            <Button onClick={handleBulkMove}>{t.moveN(selectedIds.size)}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -825,15 +821,15 @@ export default function PropertyTypesPage() {
       <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} type{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkDeleteTitle(selectedIds.size)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Properties using these types will have their type cleared. Child types will become top-level. This cannot be undone.
+              {t.bulkDeleteText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete {selectedIds.size}
+              {t.deleteN(selectedIds.size)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -843,15 +839,15 @@ export default function PropertyTypesPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Property Type</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingType?.name.en}&quot;? This action cannot be undone.
+              {t.deleteText(deletingType?.name.en ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

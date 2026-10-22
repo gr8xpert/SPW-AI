@@ -8,9 +8,19 @@ export type GuideBlock =
   | { kind: 'tip'; text: string }
   | { kind: 'warn'; text: string };
 
+// Every section of the guide, in reading order. Each language must have all.
+export const SECTION_IDS = [
+  'what', 'quick-start', 'words', 'list', 'new-buyer', 'record', 'details', 'wishlist', 'matched', 'suggested', 'sending', 'ai',
+  'more-tabs', 'my-day', 'board', 'alerts', 'reverse', 'reports', 'settings', 'import', 'privacy', 'who-sees', 'faq',
+] as const;
+export type SectionId = (typeof SECTION_IDS)[number];
+
+// The headings the sections are grouped under; their names are in guide-text.ts.
+export type GuideGroup = 'start' | 'buyers' | 'one' | 'day' | 'managers' | 'help';
+
 export type GuideSection = {
-  id: string;
-  group: string;
+  id: SectionId;
+  group: GuideGroup;
   title: string;
   icon: LucideIcon;
   summary: string;
@@ -18,6 +28,17 @@ export type GuideSection = {
   link?: { href: string; label: string };
   blocks: GuideBlock[];
 };
+
+// The words of one section in one language. Icon, group, link address and
+// managersOnly always come from the English source (guide-basics/guide-more).
+export type GuideSectionText = {
+  title: string;
+  summary: string;
+  linkLabel?: string;
+  blocks: GuideBlock[];
+};
+
+export type GuideTranslation = Record<SectionId, GuideSectionText>;
 
 export const p = (text: string): GuideBlock => ({ kind: 'p', text });
 export const steps = (...items: string[]): GuideBlock => ({ kind: 'steps', items });

@@ -20,6 +20,8 @@ import {
 import { staggerContainer, staggerItem } from '@/lib/animations';
 import { useApi } from '@/hooks/use-api';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
+import { useLanguage, useText } from '@/i18n/i18n-provider';
+import { homeText } from './_i18n/home';
 
 interface DashboardStats {
   properties: number;
@@ -78,6 +80,8 @@ export function DashboardContent() {
   const { data: session } = useSession();
   const api = useApi();
   const { scope, ready } = useTenantQueryScope();
+  const t = useText(homeText);
+  const { locale } = useLanguage();
   // Keyed by login + impersonated client, so switching client refetches;
   // refreshes every minute and when the tab comes back into view.
   const query = useQuery({
@@ -93,31 +97,30 @@ export function DashboardContent() {
   const recentViews = query.data?.recentViews ?? [];
 
   const statCards = [
-    { name: 'Total Properties', value: stats.properties, icon: Building2 },
-    { name: 'Total Contacts', value: stats.contacts, icon: Users },
-    { name: 'Property Views', value: stats.views, icon: Eye },
-    { name: 'Buyers', value: stats.leads, icon: MessageSquare },
+    // contacts = the email subscriber list; leads = Contacts (Buyer Match).
+    { name: t.properties, value: stats.properties, icon: Building2 },
+    { name: t.contacts, value: stats.leads, icon: MessageSquare },
+    { name: t.subscribers, value: stats.contacts, icon: Users },
+    { name: t.views, value: stats.views, icon: Eye },
   ];
 
+  // "5 min ago" in the dashboard language.
   function timeAgo(dateStr: string): string {
     if (!dateStr) return '';
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
+    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if (mins < 60) return rtf.format(-mins, 'minute');
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+    if (hours < 24) return rtf.format(-hours, 'hour');
+    return rtf.format(-Math.floor(hours / 24), 'day');
   }
 
   return (
     <div className="space-y-6">
       <div className="page-header animate-fade-in">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-description mt-1">
-            Welcome back, {session?.user?.name || 'User'}! Here&apos;s what&apos;s
-            happening with your properties.
-          </p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.welcome(session?.user?.name || '')}</p>
         </div>
       </div>
 
@@ -149,14 +152,14 @@ export function DashboardContent() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7 animate-fade-in">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest property views this week</CardDescription>
+            <CardTitle>{t.recentActivity}</CardTitle>
+            <CardDescription>{t.recentHint}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{t.loading}</p>
             ) : recentViews.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent activity</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{t.noActivity}</p>
             ) : (
               <div className="space-y-1">
                 {recentViews.map((v, i) => (
@@ -180,14 +183,14 @@ export function DashboardContent() {
 
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Top Properties</CardTitle>
-            <CardDescription>Most viewed properties this month</CardDescription>
+            <CardTitle>{t.topProperties}</CardTitle>
+            <CardDescription>{t.topHint}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{t.loading}</p>
             ) : topProperties.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No data yet</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{t.noData}</p>
             ) : (
               <div className="space-y-1">
                 {topProperties.map((property, i) => (

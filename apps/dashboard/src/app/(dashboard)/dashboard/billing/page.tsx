@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -14,6 +14,8 @@ import { apiGet, apiPost } from '@/lib/api';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { formatHM, formatSignedHM } from '@/lib/time';
 import { formatMoney } from '@/lib/utils';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useBillingText } from './_i18n';
 import { RefreshCw, Clock, CreditCard, ShoppingCart, Layers } from 'lucide-react';
 
 interface CreditPackage {
@@ -31,16 +33,33 @@ interface CreditBalance {
   tenantId: number;
 }
 
-const TIER_NAMES: Record<1 | 2 | 3, string> = {
-  1: 'Tier 1 — Support only',
-  2: 'Tier 2 — Support + Property management',
-  3: 'Tier 3 — Everything (all premium add-ons)',
-};
+// A price in the dashboard language's number format; the currency code from
+// the package stays as sent (falls back to the plain helper if it is unknown).
+function formatPrice(amount: number | string, currency: string, locale: string): string {
+  const value = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (!Number.isFinite(value)) return formatMoney(amount, currency);
+  const whole = Math.round(value * 100) % 100 === 0;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
+    }).format(value);
+  } catch {
+    return formatMoney(amount, currency);
+  }
+}
 
 // "Credit Hours" page. The route stays /dashboard/billing because the Stripe
 // checkout success/cancel URLs (api payment module) return here.
 export default function CreditHoursPage() {
   const { toast } = useToast();
+  const t = useBillingText();
+  const { locale } = useLanguage();
+  // Effects below run once; they read the current wording through this ref.
+  const tRef = useRef(t);
+  tRef.current = t;
   const { tier, known: tierKnown } = useDashboardAddons();
   const [loading, setLoading] = useState(true);
 
@@ -53,10 +72,10 @@ export default function CreditHoursPage() {
     const params = new URLSearchParams(window.location.search);
     const stripeStatus = params.get('stripe');
     if (stripeStatus === 'success') {
-      toast({ title: 'Payment successful', description: 'Your credit hours have been added to your account.' });
+      toast({ title: tRef.current.paymentSuccess, description: tRef.current.paymentSuccessText });
       window.history.replaceState({}, '', window.location.pathname);
     } else if (stripeStatus === 'cancel') {
-      toast({ title: 'Payment cancelled', description: 'Your credit purchase was cancelled.', variant: 'destructive' });
+      toast({ title: tRef.current.paymentCancelled, description: tRef.current.paymentCancelledText, variant: 'destructive' });
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [toast]);
@@ -81,8 +100,8 @@ export default function CreditHoursPage() {
         const failures = [packagesResult, balanceResult].filter((r) => r.status === 'rejected');
         if (failures.length > 0) {
           toast({
-            title: 'Some credit hour data failed to load',
-            description: 'Parts of the page may be incomplete. Try refreshing.',
+            title: tRef.current.loadFailed,
+            description: tRef.current.loadFailedText,
             variant: 'destructive',
           });
         }
@@ -109,8 +128,8 @@ export default function CreditHoursPage() {
       window.location.href = url;
     } catch (err: any) {
       toast({
-        title: 'Checkout failed',
-        description: err?.response?.data?.message ?? err?.message ?? 'Unknown error',
+        title: t.checkoutFailed,
+        description: err?.response?.data?.message ?? err?.message ?? t.unknownError,
         variant: 'destructive',
       });
       setPurchasingPkgId(null);
@@ -121,9 +140,9 @@ export default function CreditHoursPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Credit Hours</h1>
+          <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">
-            Buy credit hours for webmaster support
+            {t.description}
           </p>
         </div>
       </div>
@@ -132,8 +151,8 @@ export default function CreditHoursPage() {
           super-admin on request; there is no self-serve tier purchase. */}
       <Card>
         <CardHeader>
-          <CardTitle>Your plan</CardTitle>
-          <CardDescription>Your current commercial tier</CardDescription>
+          <CardTitle>{t.planTitle}</CardTitle>
+          <CardDescription>{t.planDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-4">
@@ -142,9 +161,9 @@ export default function CreditHoursPage() {
                 <Layers className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <div className="text-lg font-semibold">{tierKnown ? TIER_NAMES[tier] : '…'}</div>
+                <div className="text-lg font-semibold">{tierKnown ? t.tierNames[tier] : '…'}</div>
                 <div className="text-sm text-muted-foreground">
-                  Contact your account manager to upgrade your tier.
+                  {t.contactManager}
                 </div>
               </div>
             </div>
@@ -157,15 +176,15 @@ export default function CreditHoursPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <CardTitle>Buy Credit Hours</CardTitle>
+              <CardTitle>{t.buyTitle}</CardTitle>
               <CardDescription>
-                Purchase credit hours for webmaster support. Credits are consumed when work is done on your tickets.
+                {t.buyDescription}
               </CardDescription>
             </div>
             {creditBalance && (
               <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-4 py-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Balance:</span>
+                <span className="text-sm text-muted-foreground">{t.balance}</span>
                 <span className="text-lg font-bold">{formatSignedHM(creditBalance.balance)}</span>
               </div>
             )}
@@ -179,7 +198,7 @@ export default function CreditHoursPage() {
           ) : creditPackages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <CreditCard className="h-8 w-8 mb-2" />
-              <p className="text-sm">No credit packages available at this time.</p>
+              <p className="text-sm">{t.noPackages}</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
@@ -195,10 +214,10 @@ export default function CreditHoursPage() {
                     <h3 className="text-lg font-semibold">{pkg.name}</h3>
                     <div className="mt-2 text-3xl font-bold">{formatHM(pkg.hours)}</div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {formatMoney(pkg.pricePerHour, pkg.currency)}/hour
+                      {t.perHour(formatPrice(pkg.pricePerHour, pkg.currency, locale))}
                     </div>
                     <div className="mt-4 text-xl font-semibold">
-                      {formatMoney(pkg.totalPrice, pkg.currency)}
+                      {formatPrice(pkg.totalPrice, pkg.currency, locale)}
                     </div>
 
                     <div className="mt-4 flex items-center gap-2">
@@ -206,7 +225,7 @@ export default function CreditHoursPage() {
                         htmlFor={`qty-${pkg.id}`}
                         className="text-sm text-muted-foreground"
                       >
-                        Qty
+                        {t.qty}
                       </label>
                       <input
                         id={`qty-${pkg.id}`}
@@ -226,7 +245,7 @@ export default function CreditHoursPage() {
                         className="w-20 rounded-md border border-input bg-background px-3 py-1 text-sm"
                       />
                       <span className="text-sm text-muted-foreground">
-                        = {formatHM(totalHours)}, {formatMoney(totalCost, pkg.currency)}
+                        = {formatHM(totalHours)}, {formatPrice(totalCost, pkg.currency, locale)}
                       </span>
                     </div>
 
@@ -242,8 +261,8 @@ export default function CreditHoursPage() {
                           <ShoppingCart className="mr-2 h-4 w-4" />
                         )}
                         {Number.isInteger(totalHours)
-                          ? `Buy ${totalHours} ${totalHours === 1 ? 'Hour' : 'Hours'}`
-                          : `Buy ${formatHM(totalHours)}`}
+                          ? t.buyHours(totalHours)
+                          : t.buyAmount(formatHM(totalHours))}
                       </Button>
                     </div>
                   </div>

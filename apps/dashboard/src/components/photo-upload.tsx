@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useApi } from '@/hooks/use-api';
 import { cn } from '@/lib/utils';
+import { useSharedText } from '@/i18n/shared';
 
 // A round photo with Upload / Change / Remove. The file goes to the
 // dashboard upload route (R2, WebP); `onChange` gets its address, or '' when
@@ -24,6 +25,7 @@ export function PhotoUpload({
   layout?: 'column' | 'row';
 }) {
   const { toast } = useToast();
+  const t = useSharedText().photo;
   // useApi sends FormData as multipart; the axios client forces JSON and the
   // file never reached the server.
   const api = useApi();
@@ -32,7 +34,7 @@ export function PhotoUpload({
 
   const upload = async (file: File) => {
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
-      toast({ title: 'Choose an image', description: 'The photo must be a JPG, PNG or WebP file.', variant: 'destructive' });
+      toast({ title: t.chooseImage, description: t.chooseImageText, variant: 'destructive' });
       return;
     }
     setUploading(true);
@@ -41,10 +43,10 @@ export function PhotoUpload({
       form.append('file', file);
       const res = await api.post('/api/dashboard/upload', form);
       const data = (res?.data ?? res) as { url?: string };
-      if (!data?.url) throw new Error('The upload returned no address.');
+      if (!data?.url) throw new Error(t.noAddress);
       onChange(data.url);
     } catch (e) {
-      toast({ title: 'Photo upload failed', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: t.uploadFailed, description: (e as Error).message, variant: 'destructive' });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -77,14 +79,14 @@ export function PhotoUpload({
       />
       <div className={row ? 'flex flex-col items-start gap-1.5' : 'contents'}>
         <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
-          {uploading ? 'Uploading…' : value ? 'Change photo' : 'Upload photo'}
+          {uploading ? t.uploading : value ? t.change : t.upload}
         </Button>
         {value && !uploading && (
           <button type="button" className="text-xs text-muted-foreground underline" onClick={() => onChange('')}>
-            Remove photo
+            {t.remove}
           </button>
         )}
-        {row && !value && <p className="text-xs text-muted-foreground">JPG, PNG or WebP</p>}
+        {row && !value && <p className="text-xs text-muted-foreground">{t.formats}</p>}
       </div>
     </div>
   );

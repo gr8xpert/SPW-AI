@@ -6,6 +6,7 @@ import { UserCog, LogOut, RefreshCw } from 'lucide-react';
 import { useImpersonation } from '@/hooks/use-impersonation';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { useSharedText } from '@/i18n/shared';
 
 // Sticky top bar shown to a super-admin while running as a client tenant.
 // Rendered inside the dashboard layout so it appears on every authenticated
@@ -16,6 +17,7 @@ export function ImpersonationBanner() {
   const router = useRouter();
   const { toast } = useToast();
   const [ending, setEnding] = useState(false);
+  const t = useSharedText().impersonation;
 
   if (!session) return null;
 
@@ -34,8 +36,8 @@ export function ImpersonationBanner() {
     } finally {
       end();
       toast({
-        title: 'Returned to admin',
-        description: `You are back to your super-admin session.`,
+        title: t.returned,
+        description: t.returnedText,
       });
       // Force a hard refresh so any cached client-side data scoped to the
       // impersonated tenant gets torn down.
@@ -58,9 +60,9 @@ export function ImpersonationBanner() {
           <UserCog className="h-4 w-4 shrink-0" />
           <span className="truncate">
             <span className="font-semibold uppercase tracking-wide text-xs opacity-80">
-              Super-admin session ·
+              {t.session}
             </span>{' '}
-            Viewing as{' '}
+            {t.viewingAs}{' '}
             <span className="font-semibold">{session.tenant.name}</span>
             <span className="text-amber-800/80 dark:text-amber-300/80">
               {' '}
@@ -80,7 +82,7 @@ export function ImpersonationBanner() {
           ) : (
             <LogOut className="mr-2 h-3.5 w-3.5" />
           )}
-          Return to admin
+          {t.returnToAdmin}
         </Button>
       </div>
       {/* Spacer so the fixed banner doesn't overlap page content. Matches

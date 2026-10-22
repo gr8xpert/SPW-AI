@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { ApiKeySettings } from './use-api-key-cache';
+import { useSettingsText } from '../_i18n';
 
 export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
   const { toast } = useToast();
@@ -15,28 +16,27 @@ export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
     rotatingApiKey,
     onRotateApiKey,
   } = apiKey;
+  const st = useSettingsText();
+  const t = st.apiKeys;
 
   return (
     <TabsContent value="api-keys" className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>API Keys</CardTitle>
+          <CardTitle>{t.title}</CardTitle>
           <CardDescription>
-            Use this key in the <code>x-api-key</code> header to call the public widget API
-            (e.g. <code>GET /api/v1/properties</code>) from your website. Keep it on your server
-            if possible — anyone with the key can read your published listings within your plan&apos;s
-            rate limit.
+            {t.descBefore} <code>x-api-key</code> {t.descMiddle} <code>GET /api/v1/properties</code>{t.descAfter}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-medium">Widget API Key</p>
+                <p className="font-medium">{t.widgetKey}</p>
                 <p className="text-sm text-muted-foreground">
                   {apiKeyLast4
-                    ? `Ends in …${apiKeyLast4}. Rotate if it has been leaked — any integration using the old key will stop working immediately.`
-                    : 'No key generated yet. Click "Regenerate" to create one.'}
+                    ? t.endsIn(apiKeyLast4)
+                    : t.noKey}
                 </p>
               </div>
               <Button
@@ -45,13 +45,13 @@ export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
                 onClick={onRotateApiKey}
                 disabled={rotatingApiKey}
               >
-                {rotatingApiKey ? 'Regenerating…' : apiKeyLast4 ? 'Regenerate' : 'Generate'}
+                {rotatingApiKey ? t.regenerating : apiKeyLast4 ? t.regenerate : t.generate}
               </Button>
             </div>
             {revealedApiKey && (
               <div className="mt-3 rounded-md border border-primary/20 bg-secondary/20 p-3">
                 <p className="text-sm font-medium text-primary">
-                  New API key — copy it now. It will not be shown again.
+                  {t.newKey}
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <code className="flex-1 px-2 py-1 bg-muted rounded text-xs break-all">
@@ -62,17 +62,17 @@ export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
                     size="sm"
                     onClick={() => {
                       void navigator.clipboard.writeText(revealedApiKey);
-                      toast({ title: 'Copied to clipboard' });
+                      toast({ title: st.common.copied });
                     }}
                   >
-                    Copy
+                    {st.common.copy}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setRevealedApiKey(null)}
                   >
-                    Dismiss
+                    {st.common.dismiss}
                   </Button>
                 </div>
               </div>
@@ -80,7 +80,7 @@ export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
           </div>
 
           <div className="rounded-lg border p-4 space-y-2">
-            <p className="font-medium text-sm">Quick usage</p>
+            <p className="font-medium text-sm">{t.quickUsage}</p>
             <pre className="text-xs bg-muted rounded p-3 overflow-x-auto"><code>{`fetch('https://api.spw-ai.com/api/v1/properties?limit=20', {
   headers: { 'x-api-key': 'YOUR_KEY' }
 }).then(r => r.json()).then(({ data }) => console.log(data));`}</code></pre>

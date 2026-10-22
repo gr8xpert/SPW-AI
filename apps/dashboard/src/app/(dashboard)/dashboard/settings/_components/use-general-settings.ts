@@ -7,12 +7,14 @@ import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { apiPut } from '@/lib/api';
 import { generalSchema, type SlugFormat, type TenantCurrent } from './types';
+import { useSettingsText } from '../_i18n';
 
 // State for the General tab: company form, slug format, languages and the
 // brochure card. Lives in the page (not the tab) so unsaved edits survive
 // switching tabs — Radix unmounts inactive TabsContent.
 export function useGeneralSettings() {
   const { toast } = useToast();
+  const t = useSettingsText();
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [slugFormat, setSlugFormat] = useState<SlugFormat>('title-ref');
 
@@ -72,13 +74,13 @@ export function useGeneralSettings() {
         languages: enabledLanguages,
       });
       toast({
-        title: 'Settings saved',
-        description: 'Your general settings have been updated.',
+        title: t.general.saved,
+        description: t.general.savedText,
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to save settings.',
+        title: t.common.error,
+        description: t.general.saveFailed,
         variant: 'destructive',
       });
     } finally {
@@ -95,9 +97,9 @@ export function useGeneralSettings() {
         logoUrl: brochureLogoUrl.trim() || undefined,
         defaultBrochureVariant,
       });
-      toast({ title: 'Brochure settings saved' });
+      toast({ title: t.general.brochure.saved });
     } catch (err) {
-      toast({ title: 'Failed to save brochure settings', description: (err as Error).message, variant: 'destructive' });
+      toast({ title: t.general.brochure.saveFailed, description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSavingBrochure(false);
     }

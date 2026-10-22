@@ -68,6 +68,11 @@ export class User {
   @Column({ type: 'boolean', default: true })
   buyerDigest: boolean;
 
+  // The language this user sees the dashboard in (migration 1777370000000);
+  // null = English.
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  dashboardLanguage: string | null;
+
   // Recovery codes are bcrypt hashes, each removed once used. Five wrong
   // codes in a row lock two-factor login for 15 minutes.
   @Column({ type: 'json', nullable: true, select: false })

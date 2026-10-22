@@ -1,12 +1,12 @@
-// All Buyer Match dashboard wording. A Dutch or Spanish version of these
-// screens = a copy of this file with the same keys, picked in useBuyerText().
+// All Contacts (Buyer Match) dashboard wording, in English. The other
+// languages (nl.ts … sv.ts) copy these keys; useBuyerText() picks one.
 
 export const en = {
-  title: 'Buyers',
+  title: 'Contacts',
   description: 'Your buyers, sellers and other contacts with their agent, stage and history',
   featureName: 'Buyer Match',
   featureDescription: 'Buyers with wishlists, matched properties, a pipeline and tasks.',
-  newBuyer: 'New buyer',
+  newBuyer: 'New contact',
   settings: 'Settings',
   cards: 'Cards',
   list: 'List',
@@ -22,11 +22,11 @@ export const en = {
   hot: 'Hot',
   hotTitle: 'Hot: likes, viewing requests, clicks and enquiries in the last 14 days',
   clearFilters: 'Clear',
-  noBuyers: 'No buyers yet',
-  noMatches: 'No buyers match these filters',
-  loadFailed: 'Could not load buyers',
+  noBuyers: 'No contacts yet',
+  noMatches: 'No contacts match these filters',
+  loadFailed: 'Could not load contacts',
   retry: 'Try again',
-  total: (n: number) => `${n} ${n === 1 ? 'buyer' : 'buyers'}`,
+  total: (n: number) => `${n} ${n === 1 ? 'contact' : 'contacts'}`,
   lastActivity: 'Last activity',
   never: 'never',
   daysAgo: (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`),
@@ -73,7 +73,7 @@ export const en = {
     lastActivity: 'Last activity',
   },
   create: {
-    title: 'New buyer',
+    title: 'New contact',
     description: 'Add a contact by hand. One record per email address.',
     firstName: 'First name',
     lastName: 'Last name',
@@ -82,15 +82,15 @@ export const en = {
     role: 'Role',
     agent: 'Agent',
     cancel: 'Cancel',
-    save: 'Add buyer',
-    exists: 'This email already belongs to a buyer.',
+    save: 'Add contact',
+    exists: 'This email already belongs to a contact.',
     open: 'Open',
-    created: 'Buyer added',
-    failed: 'Could not add the buyer',
+    created: 'Contact added',
+    failed: 'Could not add the contact',
   },
   record: {
-    back: 'Buyers',
-    notFound: 'This buyer does not exist or is not yours.',
+    back: 'Contacts',
+    notFound: 'This contact does not exist or is not yours.',
     role: 'Contact type',
     stage: 'Stage',
     priority: 'Priority',
@@ -210,7 +210,7 @@ export const en = {
       visitorNote: 'Their notes',
     },
   },
-  nav: { home: 'My day', list: 'Buyers', board: 'Board', today: 'To do today', alerts: 'Alerts', reports: 'Reports', settings: 'Settings', import: 'Import', guide: 'Guide' },
+  nav: { home: 'My day', list: 'Contacts', board: 'Board', today: 'To do today', alerts: 'Alerts', reports: 'Reports', settings: 'Settings', import: 'Import', guide: 'Guide' },
   reports: {
     title: 'Reports',
     description: 'How your agency is doing: new buyers, the pipeline, your agents and the revenue to expect.',
@@ -261,7 +261,7 @@ export const en = {
   },
   meta: {
     title: 'Facebook & Instagram lead forms',
-    description: 'People who fill in a lead form of your Facebook or Instagram ads become buyers here, with every answer, every 15 minutes.',
+    description: 'People who fill in a lead form of your Facebook or Instagram ads arrive on New Leads, with every answer, every 15 minutes.',
     pageId: 'Facebook Page id',
     pageIdHint: 'A number: Facebook Page → About → Page transparency.',
     token: 'Page access token',
@@ -397,7 +397,7 @@ export const en = {
   board: {
     title: 'Pipeline',
     description: 'Drag a buyer to another stage.',
-    empty: 'No buyers',
+    empty: 'No contacts',
     more: (n: number) => `+ ${n} more — use the list to see them`,
     moved: (stage: string) => `Moved to ${stage}`,
     moveFailed: 'Could not move the buyer',
@@ -823,14 +823,14 @@ export const en = {
     suggestionsDone: (n: number) => (n === 1 ? '1 suggested property' : `${n} suggested properties`),
     notMatchedDone: (n: number) => (n === 1 ? '1 value kept as a note' : `${n} values kept as notes`),
     errors: 'Rows that failed:',
-    toBuyers: 'Go to Buyers',
+    toBuyers: 'Go to Contacts',
     failed: 'The import failed',
   },
   settingsPage: {
     tabs: { general: 'General', stages: 'Stages', questions: 'Questions', weights: 'Match weights', alerts: 'Alerts & near misses', housekeeping: 'Housekeeping', meta: 'Facebook & Instagram' } as Record<string, string>,
     alerts: {
       title: 'New-listing alerts',
-      description: 'When a new listing (from a feed or added by hand) or a price drop matches a buyer, an alert waits for your approval on Buyers → Alerts.',
+      description: 'When a new listing (from a feed or added by hand) or a price drop matches a buyer, an alert waits for your approval on Contacts → Alerts.',
       enabled: 'Create alerts',
       delivery: 'When you approve an alert',
       digest: 'Send in the daily digest (one email per buyer)',

@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/i18n/i18n-provider';
 import type { SenderDomainSettings } from './use-sender-domain';
+import { useSettingsText } from '../_i18n';
 
 // 5R — sender-domain verification. Lives in the same tab as SMTP config
 // because they're conceptually paired (provider credentials + which domain
@@ -23,26 +25,24 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
     onVerifySenderDomain,
     onRemoveSenderDomain,
   } = senderDomainSettings;
+  const st = useSettingsText();
+  const t = st.senderDomain;
+  const { locale } = useLanguage();
 
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle>Sender Domain (SPF / DKIM / DMARC)</CardTitle>
-        <CardDescription>
-          Publish three DNS records on the domain you want mail to
-          come from. Until they verify, deliverability falls back to
-          the system default sender — and some receivers (Gmail)
-          will reject unsigned mail outright.
-        </CardDescription>
+        <CardTitle>{t.title}</CardTitle>
+        <CardDescription>{t.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!senderDomainLoaded ? (
-          <p className="text-sm text-muted-foreground">Loading\u2026</p>
+          <p className="text-sm text-muted-foreground">{st.common.loading}</p>
         ) : (
           <>
             <div className="flex gap-2 items-end">
               <div className="flex-1 space-y-2">
-                <Label htmlFor="senderDomain">Domain</Label>
+                <Label htmlFor="senderDomain">{t.domain}</Label>
                 <Input
                   id="senderDomain"
                   placeholder="mail.yourdomain.com"
@@ -54,14 +54,14 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                 onClick={onSaveSenderDomain}
                 disabled={savingSenderDomain || !senderDomainInput.trim()}
               >
-                {savingSenderDomain ? 'Saving\u2026' : 'Save'}
+                {savingSenderDomain ? st.common.saving : st.common.save}
               </Button>
               {senderDomain && (
                 <Button
                   variant="outline"
                   onClick={onRemoveSenderDomain}
                 >
-                  Remove
+                  {st.common.remove}
                 </Button>
               )}
             </div>
@@ -80,10 +80,10 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                     }
                   >
                     {senderDomain.status === 'verified'
-                      ? 'All records verified'
+                      ? t.statusVerified
                       : senderDomain.status === 'partial'
-                      ? 'Partially verified'
-                      : 'Not yet verified'}
+                      ? t.statusPartial
+                      : t.statusUnverified}
                   </span>
                   <Button
                     size="sm"
@@ -96,9 +96,7 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                         verifyingSenderDomain ? 'animate-spin' : ''
                       }`}
                     />
-                    {verifyingSenderDomain
-                      ? 'Checking\u2026'
-                      : 'Verify DNS'}
+                    {verifyingSenderDomain ? t.checking : t.verify}
                   </Button>
                 </div>
 
@@ -141,16 +139,14 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                           }
                         >
                           {verifiedAt
-                            ? `Verified ${new Date(
-                                verifiedAt,
-                              ).toLocaleString()}`
-                            : 'Not verified yet'}
+                            ? t.verifiedAt(new Date(verifiedAt).toLocaleString(locale))
+                            : t.notVerifiedYet}
                         </span>
                       </div>
                       <div className="text-xs space-y-1">
                         <div>
                           <span className="text-muted-foreground">
-                            Host:{' '}
+                            {t.host}{' '}
                           </span>
                           <code className="bg-muted rounded px-1">
                             {senderDomain.records[key].host}
@@ -158,7 +154,7 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                         </div>
                         <div>
                           <span className="text-muted-foreground">
-                            Type:{' '}
+                            {t.type}{' '}
                           </span>
                           <code className="bg-muted rounded px-1">
                             {senderDomain.records[key].type}
@@ -166,7 +162,7 @@ export function SenderDomainCard({ senderDomainSettings }: { senderDomainSetting
                         </div>
                         <div>
                           <span className="text-muted-foreground">
-                            Value:{' '}
+                            {t.value}{' '}
                           </span>
                           <code className="bg-muted rounded px-1 break-all">
                             {senderDomain.records[key].value}

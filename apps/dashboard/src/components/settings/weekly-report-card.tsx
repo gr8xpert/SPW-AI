@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { useSharedText } from '@/i18n/shared';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -19,6 +20,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export function WeeklyReportCard() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const t = useSharedText().weeklyReport;
   const [enabled, setEnabled] = useState(true);
   const [emails, setEmails] = useState<string[]>([]);
   const [input, setInput] = useState('');
@@ -41,7 +43,7 @@ export function WeeklyReportCard() {
   const addEmail = () => {
     const e = input.trim().toLowerCase();
     if (!EMAIL_RE.test(e)) {
-      toast({ title: 'That is not an email address', variant: 'destructive' });
+      toast({ title: t.notEmail, variant: 'destructive' });
       return;
     }
     if (!emails.includes(e)) setEmails([...emails, e].slice(0, 10));
@@ -52,9 +54,9 @@ export function WeeklyReportCard() {
     setSaving(true);
     try {
       await apiPut('/api/dashboard/tenant/settings', { weeklyReportEnabled: enabled, weeklyReportEmails: emails });
-      toast({ title: 'Weekly report settings saved' });
+      toast({ title: t.saved });
     } catch (err) {
-      toast({ title: 'Could not save', description: (err as Error).message, variant: 'destructive' });
+      toast({ title: t.saveFailed, description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -66,7 +68,7 @@ export function WeeklyReportCard() {
       const res = await apiGet<{ data: { subject: string; html: string; recipients: string[] } }>('/api/dashboard/website-health/weekly-report');
       setPreview(res.data);
     } catch (err) {
-      toast({ title: 'Could not build the preview', description: (err as Error).message, variant: 'destructive' });
+      toast({ title: t.previewFailed, description: (err as Error).message, variant: 'destructive' });
     } finally {
       setLoadingPreview(false);
     }
@@ -76,9 +78,9 @@ export function WeeklyReportCard() {
     setSending(true);
     try {
       const res = await apiPost<{ data: { sentTo: string } }>('/api/dashboard/website-health/weekly-report/send-to-me');
-      toast({ title: 'Report sent', description: `Check ${res.data?.sentTo ?? 'your inbox'}.` });
+      toast({ title: t.sent, description: t.sentText(res.data?.sentTo) });
     } catch (err) {
-      toast({ title: 'Could not send', description: (err as Error).message, variant: 'destructive' });
+      toast({ title: t.sendFailed, description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSending(false);
     }
@@ -88,35 +90,32 @@ export function WeeklyReportCard() {
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="h-5 w-5" /> Weekly report
+          <CalendarClock className="h-5 w-5" /> {t.title}
         </CardTitle>
-        <CardDescription>
-          Every Monday morning: last week&apos;s property views, searches and enquiries, the most viewed properties, what your
-          feed imported, and anything on your website that needs attention.
-        </CardDescription>
+        <CardDescription>{t.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
           <Switch id="weekly-report-enabled" checked={enabled} onCheckedChange={setEnabled} />
-          <Label htmlFor="weekly-report-enabled">Send the weekly report</Label>
+          <Label htmlFor="weekly-report-enabled">{t.enabled}</Label>
         </div>
         <div className="space-y-2">
-          <Label>Send it to</Label>
+          <Label>{t.sendTo}</Label>
           <div className="flex flex-wrap gap-2">
             {emails.map((e) => (
               <span key={e} className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm">
                 {e}
-                <button type="button" aria-label={`Remove ${e}`} onClick={() => setEmails(emails.filter((x) => x !== e))}>
+                <button type="button" aria-label={t.remove(e)} onClick={() => setEmails(emails.filter((x) => x !== e))}>
                   <X className="h-3 w-3" />
                 </button>
               </span>
             ))}
-            {!emails.length && <span className="text-sm text-muted-foreground">Your account&apos;s admins (add addresses to choose yourself)</span>}
+            {!emails.length && <span className="text-sm text-muted-foreground">{t.defaultRecipients}</span>}
           </div>
           <div className="flex max-w-md gap-2">
             <Input
               type="email"
-              placeholder="name@agency.com"
+              placeholder={t.emailPlaceholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -127,22 +126,22 @@ export function WeeklyReportCard() {
               }}
             />
             <Button type="button" variant="outline" onClick={addEmail}>
-              <Plus className="mr-1 h-4 w-4" /> Add
+              <Plus className="mr-1 h-4 w-4" /> {t.add}
             </Button>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={save} disabled={saving} size="sm">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save
+            {t.save}
           </Button>
           <Button onClick={openPreview} disabled={loadingPreview} size="sm" variant="outline">
             {loadingPreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
-            Preview this week&apos;s report
+            {t.preview}
           </Button>
           <Button onClick={sendToMe} disabled={sending} size="sm" variant="outline">
             {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-            Send it to me now
+            {t.sendToMe}
           </Button>
         </div>
       </CardContent>
@@ -154,9 +153,9 @@ export function WeeklyReportCard() {
           </DialogHeader>
           {preview && (
             <>
-              <p className="text-sm text-muted-foreground">To: {preview.recipients.join(', ') || 'nobody yet — add an address'}</p>
+              <p className="text-sm text-muted-foreground">{t.to(preview.recipients.join(', ') || t.nobody)}</p>
               {/* sandboxed: the email HTML is ours, but it holds listing titles from feeds */}
-              <iframe title="Weekly report preview" srcDoc={preview.html} sandbox="" className="h-[70vh] w-full rounded border" />
+              <iframe title={t.frameTitle} srcDoc={preview.html} sandbox="" className="h-[70vh] w-full rounded border" />
             </>
           )}
         </DialogContent>

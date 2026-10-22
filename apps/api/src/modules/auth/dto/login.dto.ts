@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { DASHBOARD_LANGUAGES, type DashboardLanguage } from '@spm/shared';
 
 export class LoginDto {
   @IsEmail()
@@ -31,7 +32,14 @@ export class LoginResponseDto {
     name: string | null;
     role: string;
     tenantId: number;
+    // Dashboard language picked in the top bar (null = English).
+    dashboardLanguage?: string | null;
     // The agency requires two-factor login and this user must set it up first.
     mfaSetup?: boolean;
   };
+}
+
+export class DashboardLanguageDto {
+  @IsIn(DASHBOARD_LANGUAGES)
+  language: DashboardLanguage;
 }

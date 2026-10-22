@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TabsContent } from '@/components/ui/tabs';
 import { Save } from 'lucide-react';
 import type { AiSettings } from './use-ai-settings';
+import { useSettingsText } from '../_i18n';
 
 export function AiTab({ ai }: { ai: AiSettings }) {
   const {
@@ -26,23 +27,22 @@ export function AiTab({ ai }: { ai: AiSettings }) {
     onRemoveAiKey,
     onTestAi,
   } = ai;
+  const st = useSettingsText();
+  const t = st.ai;
 
   return (
     <TabsContent value="ai" className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>AI Translation</CardTitle>
-          <CardDescription>
-            Configure AI-powered label translation via OpenRouter. This key is used when translating
-            property labels and descriptions into other languages.
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="ai-api-key">OpenRouter API Key</Label>
+            <Label htmlFor="ai-api-key">{t.apiKey}</Label>
             {aiApiKeyMasked && (
               <p className="text-sm text-muted-foreground">
-                Current key: <code>{aiApiKeyMasked}</code>
+                {t.currentKey} <code>{aiApiKeyMasked}</code>
               </p>
             )}
             <Input
@@ -53,24 +53,23 @@ export function AiTab({ ai }: { ai: AiSettings }) {
               // switches AI search on for the website with a key that
               // can never work.
               autoComplete="new-password"
-              placeholder={aiApiKeyMasked ? 'Enter new key to replace' : 'sk-or-...'}
+              placeholder={aiApiKeyMasked ? t.replacePlaceholder : 'sk-or-...'}
               value={aiApiKey}
               onChange={(e) => setAiApiKey(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Get your key from{' '}
+              {t.getKey}{' '}
               <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline">
                 openrouter.ai/keys
               </a>
             </p>
             <p className="text-xs text-muted-foreground">
-              Your key is needed for property AI: SEO, Bulk SEO, property translations, AI search and the chatbot.
-              Once added, it is also used for translating and organizing locations, types, features and labels.
+              {t.keyHelp}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ai-model">Model</Label>
+            <Label htmlFor="ai-model">{t.model}</Label>
             <select
               id="ai-model"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -80,7 +79,7 @@ export function AiTab({ ai }: { ai: AiSettings }) {
               {aiModel && !aiModels.some((m) => m.id === aiModel) && (
                 <option value={aiModel}>
                   {aiModel}
-                  {aiModelStatus?.saved === aiModel && !aiModelStatus.savedAvailable ? ' (no longer available)' : ''}
+                  {aiModelStatus?.saved === aiModel && !aiModelStatus.savedAvailable ? ` ${t.noLongerAvailable}` : ''}
                 </option>
               )}
               {aiModels.map((m) => (
@@ -97,21 +96,19 @@ export function AiTab({ ai }: { ai: AiSettings }) {
 
           {aiModelStatus?.saved && !aiModelStatus.savedAvailable && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200" data-testid="ai-model-retired">
-              Your saved model <code>{aiModelStatus.saved}</code> is no longer offered by OpenRouter. AI features
-              are using <strong>{aiModelLabel(aiModelStatus.effective)}</strong> meanwhile. Choose a model and
-              click Save.
+              {t.retiredBefore} <code>{aiModelStatus.saved}</code> {t.retiredMiddle}{' '}
+              <strong>{aiModelLabel(aiModelStatus.effective)}</strong> {t.retiredAfter}
             </div>
           )}
 
           {aiTestResult && (
             <div className={`rounded-md p-3 text-sm ${aiTestResult.ok ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>
               {aiTestResult.ok
-                ? `Connected successfully — model: ${aiModelLabel(aiTestResult.model || '')}`
-                : `Connection failed: ${aiTestResult.error}`}
+                ? t.connected(aiModelLabel(aiTestResult.model || ''))
+                : st.common.connectionFailed(aiTestResult.error ?? '')}
               {aiTestResult.retired && aiTestResult.requested && (
                 <p className="mt-1 text-xs">
-                  {aiTestResult.requested} is no longer available on OpenRouter, so this test used{' '}
-                  {aiModelLabel(aiTestResult.model || '')}.
+                  {t.retiredTest(aiTestResult.requested, aiModelLabel(aiTestResult.model || ''))}
                 </p>
               )}
             </div>
@@ -119,14 +116,14 @@ export function AiTab({ ai }: { ai: AiSettings }) {
         </CardContent>
         <CardFooter className="flex gap-2">
           <Button onClick={onSaveAi} disabled={savingAi}>
-            {savingAi ? 'Saving…' : 'Save'}
+            {savingAi ? st.common.saving : st.common.save}
           </Button>
           <Button variant="outline" onClick={onTestAi} disabled={testingAi}>
-            {testingAi ? 'Testing…' : 'Test Connection'}
+            {testingAi ? st.common.testing : t.test}
           </Button>
           {aiApiKeyMasked && (
             <Button variant="ghost" className="ml-auto text-destructive" onClick={onRemoveAiKey} disabled={savingAi}>
-              Remove key
+              {t.removeKey}
             </Button>
           )}
         </CardFooter>

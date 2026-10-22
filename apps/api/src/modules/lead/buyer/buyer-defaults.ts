@@ -13,16 +13,18 @@ export interface DefaultStage {
   kind: StageKind;
 }
 
+// Named in every dashboard language (2026-10-23). The first stage was
+// "New lead" until then; it clashed with the New Leads page.
 export const DEFAULT_STAGES: DefaultStage[] = [
-  { name: { en: 'New lead', es: 'Nuevo contacto' }, color: '#3b82f6', kind: 'open' },
-  { name: { en: 'Contacted', es: 'Contactado' }, color: '#06b6d4', kind: 'open' },
-  { name: { en: 'Requirements mapped', es: 'Requisitos definidos' }, color: '#8b5cf6', kind: 'open' },
-  { name: { en: 'Selection sent', es: 'Selección enviada' }, color: '#a855f7', kind: 'open' },
-  { name: { en: 'Viewing', es: 'Visita' }, color: '#f59e0b', kind: 'open' },
-  { name: { en: 'Offer / reservation', es: 'Oferta / reserva' }, color: '#f97316', kind: 'open' },
-  { name: { en: 'Notary', es: 'Notaría' }, color: '#14b8a6', kind: 'open' },
-  { name: { en: 'Won', es: 'Ganado' }, color: '#22c55e', kind: 'won' },
-  { name: { en: 'Lost', es: 'Perdido' }, color: '#94a3b8', kind: 'lost' },
+  { name: { en: 'New', es: 'Nuevo', nl: 'Nieuw', fr: 'Nouveau', de: 'Neu', fi: 'Uusi', sv: 'Ny' }, color: '#3b82f6', kind: 'open' },
+  { name: { en: 'Contacted', es: 'Contactado', nl: 'Benaderd', fr: 'Contacté', de: 'Kontaktiert', fi: 'Yhteydessä', sv: 'Kontaktad' }, color: '#06b6d4', kind: 'open' },
+  { name: { en: 'Requirements mapped', es: 'Requisitos definidos', nl: 'Wensen in kaart', fr: 'Besoins définis', de: 'Anforderungen erfasst', fi: 'Toiveet kartoitettu', sv: 'Krav kartlagda' }, color: '#8b5cf6', kind: 'open' },
+  { name: { en: 'Selection sent', es: 'Selección enviada', nl: 'Selectie verstuurd', fr: 'Sélection envoyée', de: 'Auswahl gesendet', fi: 'Valikoima lähetetty', sv: 'Urval skickat' }, color: '#a855f7', kind: 'open' },
+  { name: { en: 'Viewing', es: 'Visita', nl: 'Bezichtiging', fr: 'Visite', de: 'Besichtigung', fi: 'Näyttö', sv: 'Visning' }, color: '#f59e0b', kind: 'open' },
+  { name: { en: 'Offer / reservation', es: 'Oferta / reserva', nl: 'Bod / reservering', fr: 'Offre / réservation', de: 'Angebot / Reservierung', fi: 'Tarjous / varaus', sv: 'Bud / reservation' }, color: '#f97316', kind: 'open' },
+  { name: { en: 'Notary', es: 'Notaría', nl: 'Notaris', fr: 'Notaire', de: 'Notar', fi: 'Notaari', sv: 'Notarie' }, color: '#14b8a6', kind: 'open' },
+  { name: { en: 'Won', es: 'Ganado', nl: 'Gewonnen', fr: 'Gagné', de: 'Gewonnen', fi: 'Voitettu', sv: 'Vunnen' }, color: '#22c55e', kind: 'won' },
+  { name: { en: 'Lost', es: 'Perdido', nl: 'Verloren', fr: 'Perdu', de: 'Verloren', fi: 'Menetetty', sv: 'Förlorad' }, color: '#94a3b8', kind: 'lost' },
 ];
 
 // Old lead status → index into DEFAULT_STAGES (migration only).

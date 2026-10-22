@@ -257,6 +257,8 @@ export class BuyerIntakeService {
         phone: c.phone ?? null,
         budgetCurrency: 'EUR',
         lastActivityAt: new Date(),
+        // Waits on New Leads until someone picks a role.
+        isNewLead: true,
       }),
     );
     return { lead, created: true };

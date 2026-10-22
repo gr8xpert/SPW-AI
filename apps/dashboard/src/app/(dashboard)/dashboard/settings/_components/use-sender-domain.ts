@@ -8,10 +8,13 @@ import type {
   SenderDomainResponse,
   SenderDomainVerifyResponse,
 } from './types';
+import { useSettingsText } from '../_i18n';
 
 // 5R — sender-domain verification (Email tab).
 export function useSenderDomain(accessToken: string | undefined) {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.senderDomain;
   // `senderDomain` is null both while loading and when the tenant hasn't
   // configured one — UI branches on whether `senderDomainLoaded` flipped true.
   const [senderDomain, setSenderDomain] = useState<SenderDomainDetail | null>(
@@ -46,14 +49,13 @@ export function useSenderDomain(accessToken: string | undefined) {
       );
       setSenderDomain(res.data);
       toast({
-        title: 'Sender domain saved',
-        description:
-          'Add the three DNS records below, then click Verify. DNS propagation can take up to a few hours.',
+        title: t.saved,
+        description: t.savedText,
       });
     } catch (err) {
       toast({
-        title: 'Failed to save sender domain',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.saveFailed,
+        description: (err as Error).message || st.common.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -77,8 +79,8 @@ export function useSenderDomain(accessToken: string | undefined) {
       const { status, spf, dkim, dmarc } = res.data;
       if (status === 'verified') {
         toast({
-          title: 'All three records verified',
-          description: 'SPF, DKIM, and DMARC are live.',
+          title: t.allVerified,
+          description: t.allVerifiedText,
         });
       } else {
         const missing = [
@@ -89,15 +91,15 @@ export function useSenderDomain(accessToken: string | undefined) {
           .filter(Boolean)
           .join(', ');
         toast({
-          title: status === 'partial' ? 'Partially verified' : 'Not verified',
-          description: `Missing or mismatched: ${missing}. DNS updates can take a few hours to propagate.`,
+          title: status === 'partial' ? t.partial : t.notVerified,
+          description: t.missing(missing),
           variant: status === 'partial' ? 'default' : 'destructive',
         });
       }
     } catch (err) {
       toast({
-        title: 'Verification check failed',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.verifyFailed,
+        description: (err as Error).message || st.common.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -107,22 +109,20 @@ export function useSenderDomain(accessToken: string | undefined) {
 
   const onRemoveSenderDomain = async () => {
     if (!senderDomain) return;
-    const confirmed = window.confirm(
-      'Remove the sender domain? You will need to re-add it and republish DNS records to send signed mail from it again.',
-    );
+    const confirmed = window.confirm(t.removeConfirm);
     if (!confirmed) return;
     try {
       await apiDelete('/api/dashboard/tenant/email-domain');
       setSenderDomain(null);
       setSenderDomainInput('');
       toast({
-        title: 'Sender domain removed',
-        description: 'Mail will now send from the system default from-address.',
+        title: t.removed,
+        description: t.removedText,
       });
     } catch (err) {
       toast({
-        title: 'Failed to remove',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.removeFailed,
+        description: (err as Error).message || st.common.unexpectedError,
         variant: 'destructive',
       });
     }

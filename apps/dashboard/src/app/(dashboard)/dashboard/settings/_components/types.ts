@@ -4,15 +4,18 @@ import * as z from 'zod';
 
 export type SlugFormat = 'ref' | 'ref-title' | 'title-ref' | 'location-type-ref' | 'ref-type-location';
 
-export const SLUG_FORMAT_OPTIONS: { value: SlugFormat; label: string; example: string }[] = [
+// Labels: settingsText general.slugFormats[value].
+export const SLUG_FORMAT_OPTIONS: { value: SlugFormat; example: string }[] = [
   // The reference is always set apart with "_" (references contain dashes).
-  { value: 'ref', label: 'Reference Only', example: '/property/REF-1234' },
-  { value: 'ref-title', label: 'Reference + Title', example: '/property/REF-1234_luxury-villa-marbella' },
-  { value: 'title-ref', label: 'Title + Reference', example: '/property/luxury-villa-marbella_REF-1234' },
-  { value: 'location-type-ref', label: 'Location + Type + Reference', example: '/property/marbella-villa_REF-1234' },
-  { value: 'ref-type-location', label: 'Reference + Type + Location', example: '/property/REF-1234_villa-marbella' },
+  { value: 'ref', example: '/property/REF-1234' },
+  { value: 'ref-title', example: '/property/REF-1234_luxury-villa-marbella' },
+  { value: 'title-ref', example: '/property/luxury-villa-marbella_REF-1234' },
+  { value: 'location-type-ref', example: '/property/marbella-villa_REF-1234' },
+  { value: 'ref-type-location', example: '/property/REF-1234_villa-marbella' },
 ];
 
+// The website languages a client can switch on (codes are the keys; the
+// names shown come from settingsText languageNames).
 export const ALL_LANGUAGES: Record<string, string> = {
   en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
   it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',

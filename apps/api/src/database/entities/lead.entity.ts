@@ -249,6 +249,11 @@ export class Lead {
   @Column({ type: 'timestamp', nullable: true })
   lastActivityAt: Date | null;
 
+  // Came in from a website form and nobody picked a role yet (migration
+  // 1777360000000): shown on New Leads, kept out of Contacts and matching.
+  @Column({ type: 'boolean', default: false })
+  isNewLead: boolean;
+
   // Id in the system the buyer was imported from (Odoo), for re-imports.
   @Column({ type: 'varchar', length: 50, nullable: true })
   importRef: string | null;

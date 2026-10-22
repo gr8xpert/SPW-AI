@@ -71,6 +71,8 @@ export class LeadService {
       .addSelect("SUM(CASE WHEN lead.status IN ('won','lost') THEN 0 ELSE 1 END)", 'open')
       .where('lead.tenantId = :tenantId', { tenantId })
       .andWhere('lead.mergedIntoId IS NULL')
+      // Matches the Contacts list: new website leads count once sorted.
+      .andWhere('lead.isNewLead = 0')
       .getRawOne<{ total: string; open: string | null }>();
     return { total: Number(rows?.total ?? 0), open: Number(rows?.open ?? 0) };
   }

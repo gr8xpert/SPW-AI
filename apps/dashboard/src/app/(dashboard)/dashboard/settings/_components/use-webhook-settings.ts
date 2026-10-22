@@ -10,12 +10,16 @@ import type {
   WebhookDeliveryRow,
   WebhookRotateResponse,
 } from './types';
+import { useSettingsText } from '../_i18n';
 
 // Webhook management (5E). Loads the current URL + last4 of the signing
 // secret and the recent deliveries once the token exists. `webhookUrl` also
 // decides whether the page shows the Webhooks tab at all.
 export function useWebhookSettings(accessToken: string | undefined) {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.webhooks;
+  const unexpected = st.common.unexpectedError;
   // `revealedSecret` holds the rotation result exactly long enough for the
   // user to copy it — the API never returns it again. It's cleared when the
   // user dismisses the reveal box or navigates away.
@@ -58,8 +62,8 @@ export function useWebhookSettings(accessToken: string | undefined) {
       setDeliveries(res.data);
     } catch (err) {
       toast({
-        title: 'Failed to load deliveries',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.loadFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {
@@ -80,8 +84,8 @@ export function useWebhookSettings(accessToken: string | undefined) {
       setSelectedDelivery(res.data);
     } catch (err) {
       toast({
-        title: 'Failed to load delivery detail',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.detailFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {
@@ -98,16 +102,15 @@ export function useWebhookSettings(accessToken: string | undefined) {
         {},
       );
       toast({
-        title: 'Redelivery queued',
-        description:
-          'A fresh delivery row was created. Refresh the list to see it.',
+        title: t.redeliveryQueued,
+        description: t.redeliveryQueuedText,
       });
       setSelectedDelivery(null);
       await loadDeliveries();
     } catch (err) {
       toast({
-        title: 'Redelivery failed',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.redeliveryFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {
@@ -135,15 +138,13 @@ export function useWebhookSettings(accessToken: string | undefined) {
       setWebhookUrl(res.data.webhookUrl ?? '');
       setWebhookSecretLast4(res.data.webhookSecretLast4);
       toast({
-        title: 'Webhook URL saved',
-        description: res.data.webhookUrl
-          ? 'We’ll deliver events to this URL going forward.'
-          : 'Webhook delivery is now disabled.',
+        title: t.urlSaved,
+        description: res.data.webhookUrl ? t.urlSavedOn : t.urlSavedOff,
       });
     } catch (err) {
       toast({
-        title: 'Failed to save webhook URL',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.urlSaveFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {
@@ -152,9 +153,7 @@ export function useWebhookSettings(accessToken: string | undefined) {
   };
 
   const onRotateSecret = async () => {
-    const confirmed = window.confirm(
-      'Rotate webhook signing secret? Any receiver that has not been updated with the new secret will reject subsequent webhooks.',
-    );
+    const confirmed = window.confirm(t.rotateConfirm);
     if (!confirmed) return;
     setRotatingSecret(true);
     try {
@@ -164,13 +163,13 @@ export function useWebhookSettings(accessToken: string | undefined) {
       setRevealedSecret(res.data.webhookSecret);
       setWebhookSecretLast4(res.data.webhookSecret.slice(-4));
       toast({
-        title: 'Webhook secret rotated',
-        description: 'Copy the new secret now — it will not be shown again.',
+        title: t.rotated,
+        description: t.rotatedText,
       });
     } catch (err) {
       toast({
-        title: 'Rotate failed',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.rotateFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {
@@ -183,14 +182,14 @@ export function useWebhookSettings(accessToken: string | undefined) {
     try {
       await apiPost('/api/dashboard/tenant/webhook/test');
       toast({
-        title: 'Test webhook queued',
-        description: 'A webhook.test event was enqueued. Refresh deliveries below to see the outcome.',
+        title: t.testQueued,
+        description: t.testQueuedText,
       });
       await loadDeliveries();
     } catch (err) {
       toast({
-        title: 'Test send failed',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.testFailed,
+        description: (err as Error).message || unexpected,
         variant: 'destructive',
       });
     } finally {

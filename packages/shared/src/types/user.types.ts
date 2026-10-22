@@ -1,5 +1,10 @@
 import { UserRoleType } from '../constants/roles';
 
+// Languages the client dashboard can be shown in, picked per user in the top
+// bar (2026-10-22). 'en' is the source every other language copies.
+export const DASHBOARD_LANGUAGES = ['en', 'nl', 'es', 'fr', 'de', 'fi', 'sv'] as const;
+export type DashboardLanguage = (typeof DASHBOARD_LANGUAGES)[number];
+
 export interface UserPublic {
   id: number;
   tenantId: number;

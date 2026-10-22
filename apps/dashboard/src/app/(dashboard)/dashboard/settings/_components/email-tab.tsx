@@ -11,6 +11,7 @@ import { WeeklyReportCard } from '@/components/settings/weekly-report-card';
 import { SenderDomainCard } from './sender-domain-card';
 import type { EmailSettings } from './use-email-settings';
 import type { SenderDomainSettings } from './use-sender-domain';
+import { useSettingsText } from '../_i18n';
 
 export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings; senderDomainSettings: SenderDomainSettings }) {
   const {
@@ -35,15 +36,16 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
     addInquiryEmail,
     removeInquiryEmail,
   } = email;
+  const st = useSettingsText();
+  const t = st.email;
+  const q = st.inquiry;
 
   return (
     <TabsContent value="email">
       <Card>
         <CardHeader>
-          <CardTitle>Email Configuration</CardTitle>
-          <CardDescription>
-            Configure your SMTP settings for sending email campaigns
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -52,7 +54,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
           >
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="smtpHost">SMTP Host</Label>
+                <Label htmlFor="smtpHost">{t.host}</Label>
                 <Input
                   id="smtpHost"
                   placeholder="smtp.yourprovider.com"
@@ -60,7 +62,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="smtpPort">SMTP Port</Label>
+                <Label htmlFor="smtpPort">{t.port}</Label>
                 <Input
                   id="smtpPort"
                   type="number"
@@ -69,7 +71,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="smtpUser">SMTP Username</Label>
+                <Label htmlFor="smtpUser">{t.user}</Label>
                 <Input
                   id="smtpUser"
                   autoComplete="off"
@@ -79,7 +81,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="smtpPassword">SMTP Password</Label>
+                <Label htmlFor="smtpPassword">{t.password}</Label>
                 <Input
                   id="smtpPassword"
                   type="password"
@@ -88,7 +90,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fromEmail">From Email</Label>
+                <Label htmlFor="fromEmail">{t.fromEmail}</Label>
                 <Input
                   id="fromEmail"
                   type="email"
@@ -97,17 +99,17 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fromName">From Name</Label>
+                <Label htmlFor="fromName">{t.fromName}</Label>
                 <Input
                   id="fromName"
-                  placeholder="Your Company"
+                  placeholder={t.fromNamePlaceholder}
                   {...emailForm.register('fromName')}
                 />
               </div>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={savingEmail}>
-                {savingEmail ? 'Saving...' : 'Save Settings'}
+                {savingEmail ? st.common.saving : t.save}
               </Button>
               <Button
                 type="button"
@@ -116,7 +118,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
                 disabled={testingEmail}
               >
                 <Mail className={`h-4 w-4 mr-2 ${testingEmail ? 'animate-pulse' : ''}`} />
-                {testingEmail ? 'Testing...' : 'Send Test Email'}
+                {testingEmail ? st.common.testing : t.sendTest}
               </Button>
             </div>
             {emailTestResult && (
@@ -130,11 +132,11 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
               >
                 {emailTestResult.success ? (
                   <p className="text-sm text-primary">
-                    SMTP connection test successful! A test email was sent.
+                    {t.testOk}
                   </p>
                 ) : (
                   <p className="text-sm text-primary/70">
-                    Connection failed: {emailTestResult.error}
+                    {st.common.connectionFailed(emailTestResult.error ?? '')}
                   </p>
                 )}
               </div>
@@ -147,17 +149,13 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Inquiry Notifications
+            {q.title}
           </CardTitle>
-          <CardDescription>
-            Configure where inquiry form submissions are sent. Add email
-            recipients and/or a webhook URL to connect with Zapier, HubSpot,
-            Make, or any third-party tool.
-          </CardDescription>
+          <CardDescription>{q.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="formSenderEmail">Your email address on form emails</Label>
+            <Label htmlFor="formSenderEmail">{q.senderEmail}</Label>
             <Input
               id="formSenderEmail"
               type="email"
@@ -169,20 +167,14 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
               onChange={(e) => setFormSenderEmail(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Emails to your visitors (inquiry confirmation, shared wishlists) show your company name, and their
-              replies come to this address.{' '}
-              {ownEmailDomain
-                ? 'They are sent from this address.'
-                : 'To have them sent from this address too, ask support to verify your domain for sending.'}
+              {q.senderHelp}{' '}
+              {ownEmailDomain ? q.senderOwn : q.senderAsk}
             </p>
           </div>
 
           <div className="space-y-3">
-            <Label>Notification Recipients</Label>
-            <p className="text-xs text-muted-foreground">
-              All emails listed below will receive a notification when someone
-              submits an inquiry on your website.
-            </p>
+            <Label>{q.recipients}</Label>
+            <p className="text-xs text-muted-foreground">{q.recipientsHelp}</p>
             <div className="flex gap-2">
               <Input
                 placeholder="email@example.com"
@@ -211,7 +203,7 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="autoReply">Auto-reply to Inquirer</Label>
+              <Label htmlFor="autoReply">{q.autoReply}</Label>
               <Switch
                 id="autoReply"
                 checked={inquiryAutoReplyEnabled}
@@ -219,13 +211,12 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              When enabled, the person who submitted the inquiry receives a
-              confirmation email that their message was received.
+              {q.autoReplyHelp}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="inquiryWebhook">Inquiry Webhook URL</Label>
+            <Label htmlFor="inquiryWebhook">{q.webhook}</Label>
             <Input
               id="inquiryWebhook"
               placeholder="https://hooks.zapier.com/hooks/catch/..."
@@ -234,14 +225,12 @@ export function EmailTab({ email, senderDomainSettings }: { email: EmailSettings
               className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Every inquiry will be POSTed as JSON to this URL. Works with
-              Zapier, HubSpot, Make, n8n, or any webhook receiver. The payload
-              includes: name, email, phone, message, propertyId, and timestamp.
+              {q.webhookHelp}
             </p>
           </div>
 
           <Button onClick={onSaveInquiry} disabled={savingInquiry} size="sm">
-            {savingInquiry ? 'Saving...' : 'Save Inquiry Settings'}
+            {savingInquiry ? st.common.saving : q.save}
           </Button>
         </CardContent>
       </Card>

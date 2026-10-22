@@ -11,27 +11,32 @@ import {
 } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import type { FormField, FormSectionProps } from './types';
+import { usePropertiesText, type PropertiesText } from '../../../_i18n';
 
-const FLAG_FIELDS: Array<[FormField, string, string]> = [
-  ['isFeatured', 'Featured Property', 'Appears at top of search results'],
-  ['isPublished', 'Published', 'Visible on public website'],
-  ['isOwnProperty', 'Own Property', ''],
-  ['villaSelection', 'Villa Selection', ''],
-  ['luxurySelection', 'Luxury Selection', ''],
-  ['apartmentSelection', 'Apartment Selection', ''],
+type Flags = PropertiesText['form']['flags'];
+
+// Field, label key, hint key (none when there is no hint).
+const FLAG_FIELDS: Array<[FormField, keyof Flags, keyof Flags | null]> = [
+  ['isFeatured', 'isFeatured', 'isFeaturedHint'],
+  ['isPublished', 'isPublished', 'isPublishedHint'],
+  ['isOwnProperty', 'isOwnProperty', null],
+  ['villaSelection', 'villaSelection', null],
+  ['luxurySelection', 'luxurySelection', null],
+  ['apartmentSelection', 'apartmentSelection', null],
 ];
 
 export function SettingsTab({ formData, onChange, propertySource }: FormSectionProps & { propertySource: string }) {
+  const t = usePropertiesText();
   return (
     <TabsContent value="settings" className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>Visibility & Flags</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t.form.visibility}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {FLAG_FIELDS.map(([field, label, desc]) => (
             <div key={field} className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>{label}</Label>
-                {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+                <Label>{t.form.flags[label]}</Label>
+                {desc && <p className="text-xs text-muted-foreground">{t.form.flags[desc]}</p>}
               </div>
               <Switch checked={formData[field] as boolean} onCheckedChange={(c) => onChange(field, c)} />
             </div>
@@ -41,19 +46,19 @@ export function SettingsTab({ formData, onChange, propertySource }: FormSectionP
 
       <Card>
         <CardHeader>
-          <CardTitle>Feed Sync</CardTitle>
+          <CardTitle>{t.form.feedSync}</CardTitle>
           <CardDescription>
             {propertySource !== 'manual'
-              ? <>Imported from <span className="font-medium capitalize">{propertySource}</span>. Control whether feed imports can update this property.</>
-              : 'Control whether feed imports can overwrite this property if a matching record is found.'}
+              ? <>{t.form.importedFrom}<span className="font-medium capitalize">{propertySource}</span>{t.form.importedFromAfter}</>
+              : t.form.feedSyncDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Enable Feed Sync</Label>
+              <Label>{t.form.enableFeedSync}</Label>
               <p className="text-xs text-muted-foreground">
-                When turned off, this property will be skipped during feed imports — your manual edits will be preserved.
+                {t.form.feedSyncHint}
               </p>
             </div>
             <Switch
@@ -66,22 +71,22 @@ export function SettingsTab({ formData, onChange, propertySource }: FormSectionP
 
       <Card>
         <CardHeader>
-          <CardTitle>Brochure / PDF</CardTitle>
+          <CardTitle>{t.form.brochure}</CardTitle>
           <CardDescription>
-            Controls which PDF layout downloads for this property. <em>Inherit</em> uses the tenant default set in Settings → Brochure.
+            {t.form.brochureBefore}<em>{t.form.brochureInherit}</em>{t.form.brochureAfter}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <Label>Brochure Variant</Label>
+            <Label>{t.form.brochureVariant}</Label>
             <select
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.brochureVariant}
               onChange={(e) => onChange('brochureVariant', e.target.value)}
             >
-              <option value="inherit">Inherit (tenant default)</option>
-              <option value="branded">Branded (logo + QR + contact)</option>
-              <option value="unbranded">Unbranded (blank header/footer)</option>
+              <option value="inherit">{t.form.brochureOptions.inherit}</option>
+              <option value="branded">{t.form.brochureOptions.branded}</option>
+              <option value="unbranded">{t.form.brochureOptions.unbranded}</option>
             </select>
           </div>
         </CardContent>

@@ -6,18 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { useApi } from '@/hooks/use-api';
 import type { useToast } from '@/hooks/use-toast';
+import { labelOf, usePropertiesText } from '../../../_i18n';
 
-// Plain names for the feed fields a save can lock.
-const LABELS: Record<string, string> = {
-  title: 'Title', description: 'Description', price: 'Price', priceTo: 'Price to', rentalPeriod: 'Price per', priceOnRequest: 'Price on request',
-  currency: 'Currency', bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', buildSize: 'Built size',
-  plotSize: 'Plot size', terraceSize: 'Terrace size', gardenSize: 'Garden size', reference: 'Reference',
-  agentReference: 'Agency reference', listingType: 'Listing type', propertyTypeId: 'Property type',
-  locationId: 'Location', features: 'Features', images: 'Photos', lat: 'Map position', lng: 'Map position',
-  postcode: 'Postcode', videoUrl: 'Video', virtualTourUrl: 'Virtual tour', communityFees: 'Community fees',
-  ibiFees: 'IBI', basuraTax: 'Rubbish tax', builtYear: 'Year built', energyRating: 'Energy rating', developmentName: 'Development name', keyReady: 'Key ready',
-  status: 'Status', isPublished: 'Published', isFeatured: 'Featured',
-};
+// Plain names for the feed fields a save can lock are in t.locks.fields.
 
 const FEED_NAMES: Record<string, string> = {
   resales: 'Resales', inmoba: 'Inmoba', infocasa: 'Infocasa', redsp: 'RedSP', kyero: 'Kyero', odoo: 'Odoo',
@@ -40,10 +31,11 @@ export function FeedLocksNotice({
   lockedFields: string[];
   onChange: (locked: string[]) => void;
 }) {
+  const t = usePropertiesText();
   const [busy, setBusy] = useState<string | null>(null);
   if (!lockedFields.length) return null;
 
-  const feed = FEED_NAMES[source] ?? 'the feed';
+  const feed = FEED_NAMES[source] ?? t.locks.theFeed;
   // lat + lng share one label; show it once.
   const shown = lockedFields.filter((f, i) => !(f === 'lng' && lockedFields.includes('lat')) && lockedFields.indexOf(f) === i);
   const fieldsOf = (f: string) => (f === 'lat' ? lockedFields.filter((x) => x === 'lat' || x === 'lng') : [f]);
@@ -54,10 +46,10 @@ export function FeedLocksNotice({
       const res = await api.post(`/api/dashboard/properties/${propertyId}/unlock`, { fields });
       const saved = (res?.data ?? res)?.lockedFields;
       onChange(Array.isArray(saved) ? saved : lockedFields.filter((f) => !fields.includes(f)));
-      const names = fields.length === lockedFields.length ? 'All fields' : (LABELS[fields[0]] ?? fields[0]);
-      toast({ title: `${names} unlocked`, description: `The next ${feed} sync updates ${fields.length > 1 ? 'them' : 'it'} again.` });
+      const names = fields.length === lockedFields.length ? t.locks.allFields : labelOf(t.locks.fields, fields[0]);
+      toast({ title: t.locks.unlocked(names), description: t.locks.nextSync(feed, fields.length > 1) });
     } catch {
-      toast({ title: 'Could not unlock', description: 'Try again in a moment.', variant: 'destructive' });
+      toast({ title: t.locks.unlockFailed, description: t.locks.unlockFailedDescription, variant: 'destructive' });
     } finally {
       setBusy(null);
     }
@@ -73,28 +65,28 @@ export function FeedLocksNotice({
           </div>
           <div className="space-y-1">
             <h2 className="text-sm font-semibold text-foreground">
-              {shown.length === 1 ? '1 field is' : `${shown.length} fields are`} locked against {feed} updates
+              {t.locks.heading(shown.length, feed)}
             </h2>
             <p className="max-w-prose text-sm text-muted-foreground">
-              They were changed here, so {feed} no longer updates them. Unlock any you didn’t change on purpose.
+              {t.locks.description(feed)}
             </p>
           </div>
         </div>
         <Button variant="outline" size="sm" className="shrink-0 self-start" disabled={!!busy} onClick={() => unlock(lockedFields, '__all')}>
           {busy === '__all' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LockOpen className="mr-2 h-3.5 w-3.5" />}
-          Unlock all
+          {t.locks.unlockAll}
         </Button>
       </div>
 
       <ul className="mt-4 flex flex-wrap gap-2 sm:pl-[3.125rem]">
         {shown.map((f) => {
-          const label = LABELS[f] ?? f;
+          const label = labelOf(t.locks.fields, f);
           return (
             <li key={f}>
               <button
                 type="button"
-                title={`Unlock ${label}`}
-                aria-label={`Unlock ${label}`}
+                title={t.locks.unlockField(label)}
+                aria-label={t.locks.unlockField(label)}
                 disabled={!!busy}
                 onClick={() => unlock(fieldsOf(f), f)}
                 className="group inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"

@@ -38,7 +38,6 @@ import {
   FileText,
   Image as ImageIcon,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { AttachmentList } from '@/components/tickets/attachment-list';
@@ -46,6 +45,8 @@ import { MessageText, STAFF_AUTHOR_NAME } from '@/components/tickets/message-tex
 import { useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { tenantTicketKeys, useTenantTicket, useTenantTicketMutation } from '../use-tickets';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { formatTicketDate, useTicketsText } from '../_i18n';
 
 interface TicketData {
   id: number;
@@ -73,30 +74,23 @@ interface TicketMessage {
   user?: { name: string; email: string };
 }
 
+// Labels come from t.status / t.priority / t.category at render.
 const statusConfig: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }
+  { variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }
 > = {
-  open: { label: 'Open', variant: 'default', icon: AlertCircle },
-  in_progress: { label: 'In Progress', variant: 'warning', icon: Clock },
-  waiting_customer: { label: 'Awaiting Reply', variant: 'secondary', icon: MessageSquare },
-  resolved: { label: 'Resolved', variant: 'success', icon: CheckCircle2 },
-  closed: { label: 'Closed', variant: 'secondary', icon: XCircle },
+  open: { variant: 'default', icon: AlertCircle },
+  in_progress: { variant: 'warning', icon: Clock },
+  waiting_customer: { variant: 'secondary', icon: MessageSquare },
+  resolved: { variant: 'success', icon: CheckCircle2 },
+  closed: { variant: 'secondary', icon: XCircle },
 };
 
-const priorityConfig: Record<string, { label: string; color: string }> = {
-  low: { label: 'Low', color: 'text-muted-foreground' },
-  medium: { label: 'Medium', color: 'text-primary/60' },
-  high: { label: 'High', color: 'text-primary/80' },
-  urgent: { label: 'Urgent', color: 'text-primary' },
-};
-
-const categoryLabels: Record<string, string> = {
-  technical: 'Technical',
-  billing: 'Billing',
-  feature_request: 'Feature Request',
-  bug: 'Bug Report',
-  general: 'General',
+const priorityConfig: Record<string, { color: string }> = {
+  low: { color: 'text-muted-foreground' },
+  medium: { color: 'text-primary/60' },
+  high: { color: 'text-primary/80' },
+  urgent: { color: 'text-primary' },
 };
 
 export default function TicketDetailPage() {
@@ -104,6 +98,9 @@ export default function TicketDetailPage() {
   const router = useRouter();
   const api = useApi();
   const { toast } = useToast();
+  const t = useTicketsText();
+  const { locale } = useLanguage();
+  const formatDate = (value: string) => formatTicketDate(value, locale);
   const [replyMessage, setReplyMessage] = useState('');
   const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; url: string; size: number }>>([]);
   const [isSending, setIsSending] = useState(false);
@@ -120,7 +117,7 @@ export default function TicketDetailPage() {
   const { scope } = useTenantQueryScope();
 
   useEffect(() => {
-    if (ticketQuery.isError) toast({ title: 'Failed to load ticket', variant: 'destructive' });
+    if (ticketQuery.isError) toast({ title: t.detail.toasts.loadFailed, variant: 'destructive' });
   }, [ticketQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = useTenantTicketMutation(({ id, status }: { id: number; status: string }) =>
@@ -140,7 +137,7 @@ export default function TicketDetailPage() {
         uploaded.push({ name: data.originalFilename || file.name, url: data.url, size: data.fileSize || file.size });
       }
     } catch (e: any) {
-      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.uploadFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }
@@ -157,9 +154,9 @@ export default function TicketDetailPage() {
       await updateStatus.mutateAsync({ id: ticket.id, status: newStatus });
       queryClient.setQueryData<TicketData>(tenantTicketKeys.detail(scope, ticket.id), (prev) =>
         prev ? { ...prev, status: newStatus } : prev);
-      toast({ title: `Status changed to ${statusConfig[newStatus]?.label || newStatus}` });
+      toast({ title: t.detail.toasts.statusChanged(t.status[newStatus] || newStatus) });
     } catch (e: any) {
-      toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' });
+      toast({ title: t.detail.toasts.statusFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -174,10 +171,10 @@ export default function TicketDetailPage() {
       await sendReply.mutateAsync({ id: ticket.id, body });
       setReplyMessage('');
       setReplyAttachments([]);
-      toast({ title: 'Reply sent' });
+      toast({ title: t.list.toasts.replySent });
       await queryClient.invalidateQueries({ queryKey: tenantTicketKeys.detail(scope, ticket.id) });
     } catch (e: any) {
-      toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.replyFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsSending(false);
     }
@@ -197,12 +194,12 @@ export default function TicketDetailPage() {
         <Link href="/dashboard/tickets">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to tickets
+            {t.detail.backToTickets}
           </Button>
         </Link>
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Ticket not found</p>
+            <p className="text-muted-foreground">{t.detail.notFound}</p>
           </CardContent>
         </Card>
       </div>
@@ -231,11 +228,11 @@ export default function TicketDetailPage() {
               </h1>
               <Badge variant={status.variant} className="gap-1">
                 <StatusIcon className="h-3 w-3" />
-                {status.label}
+                {t.status[ticket.status] || t.status.open}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              {ticket.ticketNumber} &middot; Opened {formatDate(ticket.createdAt)}
+              {ticket.ticketNumber} &middot; {t.detail.opened(formatDate(ticket.createdAt))}
             </p>
           </div>
         </div>
@@ -248,7 +245,7 @@ export default function TicketDetailPage() {
             <CardContent className="p-0">
               {messages.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  No messages yet
+                  {t.detail.noMessages}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -272,21 +269,21 @@ export default function TicketDetailPage() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">
-                                {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || 'You'}
+                                {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || t.common.you}
                               </span>
                               {msg.isStaff && (
                                 <Badge variant="secondary" className="text-xs">
-                                  Staff
+                                  {t.detail.staff}
                                 </Badge>
                               )}
                               {msg.isInternal && (
                                 <Badge variant="outline" className="text-xs text-primary/70">
-                                  Internal
+                                  {t.detail.internal}
                                 </Badge>
                               )}
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(msg.createdAt).toLocaleString()}
+                              {new Date(msg.createdAt).toLocaleString(locale)}
                             </span>
                           </div>
                           <MessageText text={msg.message} className="text-sm" />
@@ -305,12 +302,12 @@ export default function TicketDetailPage() {
           {!isClosed && (
             <Card>
               <CardHeader>
-                <CardTitle>Reply</CardTitle>
-                <CardDescription>Send a message</CardDescription>
+                <CardTitle>{t.detail.reply}</CardTitle>
+                <CardDescription>{t.detail.replyDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Type your reply..."
+                  placeholder={t.common.replyPlaceholder}
                   rows={4}
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
@@ -346,7 +343,7 @@ export default function TicketDetailPage() {
                     />
                     <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                       {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
-                      Attach Files
+                      {t.detail.attachFiles}
                     </Button>
                   </div>
                   <Button
@@ -358,7 +355,7 @@ export default function TicketDetailPage() {
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    Send Reply
+                    {t.detail.sendReply}
                   </Button>
                 </div>
               </CardContent>
@@ -370,13 +367,13 @@ export default function TicketDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle>{t.detail.details}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  Requester
+                  {t.detail.requester}
                 </p>
                 <p className="font-medium">{ticket.user?.name || '-'}</p>
                 {ticket.user?.email && (
@@ -386,30 +383,30 @@ export default function TicketDetailPage() {
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  Assigned To
+                  {t.detail.assignedTo}
                 </p>
-                <p className="font-medium">{ticket.assignedToUser?.name || 'Unassigned'}</p>
+                <p className="font-medium">{ticket.assignedToUser?.name || t.detail.unassigned}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Tag className="h-3 w-3" />
-                  Category
+                  {t.common.category}
                 </p>
-                <Badge variant="outline">{categoryLabels[ticket.category] || ticket.category}</Badge>
+                <Badge variant="outline">{t.category[ticket.category] || ticket.category}</Badge>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
-                  Priority
+                  {t.common.priority}
                 </p>
                 <span className={`font-medium ${priorityConfig[ticket.priority]?.color || ''}`}>
-                  {priorityConfig[ticket.priority]?.label || ticket.priority}
+                  {t.priority[ticket.priority] || ticket.priority}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  Created
+                  {t.detail.created}
                 </p>
                 <p className="text-sm">{formatDate(ticket.createdAt)}</p>
               </div>
@@ -417,7 +414,7 @@ export default function TicketDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    Last Reply
+                    {t.detail.lastReply}
                   </p>
                   <p className="text-sm">{formatDate(ticket.lastReplyAt)}</p>
                 </div>
@@ -426,7 +423,7 @@ export default function TicketDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
-                    Resolved
+                    {t.detail.resolved}
                   </p>
                   <p className="text-sm">{formatDate(ticket.resolvedAt)}</p>
                 </div>
@@ -437,7 +434,7 @@ export default function TicketDetailPage() {
           {!isClosed && (
             <Card>
               <CardHeader>
-                <CardTitle>Actions</CardTitle>
+                <CardTitle>{t.detail.actions}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button
@@ -446,7 +443,7 @@ export default function TicketDetailPage() {
                   onClick={() => handleStatusChange('resolved')}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Mark as Resolved
+                  {t.detail.markResolved}
                 </Button>
                 <Button
                   variant="outline"
@@ -454,7 +451,7 @@ export default function TicketDetailPage() {
                   onClick={() => handleStatusChange('closed')}
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Close Ticket
+                  {t.detail.closeTicket}
                 </Button>
               </CardContent>
             </Card>
@@ -463,7 +460,7 @@ export default function TicketDetailPage() {
           {isClosed && (
             <Card>
               <CardHeader>
-                <CardTitle>Actions</CardTitle>
+                <CardTitle>{t.detail.actions}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Button
@@ -472,7 +469,7 @@ export default function TicketDetailPage() {
                   onClick={() => handleStatusChange('open')}
                 >
                   <AlertCircle className="h-4 w-4 mr-2" />
-                  Reopen Ticket
+                  {t.detail.reopenTicket}
                 </Button>
               </CardContent>
             </Card>

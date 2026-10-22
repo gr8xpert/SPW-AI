@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useApi } from '@/hooks/use-api';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import type { NoteRule } from './use-buyer-ai';
+import { dashboardLanguage } from '@/i18n/i18n-provider';
 
 // Buyer Match data. Keys carry the signed-in user and impersonated tenant
 // (useTenantQueryScope); every write invalidates everything under 'buyers'.
@@ -350,9 +351,10 @@ export function buyerName(b: Pick<BuyerListItem, 'firstName' | 'lastName' | 'con
   return [b.firstName, b.lastName].filter(Boolean).join(' ') || b.contact?.email || '—';
 }
 
+// The stage in the dashboard language, else English, else any name it has.
 export function stageName(stage: Pick<BuyerStage, 'name'> | null | undefined): string {
   if (!stage) return '—';
-  return stage.name.en || Object.values(stage.name)[0] || '—';
+  return stage.name[dashboardLanguage()] || stage.name.en || Object.values(stage.name)[0] || '—';
 }
 
 export function daysSince(date: string | null | undefined): number | null {

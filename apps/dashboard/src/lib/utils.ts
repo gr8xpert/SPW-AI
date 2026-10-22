@@ -5,6 +5,12 @@ import type { PropertySource } from '@spm/shared';
 // Display names for properties.source, worded as on the Feeds page. Keyed by
 // the shared PropertySource type so a new feed provider fails the type check
 // here until it has a label (and a Source filter option on Properties).
+// The badge text for a property's source: feed names are brands; 'manual'
+// is a word, so the caller passes it in the dashboard language.
+export function propertySourceLabel(source: string, manual: string): string {
+  return source === 'manual' ? manual : PROPERTY_SOURCE_LABELS[source as PropertySource] ?? source;
+}
+
 export const PROPERTY_SOURCE_LABELS: Record<PropertySource, string> = {
   manual: 'Manual',
   resales: 'Resales Online',

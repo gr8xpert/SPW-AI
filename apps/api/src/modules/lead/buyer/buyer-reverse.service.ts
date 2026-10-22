@@ -82,6 +82,7 @@ export class BuyerReverseService {
       .where('lead.tenantId = :tenantId', { tenantId })
       .andWhere('lead.mergedIntoId IS NULL')
       .andWhere('lead.wishlist IS NOT NULL')
+      .andWhere('lead.isNewLead = 0')
       .andWhere("(stage.id IS NULL OR stage.kind = 'open')");
     if (viewer) applyVisibility(qb, viewer, (await this.settingsService.get(tenantId)).agentsSeeAll);
     const buyers = await qb.orderBy('lead.lastActivityAt', 'DESC').addOrderBy('lead.id', 'DESC').take(MAX_BUYERS).getMany();

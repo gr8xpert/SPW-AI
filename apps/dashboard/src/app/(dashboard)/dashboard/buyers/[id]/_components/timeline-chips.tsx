@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { useSuggestionEvent, useSuggestionTimeline, type AgentMark, type Suggestion } from '../../use-buyer-match';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 // The steps a sent property goes through, in order. Liked and "Not for me"
 // share a place: only one of them can be reached.
@@ -21,7 +22,7 @@ const STEPS = [
 ] as const;
 
 function day(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return new Date(iso).toLocaleDateString(dashboardLocale(), { day: 'numeric', month: 'short' });
 }
 
 // Sent → Opened → Clicked → Liked / Not for me → Viewing → Offer, with the
@@ -60,7 +61,7 @@ export function TimelineChips({ s }: { s: Suggestion }) {
               <span
                 data-step={step.key}
                 data-reached={at ? 'yes' : 'no'}
-                title={at ? `${label}: ${new Date(at).toLocaleString()}${step.key === 'opened' ? `\n${t.openedHint}` : ''}` : undefined}
+                title={at ? `${label}: ${new Date(at).toLocaleString(dashboardLocale())}${step.key === 'opened' ? `\n${t.openedHint}` : ''}` : undefined}
                 className={cn(
                   'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4',
                   !at && 'border-dashed text-muted-foreground/70',
@@ -104,7 +105,7 @@ export function TimelineChips({ s }: { s: Suggestion }) {
             <ol className="space-y-0.5">
               {events.data.map((e) => (
                 <li key={e.id} className="flex flex-wrap gap-x-2">
-                  <span className="tabular-nums text-muted-foreground">{new Date(e.createdAt).toLocaleString()}</span>
+                  <span className="tabular-nums text-muted-foreground">{new Date(e.createdAt).toLocaleString(dashboardLocale())}</span>
                   <span className="font-medium">{t.events[e.event]}</span>
                   <span className="text-muted-foreground">
                     {e.user?.name ? e.user.name : t.sources[e.source]}

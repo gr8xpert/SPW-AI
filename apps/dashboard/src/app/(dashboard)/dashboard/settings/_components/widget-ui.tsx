@@ -5,6 +5,8 @@ import { ChevronDown, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useSettingsText } from '../_i18n';
 
 // Building blocks shared by the Widget tab's sections.
 
@@ -85,8 +87,8 @@ export function CollapsibleRow({ title, summary, children }: { title: string; su
 export function NumberChips({
   values,
   onChange,
-  format = (n) => n.toLocaleString(),
-  placeholder = 'Add value',
+  format,
+  placeholder,
   max,
 }: {
   values: number[];
@@ -95,15 +97,18 @@ export function NumberChips({
   placeholder?: string;
   max?: number;
 }) {
+  const t = useSettingsText();
+  const { locale } = useLanguage();
+  const show = format ?? ((n: number) => n.toLocaleString(locale));
   return (
     <>
       <div className="flex flex-wrap gap-2">
         {values.map((n) => (
           <span key={n} className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium">
-            {format(n)}
+            {show(n)}
             <button
               type="button"
-              aria-label={`Remove ${format(n)}`}
+              aria-label={t.widget.chips.remove(show(n))}
               className="ml-1 rounded-sm p-0.5 hover:bg-muted"
               onClick={() => onChange(values.filter((v) => v !== n))}
             >
@@ -117,7 +122,7 @@ export function NumberChips({
           type="number"
           min={1}
           max={max}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t.widget.chips.addValue}
           className="h-8 w-36 text-sm"
           onKeyDown={(e) => {
             if (e.key !== 'Enter') return;
@@ -130,7 +135,7 @@ export function NumberChips({
             }
           }}
         />
-        <p className="text-xs text-muted-foreground">Press Enter to add</p>
+        <p className="text-xs text-muted-foreground">{t.widget.chips.pressEnter}</p>
       </div>
     </>
   );

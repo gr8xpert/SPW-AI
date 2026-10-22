@@ -57,6 +57,8 @@ import { MessageText, STAFF_AUTHOR_NAME } from '@/components/tickets/message-tex
 import { AttachmentDropzone } from '@/components/tickets/attachment-dropzone';
 import { useTenantTicket, useTenantTicketMutation, useTenantTicketStats, useTenantTickets } from './use-tickets';
 import { PageNumbers } from '@/components/ui/page-numbers';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useTicketsText } from './_i18n';
 
 interface Ticket {
   id: number;
@@ -94,33 +96,26 @@ interface TicketStats {
   resolved: number;
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }> = {
-  open: { label: 'Open', variant: 'default', icon: AlertCircle },
-  in_progress: { label: 'In Progress', variant: 'warning', icon: Clock },
-  waiting_customer: { label: 'Awaiting Reply', variant: 'secondary', icon: MessageSquare },
-  resolved: { label: 'Resolved', variant: 'success', icon: CheckCircle2 },
-  closed: { label: 'Closed', variant: 'secondary', icon: XCircle },
+// Labels come from t.status / t.priority / t.category at render.
+const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }> = {
+  open: { variant: 'default', icon: AlertCircle },
+  in_progress: { variant: 'warning', icon: Clock },
+  waiting_customer: { variant: 'secondary', icon: MessageSquare },
+  resolved: { variant: 'success', icon: CheckCircle2 },
+  closed: { variant: 'secondary', icon: XCircle },
 };
 
-const priorityConfig: Record<string, { label: string; color: string }> = {
-  low: { label: 'Low', color: 'text-muted-foreground' },
-  medium: { label: 'Medium', color: 'text-primary/60' },
-  high: { label: 'High', color: 'text-primary/80' },
-  urgent: { label: 'Urgent', color: 'text-primary' },
-};
-
-const categoryLabels: Record<string, string> = {
-  technical: 'Technical',
-  billing: 'Billing',
-  feature_request: 'Feature Request',
-  bug: 'Bug Report',
-  general: 'General',
+const priorityConfig: Record<string, { color: string }> = {
+  low: { color: 'text-muted-foreground' },
+  medium: { color: 'text-primary/60' },
+  high: { color: 'text-primary/80' },
+  urgent: { color: 'text-primary' },
 };
 
 const emptyForm = { subject: '', message: '', priority: 'medium', category: 'general' };
 
-function formatDate(d: string): string {
-  try { return new Date(d).toLocaleDateString(); } catch { return d; }
+function formatDate(d: string, locale: string): string {
+  try { return new Date(d).toLocaleDateString(locale); } catch { return d; }
 }
 
 export default function TicketsPage() {
@@ -140,6 +135,8 @@ export default function TicketsPage() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useTicketsText();
+  const { locale } = useLanguage();
 
   const uploadFiles = async (files: FileList): Promise<Attachment[]> => {
     const uploaded: Attachment[] = [];
@@ -153,7 +150,7 @@ export default function TicketsPage() {
         uploaded.push({ name: data.originalFilename || file.name, url: data.url, size: data.fileSize || file.size });
       }
     } catch (e: any) {
-      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.uploadFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }
@@ -172,7 +169,7 @@ export default function TicketsPage() {
   // One toast per failed list load (after React Query's retries). Stats and
   // detail failures stay silent, as before.
   useEffect(() => {
-    if (ticketsQuery.isError) toast({ title: 'Failed to load tickets', variant: 'destructive' });
+    if (ticketsQuery.isError) toast({ title: t.list.toasts.loadFailed, variant: 'destructive' });
   }, [ticketsQuery.errorUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createTicket = useTenantTicketMutation((body: any) => api.post('/api/dashboard/tickets', body));
@@ -191,12 +188,12 @@ export default function TicketsPage() {
         body.attachments = createAttachments;
       }
       await createTicket.mutateAsync(body);
-      toast({ title: 'Ticket created' });
+      toast({ title: t.list.toasts.created });
       setIsCreateOpen(false);
       setForm(emptyForm);
       setCreateAttachments([]);
     } catch (e: any) {
-      toast({ title: 'Failed to create ticket', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -214,11 +211,11 @@ export default function TicketsPage() {
         body.attachments = replyAttachments;
       }
       await sendReply.mutateAsync({ id: selectedTicket.id, body });
-      toast({ title: 'Reply sent' });
+      toast({ title: t.list.toasts.replySent });
       setReplyMessage('');
       setReplyAttachments([]);
     } catch (e: any) {
-      toast({ title: 'Failed to send reply', description: e.message, variant: 'destructive' });
+      toast({ title: t.list.toasts.replyFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -232,19 +229,19 @@ export default function TicketsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Support Tickets</h1>
-          <p className="page-description mt-1">Get help from our support team</p>
+          <h1 className="page-title">{t.list.title}</h1>
+          <p className="page-description mt-1">{t.list.description}</p>
         </div>
         <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
-          New Ticket
+          {t.list.newTicket}
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Open</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.status.open}</CardTitle>
             <div className="stat-card-icon">
               <AlertCircle className="h-4 w-4" />
             </div>
@@ -253,7 +250,7 @@ export default function TicketsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.status.in_progress}</CardTitle>
             <div className="stat-card-icon">
               <Clock className="h-4 w-4" />
             </div>
@@ -262,7 +259,7 @@ export default function TicketsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Awaiting Reply</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.status.waiting_customer}</CardTitle>
             <div className="stat-card-icon">
               <MessageSquare className="h-4 w-4" />
             </div>
@@ -271,7 +268,7 @@ export default function TicketsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.status.resolved}</CardTitle>
             <div className="stat-card-icon">
               <CheckCircle2 className="h-4 w-4" />
             </div>
@@ -285,7 +282,7 @@ export default function TicketsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search tickets..."
+              placeholder={t.list.searchPlaceholder}
               className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -295,7 +292,7 @@ export default function TicketsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All Tickets</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t.list.allTickets}</CardTitle></CardHeader>
         <CardContent>
           {ticketsQuery.isFetching && tickets.length === 0 ? (
             <div className="flex justify-center py-8">
@@ -303,10 +300,10 @@ export default function TicketsPage() {
             </div>
           ) : filteredTickets.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No tickets found</p>
+              <p className="text-muted-foreground">{t.list.noTickets}</p>
               <Button className="mt-4 shadow-sm" onClick={() => { setForm(emptyForm); setIsCreateOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create your first ticket
+                {t.list.createFirst}
               </Button>
             </div>
           ) : (
@@ -314,13 +311,13 @@ export default function TicketsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ticket</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Time Spent</TableHead>
-                    <TableHead>Last Update</TableHead>
-                    <TableHead>Replies</TableHead>
+                    <TableHead>{t.list.colTicket}</TableHead>
+                    <TableHead>{t.common.category}</TableHead>
+                    <TableHead>{t.common.priority}</TableHead>
+                    <TableHead>{t.common.status}</TableHead>
+                    <TableHead>{t.list.colTimeSpent}</TableHead>
+                    <TableHead>{t.list.colLastUpdate}</TableHead>
+                    <TableHead>{t.list.colReplies}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -340,17 +337,17 @@ export default function TicketsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{categoryLabels[ticket.category] || ticket.category}</Badge>
+                          <Badge variant="outline">{t.category[ticket.category] || ticket.category}</Badge>
                         </TableCell>
                         <TableCell>
                           <span className={`font-medium ${priorityConfig[ticket.priority]?.color || ''}`}>
-                            {priorityConfig[ticket.priority]?.label || ticket.priority}
+                            {t.priority[ticket.priority] || ticket.priority}
                           </span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={status.variant} className="gap-1">
                             <StatusIcon className="h-3 w-3" />
-                            {status.label}
+                            {t.status[ticket.status] || t.status.open}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
@@ -358,11 +355,11 @@ export default function TicketsPage() {
                             ? formatHM(ticket.hoursSpent)
                             : <span className="text-muted-foreground">—</span>}
                           {ticket.category === 'bug' && ticket.hoursSpent && ticket.hoursSpent > 0 && (
-                            <span className="text-xs text-muted-foreground ml-1">(free)</span>
+                            <span className="text-xs text-muted-foreground ml-1">{t.common.free}</span>
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {formatDate(ticket.lastReplyAt || ticket.createdAt)}
+                          {formatDate(ticket.lastReplyAt || ticket.createdAt, locale)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -378,7 +375,7 @@ export default function TicketsPage() {
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
+                  <p className="text-sm text-muted-foreground">{t.list.pageOf(page, totalPages)}</p>
                   <PageNumbers page={page} pages={totalPages} onChange={setPage} />
                 </div>
               )}
@@ -391,52 +388,52 @@ export default function TicketsPage() {
       <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) setForm(emptyForm); }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Create Support Ticket</DialogTitle>
-            <DialogDescription>Describe your issue and we&apos;ll get back to you as soon as possible.</DialogDescription>
+            <DialogTitle>{t.list.createDialog.title}</DialogTitle>
+            <DialogDescription>{t.list.createDialog.description}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Subject *</Label>
-              <Input placeholder="Brief description of your issue" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+              <Label>{t.list.createDialog.subjectLabel}</Label>
+              <Input placeholder={t.list.createDialog.subjectPlaceholder} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>{t.common.category}</Label>
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="technical">Technical Issue</SelectItem>
-                    <SelectItem value="billing">Billing Question</SelectItem>
-                    <SelectItem value="feature_request">Feature Request</SelectItem>
-                    <SelectItem value="bug">Bug Report</SelectItem>
-                    <SelectItem value="general">General Inquiry</SelectItem>
+                    <SelectItem value="technical">{t.categoryOptions.technical}</SelectItem>
+                    <SelectItem value="billing">{t.categoryOptions.billing}</SelectItem>
+                    <SelectItem value="feature_request">{t.categoryOptions.feature_request}</SelectItem>
+                    <SelectItem value="bug">{t.categoryOptions.bug}</SelectItem>
+                    <SelectItem value="general">{t.categoryOptions.general}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Priority</Label>
+                <Label>{t.common.priority}</Label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">{t.priority.low}</SelectItem>
+                    <SelectItem value="medium">{t.priority.medium}</SelectItem>
+                    <SelectItem value="high">{t.priority.high}</SelectItem>
+                    <SelectItem value="urgent">{t.priority.urgent}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Message *</Label>
+              <Label>{t.list.createDialog.messageLabel}</Label>
               <Textarea
                 rows={4}
-                placeholder="Describe your issue in detail..."
+                placeholder={t.list.createDialog.messagePlaceholder}
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Attachments</Label>
+              <Label>{t.list.createDialog.attachments}</Label>
               <AttachmentDropzone
                 attachments={createAttachments}
                 onAdd={(files) => setCreateAttachments((prev) => [...prev, ...files])}
@@ -447,10 +444,10 @@ export default function TicketsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); setCreateAttachments([]); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setIsCreateOpen(false); setCreateAttachments([]); }}>{t.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={!form.subject || !form.message || createTicket.isPending || isUploading}>
               {createTicket.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Submit Ticket
+              {t.list.createDialog.submit}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -463,22 +460,22 @@ export default function TicketsPage() {
             <DialogTitle>{selectedTicket?.subject}</DialogTitle>
             <DialogDescription>
               {selectedTicket?.ticketNumber} &middot;{' '}
-              {statusConfig[selectedTicket?.status || 'open']?.label || selectedTicket?.status}
+              {t.status[selectedTicket?.status || 'open'] || selectedTicket?.status}
             </DialogDescription>
           </DialogHeader>
           {selectedTicket && (
             <div className="space-y-4">
               <div className="flex gap-2 flex-wrap items-center">
-                <Badge variant="outline">{categoryLabels[selectedTicket.category] || selectedTicket.category}</Badge>
+                <Badge variant="outline">{t.category[selectedTicket.category] || selectedTicket.category}</Badge>
                 <Badge variant={priorityConfig[selectedTicket.priority]?.color === 'text-primary' ? 'destructive' : 'secondary'}>
-                  {priorityConfig[selectedTicket.priority]?.label || selectedTicket.priority}
+                  {t.priority[selectedTicket.priority] || selectedTicket.priority}
                 </Badge>
                 {selectedTicket.hoursSpent && selectedTicket.hoursSpent > 0 ? (
                   <Badge variant="secondary" className="gap-1">
                     <Clock className="h-3 w-3" />
-                    {formatHM(selectedTicket.hoursSpent)} spent
+                    {t.list.spent(formatHM(selectedTicket.hoursSpent))}
                     {selectedTicket.category === 'bug' && (
-                      <span className="text-xs opacity-70 ml-1">(free)</span>
+                      <span className="text-xs opacity-70 ml-1">{t.common.free}</span>
                     )}
                   </Badge>
                 ) : null}
@@ -493,10 +490,10 @@ export default function TicketsPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-xs">
-                          {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || 'You'}
+                          {msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name || t.common.you}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(msg.createdAt).toLocaleString()}
+                          {new Date(msg.createdAt).toLocaleString(locale)}
                         </span>
                       </div>
                       <MessageText text={msg.message} />
@@ -504,14 +501,14 @@ export default function TicketsPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Loading messages...</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">{t.list.loadingMessages}</p>
                 )}
               </div>
 
               {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
                 <div className="space-y-2">
                   <Textarea
-                    placeholder="Type your reply..."
+                    placeholder={t.common.replyPlaceholder}
                     rows={2}
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
@@ -527,7 +524,7 @@ export default function TicketsPage() {
                   <div className="flex justify-end">
                     <Button onClick={handleReply} disabled={!replyMessage.trim() || sendReply.isPending} size="sm">
                       {sendReply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-                      Send
+                      {t.list.send}
                     </Button>
                   </div>
                 </div>

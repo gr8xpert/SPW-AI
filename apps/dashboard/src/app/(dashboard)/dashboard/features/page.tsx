@@ -71,6 +71,7 @@ import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { useBulkJob } from '@/hooks/use-bulk-job';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { useFeaturesText, nameOf } from './_i18n';
 
 interface Feature {
   id: number;
@@ -82,22 +83,17 @@ interface Feature {
   isActive?: boolean;
 }
 
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
-  it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
-  da: 'Danish', pl: 'Polish', cs: 'Czech', fi: 'Finnish',
-};
-
+// Category names come from t.categories by id.
 const categories = [
-  { id: 'all', name: 'All Features' },
-  { id: 'interior', name: 'Interior' },
-  { id: 'exterior', name: 'Exterior' },
-  { id: 'community', name: 'Community' },
-  { id: 'climate', name: 'Climate' },
-  { id: 'views', name: 'Views' },
-  { id: 'security', name: 'Security' },
-  { id: 'parking', name: 'Parking' },
-  { id: 'other', name: 'Other' },
+  { id: 'all' },
+  { id: 'interior' },
+  { id: 'exterior' },
+  { id: 'community' },
+  { id: 'climate' },
+  { id: 'views' },
+  { id: 'security' },
+  { id: 'parking' },
+  { id: 'other' },
 ];
 
 const categoryValues = categories.filter((c) => c.id !== 'all');
@@ -135,6 +131,7 @@ export default function FeaturesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
+  const t = useFeaturesText();
 
   const api = useApi();
   // Server-tracked, so progress survives a refresh or leaving the page and a
@@ -145,8 +142,8 @@ export default function FeaturesPage() {
     onFinished: (st) => {
       toast(
         st.status === 'completed' && st.failed === 0
-          ? { title: 'Bulk translation complete', description: `${st.completed} features translated` }
-          : { title: 'Bulk translation had errors', description: `${st.failed} of ${st.total} failed`, variant: 'destructive' },
+          ? { title: t.toast.bulkComplete, description: t.toast.bulkCompleteText(st.completed) }
+          : { title: t.toast.bulkErrors, description: t.toast.bulkErrorsText(st.failed, st.total), variant: 'destructive' },
       );
       fetchFeatures();
     },
@@ -160,15 +157,15 @@ export default function FeaturesPage() {
       const r = res?.data?.features ?? res?.features;
       if (r) {
         toast({
-          title: 'AI organize complete',
-          description: `${r.recategorised} features recategorised, ${r.skipped} skipped`,
+          title: t.toast.organizeComplete,
+          description: t.toast.organizeResult(r.recategorised, r.skipped),
         });
       } else {
-        toast({ title: 'AI organize finished', description: 'No changes needed' });
+        toast({ title: t.toast.organizeFinished, description: t.toast.noChanges });
       }
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+      toast({ title: t.toast.organizeFailed, description: e?.message, variant: 'destructive' });
     } finally {
       setIsAiOrganizing(false);
     }
@@ -194,7 +191,7 @@ export default function FeaturesPage() {
         setTimeout(() => fetchFeatures(retriesLeft - 1), 800);
         return;
       }
-      toast({ title: 'Failed to load features', variant: 'destructive' });
+      toast({ title: t.toast.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -203,12 +200,12 @@ export default function FeaturesPage() {
     if (ids.length === 0) return;
     try {
       await api.put('/api/dashboard/features/bulk-delete', { ids });
-      toast({ title: `Deleted ${ids.length} feature${ids.length === 1 ? '' : 's'}` });
+      toast({ title: t.toast.bulkDeleted(ids.length) });
       setIsBulkDeleteOpen(false);
       setSelectedIds(new Set());
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkDeleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -227,12 +224,12 @@ export default function FeaturesPage() {
         category: form.category,
         ...(form.icon ? { icon: form.icon } : {}),
       });
-      toast({ title: 'Feature created' });
+      toast({ title: t.toast.created });
       setIsAddOpen(false);
       setForm({ names: {}, category: 'interior', icon: '' });
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -244,13 +241,13 @@ export default function FeaturesPage() {
         category: form.category,
         ...(form.icon ? { icon: form.icon } : {}),
       });
-      toast({ title: 'Feature updated' });
+      toast({ title: t.toast.updated });
       setIsEditOpen(false);
       setEditingFeature(null);
       setForm({ names: {}, category: 'interior', icon: '' });
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.updateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -258,12 +255,12 @@ export default function FeaturesPage() {
     if (!deletingFeature) return;
     try {
       await api.delete(`/api/dashboard/features/${deletingFeature.id}`);
-      toast({ title: 'Feature deleted' });
+      toast({ title: t.toast.deleted });
       setIsDeleteOpen(false);
       setDeletingFeature(null);
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.deleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -287,7 +284,7 @@ export default function FeaturesPage() {
       });
       const missingLangs = languages.filter(l => l !== 'en' && !form.names[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setIsTranslating(false);
         return;
       }
@@ -303,10 +300,10 @@ export default function FeaturesPage() {
         }
         setForm(prev => ({ ...prev, names: newNames }));
       }
-      toast({ title: `Translated to ${missingLangs.length} languages` });
+      toast({ title: t.toast.translatedTo(missingLangs.length) });
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
     }
@@ -318,7 +315,7 @@ export default function FeaturesPage() {
     try {
       const missingLangs = languages.filter(l => l !== 'en' && !feature.name[l]?.trim());
       if (missingLangs.length === 0) {
-        toast({ title: 'All translations are already complete' });
+        toast({ title: t.toast.allComplete });
         setTranslatingId(null);
         return;
       }
@@ -326,10 +323,10 @@ export default function FeaturesPage() {
         targetLanguages: missingLangs,
         sourceLanguage: 'en',
       });
-      toast({ title: `Translated "${feature.name.en}"` });
+      toast({ title: t.toast.translatedName(feature.name.en) });
       fetchFeatures();
     } catch (e: any) {
-      toast({ title: 'Translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.translationFailed, description: e.message, variant: 'destructive' });
     } finally {
       setTranslatingId(null);
     }
@@ -341,7 +338,7 @@ export default function FeaturesPage() {
     try {
       const targetLangs = languages.filter(l => l !== 'en');
       if (targetLangs.length === 0) {
-        toast({ title: 'No target languages configured. Add languages in Settings.' });
+        toast({ title: t.toast.noTargetLanguages });
         return;
       }
       const res = await api.post('/api/dashboard/translate/features/bulk', {
@@ -353,11 +350,11 @@ export default function FeaturesPage() {
       if (jobId) bulkTranslate.track(jobId);
       toast(
         res?.data?.alreadyRunning
-          ? { title: 'Bulk translation is already running', description: 'Showing the run in flight — no second run was started.' }
-          : { title: 'Bulk translation started', description: 'You can leave this page — progress shows on the button.' },
+          ? { title: t.toast.bulkAlready, description: t.toast.bulkAlreadyText }
+          : { title: t.toast.bulkStarted, description: t.toast.bulkStartedText },
       );
     } catch (e: any) {
-      toast({ title: 'Bulk translation failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsBulkTranslating(false);
     }
@@ -394,9 +391,9 @@ export default function FeaturesPage() {
     });
     try {
       await api.put('/api/dashboard/features/reorder', { items });
-      toast({ title: 'Order updated' });
+      toast({ title: t.toast.orderUpdated });
     } catch {
-      toast({ title: 'Failed to reorder', variant: 'destructive' });
+      toast({ title: t.toast.reorderFailed, variant: 'destructive' });
       fetchFeatures();
     }
   };
@@ -410,10 +407,10 @@ export default function FeaturesPage() {
     const newActive = !(feature.isActive ?? true);
     try {
       await api.put(`/api/dashboard/features/${feature.id}`, { isActive: newActive });
-      toast({ title: newActive ? 'Feature visible on website' : 'Feature hidden from website' });
+      toast({ title: newActive ? t.toast.shown : t.toast.hidden });
       fetchFeatures();
     } catch {
-      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+      toast({ title: t.toast.visibilityFailed, variant: 'destructive' });
     }
   };
 
@@ -426,12 +423,12 @@ export default function FeaturesPage() {
     try {
       await api.put('/api/dashboard/features/bulk-visibility', { isActive });
       toast({
-        title: isActive ? 'All features visible on website' : 'All features hidden from website',
-        description: isActive ? undefined : 'Switch on the ones the website should show.',
+        title: isActive ? t.toast.allShown : t.toast.allHidden,
+        description: isActive ? undefined : t.toast.allHiddenText,
       });
       fetchFeatures();
     } catch {
-      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+      toast({ title: t.toast.visibilityFailed, variant: 'destructive' });
     } finally {
       setSavingAll(false);
     }
@@ -441,23 +438,23 @@ export default function FeaturesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Features</h1>
-          <p className="page-description mt-1">Manage property features and amenities</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            AI Organize
+            {t.aiOrganize}
           </Button>
           {languages.length > 1 && (
-            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+            <Button variant="outline" size="sm" onClick={() => { if (aiTranslation.check()) setIsBulkTranslateOpen(true); }} disabled={bulkTranslate.running} title={aiTranslation.locked ? t.lockedLong : undefined}>
               {bulkTranslate.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              {bulkTranslate.running ? `Translating ${bulkTranslate.progress}%` : 'AI Translate All'}
+              {bulkTranslate.running ? t.translating(bulkTranslate.progress) : t.aiTranslateAll}
             </Button>
           )}
           <Button className="shadow-sm" onClick={() => { setForm({ names: {}, category: 'interior', icon: '' }); setIsAddOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Feature
+            {t.addFeature}
           </Button>
         </div>
       </div>
@@ -465,7 +462,7 @@ export default function FeaturesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Features</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.totalFeatures}</CardTitle>
             <div className="stat-card-icon">
               <Home className="h-4 w-4" />
             </div>
@@ -474,7 +471,7 @@ export default function FeaturesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Categories Used</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.categoriesUsed}</CardTitle>
             <div className="stat-card-icon">
               <Sun className="h-4 w-4" />
             </div>
@@ -483,7 +480,7 @@ export default function FeaturesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.active}</CardTitle>
             <div className="stat-card-icon">
               <Check className="h-4 w-4" />
             </div>
@@ -496,17 +493,17 @@ export default function FeaturesPage() {
         <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search features..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder={t.searchPlaceholder} className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Switch checked={allShown} onCheckedChange={handleToggleAll} disabled={savingAll || features.length === 0} />
-              Show all features on website
-              <span className="text-muted-foreground">({shownCount} of {features.length} shown)</span>
+              {t.showAll}
+              <span className="text-muted-foreground">{t.shownCount(shownCount, features.length)}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
-              Hide features with 0 properties
+              {t.hideEmpty}
             </label>
           </div>
         </CardContent>
@@ -515,11 +512,11 @@ export default function FeaturesPage() {
       {selectedIds.size > 0 && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-3 flex items-center justify-between gap-4">
-            <div className="text-sm"><strong>{selectedIds.size}</strong> feature{selectedIds.size === 1 ? '' : 's'} selected</div>
+            <div className="text-sm"><strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}</div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
               <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Trash2 className="h-4 w-4 mr-1" /> {t.delete}
               </Button>
             </div>
           </CardContent>
@@ -530,7 +527,7 @@ export default function FeaturesPage() {
         <TabsList className="flex-wrap h-auto gap-2 bg-transparent p-0">
           {categories.map((cat) => (
             <TabsTrigger key={cat.id} value={cat.id} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              {cat.name}
+              {nameOf(t.categories, cat.id)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -538,15 +535,15 @@ export default function FeaturesPage() {
         <TabsContent value={activeCategory} className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>{categories.find((c) => c.id === activeCategory)?.name} ({filteredFeatures.length})</CardTitle>
+              <CardTitle>{t.categoryCount(nameOf(t.categories, activeCategory), filteredFeatures.length)}</CardTitle>
             </CardHeader>
             <CardContent>
               {api.isLoading && features.length === 0 ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
               ) : features.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">No features yet. Click &quot;Add Feature&quot; to create one.</p>
+                <p className="text-center py-8 text-muted-foreground">{t.empty}</p>
               ) : filteredFeatures.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">No features match the current filter.</p>
+                <p className="text-center py-8 text-muted-foreground">{t.noMatch}</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredFeatures.map((feature, i) => {
@@ -581,7 +578,7 @@ export default function FeaturesPage() {
                           <div className="min-w-0">
                             <p className="font-medium truncate">{feature.name.en || Object.values(feature.name)[0]}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-muted-foreground capitalize">{feature.category}</span>
+                              <span className="text-xs text-muted-foreground capitalize">{nameOf(t.categories, feature.category)}</span>
                               {languages.length > 1 && (
                                 translatingId === feature.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -598,7 +595,7 @@ export default function FeaturesPage() {
                           <Badge variant="outline">{feature.propertyCount ?? 0}</Badge>
                           <div
                             className="flex items-center gap-1.5"
-                            title={feature.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+                            title={feature.isActive !== false ? t.visibleOnWebsite : t.hiddenFromWebsite}
                           >
                             {feature.isActive !== false ? (
                               <Eye className="h-3.5 w-3.5 text-muted-foreground" />
@@ -617,17 +614,17 @@ export default function FeaturesPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEdit(feature)}>
-                                <Edit className="h-4 w-4 mr-2" />Edit
+                                <Edit className="h-4 w-4 mr-2" />{t.edit}
                               </DropdownMenuItem>
                               {languages.length > 1 && (
                                 <DropdownMenuItem onClick={() => handleQuickTranslate(feature)}>
                                   {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                                  AI Translate
+                                  {t.aiTranslate}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingFeature(feature); setIsDeleteOpen(true); }}>
-                                <Trash2 className="h-4 w-4 mr-2" />Delete
+                                <Trash2 className="h-4 w-4 mr-2" />{t.delete}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -646,33 +643,33 @@ export default function FeaturesPage() {
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, category: 'interior', icon: '' }); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Feature</DialogTitle>
-            <DialogDescription>Create a new property feature</DialogDescription>
+            <DialogTitle>{t.addTitle}</DialogTitle>
+            <DialogDescription>{t.addDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Name (English)</Label>
+              <Label>{t.nameEnglish}</Label>
               <Input placeholder="Swimming Pool" value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
             </div>
             <div className="space-y-2">
-              <Label>Category</Label>
+              <Label>{t.category}</Label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {categoryValues.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                  {categoryValues.map((c) => (<SelectItem key={c.id} value={c.id}>{nameOf(t.categories, c.id)}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Icon</Label>
+              <Label>{t.icon}</Label>
               <Input placeholder="waves, sun, car, shield, trees, thermometer, eye, home" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleCreate} disabled={!form.names.en || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create
+              {t.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -682,26 +679,26 @@ export default function FeaturesPage() {
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingFeature(null); setForm({ names: {}, category: 'interior', icon: '' }); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Feature</DialogTitle>
-            <DialogDescription>Update details and translations</DialogDescription>
+            <DialogTitle>{t.editTitle}</DialogTitle>
+            <DialogDescription>{t.editDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Name (English)</Label>
+              <Label>{t.nameEnglish}</Label>
               <Input value={form.names.en || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, en: e.target.value } })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>{t.category}</Label>
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {categoryValues.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                    {categoryValues.map((c) => (<SelectItem key={c.id} value={c.id}>{nameOf(t.categories, c.id)}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label>{t.icon}</Label>
                 <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
               </div>
             </div>
@@ -709,11 +706,11 @@ export default function FeaturesPage() {
               <div className="border rounded-md">
                 <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
                   <span className="text-sm font-medium">
-                    Translations ({languages.filter(l => l !== 'en' && form.names[l]?.trim()).length}/{languages.filter(l => l !== 'en').length})
+                    {t.translationsCount(languages.filter(l => l !== 'en' && form.names[l]?.trim()).length, languages.filter(l => l !== 'en').length)}
                   </span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? 'AI Translation is a premium add-on' : undefined}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleAiTranslate} disabled={isTranslating || !form.names.en?.trim()} title={aiTranslation.locked ? t.lockedShort : undefined}>
                     {isTranslating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : aiTranslation.locked ? <Lock className="h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                    AI Translate
+                    {t.aiTranslate}
                   </Button>
                 </div>
                 <div className="max-h-[280px] overflow-y-auto p-3 space-y-2">
@@ -722,7 +719,7 @@ export default function FeaturesPage() {
                       <span className="text-xs font-medium uppercase w-8 text-muted-foreground shrink-0">{lang}</span>
                       <Input
                         className="h-8 text-sm"
-                        placeholder={LANG_NAMES[lang] || lang}
+                        placeholder={nameOf(t.langNames, lang)}
                         value={form.names[lang] || ''}
                         onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })}
                       />
@@ -738,10 +735,10 @@ export default function FeaturesPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleUpdate} disabled={!form.names.en || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -751,16 +748,16 @@ export default function FeaturesPage() {
       <AlertDialog open={isBulkTranslateOpen} onOpenChange={setIsBulkTranslateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>AI Translate All Features</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will translate all {features.length} features to {languages.filter(l => l !== 'en').length} languages using AI.
+              {t.bulkText(features.length, languages.filter(l => l !== 'en').length)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkTranslate} disabled={isBulkTranslating || bulkTranslate.running}>
               {isBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Start Translation
+              {t.startTranslation}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -770,15 +767,15 @@ export default function FeaturesPage() {
       <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} feature{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkDeleteTitle(selectedIds.size)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Properties referencing these features will keep their other tags. This cannot be undone.
+              {t.bulkDeleteText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete {selectedIds.size}
+              {t.deleteN(selectedIds.size)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -788,15 +785,15 @@ export default function FeaturesPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Feature</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingFeature?.name.en}&quot;? This action cannot be undone.
+              {t.deleteText(deletingFeature?.name.en ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

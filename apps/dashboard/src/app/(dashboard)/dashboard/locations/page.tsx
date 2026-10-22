@@ -71,6 +71,7 @@ import { cn } from '@/lib/utils';
 import { MoveMergeDialog, type PickableLocation } from './move-merge-dialog';
 import { SortOrderMenu } from '@/components/sort-order-menu';
 import { SetupTransferMenu } from '@/components/setup-transfer-menu';
+import { useLocationsText, nameOf } from './_i18n';
 
 interface Location {
   id: number;
@@ -94,11 +95,6 @@ interface Location {
 
 const parseAliases = (text: string) =>
   text.split(',').map((a) => a.trim()).filter(Boolean);
-
-const defaultLanguageNames: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French', nl: 'Dutch',
-  pt: 'Portuguese', it: 'Italian', ru: 'Russian', sv: 'Swedish', no: 'Norwegian',
-};
 
 interface DropdownConfig {
   levels: string[];
@@ -167,6 +163,7 @@ export default function LocationsPage() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useLocationsText();
 
   // Properties with no coordinates of their own are drawn at their location's
   // point, so a location in the wrong place takes all of them with it.
@@ -178,14 +175,14 @@ export default function LocationsPage() {
       const fixed = r?.fixed?.length ?? 0;
       const rejected = r?.rejected ?? [];
       toast({
-        title: fixed ? `${fixed} location${fixed === 1 ? '' : 's'} corrected` : 'Every location was already in the right place',
+        title: fixed ? t.toast.corrected(fixed) : t.toast.allInPlace,
         description: rejected.length
-          ? `${rejected.length} left alone: ${rejected.slice(0, 2).map((x: any) => `${x.name} (${x.reason})`).join('; ')}`
-          : `${r?.checked ?? 0} checked`,
+          ? t.toast.leftAlone(rejected.length, rejected.slice(0, 2).map((x: any) => `${x.name} (${x.reason})`).join('; '))
+          : t.toast.checked(r?.checked ?? 0),
       });
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Could not check the map positions', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.mapCheckFailed, description: e.message, variant: 'destructive' });
     } finally {
       setIsPlacingOnMap(false);
     }
@@ -198,20 +195,22 @@ export default function LocationsPage() {
       const r = res?.data?.locations ?? res?.locations;
       if (r) {
         toast({
-          title: 'AI organize complete',
+          title: t.toast.organizeComplete,
           // areasMerged is optional so an older API build (which doesn't send
           // it) still renders a sensible message instead of "undefined".
-          description:
-            `+${r.regionsCreated} regions, ${r.provincesAttached} provinces grouped` +
-            (r.areasMerged ? `, ${r.areasMerged} duplicate areas merged` : '') +
-            `, ${r.skipped} skipped`,
+          description: [
+            t.toast.regionsCreated(r.regionsCreated),
+            t.toast.provincesGrouped(r.provincesAttached),
+            r.areasMerged ? t.toast.areasMerged(r.areasMerged) : '',
+            t.toast.skipped(r.skipped),
+          ].filter(Boolean).join(', '),
         });
       } else {
-        toast({ title: 'AI organize finished', description: 'No changes needed' });
+        toast({ title: t.toast.organizeFinished, description: t.toast.noChanges });
       }
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'AI organize failed', description: e?.message, variant: 'destructive' });
+      toast({ title: t.toast.organizeFailed, description: e?.message, variant: 'destructive' });
     } finally {
       setIsAiOrganizing(false);
     }
@@ -249,7 +248,7 @@ export default function LocationsPage() {
         setTimeout(() => fetchLocations(retriesLeft - 1), 800);
         return;
       }
-      toast({ title: 'Failed to load locations', variant: 'destructive' });
+      toast({ title: t.toast.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -298,12 +297,12 @@ export default function LocationsPage() {
         lng: form.lng.trim() === '' ? null : Number(form.lng),
         aliases: parseAliases(form.aliases),
       });
-      toast({ title: 'Location created' });
+      toast({ title: t.toast.created });
       setIsAddOpen(false);
       setForm(emptyForm);
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -319,13 +318,13 @@ export default function LocationsPage() {
         lng: form.lng.trim() === '' ? null : Number(form.lng),
         aliases: parseAliases(form.aliases),
       });
-      toast({ title: 'Location updated' });
+      toast({ title: t.toast.updated });
       setIsEditOpen(false);
       setEditingLocation(null);
       setForm(emptyForm);
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.updateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -338,14 +337,14 @@ export default function LocationsPage() {
       const mergedCount = Number(body?.merged ?? 0);
       const reparentedCount = ids.length - mergedCount;
       const parts: string[] = [];
-      if (reparentedCount > 0) parts.push(`Moved ${reparentedCount} location${reparentedCount === 1 ? '' : 's'}`);
-      if (mergedCount > 0) parts.push(`merged ${mergedCount} duplicate${mergedCount === 1 ? '' : 's'}`);
-      toast({ title: parts.join(' · ') || `Moved ${ids.length} location${ids.length === 1 ? '' : 's'}` });
+      if (reparentedCount > 0) parts.push(t.toast.movedN(reparentedCount));
+      if (mergedCount > 0) parts.push(t.toast.mergedDuplicates(mergedCount));
+      toast({ title: parts.join(' · ') || t.toast.movedN(ids.length) });
       setIsBulkMoveOpen(false);
       setSelectedIds(new Set());
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Bulk move failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkMoveFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -354,12 +353,12 @@ export default function LocationsPage() {
     if (ids.length === 0) return;
     try {
       await api.put('/api/dashboard/locations/bulk-delete', { ids });
-      toast({ title: `Deleted ${ids.length} location${ids.length === 1 ? '' : 's'}` });
+      toast({ title: t.toast.bulkDeleted(ids.length) });
       setIsBulkDeleteOpen(false);
       setSelectedIds(new Set());
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Bulk delete failed', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.bulkDeleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -367,12 +366,12 @@ export default function LocationsPage() {
     if (!deletingLocation) return;
     try {
       await api.delete(`/api/dashboard/locations/${deletingLocation.id}`);
-      toast({ title: 'Location deleted' });
+      toast({ title: t.toast.deleted });
       setIsDeleteOpen(false);
       setDeletingLocation(null);
       fetchLocations();
     } catch (e: any) {
-      toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
+      toast({ title: t.toast.deleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -451,7 +450,7 @@ export default function LocationsPage() {
     try {
       await api.put('/api/dashboard/locations/reorder', { items });
     } catch {
-      toast({ title: 'Failed to reorder', variant: 'destructive' });
+      toast({ title: t.toast.reorderFailed, variant: 'destructive' });
       fetchLocations();
     }
   };
@@ -460,10 +459,10 @@ export default function LocationsPage() {
     const newActive = !(location.isActive ?? true);
     try {
       await api.put(`/api/dashboard/locations/${location.id}`, { isActive: newActive });
-      toast({ title: newActive ? 'Location visible on website' : 'Location hidden from website' });
+      toast({ title: newActive ? t.toast.shown : t.toast.hidden });
       fetchLocations();
     } catch {
-      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+      toast({ title: t.toast.visibilityFailed, variant: 'destructive' });
     }
   };
 
@@ -478,9 +477,9 @@ export default function LocationsPage() {
           count: boxCount,
         },
       });
-      toast({ title: 'Search configuration saved' });
+      toast({ title: t.toast.configSaved });
     } catch {
-      toast({ title: 'Failed to save configuration', variant: 'destructive' });
+      toast({ title: t.toast.configFailed, variant: 'destructive' });
     } finally {
       setSavingConfig(false);
     }
@@ -597,7 +596,7 @@ export default function LocationsPage() {
             <div>
               <p className="font-medium">{location.name.en}</p>
               {location.aliases?.length ? (
-                <p className="text-xs text-muted-foreground">also shown for: {location.aliases.join(', ')}</p>
+                <p className="text-xs text-muted-foreground">{t.alsoShownFor(location.aliases.join(', '))}</p>
               ) : null}
               {languages.filter((l) => l !== 'en' && location.name[l]).map((l) => (
                 <p key={l} className="text-xs text-muted-foreground">
@@ -608,7 +607,7 @@ export default function LocationsPage() {
           </div>
           <div className="flex items-center gap-4">
             <Badge variant="outline" className={levelColors[location.level]}>
-              {location.level}
+              {nameOf(t.levels, location.level)}
             </Badge>
             {(location.propertyCount ?? 0) > 0 ? (
               // Opens Properties filtered to this place and the places inside
@@ -619,14 +618,14 @@ export default function LocationsPage() {
                 className="text-sm text-primary underline-offset-4 hover:underline min-w-[80px] text-right"
                 data-testid="location-property-count"
               >
-                {location.propertyCount} {location.propertyCount === 1 ? 'property' : 'properties'}
+                {t.propertyCount(location.propertyCount ?? 0)}
               </a>
             ) : (
-              <span className="text-sm text-muted-foreground min-w-[80px] text-right">0 properties</span>
+              <span className="text-sm text-muted-foreground min-w-[80px] text-right">{t.propertyCount(0)}</span>
             )}
             <div
               className="flex items-center gap-1.5"
-              title={location.isActive !== false ? 'Visible on website' : 'Hidden from website'}
+              title={location.isActive !== false ? t.visibleOnWebsite : t.hiddenFromWebsite}
               onClick={(e) => e.stopPropagation()}
             >
               {location.isActive !== false ? (
@@ -649,23 +648,23 @@ export default function LocationsPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => openAdd(location.id, location.level)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add inside
+                  {t.addInside}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openEdit(location)}>
                   <Edit className="h-4 w-4 mr-2" />
-                  Edit
+                  {t.edit}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'move', id: location.id })}>
                   <MoveRight className="h-4 w-4 mr-2" />
-                  Move to…
+                  {t.moveTo}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'merge', id: location.id })}>
                   <Merge className="h-4 w-4 mr-2" />
-                  Merge into…
+                  {t.mergeInto}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => openDelete(location)}>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  {t.delete}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -719,15 +718,15 @@ export default function LocationsPage() {
     try {
       if (moveMerge.mode === 'merge') {
         await api.post(`/api/dashboard/locations/${moveMerge.id}/merge`, { targetId });
-        toast({ title: `Merged "${source?.name}" into "${target?.name}"` });
+        toast({ title: t.toast.mergedInto(source?.name ?? '', target?.name ?? '') });
       } else {
         await api.put(`/api/dashboard/locations/${moveMerge.id}`, { parentId: targetId });
-        toast({ title: `Moved "${source?.name}"`, description: target ? `Now inside ${target.path}` : 'Now at the top level' });
+        toast({ title: t.toast.moved(source?.name ?? ''), description: target ? t.toast.nowInside(target.path) : t.toast.nowTopLevel });
         if (targetId != null) setExpandedIds((prev) => new Set(prev).add(targetId));
       }
       fetchLocations();
     } catch (e: any) {
-      toast({ title: moveMerge.mode === 'merge' ? 'Could not merge' : 'Could not move', description: e.message, variant: 'destructive' });
+      toast({ title: moveMerge.mode === 'merge' ? t.toast.mergeFailed : t.toast.moveFailed, description: e.message, variant: 'destructive' });
       throw e;
     }
   };
@@ -739,17 +738,17 @@ export default function LocationsPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         {languages.map((lang) => (
           <div key={lang} className="space-y-2">
-            <Label>Name ({defaultLanguageNames[lang] || lang.toUpperCase()})</Label>
+            <Label>{t.nameIn(nameOf(t.langNames, lang, lang.toUpperCase()))}</Label>
             <Input placeholder={lang === 'en' ? 'Spain' : ''} value={form.names[lang] || ''} onChange={(e) => setForm({ ...form, names: { ...form.names, [lang]: e.target.value } })} />
           </div>
         ))}
       </div>
       <div className="space-y-2">
-        <Label>Slug</Label>
+        <Label>{t.slug}</Label>
         <Input placeholder="spain" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
       </div>
       <div className="space-y-2">
-        <Label>Other spellings <span className="text-xs text-muted-foreground font-normal">(optional, comma separated)</span></Label>
+        <Label>{t.otherSpellings} <span className="text-xs text-muted-foreground font-normal">{t.otherSpellingsHint}</span></Label>
         <Input
           placeholder="Malaga, Málaga City"
           value={form.aliases}
@@ -757,43 +756,42 @@ export default function LocationsPage() {
           data-testid="location-aliases"
         />
         <p className="text-xs text-muted-foreground">
-          When a visitor searches any of these names on your website, this location&apos;s properties are shown too.
+          {t.otherSpellingsHelp}
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Level</Label>
+        <Label>{t.level}</Label>
         <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             {levels.map((l) => (
-              <SelectItem key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</SelectItem>
+              <SelectItem key={l} value={l}>{t.levels[l]}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Latitude <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+          <Label>{t.latitude} <span className="text-xs text-muted-foreground font-normal">{t.optional}</span></Label>
           <Input inputMode="decimal" placeholder="36.60998" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
         </div>
         <div className="space-y-2">
-          <Label>Longitude <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+          <Label>{t.longitude} <span className="text-xs text-muted-foreground font-normal">{t.optional}</span></Label>
           <Input inputMode="decimal" placeholder="-4.50824" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
         </div>
         <p className="col-span-2 text-xs text-muted-foreground">
-          Where this place sits on the map. Listings with no coordinates of their own are shown here, so getting it
-          wrong (latitude and longitude the wrong way round, say) moves them to the other side of the world.
+          {t.coordsHelp}
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Parent Location <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+        <Label>{t.parentLocation} <span className="text-xs text-muted-foreground font-normal">{t.optional}</span></Label>
         <Select
           value={form.parentId == null ? 'none' : String(form.parentId)}
           onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? null : Number(v) })}
         >
-          <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder={t.noParent} /></SelectTrigger>
           <SelectContent className="max-h-72">
-            <SelectItem value="none">— No parent (top level) —</SelectItem>
+            <SelectItem value="none">{t.noParentOption}</SelectItem>
             {flatLocations
               .filter((l) => !editingLocation || l.id !== editingLocation.id)
               .map((l) => (
@@ -809,36 +807,36 @@ export default function LocationsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Locations</h1>
-          <p className="page-description mt-1">Manage your location hierarchy for property filtering</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <div className="flex gap-2">
           <SortOrderMenu endpoint="/api/dashboard/locations/sort" onSorted={() => fetchLocations()} />
           <SetupTransferMenu kind="locations" onImported={() => fetchLocations()} />
-          <Button variant="outline" size="sm" onClick={placeOnMap} disabled={isPlacingOnMap} title="Look each location up on the map and correct any that are in the wrong place">
+          <Button variant="outline" size="sm" onClick={placeOnMap} disabled={isPlacingOnMap} title={t.checkMapHint}>
             {isPlacingOnMap ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MapPin className="h-4 w-4 mr-2" />}
-            Check map positions
+            {t.checkMap}
           </Button>
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            AI Organize
+            {t.aiOrganize}
           </Button>
           <Button className="shadow-sm" onClick={() => openAdd()}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Location
+            {t.addLocation}
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-7">
         {[
-          ['Total', stats.total],
-          ['Regions', stats.regions],
-          ['Provinces', stats.provinces],
-          ['Areas', stats.areas],
-          ['Municipalities', stats.municipalities],
-          ['Towns', stats.towns],
-          ['Urbanizations', stats.urbanizations],
+          [t.stats.total, stats.total],
+          [t.stats.regions, stats.regions],
+          [t.stats.provinces, stats.provinces],
+          [t.stats.areas, stats.areas],
+          [t.stats.municipalities, stats.municipalities],
+          [t.stats.towns, stats.towns],
+          [t.stats.urbanizations, stats.urbanizations],
         ].map(([label, value]) => (
           <Card key={label as string}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -858,11 +856,11 @@ export default function LocationsPage() {
         <CardContent className="pt-6 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search locations..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder={t.searchPlaceholder} className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <Switch checked={hideEmpty} onCheckedChange={setHideEmpty} />
-            Hide locations with 0 properties
+            {t.hideEmpty}
           </label>
         </CardContent>
       </Card>
@@ -871,15 +869,15 @@ export default function LocationsPage() {
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-3 flex items-center justify-between gap-4">
             <div className="text-sm">
-              <strong>{selectedIds.size}</strong> location{selectedIds.size === 1 ? '' : 's'} selected
+              <strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
               <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>
-                Move under parent…
+                {t.moveUnderParent}
               </Button>
               <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Trash2 className="h-4 w-4 mr-1" /> {t.delete}
               </Button>
             </div>
           </CardContent>
@@ -891,7 +889,7 @@ export default function LocationsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FolderTree className="h-5 w-5" />
-              <CardTitle>Location Hierarchy</CardTitle>
+              <CardTitle>{t.hierarchy}</CardTitle>
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Checkbox
@@ -923,10 +921,10 @@ export default function LocationsPage() {
                   else setSelectedIds(new Set());
                 }}
               />
-              Select all visible
+              {t.selectAllVisible}
             </label>
           </div>
-          <CardDescription>Click the chevron to expand/collapse. Tick checkboxes to bulk-move or bulk-delete.</CardDescription>
+          <CardDescription>{t.hierarchyHelp}</CardDescription>
         </CardHeader>
         <CardContent>
           {api.isLoading && locations.length === 0 ? (
@@ -934,7 +932,7 @@ export default function LocationsPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : locations.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No locations yet. Click &quot;Add Location&quot; to create one.</p>
+            <p className="text-center py-8 text-muted-foreground">{t.empty}</p>
           ) : (
             <div className="space-y-1">
               {locations
@@ -954,13 +952,13 @@ export default function LocationsPage() {
             <div className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
               <div>
-                <CardTitle>Website Search Dropdowns</CardTitle>
-                <CardDescription>How many location dropdowns your website search shows, and which levels each one lists. Dropdown 2 lists places under what is picked in Dropdown 1, Dropdown 3 under Dropdown 2. Applies to every search design.</CardDescription>
+                <CardTitle>{t.dropdownsTitle}</CardTitle>
+                <CardDescription>{t.dropdownsText}</CardDescription>
               </div>
             </div>
             <Button size="sm" onClick={handleSaveSearchConfig} disabled={savingConfig}>
               {savingConfig ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Save
+              {t.save}
             </Button>
           </div>
         </CardHeader>
@@ -973,12 +971,12 @@ export default function LocationsPage() {
               return (
                 <div key={ddKey} className={cn('rounded-lg border p-4 space-y-3', shown ? '' : 'opacity-60')}>
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Dropdown {ddNum}</h4>
+                    <h4 className="font-medium text-sm">{t.dropdownN(ddNum)}</h4>
                     {ddIdx === 0 ? (
-                      <span className="text-xs text-muted-foreground">Always shown</span>
+                      <span className="text-xs text-muted-foreground">{t.alwaysShown}</span>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Label className="text-xs text-muted-foreground">Visible</Label>
+                        <Label className="text-xs text-muted-foreground">{t.visible}</Label>
                         <Switch
                           checked={shown}
                           // Dropdown 3 needs Dropdown 2: it lists places under it.
@@ -996,7 +994,7 @@ export default function LocationsPage() {
                           checked={dd.levels.includes(level)}
                           onCheckedChange={() => toggleDropdownLevel(ddKey, level)}
                         />
-                        <span className="text-sm capitalize">{level}</span>
+                        <span className="text-sm capitalize">{t.levels[level]}</span>
                       </label>
                     ))}
                   </div>
@@ -1011,15 +1009,15 @@ export default function LocationsPage() {
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
         <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
           <DialogHeader>
-            <DialogTitle>Add Location</DialogTitle>
-            <DialogDescription>Create a new location in the hierarchy</DialogDescription>
+            <DialogTitle>{t.addTitle}</DialogTitle>
+            <DialogDescription>{t.addDescription}</DialogDescription>
           </DialogHeader>
           {formFields}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleCreate} disabled={!form.names.en || !form.slug || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create
+              {t.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1029,15 +1027,15 @@ export default function LocationsPage() {
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingLocation(null); setForm(emptyForm); } }}>
         <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
           <DialogHeader>
-            <DialogTitle>Edit Location</DialogTitle>
-            <DialogDescription>Update the location details</DialogDescription>
+            <DialogTitle>{t.editTitle}</DialogTitle>
+            <DialogDescription>{t.editDescription}</DialogDescription>
           </DialogHeader>
           {formFields}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
             <Button onClick={handleUpdate} disabled={!form.names.en || !form.slug || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1055,18 +1053,18 @@ export default function LocationsPage() {
       <Dialog open={isBulkMoveOpen} onOpenChange={setIsBulkMoveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Move {selectedIds.size} location{selectedIds.size === 1 ? '' : 's'} under a parent</DialogTitle>
-            <DialogDescription>Pick a parent location. Selected items become its children. Choose &quot;No parent&quot; to move them back to the top level.</DialogDescription>
+            <DialogTitle>{t.bulkMoveTitle(selectedIds.size)}</DialogTitle>
+            <DialogDescription>{t.bulkMoveText}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
-            <Label>Parent Location</Label>
+            <Label>{t.parentLocation}</Label>
             <Select
               value={bulkParentId == null ? 'none' : String(bulkParentId)}
               onValueChange={(v) => setBulkParentId(v === 'none' ? null : Number(v))}
             >
-              <SelectTrigger><SelectValue placeholder="No parent (top level)" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t.noParent} /></SelectTrigger>
               <SelectContent className="max-h-72">
-                <SelectItem value="none">— No parent (top level) —</SelectItem>
+                <SelectItem value="none">{t.noParentOption}</SelectItem>
                 {flatLocations
                   .filter((l) => !selectedIds.has(l.id))
                   .map((l) => (<SelectItem key={l.id} value={String(l.id)}>{l.label}</SelectItem>))}
@@ -1074,8 +1072,8 @@ export default function LocationsPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>Cancel</Button>
-            <Button onClick={handleBulkMove}>Move {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}</Button>
+            <Button variant="outline" onClick={() => setIsBulkMoveOpen(false)}>{t.cancel}</Button>
+            <Button onClick={handleBulkMove}>{t.moveN(selectedIds.size)}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1084,15 +1082,15 @@ export default function LocationsPage() {
       <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} location{selectedIds.size === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogTitle>{t.bulkDeleteTitle(selectedIds.size)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Child locations will become top-level. Properties referencing these will have their location cleared. This action cannot be undone.
+              {t.bulkDeleteText}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete {selectedIds.size}
+              {t.deleteN(selectedIds.size)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1102,15 +1100,15 @@ export default function LocationsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Location</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingLocation?.name.en}&quot;? This will also delete all child locations. This action cannot be undone.
+              {t.deleteText(deletingLocation?.name.en ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

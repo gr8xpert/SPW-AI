@@ -4,28 +4,23 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import type { WidgetSettings } from './use-widget-settings';
 import { SortOptionsSettings } from './sort-options-settings';
+import { useLanguage } from '@/i18n/i18n-provider';
 import { CollapsibleRow, NumberChips, SettingBlock, SwitchRow } from './widget-ui';
+import { useSettingsText, type SettingsText } from '../_i18n';
 
 // Widget tab → Search: what the website's search offers.
 
-const LISTING_TYPES = [
-  { value: 'sale', label: 'Sale' },
-  { value: 'rent', label: 'Long-term Rent' },
-  { value: 'holiday_rent', label: 'Holiday Rent' },
-  { value: 'development', label: 'Development' },
-];
+// Labels: settingsText search.types / search.priceRows.
+const LISTING_TYPES = ['sale', 'rent', 'holiday_rent', 'development'] as const;
 
-const PRICE_ROWS: { key: string; label: string; hint?: string }[] = [
-  { key: 'sale', label: 'Sale' },
-  { key: 'development', label: 'New Development', hint: 'Empty uses the Sale prices' },
-  { key: 'rent', label: 'Long-term Rent' },
-  { key: 'holiday_rent', label: 'Holiday Rent' },
-];
+const PRICE_ROWS = ['sale', 'development', 'rent', 'holiday_rent'] as const;
 
-function countSummary(values: number[], unit: string, format: (n: number) => string): string {
-  if (!values.length) return `No ${unit}s`;
-  const range = values.length > 1 ? ` · ${format(values[0])} to ${format(values[values.length - 1])}` : ` · ${format(values[0])}`;
-  return `${values.length} ${unit}${values.length === 1 ? '' : 's'}${range}`;
+type SearchText = SettingsText['search'];
+
+function countSummary(values: number[], unit: 'value' | 'price', format: (n: number) => string, t: SearchText): string {
+  if (!values.length) return unit === 'value' ? t.noValues : t.noPrices;
+  const range = values.length > 1 ? ` · ${t.range(format(values[0]), format(values[values.length - 1]))}` : ` · ${format(values[0])}`;
+  return `${unit === 'value' ? t.values(values.length) : t.prices(values.length)}${range}`;
 }
 
 export function WidgetSearchSection({ widget }: { widget: WidgetSettings }) {
@@ -45,14 +40,16 @@ export function WidgetSearchSection({ widget }: { widget: WidgetSettings }) {
     minPrices,
     setMinPrices,
   } = widget;
+  const t = useSettingsText().search;
+  const { locale } = useLanguage();
   const plus = (n: number) => `${n}+`;
-  const money = (n: number) => n.toLocaleString();
+  const money = (n: number) => n.toLocaleString(locale);
 
   return (
     <div className="space-y-6">
-      <SettingBlock title="Listing Types" description="Which listing types the search offers. At least one must stay ticked.">
+      <SettingBlock title={t.listingTypes} description={t.listingTypesHelp}>
         <div className="flex flex-wrap gap-4">
-          {LISTING_TYPES.map(({ value, label }) => (
+          {LISTING_TYPES.map((value) => (
             <label key={value} className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
@@ -63,7 +60,7 @@ export function WidgetSearchSection({ widget }: { widget: WidgetSettings }) {
                 }}
                 className="h-4 w-4 rounded border-gray-300"
               />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{t.types[value]}</span>
             </label>
           ))}
         </div>
@@ -71,56 +68,51 @@ export function WidgetSearchSection({ widget }: { widget: WidgetSettings }) {
 
       <SwitchRow
         id="hide-empty-options"
-        title="Hide search options with no listings"
-        description="Locations, property types, statuses and features that would find nothing for the visitor's search disappear from the dropdowns as they search. Listing-type tabs always stay. Turn off to show everything."
+        title={t.hideEmpty}
+        description={t.hideEmptyHelp}
         checked={hideEmptySearchOptions}
         onCheckedChange={setHideEmptySearchOptions}
       />
 
       <SortOptionsSettings value={sortOptions} onChange={setSortOptions} />
 
-      <SettingBlock title="Bedrooms & Bathrooms" description={'Values in the bedrooms and bathrooms dropdowns/buttons. Each value means "X or more".'}>
+      <SettingBlock title={t.bedsBaths} description={t.bedsBathsHelp}>
         <div className="space-y-2">
-          <CollapsibleRow title="Bedrooms" summary={countSummary(bedroomOptions, 'value', plus)}>
+          <CollapsibleRow title={t.bedrooms} summary={countSummary(bedroomOptions, 'value', plus, t)}>
             <NumberChips values={bedroomOptions} onChange={setBedroomOptions} format={plus} max={20} />
           </CollapsibleRow>
-          <CollapsibleRow title="Bathrooms" summary={countSummary(bathroomOptions, 'value', plus)}>
+          <CollapsibleRow title={t.bathrooms} summary={countSummary(bathroomOptions, 'value', plus, t)}>
             <NumberChips values={bathroomOptions} onChange={setBathroomOptions} format={plus} max={20} />
           </CollapsibleRow>
         </div>
       </SettingBlock>
 
       <SettingBlock
-        title="Prices"
-        description={
-          <>
-            The price dropdown values per listing type; the search shows the right list for the chosen type.
-            &ldquo;Hide properties below&rdquo; keeps cheaper listings of that type off your website altogether (search,
-            lists, map, carousels, AI chat); properties without a price still show.
-          </>
-        }
+        title={t.pricesTitle}
+        description={t.pricesHelp}
       >
         <div className="space-y-2">
-          {PRICE_ROWS.map(({ key, label, hint }) => {
+          {PRICE_ROWS.map((key) => {
+            const hint = key === 'development' ? t.developmentHint : undefined;
             const values = priceOptions[key] || [];
             const floor = minPrices[key] > 0 ? minPrices[key] : 0;
-            const summary = `${values.length === 0 && hint ? hint : countSummary(values, 'price', money)} · Hide below: ${floor ? money(floor) : 'none'}`;
+            const summary = `${values.length === 0 && hint ? hint : countSummary(values, 'price', money, t)} · ${t.hideBelowSummary(floor ? money(floor) : t.none)}`;
             return (
-              <CollapsibleRow key={key} title={label} summary={summary}>
+              <CollapsibleRow key={key} title={t.priceRows[key]} summary={summary}>
                 <NumberChips
                   values={values}
                   onChange={(next) => setPriceOptions({ ...priceOptions, [key]: next })}
-                  placeholder="Add price"
+                  placeholder={t.addPrice}
                 />
                 <div className="flex items-center gap-2">
                   <Label htmlFor={`min-price-${key}`} className="text-xs font-normal text-muted-foreground">
-                    Hide properties below
+                    {t.hideBelow}
                   </Label>
                   <Input
                     id={`min-price-${key}`}
                     type="number"
                     min={0}
-                    placeholder="No minimum"
+                    placeholder={t.noMinimum}
                     className="h-8 w-32 text-sm"
                     value={floor || ''}
                     onChange={(e) => {

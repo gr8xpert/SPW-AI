@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PhotoUpload } from '@/components/photo-upload';
 import { useToast } from '@/hooks/use-toast';
 import { initialsOf, useCreateAgent, useUpdateAgent, type Agent, type AgentAccess, type AgentInput } from '@/hooks/use-agents';
+import { useTeamText } from '../_i18n';
 
 interface FormState {
   name: string;
@@ -37,18 +38,16 @@ const fromAgent = (a: Agent): FormState => ({
   password: '', worksBuyers: a.worksBuyers, showOnWebsite: a.showOnWebsite, isActive: a.isActive,
 });
 
-export const ACCESS_LABELS: Record<AgentAccess, string> = { manager: 'Manager', agent: 'Agent', none: 'No login' };
-const ACCESS_HELP: Record<AgentAccess, string> = {
-  manager: 'Logs in to the dashboard and sees everything, including settings and every buyer.',
-  agent: 'Logs in to the dashboard and works their own buyers.',
-  none: 'Cannot log in. Only shown on the website (for example a receptionist). Does not take a seat.',
-};
+// Access levels in the order the picker shows them (labels in _i18n).
+const ACCESS_ORDER: AgentAccess[] = ['manager', 'agent', 'none'];
 
-const CARD_FIELDS: { key: 'title' | 'phone' | 'whatsapp' | 'publicEmail'; label: string; placeholder: string; type?: string }[] = [
-  { key: 'title', label: 'Job title', placeholder: 'Sales Agent' },
-  { key: 'phone', label: 'Phone', placeholder: '+34 952 000 000' },
-  { key: 'whatsapp', label: 'WhatsApp number', placeholder: '+34 600 000 000' },
-  { key: 'publicEmail', label: 'Email shown on the website', placeholder: 'name@your-agency.com', type: 'email' },
+// Card fields. Labels and the job-title/email examples come from _i18n; the
+// phone examples are the same in every language.
+const CARD_FIELDS: { key: 'title' | 'phone' | 'whatsapp' | 'publicEmail'; placeholder?: string; type?: string }[] = [
+  { key: 'title' },
+  { key: 'phone', placeholder: '+34 952 000 000' },
+  { key: 'whatsapp', placeholder: '+34 600 000 000' },
+  { key: 'publicEmail', type: 'email' },
 ];
 
 // Add or edit a person on the Agents page. `agent` null = add.
@@ -64,6 +63,7 @@ export function AgentDialog({
   selfId: number | null;
 }) {
   const { toast } = useToast();
+  const t = useTeamText();
   const create = useCreateAgent();
   const update = useUpdateAgent();
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -101,10 +101,10 @@ export function AgentDialog({
     try {
       if (agent) await update.mutateAsync({ id: agent.id, input });
       else await create.mutateAsync(input);
-      toast({ title: agent ? 'Agent saved' : 'Agent added' });
+      toast({ title: agent ? t.agentSaved : t.agentAdded });
       onOpenChange(false);
     } catch (e) {
-      toast({ title: 'Could not save', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: t.saveFailed, description: (e as Error).message, variant: 'destructive' });
     }
   };
 
@@ -112,9 +112,9 @@ export function AgentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl" data-testid="agent-dialog">
         <DialogHeader>
-          <DialogTitle>{agent ? 'Edit agent' : 'Add agent'}</DialogTitle>
+          <DialogTitle>{agent ? t.editAgent : t.addAgent}</DialogTitle>
           <DialogDescription>
-            One list for your website and your buyers. Tick where this person appears.
+            {t.dialogDescription}
           </DialogDescription>
         </DialogHeader>
 
@@ -123,17 +123,17 @@ export function AgentDialog({
             <PhotoUpload value={form.avatarUrl} onChange={(url) => set('avatarUrl', url)} initials={initialsOf(form.name)} />
             <div className="grid flex-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
-                <Label htmlFor="agent-name">Name *</Label>
-                <Input id="agent-name" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Full name" />
+                <Label htmlFor="agent-name">{t.name}</Label>
+                <Input id="agent-name" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={t.namePlaceholder} />
               </div>
               {CARD_FIELDS.map((f) => (
                 <div key={f.key} className="space-y-1">
-                  <Label htmlFor={`agent-${f.key}`} className="font-normal">{f.label}</Label>
+                  <Label htmlFor={`agent-${f.key}`} className="font-normal">{t.fields[f.key].label}</Label>
                   <Input
                     id={`agent-${f.key}`}
                     type={f.type ?? 'text'}
                     value={form[f.key]}
-                    placeholder={f.placeholder}
+                    placeholder={f.key === 'title' ? t.fields.title.placeholder : f.key === 'publicEmail' ? t.emailPlaceholder : f.placeholder}
                     onChange={(e) => set(f.key, e.target.value)}
                   />
                 </div>
@@ -142,73 +142,71 @@ export function AgentDialog({
           </div>
 
           <div className="space-y-3 rounded-md border p-4">
-            <p className="text-sm font-medium">Where they appear</p>
+            <p className="text-sm font-medium">{t.whereTheyAppear}</p>
             <label className="flex items-start justify-between gap-4">
               <span>
-                <span className="block text-sm">Works with buyers</span>
+                <span className="block text-sm">{t.worksWithBuyers}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {login
-                    ? 'Can be given buyers and is in the website round-robin (Buyers → Settings).'
-                    : 'Needs a dashboard login.'}
+                  {login ? t.worksWithBuyersHelp : t.needsLogin}
                 </span>
               </span>
               <Switch
                 checked={login && form.worksBuyers}
                 disabled={!login}
                 onCheckedChange={(v) => set('worksBuyers', v)}
-                aria-label="Works with buyers"
+                aria-label={t.worksWithBuyers}
               />
             </label>
             <label className="flex items-start justify-between gap-4">
               <span>
-                <span className="block text-sm">Show on website</span>
+                <span className="block text-sm">{t.showOnWebsite}</span>
                 <span className="block text-xs text-muted-foreground">
-                  Can be picked as a property&apos;s agent, and their card (photo, name, title, phone, WhatsApp, email) shows on that property page.
+                  {t.showOnWebsiteHelp}
                 </span>
               </span>
-              <Switch checked={form.showOnWebsite} onCheckedChange={(v) => set('showOnWebsite', v)} aria-label="Show on website" />
+              <Switch checked={form.showOnWebsite} onCheckedChange={(v) => set('showOnWebsite', v)} aria-label={t.showOnWebsite} />
             </label>
           </div>
 
           <div className="space-y-3 rounded-md border p-4">
             <div className="space-y-1">
-              <Label>Dashboard access</Label>
+              <Label>{t.dashboardAccess}</Label>
               <Select value={form.access} onValueChange={(v) => set('access', v as AgentAccess)} disabled={isSelf}>
-                <SelectTrigger aria-label="Dashboard access"><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label={t.dashboardAccess}><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(ACCESS_LABELS) as AgentAccess[]).map((a) => (
-                    <SelectItem key={a} value={a}>{ACCESS_LABELS[a]}</SelectItem>
+                  {ACCESS_ORDER.map((a) => (
+                    <SelectItem key={a} value={a}>{t.access[a]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">{isSelf ? 'You cannot change your own access.' : ACCESS_HELP[form.access]}</p>
+              <p className="text-xs text-muted-foreground">{isSelf ? t.ownAccess : t.accessHelp[form.access]}</p>
             </div>
             {login && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label htmlFor="agent-email" className="font-normal">Login email{newLogin ? ' *' : ''}</Label>
-                  <Input id="agent-email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@your-agency.com" />
+                  <Label htmlFor="agent-email" className="font-normal">{t.loginEmail}{newLogin ? ' *' : ''}</Label>
+                  <Input id="agent-email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder={t.emailPlaceholder} />
                 </div>
                 {newLogin && (
                   <div className="space-y-1">
-                    <Label htmlFor="agent-password" className="font-normal">Password *</Label>
-                    <Input id="agent-password" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} placeholder="At least 8 characters" />
+                    <Label htmlFor="agent-password" className="font-normal">{t.password}</Label>
+                    <Input id="agent-password" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} placeholder={t.passwordPlaceholder} />
                   </div>
                 )}
               </div>
             )}
             {agent && !isSelf && (
               <label className="flex items-center justify-between gap-4">
-                <span className="text-sm">Active</span>
-                <Switch checked={form.isActive} onCheckedChange={(v) => set('isActive', v)} aria-label="Active" />
+                <span className="text-sm">{t.active}</span>
+                <Switch checked={form.isActive} onCheckedChange={(v) => set('isActive', v)} aria-label={t.active} />
               </label>
             )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !canSave}>{saving ? 'Saving…' : agent ? 'Save' : 'Add agent'}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t.cancel}</Button>
+          <Button onClick={save} disabled={saving || !canSave}>{saving ? t.saving : agent ? t.save : t.addAgent}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

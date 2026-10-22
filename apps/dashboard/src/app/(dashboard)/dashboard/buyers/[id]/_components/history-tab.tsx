@@ -8,6 +8,7 @@ import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { useBuyerChanges, type ChangeEntry } from '../../use-buyer-match';
 import { useBuyerQuestions } from '../../use-buyer-follow-up';
 import { nameOf } from '../../use-buyer-match';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 const PAGE = 50;
 
@@ -62,7 +63,7 @@ export function HistoryTab({ buyerId }: { buyerId: number }) {
               <li key={e.id} className="grid gap-2 p-3 text-sm sm:grid-cols-[180px_1fr]" data-change={e.id}>
                 <div className="text-muted-foreground">
                   <div className="font-medium text-foreground">{who(e)}</div>
-                  <div className="tabular-nums text-xs">{new Date(e.createdAt).toLocaleString()}</div>
+                  <div className="tabular-nums text-xs">{new Date(e.createdAt).toLocaleString(dashboardLocale())}</div>
                 </div>
                 <ul className="space-y-1">
                   {e.changes.map((c, i) =>

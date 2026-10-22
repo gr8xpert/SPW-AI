@@ -8,7 +8,7 @@ import { p, steps, terms, tip, warn, type GuideSection } from './guide-types';
 export const BASICS: GuideSection[] = [
   {
     id: 'what',
-    group: 'Getting started',
+    group: 'start',
     title: 'What is Buyer Match?',
     icon: Info,
     summary: 'A smart notebook for your buyers that finds the right homes for them.',
@@ -16,18 +16,18 @@ export const BASICS: GuideSection[] = [
       p('Think of Buyer Match as a notebook for every person who wants to buy (or rent) a property from you. For each person you write down who they are and what they are looking for.'),
       p('Then the computer does the boring part. It looks at every property on your website and shows you the ones that fit each buyer. You pick the best ones and send them by email in one click.'),
       p('The buyer gets a private web page with those properties. They can press "like", "not for me" or "I want to see it". You see every click, so you know who is really interested.'),
-      tip('Buyers who send an enquiry from your website are added for you. You do not have to type them in.'),
+      tip('People who fill in a form on your website arrive on New Leads (left menu). Give each one a role there and they join your Contacts. You do not have to type them in.'),
     ],
   },
   {
     id: 'quick-start',
-    group: 'Getting started',
+    group: 'start',
     title: 'Quick start in 5 steps',
     icon: Rocket,
     summary: 'The shortest way from a new buyer to a sent email.',
     blocks: [
       steps(
-        'Go to the Buyers tab and press "New buyer". Type a name and an email address, then press "Add buyer".',
+        'Go to the Contacts tab and press "New contact". Type a name and an email address, then press "Add contact".',
         'Open the buyer and go to the Wishlist tab. Choose what they want: rent or buy, the towns, the type of home and the budget. Press "Save wishlist".',
         'Open the Matched tab. You now see every property that fits, the best ones at the top.',
         'Tick the properties you like and press "Send selected". Check the email preview and press "Send email".',
@@ -38,7 +38,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'words',
-    group: 'Getting started',
+    group: 'start',
     title: 'Words you will see',
     icon: FileText,
     summary: 'A tiny dictionary of the words used in Buyer Match.',
@@ -46,7 +46,7 @@ export const BASICS: GuideSection[] = [
       terms(
         ['Buyer', 'Any person in your list. It can also be a seller, landlord, tenant or another agent: the "Contact type" says which.'],
         ['Agent', 'The person in your team who looks after this buyer. "Related agents" are colleagues who help.'],
-        ['Stage', 'How far the buyer is, like "New lead", "Viewing" or "Won". Stages are the columns of the Board.'],
+        ['Stage', 'How far the buyer is, like "New", "Viewing" or "Won". Stages are the columns of the Board.'],
         ['Wishlist', 'What the buyer is looking for.'],
         ['Must-haves', 'The four things a property must match: listing type, area, property type and budget.'],
         ['Wishes', 'Nice-to-haves like bedrooms, size, pool or sea views. They raise the score but never hide a property.'],
@@ -59,13 +59,13 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'list',
-    group: 'Your buyers',
-    title: 'The Buyers list',
+    group: 'buyers',
+    title: 'The Contacts list',
     icon: Users,
     summary: 'Find any buyer fast with search, filters and sorting.',
-    link: { href: '/dashboard/buyers', label: 'Open the Buyers list' },
+    link: { href: '/dashboard/buyers', label: 'Open the Contacts list' },
     blocks: [
-      p('The Buyers tab shows everyone you can see. Each card has the name, contact type, email, agent, stage, stars and when something last happened.'),
+      p('The Contacts tab shows everyone you can see. Each card has the name, contact type, email, agent, stage, stars and when something last happened.'),
       terms(
         ['Search', 'Type part of a name, email or phone number.'],
         ['Filters', 'Show only one contact type, one agent, one stage, a priority, a source or an answer to one of your questions. Press "Clear" to see everyone again.'],
@@ -80,13 +80,13 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'new-buyer',
-    group: 'Your buyers',
+    group: 'buyers',
     title: 'Adding a buyer',
     icon: Contact,
     summary: 'By hand, from your website, from Facebook ads or from an Odoo file.',
     blocks: [
       terms(
-        ['By hand', 'Press "New buyer", type the name and email, choose the contact type and agent. One email address = one buyer, so you cannot add the same person twice.'],
+        ['By hand', 'Press "New contact", type the name and email, choose the contact type and agent. One email address = one buyer, so you cannot add the same person twice.'],
         ['From your website', 'Enquiries, the wishlist form and "email my favourites" create or update a buyer by themselves.'],
         ['From Facebook and Instagram ads', 'Lead forms from your ads come in every 15 minutes once a manager connects them in Settings.'],
         ['From Odoo', 'Managers can bring all their old buyers across with the Import tab.'],
@@ -96,7 +96,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'record',
-    group: 'One buyer',
+    group: 'one',
     title: "A buyer's record",
     icon: Star,
     summary: 'The top of the page: type, stage, stars, agent, WhatsApp and Privacy.',
@@ -116,7 +116,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'details',
-    group: 'One buyer',
+    group: 'one',
     title: 'Details tab',
     icon: ListChecks,
     summary: 'Contact details, photo, your own questions, ID and deal information.',
@@ -133,7 +133,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'wishlist',
-    group: 'One buyer',
+    group: 'one',
     title: 'Wishlist: what the buyer wants',
     icon: Heart,
     summary: 'Must-haves decide if a property fits. Wishes decide how well.',
@@ -154,7 +154,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'matched',
-    group: 'One buyer',
+    group: 'one',
     title: 'Matched and Near misses',
     icon: Target,
     summary: 'The properties that fit, best first, and the ones that almost fit.',
@@ -170,7 +170,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'suggested',
-    group: 'One buyer',
+    group: 'one',
     title: 'Suggested properties',
     icon: Sparkles,
     summary: 'Your hand-picked shortlist for this buyer.',
@@ -189,13 +189,13 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'sending',
-    group: 'One buyer',
+    group: 'one',
     title: 'Sending properties by email',
     icon: Mail,
     summary: 'A branded email in the buyer\'s language, with their private page.',
     blocks: [
       steps(
-        'Select properties in Matched or Suggested and press "Send".',
+        'Select properties in Matched or Suggested and press "Send selected".',
         'Choose who gets it: the buyer, the agent, or both.',
         'Pick the language and add a personal message if you like ("Write with AI" can write one for you).',
         'Look at the preview, then press "Send email".',
@@ -207,7 +207,7 @@ export const BASICS: GuideSection[] = [
   },
   {
     id: 'ai',
-    group: 'One buyer',
+    group: 'one',
     title: 'AI helpers',
     icon: Search,
     summary: 'Let AI read messages, write notes and spot patterns. You always check first.',

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, hasPrice } from '@/lib/utils';
+import { useCommonText } from '@/i18n/common';
 
 // The property table of the Properties page, shared with Buyer Match
 // (Matched / Suggested). Pick the columns, add your own before the actions,
@@ -32,18 +33,6 @@ export interface PropertyRow {
 
 export type PropertyColumn = 'image' | 'reference' | 'type' | 'title' | 'location' | 'price' | 'bedsBaths' | 'beds' | 'baths' | 'sizes';
 
-const DEFAULT_HEADERS: Record<PropertyColumn, string> = {
-  image: 'Image',
-  reference: 'Reference',
-  type: 'Type',
-  title: 'Title',
-  location: 'Location',
-  price: 'Price',
-  bedsBaths: 'Beds/Baths',
-  beds: 'Beds',
-  baths: 'Baths',
-  sizes: 'Build / plot',
-};
 
 export interface ExtraColumn<T> {
   key: string;
@@ -77,11 +66,12 @@ export function displayName(name: Named): string {
   return name.en || Object.values(name).find(Boolean) || '';
 }
 
-export function formatRowPrice(row: Pick<PropertyRow, 'price' | 'priceTo' | 'currency' | 'rentalPeriod'>, onRequest = 'POA'): string {
+// periods: the rental period words (week / month / night) in the dashboard language.
+export function formatRowPrice(row: Pick<PropertyRow, 'price' | 'priceTo' | 'currency' | 'rentalPeriod'>, onRequest = 'POA', periods?: Record<string, string>): string {
   if (!hasPrice(row.price)) return onRequest;
   const from = formatCurrency(Number(row.price), row.currency);
   const to = Number(row.priceTo) > Number(row.price) ? ` – ${formatCurrency(Number(row.priceTo), row.currency)}` : '';
-  return `${from}${to}${row.rentalPeriod ? ` / ${row.rentalPeriod}` : ''}`;
+  return `${from}${to}${row.rentalPeriod ? ` / ${periods?.[row.rentalPeriod] ?? row.rentalPeriod}` : ''}`;
 }
 
 function range(from: number | null | undefined, to: number | null | undefined): string {
@@ -100,11 +90,12 @@ export function PropertyRowsTable<T extends PropertyRow>({
   extra = [],
   actions,
   selection,
-  noImage = 'No image',
+  noImage,
   titleExtra,
   rowClassName,
 }: Props<T>) {
-  const head = { ...DEFAULT_HEADERS, ...headers };
+  const tc = useCommonText().table;
+  const head: Record<PropertyColumn, string> = { ...tc, ...headers };
   const allIds = rows.map((r) => r.id);
   const allTicked = !!selection && allIds.length > 0 && allIds.every((id) => selection.selected.has(id));
   const toggle = (id: number) => {
@@ -132,7 +123,7 @@ export function PropertyRowsTable<T extends PropertyRow>({
             {row.image ? (
               <img src={row.image} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">{noImage}</div>
+              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">{noImage ?? tc.noImage}</div>
             )}
           </div>
         );
@@ -150,7 +141,7 @@ export function PropertyRowsTable<T extends PropertyRow>({
       case 'location':
         return displayName(row.location?.name) || '-';
       case 'price':
-        return <span className="whitespace-nowrap">{formatRowPrice(row)}</span>;
+        return <span className="whitespace-nowrap">{formatRowPrice(row, tc.poa, tc.periods)}</span>;
       case 'bedsBaths':
         return `${row.bedrooms || '-'} / ${row.bathrooms || '-'}`;
       case 'beds':

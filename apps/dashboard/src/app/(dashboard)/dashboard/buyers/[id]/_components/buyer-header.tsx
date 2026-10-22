@@ -17,6 +17,7 @@ import {
 import { BuyerAvatar, PriorityStars } from '../../_components/buyer-bits';
 import { FilterSelect } from '../../_components/filter-select';
 import { PrivacyMenu } from './privacy-menu';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 export function BuyerHeader({ buyer }: { buyer: Buyer }) {
   const t = useBuyerText();
@@ -71,7 +72,7 @@ export function BuyerHeader({ buyer }: { buyer: Buyer }) {
                 </span>
               ) : null}
               {buyer.unsubscribedAt && !buyer.erasedAt ? (
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300" data-testid="badge-unsubscribed" title={t.privacy.unsubscribedOn(new Date(buyer.unsubscribedAt).toLocaleDateString())}>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300" data-testid="badge-unsubscribed" title={t.privacy.unsubscribedOn(new Date(buyer.unsubscribedAt).toLocaleDateString(dashboardLocale()))}>
                   {t.privacy.unsubscribed}
                 </span>
               ) : null}

@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import { RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/i18n/i18n-provider';
 import type { CacheSettings } from './use-api-key-cache';
+import { useSettingsText } from '../_i18n';
 
 export function CacheTab({ cache }: { cache: CacheSettings }) {
   const {
@@ -13,31 +15,30 @@ export function CacheTab({ cache }: { cache: CacheSettings }) {
     clearingCache,
     onClearCache,
   } = cache;
+  const st = useSettingsText();
+  const t = st.cache;
+  const { locale } = useLanguage();
 
   return (
     <TabsContent value="cache">
       <Card>
         <CardHeader>
-          <CardTitle>Widget Cache</CardTitle>
-          <CardDescription>
-            Clear the cache on your live widget and WordPress plugin. Run
-            this after updating properties or settings if the changes
-            haven&apos;t reached your site yet.
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-medium">Current sync version</p>
+                <p className="font-medium">{t.currentVersion}</p>
                 <p className="text-sm text-muted-foreground">
                   {syncVersion === null
-                    ? 'Loading…'
-                    : `v${syncVersion} — downstream widgets invalidate their local cache when this number changes`}
+                    ? st.common.loading
+                    : t.versionText(syncVersion)}
                 </p>
                 {lastClearedAt && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Last cleared: {new Date(lastClearedAt).toLocaleString()}
+                    {t.lastCleared(new Date(lastClearedAt).toLocaleString(locale))}
                   </p>
                 )}
               </div>
@@ -49,15 +50,12 @@ export function CacheTab({ cache }: { cache: CacheSettings }) {
                 <RefreshCw
                   className={`h-4 w-4 mr-2 ${clearingCache ? 'animate-spin' : ''}`}
                 />
-                {clearingCache ? 'Clearing…' : 'Clear widget cache'}
+                {clearingCache ? t.clearing : t.clear}
               </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Replaces the old manual cache-clear PHP script. Widgets that
-            poll <code>/api/v1/sync-meta</code> refresh on their next tick
-            (within ~1 minute); webhook-subscribed integrations refresh
-            immediately.
+            {t.footerBefore} <code>/api/v1/sync-meta</code> {t.footerAfter}
           </p>
         </CardContent>
       </Card>

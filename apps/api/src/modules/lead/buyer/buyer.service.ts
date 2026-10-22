@@ -90,7 +90,9 @@ export class BuyerService {
       .leftJoinAndSelect('lead.stage', 'stage')
       // Erased buyers keep an anonymous row for Reports only; they leave the
       // list, the board and the export.
-      .andWhere('lead.erasedAt IS NULL');
+      .andWhere('lead.erasedAt IS NULL')
+      // New website leads wait on New Leads until they get a role.
+      .andWhere('lead.isNewLead = 0');
 
     if (dto.q) {
       qb.andWhere(
@@ -194,6 +196,9 @@ export class BuyerService {
       .andWhere('lead.mergedIntoId IS NULL')
       .andWhere('contact.email = :email', { email: dto.email })
       .getOne();
+    if (existing?.isNewLead) {
+      throw new ConflictException({ code: 'NEW_LEAD_EXISTS', details: { id: existing.id }, message: 'This person is waiting on New Leads: give them a role there' });
+    }
     if (existing) {
       throw new ConflictException({ code: 'BUYER_EXISTS', details: { id: existing.id }, message: 'A buyer with this email already exists' });
     }

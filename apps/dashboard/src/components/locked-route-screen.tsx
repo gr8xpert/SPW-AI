@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock, Sparkles } from 'lucide-react';
+import { useSharedText } from '@/i18n/shared';
 
 interface LockedRouteScreenProps {
   featureName: string;
@@ -18,6 +19,7 @@ export function LockedRouteScreen({
   featureName,
   description,
 }: LockedRouteScreenProps) {
+  const t = useSharedText().locked;
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
       <Card className="w-full max-w-md">
@@ -27,22 +29,21 @@ export function LockedRouteScreen({
           </div>
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">
-              {featureName} is locked
+              {t.title(featureName)}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {description ??
-                `${featureName} is available as a paid add-on. Contact your account manager to enable it for this client.`}
+              {description ?? t.description(featureName)}
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
             <Button asChild>
               <Link href="/dashboard/billing">
                 <Sparkles className="mr-2 h-4 w-4" />
-                View plans
+                {t.viewPlans}
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/dashboard">Back to dashboard</Link>
+              <Link href="/dashboard">{t.backToDashboard}</Link>
             </Button>
           </div>
         </CardContent>

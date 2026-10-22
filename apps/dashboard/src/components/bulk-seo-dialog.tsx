@@ -16,20 +16,40 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useBulkJob } from '@/hooks/use-bulk-job';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useSharedText } from '@/i18n/shared';
 
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French',
-  nl: 'Dutch', pt: 'Portuguese', it: 'Italian', ru: 'Russian',
-  sv: 'Swedish', no: 'Norwegian', da: 'Danish', pl: 'Polish',
-  cs: 'Czech', fi: 'Finnish', ar: 'Arabic', zh: 'Chinese',
-  ja: 'Japanese', ko: 'Korean',
-};
+// A language code's name in the dashboard language ("Spanish", "Spaans"…),
+// or the code itself when the browser doesn't know it.
+function languageName(code: string, locale: string): string {
+  try {
+    const name = new Intl.DisplayNames([locale], { type: 'language' }).of(code);
+    if (name && name !== code) return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
+  } catch {
+    // unknown code or no Intl.DisplayNames
+  }
+  return code.toUpperCase();
+}
+
+// Fills {properties} and {calls} in the estimate line with bold numbers.
+function withBold(template: string, values: Record<string, string>) {
+  return template.split(/(\{\w+\})/).map((part, i) => {
+    const key = part.match(/^\{(\w+)\}$/)?.[1];
+    return key && key in values ? (
+      <span key={i} className="font-medium">{values[key]}</span>
+    ) : (
+      part
+    );
+  });
+}
 
 // Catalog-wide AI SEO. The per-property button on the edit screen covers one
 // listing at a time; this is the same generator driven from a background job so
 // a few thousand properties can be filled in one go.
 export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }) {
   const { toast } = useToast();
+  const t = useSharedText().bulkSeo;
+  const { locale } = useLanguage();
   const [open, setOpen] = useState(false);
   const [languages, setLanguages] = useState<string[]>(tenantLanguages);
   const [overwrite, setOverwrite] = useState(false);
@@ -47,8 +67,8 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
       const skipped = s.skipped ?? 0;
       const generated = s.completed - s.failed - skipped;
       toast({
-        title: s.failed > 0 ? 'Bulk SEO finished with errors' : 'Bulk SEO complete',
-        description: `${generated} generated, ${skipped} already had SEO, ${s.failed} failed out of ${s.total}.`,
+        title: s.failed > 0 ? t.finishedWithErrors : t.complete,
+        description: t.summary(generated, skipped, s.failed, s.total),
         variant: s.failed > 0 ? 'destructive' : 'default',
       });
     },
@@ -82,7 +102,7 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
 
   const start = async () => {
     if (languages.length === 0) {
-      toast({ title: 'Pick at least one language', variant: 'destructive' });
+      toast({ title: t.pickLanguage, variant: 'destructive' });
       return;
     }
 
@@ -96,26 +116,25 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
       });
       const body = res?.data ?? res;
       const jobId = body?.jobId;
-      if (!jobId) throw new Error('No job ID returned');
+      if (!jobId) throw new Error(t.noJobId);
 
       track(jobId);
       setOpen(false);
       toast(
         body.alreadyRunning
           ? {
-              title: 'Bulk SEO is already running',
-              description: 'Showing the progress of the run in flight — no second run was started.',
+              title: t.alreadyRunning,
+              description: t.alreadyRunningText,
             }
           : {
-              title: 'Bulk SEO started',
-              description:
-                'Running in the background. You can leave this page — progress shows on the button.',
+              title: t.started,
+              description: t.startedText,
             },
       );
     } catch (err) {
       toast({
-        title: 'Bulk SEO failed to start',
-        description: (err as Error).message || 'Unexpected error',
+        title: t.startFailed,
+        description: (err as Error).message || t.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -129,12 +148,12 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
         {running ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            SEO {progress}%
+            {t.running(progress)}
           </>
         ) : (
           <>
             <Sparkles className="h-4 w-4 mr-2" />
-            Bulk SEO
+            {t.button}
           </>
         )}
       </Button>
@@ -142,16 +161,13 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Generate SEO with AI</DialogTitle>
-            <DialogDescription>
-              Fills page title, meta title, meta description and keywords across your whole
-              catalog. Runs in the background on your OpenRouter credit.
-            </DialogDescription>
+            <DialogTitle>{t.title}</DialogTitle>
+            <DialogDescription>{t.description}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 py-2">
             <div className="space-y-2">
-              <Label>Languages</Label>
+              <Label>{t.languages}</Label>
               <div className="flex flex-wrap gap-2">
                 {tenantLanguages.map((lang) => {
                   const active = languages.includes(lang);
@@ -166,7 +182,7 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
                           : 'border-input text-muted-foreground hover:bg-muted'
                       }`}
                     >
-                      {LANG_NAMES[lang] || lang.toUpperCase()}
+                      {languageName(lang, locale)}
                     </button>
                   );
                 })}
@@ -182,12 +198,9 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
                 />
                 <div className="grid gap-0.5 leading-none">
                   <Label htmlFor="seo-overwrite" className="cursor-pointer">
-                    Overwrite existing SEO
+                    {t.overwrite}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Off: properties that already have SEO in a language are skipped, and cost
-                    nothing. On: everything is regenerated, including anything written by hand.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t.overwriteHelp}</p>
                 </div>
               </div>
 
@@ -199,12 +212,9 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
                 />
                 <div className="grid gap-0.5 leading-none">
                   <Label htmlFor="seo-schema" className="cursor-pointer">
-                    Generate JSON-LD schema
+                    {t.schema}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Adds one extra AI call per property. Only needed if you want custom schema
-                    instead of the one built automatically from the property&apos;s fields.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t.schemaHelp}</p>
                 </div>
               </div>
 
@@ -216,28 +226,26 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
                 />
                 <div className="grid gap-0.5 leading-none">
                   <Label htmlFor="seo-slug" className="cursor-pointer">
-                    Fill empty slugs
+                    {t.slug}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Only writes a slug where there isn&apos;t one. Existing slugs are live URLs
-                    and are never rewritten.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t.slugHelp}</p>
                 </div>
               </div>
             </div>
 
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
               {propertyCount === null ? (
-                <span className="text-muted-foreground">Counting properties…</span>
+                <span className="text-muted-foreground">{t.counting}</span>
               ) : (
                 <>
-                  <span className="font-medium">{propertyCount.toLocaleString()}</span> properties
-                  {' · up to '}
-                  <span className="font-medium">{estimatedCalls?.toLocaleString()}</span> AI calls
+                  {withBold(t.estimate(propertyCount), {
+                    properties: propertyCount.toLocaleString(locale),
+                    calls: (estimatedCalls ?? 0).toLocaleString(locale),
+                  })}
                   {!overwrite && (
                     <span className="text-muted-foreground">
                       {' '}
-                      — fewer in practice, since properties that already have SEO are skipped
+                      {t.fewerInPractice}
                     </span>
                   )}
                 </>
@@ -247,11 +255,11 @@ export function BulkSeoDialog({ tenantLanguages }: { tenantLanguages: string[] }
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button onClick={start} disabled={languages.length === 0 || starting || running}>
               <Sparkles className="h-4 w-4 mr-2" />
-              Start
+              {t.start}
             </Button>
           </DialogFooter>
         </DialogContent>

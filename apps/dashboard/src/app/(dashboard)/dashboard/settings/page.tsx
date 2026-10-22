@@ -26,6 +26,7 @@ import { AiTab } from './_components/ai-tab';
 import { AiChatTab } from './_components/ai-chat-tab';
 import { CacheTab } from './_components/cache-tab';
 import { updateQuery } from './_components/widget-ui';
+import { useSettingsText } from './_i18n';
 
 // Each tab saves on its own. The state lives here (in one hook per tab) and
 // not inside the tab components, because Radix unmounts inactive tabs and
@@ -33,6 +34,7 @@ import { updateQuery } from './_components/widget-ui';
 export default function SettingsPage() {
   const { data: session } = useSession();
   const accessToken = session?.accessToken;
+  const t = useSettingsText();
 
   const general = useGeneralSettings();
   const widget = useWidgetSettings();
@@ -75,9 +77,9 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Settings</h1>
+          <h1 className="page-title">{t.page.title}</h1>
           <p className="page-description mt-1">
-            Manage your account and application settings
+            {t.page.description}
           </p>
         </div>
       </div>
@@ -86,40 +88,40 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">
             <Building2 className="h-4 w-4 mr-2" />
-            General
+            {t.page.tabs.general}
           </TabsTrigger>
           <TabsTrigger value="widget">
             <LayoutGrid className="h-4 w-4 mr-2" />
-            Widget
+            {t.page.tabs.widget}
           </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="h-4 w-4 mr-2" />
-            Email
+            {t.page.tabs.email}
           </TabsTrigger>
           <TabsTrigger value="api-keys">
             <Key className="h-4 w-4 mr-2" />
-            API Keys
+            {t.page.tabs.apiKeys}
           </TabsTrigger>
           {/* Webhook tab hidden — only used internally for WP plugin sync, configured by support team */}
           {webhook.webhookUrl && (
             <TabsTrigger value="webhooks">
               <Webhook className="h-4 w-4 mr-2" />
-              Webhooks
+              {t.page.tabs.webhooks}
             </TabsTrigger>
           )}
           <TabsTrigger value="ai">
             <Bot className="h-4 w-4 mr-2" />
-            AI
+            {t.page.tabs.ai}
           </TabsTrigger>
           {ai.aiChatEnabled && (
             <TabsTrigger value="ai-chat">
               <MessageSquare className="h-4 w-4 mr-2" />
-              AI Chat
+              {t.page.tabs.aiChat}
             </TabsTrigger>
           )}
           <TabsTrigger value="cache">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Cache
+            {t.page.tabs.cache}
           </TabsTrigger>
         </TabsList>
 

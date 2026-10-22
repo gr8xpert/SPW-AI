@@ -7,11 +7,14 @@ import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { emailSchema, type TenantCurrent } from './types';
+import { useSettingsText } from '../_i18n';
 
 // State for the Email tab's SMTP form and Inquiry Notifications card.
 // The SMTP config has its own endpoint, loaded here once the token exists.
 export function useEmailSettings(accessToken: string | undefined) {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const q = st.inquiry;
 
   // Email config state
   const [savingEmail, setSavingEmail] = useState(false);
@@ -81,13 +84,13 @@ export function useEmailSettings(accessToken: string | undefined) {
       });
       setEmailTestResult(null);
       toast({
-        title: 'Email settings saved',
-        description: 'Your SMTP configuration has been updated.',
+        title: st.email.saved,
+        description: st.email.savedText,
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: (error as Error).message || 'Failed to save email settings.',
+        title: st.common.error,
+        description: (error as Error).message || st.email.saveFailed,
         variant: 'destructive',
       });
     } finally {
@@ -104,7 +107,7 @@ export function useEmailSettings(accessToken: string | undefined) {
       );
       setEmailTestResult(res);
     } catch (err) {
-      setEmailTestResult({ success: false, error: (err as Error).message || 'Connection test failed' });
+      setEmailTestResult({ success: false, error: (err as Error).message || st.email.testFailedDefault });
     } finally {
       setTestingEmail(false);
     }
@@ -113,7 +116,7 @@ export function useEmailSettings(accessToken: string | undefined) {
   const onSaveInquiry = async () => {
     const sender = formSenderEmail.trim().toLowerCase();
     if (sender && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sender)) {
-      toast({ title: 'Invalid email', description: 'Enter a valid address for your form emails, or leave it empty.', variant: 'destructive' });
+      toast({ title: q.invalidEmail, description: q.invalidSender, variant: 'destructive' });
       return;
     }
     setSavingInquiry(true);
@@ -124,9 +127,9 @@ export function useEmailSettings(accessToken: string | undefined) {
         inquiryAutoReplyEnabled,
         formSenderEmail: sender,
       });
-      toast({ title: 'Inquiry settings saved', description: 'Notification and webhook settings have been updated.' });
+      toast({ title: q.saved, description: q.savedText });
     } catch (err) {
-      toast({ title: 'Failed to save inquiry settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: q.saveFailed, description: (err as Error).message || st.common.unexpectedError, variant: 'destructive' });
     } finally {
       setSavingInquiry(false);
     }
@@ -135,11 +138,11 @@ export function useEmailSettings(accessToken: string | undefined) {
   const addInquiryEmail = () => {
     const email = inquiryEmailInput.trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      toast({ title: q.invalidEmail, description: q.invalidRecipient, variant: 'destructive' });
       return;
     }
     if (inquiryNotificationEmails.includes(email)) {
-      toast({ title: 'Already added', description: 'This email is already in the list.', variant: 'destructive' });
+      toast({ title: q.alreadyAdded, description: q.alreadyAddedText, variant: 'destructive' });
       return;
     }
     setInquiryNotificationEmails([...inquiryNotificationEmails, email]);

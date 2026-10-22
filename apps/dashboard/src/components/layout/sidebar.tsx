@@ -30,14 +30,19 @@ import {
   Palette,
   HeartPulse,
   Code2,
+  Inbox,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useDashboardAddons, type DashboardAddonKey, type TenantTier } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
+import { useNewLeadCount } from '@/app/(dashboard)/dashboard/leads/use-new-leads';
+import { useCommonText } from '@/i18n/common';
+import type { CommonText } from '@/i18n/common/en';
 
 interface NavItem {
-  name: string;
+  // Its label in the dashboard language (common text → nav).
+  id: keyof CommonText['nav'];
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   // When set, the item locks automatically based on the tenant's
@@ -51,7 +56,11 @@ interface NavItem {
   // Tier 1 is "support only", the property module simply doesn't exist
   // from the client's perspective. Super-admin bypasses this filter.
   minTier?: TenantTier;
+  // A live count shown next to the name (New Leads waiting).
+  badge?: 'newLeads';
 }
+
+type NavBadges = Partial<Record<NonNullable<NavItem['badge']>, number>>;
 
 interface SidebarState {
   collapsed: boolean;
@@ -74,52 +83,56 @@ export const useSidebarStore = create<SidebarState>()(
 //   Tier 3 (+ premium AI): Email Campaigns, AI Chat, AI Translation (translation is inside pages)
 // Items without minTier are always visible.
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Properties', href: '/dashboard/properties', icon: Building2, minTier: 2 },
-  { name: 'Locations', href: '/dashboard/locations', icon: MapPin, minTier: 2 },
-  { name: 'Property Types', href: '/dashboard/property-types', icon: Tag, minTier: 2 },
-  { name: 'Features', href: '/dashboard/features', icon: Tag, minTier: 2 },
-  { name: 'Labels', href: '/dashboard/labels', icon: Languages, minTier: 2 },
+  { id: 'dashboard', href: '/dashboard', icon: Home },
+  { id: 'properties', href: '/dashboard/properties', icon: Building2, minTier: 2 },
+  { id: 'locations', href: '/dashboard/locations', icon: MapPin, minTier: 2 },
+  { id: 'propertyTypes', href: '/dashboard/property-types', icon: Tag, minTier: 2 },
+  { id: 'features', href: '/dashboard/features', icon: Tag, minTier: 2 },
+  { id: 'labels', href: '/dashboard/labels', icon: Languages, minTier: 2 },
 ];
 
 const marketing: NavItem[] = [
-  { name: 'Contacts', href: '/dashboard/contacts', icon: Users, minTier: 2 },
-  { name: 'Buyers', href: '/dashboard/buyers', icon: UserCircle, addon: 'buyerMatch' },
-  { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign', minTier: 3 },
+  // Website-form people waiting for a role (2026-10-22). Picking one moves
+  // them to Contacts, which is the Buyer Match section (URL kept /buyers).
+  // The email subscriber list that used to be Contacts is now a tab in
+  // Email Campaigns.
+  { id: 'newLeads', href: '/dashboard/leads', icon: Inbox, minTier: 2, badge: 'newLeads' },
+  { id: 'contacts', href: '/dashboard/buyers', icon: UserCircle, addon: 'buyerMatch' },
+  { id: 'emailCampaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign', minTier: 3 },
 ];
 
-// Agents open Buyers on their own day (Buyer Match "My day").
+// Agents open Contacts on their own day (Buyer Match "My day").
 const marketingForAgents: NavItem[] = marketing.map((i) =>
   i.href === '/dashboard/buyers' ? { ...i, href: '/dashboard/buyers/home', activePrefix: '/dashboard/buyers' } : i,
 );
 
 const integrations: NavItem[] = [
-  { name: 'Add to Website', href: '/dashboard/add-to-website', icon: Code2, minTier: 2 },
-  { name: 'Website Design', href: '/dashboard/website-design', icon: Palette, minTier: 2 },
-  { name: 'Website Health', href: '/dashboard/website-health', icon: HeartPulse, minTier: 2 },
-  { name: 'Feed Sources', href: '/dashboard/feeds', icon: Upload, minTier: 2 },
-  { name: 'Feed Export', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport', minTier: 2 },
+  { id: 'addToWebsite', href: '/dashboard/add-to-website', icon: Code2, minTier: 2 },
+  { id: 'websiteDesign', href: '/dashboard/website-design', icon: Palette, minTier: 2 },
+  { id: 'websiteHealth', href: '/dashboard/website-health', icon: HeartPulse, minTier: 2 },
+  { id: 'feedSources', href: '/dashboard/feeds', icon: Upload, minTier: 2 },
+  { id: 'feedExport', href: '/dashboard/feed-export', icon: FileOutput, addon: 'feedExport', minTier: 2 },
 ];
 
 const management: NavItem[] = [
-  { name: 'Agents', href: '/dashboard/team', icon: Users, addon: 'team', minTier: 2 },
+  { id: 'agents', href: '/dashboard/team', icon: Users, addon: 'team', minTier: 2 },
 ];
 
 const other: NavItem[] = [
   // Every tier: Tier 1 (support) clients see their website's visitors too (2026-10-06).
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { name: 'AI Chat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat', minTier: 3 },
-  { name: 'Support Tickets', href: '/dashboard/tickets', icon: Ticket },
-  { name: 'Credit Hours', href: '/dashboard/billing', icon: CreditCard },
+  { id: 'analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { id: 'aiChat', href: '/dashboard/ai-chat', icon: MessageSquare, addon: 'aiChat', minTier: 3 },
+  { id: 'supportTickets', href: '/dashboard/tickets', icon: Ticket },
+  { id: 'creditHours', href: '/dashboard/billing', icon: CreditCard },
   // Settings tabs (widget config, API keys, AI, cache) are all property /
   // integration surfaces — meaningless to a Tier 1 support-only tenant.
   // Gated at Tier 2 so a Tier 1 client sees the upsell dialog instead.
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings, minTier: 2 },
+  { id: 'settings', href: '/dashboard/settings', icon: Settings, minTier: 2 },
 ];
 
 const webmasterWork: NavItem[] = [
-  { name: 'Time Tracking', href: '/dashboard/time-tracking', icon: Timer },
-  { name: 'Assigned Tickets', href: '/dashboard/webmaster/tickets', icon: Ticket },
+  { id: 'timeTracking', href: '/dashboard/time-tracking', icon: Timer },
+  { id: 'assignedTickets', href: '/dashboard/webmaster/tickets', icon: Ticket },
 ];
 
 function NavSection({
@@ -131,6 +144,7 @@ function NavSection({
   tier,
   bypassTier,
   onLockedClick,
+  badges = {},
 }: {
   title: string;
   items: NavItem[];
@@ -140,7 +154,9 @@ function NavSection({
   tier: TenantTier;
   bypassTier: boolean;
   onLockedClick: (payload: { name: string; requiredTier?: 2 | 3 }) => void;
+  badges?: NavBadges;
 }) {
+  const t = useCommonText();
   // Tier-gated items are shown greyed (locked) rather than hidden — the
   // client sees what they'd get by upgrading, and a click opens an upsell
   // dialog for the required tier. Super-admin bypasses locking entirely
@@ -161,6 +177,7 @@ function NavSection({
         )}
       </AnimatePresence>
       {items.map((item) => {
+        const name = t.nav[item.id];
         const isActive =
           pathname === item.href ||
           (item.href.split('/').length > 2 && pathname.startsWith(item.href + '/')) ||
@@ -217,10 +234,22 @@ function NavSection({
                     isActive && !locked ? 'text-primary-foreground' : '',
                   )}
                 >
-                  {item.name}
+                  {name}
                 </motion.span>
               )}
             </AnimatePresence>
+            {!locked && item.badge && (badges[item.badge] ?? 0) > 0 && (
+              <span
+                className={cn(
+                  'relative z-10 rounded-full px-1.5 text-[10px] font-semibold leading-4',
+                  isActive ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground',
+                  collapsed && 'absolute right-1 top-0.5',
+                )}
+                data-testid={`nav-badge-${item.badge}`}
+              >
+                {badges[item.badge]}
+              </span>
+            )}
             {locked && !collapsed && (
               <Lock className="h-3 w-3 shrink-0 relative z-10 text-muted-foreground/40" />
             )}
@@ -231,10 +260,10 @@ function NavSection({
           return (
             <button
               type="button"
-              key={item.name}
-              onClick={() => onLockedClick({ name: item.name, requiredTier })}
+              key={item.id}
+              onClick={() => onLockedClick({ name, requiredTier })}
               className={baseClass}
-              title={collapsed ? `${item.name} (locked)` : undefined}
+              title={collapsed ? t.locked(name) : undefined}
             >
               {inner}
             </button>
@@ -243,10 +272,10 @@ function NavSection({
 
         return (
           <Link
-            key={item.name}
+            key={item.id}
             href={item.href}
             className={baseClass}
-            title={collapsed ? item.name : undefined}
+            title={collapsed ? name : undefined}
           >
             {inner}
           </Link>
@@ -277,6 +306,8 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   // Until the tier is actually known nothing is greyed out: locking everything
   // on a slow or failed request made Tier 2 clients see a Tier 1 dashboard.
   const bypassTier = isSuperAdmin || !known;
+  const t = useCommonText();
+  const newLeads = useNewLeadCount(!isWebmaster && (bypassTier || tier >= 2)).data ?? 0;
 
   return (
     <aside
@@ -311,14 +342,14 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {isWebmaster ? (
-          <NavSection title="Work" items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+          <NavSection title={t.sections.work} items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
         ) : (
           <>
-            <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title="Marketing" items={role === 'user' ? marketingForAgents : marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title={t.sections.main} items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title={t.sections.marketing} items={role === 'user' ? marketingForAgents : marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} badges={{ newLeads }} />
+            <NavSection title={t.sections.integrations} items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title={t.sections.management} items={management} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title={t.sections.other} items={other} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
           </>
         )}
       </nav>
@@ -364,14 +395,14 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
         <button
           onClick={toggle}
           className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? t.expandSidebar : t.collapseSidebar}
         >
           {collapsed ? (
             <PanelLeftOpen className="h-4 w-4" />
           ) : (
             <>
               <PanelLeftClose className="h-4 w-4" />
-              <span className="text-xs">Collapse</span>
+              <span className="text-xs">{t.collapse}</span>
             </>
           )}
         </button>

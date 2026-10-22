@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useLocationsText, nameOf } from './_i18n';
 
 export interface PickableLocation {
   id: number;
@@ -42,6 +43,8 @@ export function MoveMergeDialog({
   const [query, setQuery] = useState('');
   const [targetId, setTargetId] = useState<number | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const t = useLocationsText();
+  const mm = t.moveMerge;
 
   // A place can't go inside itself or one of its own sub-places.
   const options = useMemo(() => {
@@ -88,12 +91,12 @@ export function MoveMergeDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'merge' ? `Merge "${source?.name}" into…` : `Move "${source?.name}" to…`}
+            {mode === 'merge' ? mm.mergeTitle(source?.name ?? '') : mm.moveTitle(source?.name ?? '')}
           </DialogTitle>
           <DialogDescription>
             {mode === 'merge'
-              ? 'Its properties and the places inside it move into the location you pick, and it is removed. Future feed imports put its listings there too.'
-              : 'It moves with everything inside it. Future feed imports keep it where you put it.'}
+              ? mm.mergeText
+              : mm.moveText}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -102,7 +105,7 @@ export function MoveMergeDialog({
             <Input
               autoFocus
               className="pl-9"
-              placeholder="Search a location…"
+              placeholder={mm.searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               data-testid="move-merge-search"
@@ -114,7 +117,7 @@ export function MoveMergeDialog({
                 className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted', targetId === null && 'bg-primary/10')}
                 onClick={() => setTargetId(null)}
               >
-                — Top level (no parent) —
+                {mm.topLevel}
               </button>
             )}
             {options.map((l) => (
@@ -125,20 +128,20 @@ export function MoveMergeDialog({
                 data-testid="move-merge-option"
               >
                 <span className="text-sm font-medium">{l.name}</span>{' '}
-                <span className="text-xs capitalize text-muted-foreground">{l.level}</span>
+                <span className="text-xs capitalize text-muted-foreground">{nameOf(t.levels, l.level)}</span>
                 <span className="block truncate text-xs text-muted-foreground">{l.path}</span>
               </button>
             ))}
-            {!options.length && <p className="px-3 py-6 text-center text-sm text-muted-foreground">No matching location</p>}
+            {!options.length && <p className="px-3 py-6 text-center text-sm text-muted-foreground">{mm.noMatch}</p>}
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={close} disabled={busy}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button onClick={confirm} disabled={busy || targetId === undefined} data-testid="move-merge-confirm">
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'merge' ? `Merge into ${target?.name ?? '…'}` : `Move${target ? ` into ${target.name}` : targetId === null ? ' to top level' : ''}`}
+            {mode === 'merge' ? mm.mergeInto(target?.name ?? '…') : target ? mm.moveInto(target.name) : targetId === null ? mm.moveToTop : mm.move}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -7,6 +7,8 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 import { SuperAdminRedirectGuard } from '@/components/layout/super-admin-redirect-guard';
 import { MfaSetupGuard } from '@/components/layout/mfa-setup-guard';
+import { I18nProvider } from '@/i18n/i18n-provider';
+import { toDashboardLanguage } from '@/i18n/languages';
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +39,9 @@ export default async function DashboardLayout({
   const userRole = session.user.role as string;
 
   return (
+    // The user's dashboard language from the session: the first render is
+    // already in it (Super Admin pages under /admin stay English).
+    <I18nProvider initial={toDashboardLanguage(session.user.dashboardLanguage)}>
     <div className="min-h-screen bg-background">
       {/* Belt-and-braces client-side guard: covers the edge case where
           the cookie was somehow lost but localStorage still says
@@ -50,5 +55,6 @@ export default async function DashboardLayout({
         <main className="p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">{children}</main>
       </DashboardShell>
     </div>
+    </I18nProvider>
   );
 }

@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiGet } from '@/lib/api';
+import { useLanguage } from '@/i18n/i18n-provider';
 import { unwrap, type IdealistaListing } from './idealista-api';
+import { useFeedExportText } from './_i18n';
 
 // Hand-picked mode: search the client's own listings and tick the ones to send.
 export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onChange: (ids: number[]) => void }) {
@@ -14,6 +16,8 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
   const [results, setResults] = useState<IdealistaListing[]>([]);
   const [picked, setPicked] = useState<IdealistaListing[]>([]);
   const [loading, setLoading] = useState(false);
+  const t = useFeedExportText();
+  const { locale } = useLanguage();
 
   // Load the picked listings' details once (and when ids arrive from the server).
   useEffect(() => {
@@ -25,14 +29,14 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
   }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setLoading(true);
       apiGet(`/api/dashboard/feed-export/idealista/listings?search=${encodeURIComponent(search)}`)
         .then((res) => setResults(unwrap<IdealistaListing[]>(res) || []))
         .catch(() => setResults([]))
         .finally(() => setLoading(false));
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const add = (l: IdealistaListing) => {
@@ -50,11 +54,11 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
       <div className="text-sm font-medium truncate">
         {l.agentReference || l.reference}
         {l.agentReference && <span className="text-muted-foreground font-normal"> · {l.reference}</span>}
-        {!l.live && <Badge variant="outline" className="ml-2">not live</Badge>}
+        {!l.live && <Badge variant="outline" className="ml-2">{t.picker.notLive}</Badge>}
       </div>
       <div className="text-xs text-muted-foreground truncate">
-        {l.title || 'Untitled'}
-        {l.price ? ` · €${Number(l.price).toLocaleString()}` : ''}
+        {l.title || t.picker.untitled}
+        {l.price ? ` · €${Number(l.price).toLocaleString(locale)}` : ''}
         {` · ${l.listingType}`}
       </div>
     </div>
@@ -65,13 +69,13 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
       <div className="space-y-2">
         <div className="relative">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search your listings by reference or title" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="pl-9" placeholder={t.picker.search} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="border rounded-md max-h-[320px] overflow-y-auto divide-y">
           {loading && !results.length ? (
             <div className="p-4 flex justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div>
           ) : results.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No own listings found.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t.picker.noneFound}</p>
           ) : (
             results.map((l) => (
               <div key={l.id} className="flex items-center justify-between gap-2 p-2">
@@ -85,16 +89,16 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
         </div>
       </div>
       <div className="space-y-2">
-        <p className="text-sm font-medium">Sent to idealista ({ids.length})</p>
+        <p className="text-sm font-medium">{t.picker.sentTo(ids.length)}</p>
         <div className="border rounded-md max-h-[360px] overflow-y-auto divide-y">
           {ids.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Nothing picked yet.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t.picker.nothingPicked}</p>
           ) : (
             ids.map((id) => {
               const l = picked.find((p) => p.id === id);
               return (
                 <div key={id} className="flex items-center justify-between gap-2 p-2">
-                  {l ? row(l) : <span className="text-sm text-muted-foreground">Listing #{id}</span>}
+                  {l ? row(l) : <span className="text-sm text-muted-foreground">{t.picker.listingN(id)}</span>}
                   <Button size="sm" variant="ghost" onClick={() => remove(id)}>
                     <X className="h-4 w-4" />
                   </Button>

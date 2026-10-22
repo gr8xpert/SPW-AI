@@ -8,7 +8,9 @@ import { TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/i18n/i18n-provider';
 import type { WebhookSettings } from './use-webhook-settings';
+import { useSettingsText } from '../_i18n';
 
 export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
   const { toast } = useToast();
@@ -34,22 +36,23 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
     onRotateSecret,
     onSendTest,
   } = webhook;
+  const st = useSettingsText();
+  const t = st.webhooks;
+  const { locale } = useLanguage();
+  const when = (iso: string) => new Date(iso).toLocaleString(locale);
 
   return (
     <TabsContent value="webhooks" className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Webhook Configuration</CardTitle>
+          <CardTitle>{t.title}</CardTitle>
           <CardDescription>
-            SPM delivers signed POST requests to your URL when properties
-            change, cache is cleared, or you click &quot;Send test&quot;
-            below. Signatures use HMAC-SHA256 over <code>`${'{'}timestamp{'}'}.${'{'}body{'}'}`</code>
-            with the secret shown below. Private IPs and non-HTTP schemes are rejected.
+            {t.descBefore} <code>`${'{'}timestamp{'}'}.${'{'}body{'}'}`</code> {t.descAfter}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="webhookUrl">Webhook URL</Label>
+            <Label htmlFor="webhookUrl">{t.url}</Label>
             <div className="flex gap-2">
               <Input
                 id="webhookUrl"
@@ -59,22 +62,22 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
                 onChange={(e) => setWebhookUrl(e.target.value)}
               />
               <Button onClick={onSaveWebhook} disabled={savingWebhook}>
-                {savingWebhook ? 'Saving\u2026' : 'Save'}
+                {savingWebhook ? st.common.saving : st.common.save}
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Leave empty to disable webhook delivery.
+              {t.urlHelp}
             </p>
           </div>
 
           <div className="rounded-lg border p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-medium">Webhook Secret</p>
+                <p className="font-medium">{t.secret}</p>
                 <p className="text-sm text-muted-foreground">
                   {webhookSecretLast4
-                    ? `Ends in \u2026${webhookSecretLast4}. Rotate if it has been leaked \u2014 receivers must be updated with the new secret before the next event.`
-                    : 'Loading\u2026'}
+                    ? t.secretEndsIn(webhookSecretLast4)
+                    : st.common.loading}
                 </p>
               </div>
               <Button
@@ -83,13 +86,13 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
                 onClick={onRotateSecret}
                 disabled={rotatingSecret}
               >
-                {rotatingSecret ? 'Rotating\u2026' : 'Rotate secret'}
+                {rotatingSecret ? t.rotating : t.rotate}
               </Button>
             </div>
             {revealedSecret && (
               <div className="mt-3 rounded-md border border-primary/20 bg-secondary/20 p-3">
                 <p className="text-sm font-medium text-primary">
-                  New webhook secret \u2014 copy it now. It will not be shown again.
+                  {t.newSecret}
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <code className="flex-1 px-2 py-1 bg-muted rounded text-xs break-all">
@@ -100,17 +103,17 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
                     size="sm"
                     onClick={() => {
                       void navigator.clipboard.writeText(revealedSecret);
-                      toast({ title: 'Copied to clipboard' });
+                      toast({ title: st.common.copied });
                     }}
                   >
-                    Copy
+                    {st.common.copy}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setRevealedSecret(null)}
                   >
-                    Dismiss
+                    {st.common.dismiss}
                   </Button>
                 </div>
               </div>
@@ -123,14 +126,14 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
               onClick={onSendTest}
               disabled={sendingTest || !webhookUrl.trim()}
             >
-              {sendingTest ? 'Sending\u2026' : 'Send test webhook'}
+              {sendingTest ? t.sending : t.sendTest}
             </Button>
             <Button
               variant="ghost"
               onClick={() => void loadDeliveries()}
               disabled={loadingDeliveries}
             >
-              {loadingDeliveries ? 'Refreshing\u2026' : 'Refresh deliveries'}
+              {loadingDeliveries ? t.refreshing : t.refresh}
             </Button>
           </div>
         </CardContent>
@@ -138,30 +141,27 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Deliveries</CardTitle>
-          <CardDescription>
-            Last 25 webhook attempts. Failures keep a row so you can see
-            why a delivery was dropped.
-          </CardDescription>
+          <CardTitle>{t.recent}</CardTitle>
+          <CardDescription>{t.recentHelp}</CardDescription>
         </CardHeader>
         <CardContent>
           {deliveries.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {loadingDeliveries
-                ? 'Loading\u2026'
-                : 'No deliveries yet. Trigger an event (create a property, click Send test, or clear the cache) to see one here.'}
+                ? st.common.loading
+                : t.noDeliveries}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="py-2 pr-3 font-medium">Event</th>
-                    <th className="py-2 pr-3 font-medium">Status</th>
-                    <th className="py-2 pr-3 font-medium">Attempts</th>
-                    <th className="py-2 pr-3 font-medium">HTTP</th>
-                    <th className="py-2 pr-3 font-medium">When</th>
-                    <th className="py-2 pr-3 font-medium">Last error</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.event}</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.status}</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.attempts}</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.http}</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.when}</th>
+                    <th className="py-2 pr-3 font-medium">{t.cols.lastError}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,7 +184,7 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
                               : 'text-muted-foreground'
                           }
                         >
-                          {d.status}
+                          {t.statuses[d.status] ?? d.status}
                         </span>
                       </td>
                       <td className="py-2 pr-3">{d.attemptCount}</td>
@@ -192,7 +192,7 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
                         {d.lastStatusCode ?? '\u2014'}
                       </td>
                       <td className="py-2 pr-3 text-xs text-muted-foreground">
-                        {new Date(d.createdAt).toLocaleString()}
+                        {when(d.createdAt)}
                       </td>
                       <td className="py-2 pr-3 text-xs text-muted-foreground max-w-xs truncate">
                         {d.lastError ?? '\u2014'}
@@ -217,42 +217,40 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              Delivery #{selectedDelivery?.id ?? '\u2026'}
+              {t.delivery(selectedDelivery ? String(selectedDelivery.id) : '\u2026')}
             </DialogTitle>
             <DialogDescription>
               {selectedDelivery
-                ? `${selectedDelivery.event} — ${selectedDelivery.status}`
-                : 'Loading\u2026'}
+                ? `${selectedDelivery.event} — ${t.statuses[selectedDelivery.status] ?? selectedDelivery.status}`
+                : st.common.loading}
             </DialogDescription>
           </DialogHeader>
           {selectedDelivery && (
             <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <span className="font-medium">Attempts:</span>{' '}
+                  <span className="font-medium">{t.attempts}</span>{' '}
                   {selectedDelivery.attemptCount}
                 </div>
                 <div>
-                  <span className="font-medium">HTTP:</span>{' '}
+                  <span className="font-medium">{t.http}</span>{' '}
                   {selectedDelivery.lastStatusCode ?? '\u2014'}
                 </div>
                 <div>
-                  <span className="font-medium">Created:</span>{' '}
-                  {new Date(selectedDelivery.createdAt).toLocaleString()}
+                  <span className="font-medium">{t.created}</span>{' '}
+                  {when(selectedDelivery.createdAt)}
                 </div>
                 <div>
-                  <span className="font-medium">Delivered:</span>{' '}
+                  <span className="font-medium">{t.delivered}</span>{' '}
                   {selectedDelivery.deliveredAt
-                    ? new Date(
-                        selectedDelivery.deliveredAt,
-                      ).toLocaleString()
+                    ? when(selectedDelivery.deliveredAt)
                     : '\u2014'}
                 </div>
               </div>
 
               {selectedDelivery.targetUrl !== undefined && (
                 <div>
-                  <p className="font-medium mb-1">Target URL</p>
+                  <p className="font-medium mb-1">{t.targetUrl}</p>
                   <code className="block bg-muted rounded p-2 text-xs break-all">
                     {selectedDelivery.targetUrl || '\u2014'}
                   </code>
@@ -262,7 +260,7 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
               {selectedDelivery.lastError && (
                 <div>
                   <p className="font-medium mb-1 text-primary/70">
-                    Last error
+                    {t.lastError}
                   </p>
                   <code className="block bg-muted rounded p-2 text-xs whitespace-pre-wrap break-words">
                     {selectedDelivery.lastError}
@@ -271,10 +269,10 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
               )}
 
               <div>
-                <p className="font-medium mb-1">Payload</p>
+                <p className="font-medium mb-1">{t.payload}</p>
                 <pre className="bg-muted rounded p-2 text-xs overflow-x-auto max-h-80">
                   {loadingDeliveryDetail && !selectedDelivery.payload
-                    ? 'Loading\u2026'
+                    ? st.common.loading
                     : JSON.stringify(
                         selectedDelivery.payload ?? {},
                         null,
@@ -290,7 +288,7 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
               onClick={() => setSelectedDelivery(null)}
               disabled={redelivering}
             >
-              Close
+              {st.common.close}
             </Button>
             <Button
               onClick={() => void onRedeliver()}
@@ -299,7 +297,7 @@ export function WebhooksTab({ webhook }: { webhook: WebhookSettings }) {
               <RefreshCw
                 className={`mr-2 h-4 w-4 ${redelivering ? 'animate-spin' : ''}`}
               />
-              {redelivering ? 'Queuing\u2026' : 'Redeliver'}
+              {redelivering ? t.queuing : t.redeliver}
             </Button>
           </DialogFooter>
         </DialogContent>

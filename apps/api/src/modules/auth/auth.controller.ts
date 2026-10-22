@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  Put,
   UseGuards,
   NotFoundException,
   Injectable,
@@ -13,7 +14,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordWithTokenDto } from './dto';
+import { DashboardLanguageDto, LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordWithTokenDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser, Public } from '../../common/decorators';
 import { JwtPayload } from '@spm/shared';
@@ -111,5 +112,11 @@ export class AuthController {
   @Get('me')
   async me(@CurrentUser() user: JwtPayload) {
     return { data: user };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('me/language')
+  setLanguage(@CurrentUser() user: JwtPayload, @Body() dto: DashboardLanguageDto) {
+    return this.authService.setDashboardLanguage(user.sub, dto.language);
   }
 }

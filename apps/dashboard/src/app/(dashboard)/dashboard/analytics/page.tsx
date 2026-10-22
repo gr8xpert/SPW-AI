@@ -39,6 +39,8 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { staggerContainer, staggerItem } from '@/lib/animations';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useAnalyticsText } from './_i18n';
 
 interface OverviewData {
   searches: number;
@@ -91,12 +93,12 @@ interface FunnelData {
 }
 
 const metricCards = [
-  { key: 'searches', label: 'Searches', icon: Search, color: 'stat-card-icon' },
-  { key: 'views', label: 'Property Views', icon: Eye, color: 'stat-card-icon' },
-  { key: 'cardClicks', label: 'Card Clicks', icon: MousePointerClick, color: 'stat-card-icon' },
-  { key: 'wishlistAdds', label: 'Wishlist Adds', icon: Heart, color: 'stat-card-icon' },
-  { key: 'inquiries', label: 'Inquiries', icon: MessageSquare, color: 'stat-card-icon' },
-  { key: 'pdfDownloads', label: 'PDF Downloads', icon: FileDown, color: 'stat-card-icon' },
+  { key: 'searches', icon: Search, color: 'stat-card-icon' },
+  { key: 'views', icon: Eye, color: 'stat-card-icon' },
+  { key: 'cardClicks', icon: MousePointerClick, color: 'stat-card-icon' },
+  { key: 'wishlistAdds', icon: Heart, color: 'stat-card-icon' },
+  { key: 'inquiries', icon: MessageSquare, color: 'stat-card-icon' },
+  { key: 'pdfDownloads', icon: FileDown, color: 'stat-card-icon' },
 ] as const;
 
 const CHART_COLORS = {
@@ -105,22 +107,7 @@ const CHART_COLORS = {
   inquiries: '#CADCFC',
 };
 
-const activityFilters = [
-  { key: 'all', label: 'All' },
-  { key: 'searches', label: 'Searches' },
-  { key: 'views', label: 'Views' },
-  { key: 'inquiries', label: 'Inquiries' },
-] as const;
-
-function formatListingType(type: string): string {
-  const map: Record<string, string> = {
-    sale: 'Sale',
-    rent: 'Rent',
-    holiday_rent: 'Holiday',
-    development: 'Dev',
-  };
-  return map[type] || type;
-}
+const activityFilters = ['all', 'searches', 'views', 'inquiries'] as const;
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState('30d');
@@ -137,6 +124,8 @@ export default function AnalyticsPage() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useAnalyticsText();
+  const { locale } = useLanguage();
 
   const fetchData = async (range: string) => {
     if (!api.isReady) return;
@@ -163,7 +152,7 @@ export default function AnalyticsPage() {
       setSearchData(unwrap(searchesRes));
       setFunnel(unwrap(funnelRes));
     } catch {
-      toast({ title: 'Failed to load analytics', variant: 'destructive' });
+      toast({ title: t.loadFailed, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -196,15 +185,17 @@ export default function AnalyticsPage() {
     return list.slice(0, propertyLimit);
   }, [topProperties, propertySearch, propertyLimit]);
 
-  const activeEvents = eventBreakdown.filter((e) => e.value > 0);
+  const activeEvents = eventBreakdown
+    .filter((e) => e.value > 0)
+    .map((e) => ({ ...e, name: t.events[e.name] ?? e.name }));
 
   const funnelStages = funnel
     ? [
-        { name: 'Visitors', value: funnel.visitors },
-        { name: 'Views', value: funnel.views },
-        { name: 'Inquiries', value: funnel.inquiries },
-        { name: 'Leads', value: funnel.leads },
-        { name: 'Won', value: funnel.won },
+        { name: t.funnel.visitors, value: funnel.visitors },
+        { name: t.funnel.views, value: funnel.views },
+        { name: t.funnel.inquiries, value: funnel.inquiries },
+        { name: t.funnel.leads, value: funnel.leads },
+        { name: t.funnel.won, value: funnel.won },
       ]
     : [];
 
@@ -215,9 +206,9 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="page-header animate-fade-in">
         <div>
-          <h1 className="page-title">Analytics</h1>
+          <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">
-            Track property performance and visitor behavior
+            {t.description}
           </p>
         </div>
         <div className="flex border rounded-md">
@@ -229,7 +220,7 @@ export default function AnalyticsPage() {
               className="rounded-none first:rounded-l-md last:rounded-r-md"
               onClick={() => setDateRange(range)}
             >
-              {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+              {t.ranges[range]}
             </Button>
           ))}
         </div>
@@ -260,8 +251,8 @@ export default function AnalyticsPage() {
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">{metric.label}</p>
-                        <p className="text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{t.metrics[metric.key]}</p>
+                        <p className="text-2xl font-bold tracking-tight">{value.toLocaleString(locale)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -276,17 +267,17 @@ export default function AnalyticsPage() {
             <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Activity Over Time</CardTitle>
+                  <CardTitle className="text-base">{t.activityTitle}</CardTitle>
                   <div className="flex border rounded-md">
                     {activityFilters.map((f) => (
                       <Button
-                        key={f.key}
-                        variant={activityFilter === f.key ? 'default' : 'ghost'}
+                        key={f}
+                        variant={activityFilter === f ? 'default' : 'ghost'}
                         size="sm"
                         className="rounded-none first:rounded-l-md last:rounded-r-md text-xs h-7 px-3"
-                        onClick={() => setActivityFilter(f.key)}
+                        onClick={() => setActivityFilter(f)}
                       >
-                        {f.label}
+                        {t.filters[f]}
                       </Button>
                     ))}
                   </div>
@@ -315,7 +306,7 @@ export default function AnalyticsPage() {
                         dataKey="date"
                         tickFormatter={(d) => {
                           const date = new Date(d);
-                          return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                          return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
                         }}
                         tick={{ fontSize: 11, fill: '#9ca3af' }}
                         axisLine={false}
@@ -324,7 +315,7 @@ export default function AnalyticsPage() {
                       <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                       <Tooltip
                         contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: 12 }}
-                        labelFormatter={(d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        labelFormatter={(d) => new Date(d).toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' })}
                       />
                       {(activityFilter === 'all' || activityFilter === 'searches') && (
                         <Area
@@ -333,7 +324,7 @@ export default function AnalyticsPage() {
                           stroke={CHART_COLORS.searches}
                           fill="url(#gradSearches)"
                           strokeWidth={2}
-                          name="Searches"
+                          name={t.filters.searches}
                         />
                       )}
                       {(activityFilter === 'all' || activityFilter === 'views') && (
@@ -343,7 +334,7 @@ export default function AnalyticsPage() {
                           stroke={CHART_COLORS.views}
                           fill="url(#gradViews)"
                           strokeWidth={2}
-                          name="Views"
+                          name={t.filters.views}
                         />
                       )}
                       {(activityFilter === 'all' || activityFilter === 'inquiries') && (
@@ -353,14 +344,14 @@ export default function AnalyticsPage() {
                           stroke={CHART_COLORS.inquiries}
                           fill="url(#gradInquiries)"
                           strokeWidth={2}
-                          name="Inquiries"
+                          name={t.filters.inquiries}
                         />
                       )}
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-[300px] text-sm text-muted-foreground">
-                    No activity data for this period
+                    {t.noActivity}
                   </div>
                 )}
               </CardContent>
@@ -368,7 +359,7 @@ export default function AnalyticsPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Event Breakdown</CardTitle>
+                <CardTitle className="text-base">{t.eventTitle}</CardTitle>
               </CardHeader>
               <CardContent>
                 {activeEvents.length > 0 ? (
@@ -388,7 +379,7 @@ export default function AnalyticsPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => [value.toLocaleString(), '']}
+                        formatter={(value: number) => [value.toLocaleString(locale), '']}
                         contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: 12 }}
                       />
                       <Legend
@@ -401,7 +392,7 @@ export default function AnalyticsPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-[300px] text-sm text-muted-foreground">
-                    No event data
+                    {t.noEvents}
                   </div>
                 )}
               </CardContent>
@@ -414,11 +405,11 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Home className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Property Analytics</CardTitle>
+                  <CardTitle className="text-base">{t.propertyTitle}</CardTitle>
                 </div>
                 <div className="flex items-center gap-3">
                   <Input
-                    placeholder="Filter by ref..."
+                    placeholder={t.filterByRef}
                     className="w-40 h-8 text-sm"
                     value={propertySearch}
                     onChange={(e) => setPropertySearch(e.target.value)}
@@ -432,7 +423,7 @@ export default function AnalyticsPage() {
                         className="rounded-none first:rounded-l-md last:rounded-r-md text-xs h-7 px-3"
                         onClick={() => setPropertyLimit(n)}
                       >
-                        Top {n}
+                        {t.top(n)}
                       </Button>
                     ))}
                   </div>
@@ -446,15 +437,15 @@ export default function AnalyticsPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b text-left">
-                          <th className="pb-3 pr-4 font-semibold">Property Ref</th>
-                          <th className="pb-3 pr-4 font-semibold">Location</th>
-                          <th className="pb-3 pr-4 font-semibold">Type</th>
-                          <th className="pb-3 pr-4 font-semibold text-right">Views</th>
-                          <th className="pb-3 pr-4 font-semibold text-right">Clicks</th>
-                          <th className="pb-3 pr-4 font-semibold text-right">Wishlist</th>
-                          <th className="pb-3 pr-4 font-semibold text-right">Inquiries</th>
-                          <th className="pb-3 pr-4 font-semibold text-right">PDFs</th>
-                          <th className="pb-3 font-semibold text-right">Unique Users</th>
+                          <th className="pb-3 pr-4 font-semibold">{t.columns.ref}</th>
+                          <th className="pb-3 pr-4 font-semibold">{t.columns.location}</th>
+                          <th className="pb-3 pr-4 font-semibold">{t.columns.type}</th>
+                          <th className="pb-3 pr-4 font-semibold text-right">{t.columns.views}</th>
+                          <th className="pb-3 pr-4 font-semibold text-right">{t.columns.clicks}</th>
+                          <th className="pb-3 pr-4 font-semibold text-right">{t.columns.wishlist}</th>
+                          <th className="pb-3 pr-4 font-semibold text-right">{t.columns.inquiries}</th>
+                          <th className="pb-3 pr-4 font-semibold text-right">{t.columns.pdfs}</th>
+                          <th className="pb-3 font-semibold text-right">{t.columns.uniqueUsers}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -463,7 +454,7 @@ export default function AnalyticsPage() {
                             <td className="py-3 pr-4 font-medium">{p.reference}</td>
                             <td className="py-3 pr-4 text-muted-foreground">{p.location}</td>
                             <td className="py-3 pr-4 text-muted-foreground">
-                              {formatListingType(p.listingType)}
+                              {t.listingTypes[p.listingType] ?? p.listingType}
                             </td>
                             <td className="py-3 pr-4 text-right">{p.views}</td>
                             <td className="py-3 pr-4 text-right">{p.clicks}</td>
@@ -479,13 +470,12 @@ export default function AnalyticsPage() {
                     </table>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3">
-                    Showing {filteredProperties.length} of {topProperties.length} most active
-                    properties
+                    {t.showing(filteredProperties.length, topProperties.length)}
                   </p>
                 </>
               ) : (
                 <div className="text-center py-8 text-sm text-muted-foreground">
-                  No property data for this period
+                  {t.noProperties}
                 </div>
               )}
             </CardContent>
@@ -497,7 +487,7 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Top Searched Locations</CardTitle>
+                  <CardTitle className="text-base">{t.locationsTitle}</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -508,7 +498,7 @@ export default function AnalyticsPage() {
                       return (
                         <div key={i} className="flex items-center gap-3">
                           <span className="text-sm w-28 shrink-0 truncate">
-                            {loc.name || `Location #${loc.locationId}`}
+                            {loc.name || t.locationFallback(loc.locationId)}
                           </span>
                           <div className="flex-1 h-7 bg-muted rounded overflow-hidden">
                             <div
@@ -524,7 +514,7 @@ export default function AnalyticsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-sm text-muted-foreground">
-                    No search location data
+                    {t.noLocations}
                   </div>
                 )}
               </CardContent>
@@ -534,7 +524,7 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <Home className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Top Property Types</CardTitle>
+                  <CardTitle className="text-base">{t.typesTitle}</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -559,7 +549,7 @@ export default function AnalyticsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-sm text-muted-foreground">
-                    No property type data
+                    {t.noTypes}
                   </div>
                 )}
               </CardContent>
@@ -570,8 +560,8 @@ export default function AnalyticsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Price Range Interest</CardTitle>
-                <CardDescription>Search distribution by budget</CardDescription>
+                <CardTitle className="text-base">{t.priceTitle}</CardTitle>
+                <CardDescription>{t.priceDescription}</CardDescription>
               </CardHeader>
               <CardContent>
                 {searchData?.priceRanges && searchData.priceRanges.some((p) => p.percentage > 0) ? (
@@ -604,7 +594,7 @@ export default function AnalyticsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-sm text-muted-foreground">
-                    No price range data
+                    {t.noPrices}
                   </div>
                 )}
               </CardContent>
@@ -612,8 +602,8 @@ export default function AnalyticsPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Conversion Funnel</CardTitle>
-                <CardDescription>Visitor journey from search to close</CardDescription>
+                <CardTitle className="text-base">{t.funnelTitle}</CardTitle>
+                <CardDescription>{t.funnelDescription}</CardDescription>
               </CardHeader>
               <CardContent>
                 {funnelStages.some((s) => s.value > 0) ? (
@@ -626,7 +616,7 @@ export default function AnalyticsPage() {
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-medium">{stage.name}</span>
                             <span className="text-muted-foreground">
-                              {stage.value.toLocaleString()}
+                              {stage.value.toLocaleString(locale)}
                             </span>
                           </div>
                           <div className="h-7 bg-muted rounded overflow-hidden">
@@ -647,7 +637,7 @@ export default function AnalyticsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-sm text-muted-foreground">
-                    No funnel data for this period
+                    {t.noFunnel}
                   </div>
                 )}
               </CardContent>

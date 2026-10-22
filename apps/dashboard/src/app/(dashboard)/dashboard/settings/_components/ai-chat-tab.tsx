@@ -8,6 +8,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { AiSettings } from './use-ai-settings';
+import { useSettingsText } from '../_i18n';
 
 export function AiChatTab({ ai }: { ai: AiSettings }) {
   const {
@@ -36,24 +37,22 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
     savingAiChat,
     onSaveAiChat,
   } = ai;
+  const st = useSettingsText();
+  const t = st.aiChat;
+  const f = t.features;
 
   return (
     <TabsContent value="ai-chat" className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>AI Chat Widget</CardTitle>
-          <CardDescription>
-            Configure the AI-powered chat assistant on your website. Visitors can search properties,
-            ask questions, compare listings, and get recommendations through natural conversation.
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <p className="font-medium">Enable AI Chat</p>
-              <p className="text-sm text-muted-foreground">
-                Show the chat bubble on your website widget
-              </p>
+              <p className="font-medium">{t.enable}</p>
+              <p className="text-sm text-muted-foreground">{t.enableHelp}</p>
             </div>
             <Switch checked={aiChatEnabled} onCheckedChange={setAiChatEnabled} />
           </div>
@@ -61,57 +60,54 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
           {aiChatEnabled && (
             <>
               <div className="space-y-4">
-                <h4 className="text-sm font-medium">Feature Toggles</h4>
-                <p className="text-xs text-muted-foreground">
-                  Enable or disable individual AI capabilities. Disabling a feature removes the
-                  corresponding tools from the AI, so it won&apos;t attempt those actions.
-                </p>
+                <h4 className="text-sm font-medium">{t.featureToggles}</h4>
+                <p className="text-xs text-muted-foreground">{t.featureHelp}</p>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Natural Language Search</p>
-                      <p className="text-xs text-muted-foreground">&ldquo;3 bedroom villa under 400k&rdquo; → property results</p>
+                      <p className="text-sm font-medium">{f.nlSearch.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.nlSearch.desc}</p>
                     </div>
                     <Switch checked={aiChatNLSearch} onCheckedChange={setAiChatNLSearch} />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Conversational Memory</p>
-                      <p className="text-xs text-muted-foreground">Multi-turn context — &ldquo;show apartments&rdquo; then &ldquo;any with pool?&rdquo;</p>
+                      <p className="text-sm font-medium">{f.memory.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.memory.desc}</p>
                     </div>
                     <Switch checked={aiChatConversational} onCheckedChange={setAiChatConversational} />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Property Q&amp;A</p>
-                      <p className="text-xs text-muted-foreground">Answer questions about a specific property&apos;s details</p>
+                      <p className="text-sm font-medium">{f.qa.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.qa.desc}</p>
                     </div>
                     <Switch checked={aiChatPropertyQA} onCheckedChange={setAiChatPropertyQA} />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Property Comparison</p>
-                      <p className="text-xs text-muted-foreground">Side-by-side comparison of two or more properties</p>
+                      <p className="text-sm font-medium">{f.comparison.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.comparison.desc}</p>
                     </div>
                     <Switch checked={aiChatComparison} onCheckedChange={setAiChatComparison} />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Recommendations</p>
-                      <p className="text-xs text-muted-foreground">&ldquo;Find something like this but cheaper&rdquo;</p>
+                      <p className="text-sm font-medium">{f.recommendations.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.recommendations.desc}</p>
                     </div>
                     <Switch checked={aiChatRecommendations} onCheckedChange={setAiChatRecommendations} />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">Multilingual</p>
-                      <p className="text-xs text-muted-foreground">Respond in the visitor&apos;s language automatically</p>
+                      <p className="text-sm font-medium">{f.multilingual.title}</p>
+                      <p className="text-xs text-muted-foreground">{f.multilingual.desc}</p>
                     </div>
                     <Switch checked={aiChatMultilingual} onCheckedChange={setAiChatMultilingual} />
                   </div>
@@ -119,25 +115,25 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
               </div>
 
               <div className="space-y-4 border-t pt-4">
-                <h4 className="text-sm font-medium">Configuration</h4>
+                <h4 className="text-sm font-medium">{t.configuration}</h4>
 
                 <div className="space-y-2">
-                  <Label htmlFor="aiChatWelcome">Welcome Message</Label>
+                  <Label htmlFor="aiChatWelcome">{t.welcome}</Label>
                   <Textarea
                     id="aiChatWelcome"
-                    placeholder="Hello! I can help you find your perfect property. What are you looking for?"
+                    placeholder={t.welcomePlaceholder}
                     value={aiChatWelcomeMessage}
                     onChange={(e) => setAiChatWelcomeMessage(e.target.value)}
                     rows={2}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Greeting shown when a visitor opens the chat. Leave blank for no greeting.
+                    {t.welcomeHelp}
                   </p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="aiChatMaxMsg">Max Messages per Conversation</Label>
+                    <Label htmlFor="aiChatMaxMsg">{t.maxMessages}</Label>
                     <Input
                       id="aiChatMaxMsg"
                       type="number"
@@ -147,12 +143,12 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
                       onChange={(e) => setAiChatMaxMessages(Number(e.target.value))}
                     />
                     <p className="text-xs text-muted-foreground">
-                      After this limit, the visitor must start a new chat.
+                      {t.maxMessagesHelp}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="aiChatTTL">Conversation Expiry (days)</Label>
+                    <Label htmlFor="aiChatTTL">{t.expiry}</Label>
                     <Input
                       id="aiChatTTL"
                       type="number"
@@ -162,17 +158,15 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
                       onChange={(e) => setAiChatTTLDays(Number(e.target.value))}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Returning visitors get a new chat after this many days.
+                      {t.expiryHelp}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
-                    <p className="font-medium">Auto-email Admin</p>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically email you the chat transcript when a visitor sends 3+ messages
-                    </p>
+                    <p className="font-medium">{t.autoEmail}</p>
+                    <p className="text-sm text-muted-foreground">{t.autoEmailHelp}</p>
                   </div>
                   <Switch checked={aiChatAutoEmailAdmin} onCheckedChange={setAiChatAutoEmailAdmin} />
                 </div>
@@ -181,7 +175,7 @@ export function AiChatTab({ ai }: { ai: AiSettings }) {
           )}
 
           <Button onClick={onSaveAiChat} disabled={savingAiChat}>
-            {savingAiChat ? 'Saving…' : 'Save AI Chat Settings'}
+            {savingAiChat ? st.common.saving : t.save}
           </Button>
         </CardContent>
       </Card>

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api';
-import { ALL_LANGUAGES } from './types';
+import { languageName, useSettingsText } from '../_i18n';
 
 // Listing titles built from a pattern per language, e.g. "{type} for sale in
 // {location}", on cards and the property page. The API applies them
@@ -25,23 +25,16 @@ export interface TitlePatternsForm {
 
 export const EMPTY_TITLE_PATTERNS: TitlePatternsForm = { enabled: false, card: {}, detailSameAsCard: true, detail: {} };
 
-const KEYS: { key: PatternKey; label: string }[] = [
-  { key: 'default', label: 'All listings' },
-  { key: 'sale', label: 'For sale (optional)' },
-  { key: 'development', label: 'New development (optional)' },
-  { key: 'rent', label: 'Long-term rent (optional)' },
-  { key: 'holiday_rent', label: 'Holiday rent (optional)' },
+// Labels: settingsText titles.keys[key] / titles.fields[token].
+const KEYS: { key: PatternKey }[] = [
+  { key: 'default' },
+  { key: 'sale' },
+  { key: 'development' },
+  { key: 'rent' },
+  { key: 'holiday_rent' },
 ];
 
-const FIELDS: { token: string; label: string }[] = [
-  { token: 'type', label: 'Property type' },
-  { token: 'location', label: 'Location' },
-  { token: 'area', label: 'Area (place above the location)' },
-  { token: 'listingType', label: 'Listing type' },
-  { token: 'bedrooms', label: 'Bedrooms' },
-  { token: 'ref', label: 'Reference' },
-  { token: 'title', label: 'Own title' },
-];
+const FIELDS = ['type', 'location', 'area', 'listingType', 'bedrooms', 'ref', 'title'] as const;
 
 function cleanSet(value: unknown): PatternSet {
   const out: PatternSet = {};
@@ -93,6 +86,8 @@ export function TitlePatternSettings({
   languages: string[];
 }) {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.titles;
   const langs = languages.length ? languages : ['en'];
   const [lang, setLang] = useState(langs[0]);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
@@ -137,7 +132,7 @@ export function TitlePatternSettings({
       const rows = ((res as { data?: unknown })?.data ?? res) as PreviewRow[];
       setPreview(Array.isArray(rows) ? rows : []);
     } catch (e) {
-      toast({ title: 'Preview failed', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: t.previewFailed, description: (e as Error).message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -145,12 +140,12 @@ export function TitlePatternSettings({
 
   const boxes = (part: 'card' | 'detail') => (
     <div className="space-y-2">
-      {KEYS.map(({ key, label }) => (
+      {KEYS.map(({ key }) => (
         <div key={key} className="grid items-center gap-1 sm:grid-cols-[13rem_1fr] sm:gap-3">
-          <Label htmlFor={`tp-${part}-${key}`} className="text-sm font-normal">{label}</Label>
+          <Label htmlFor={`tp-${part}-${key}`} className="text-sm font-normal">{t.keys[key]}</Label>
           <Input
             id={`tp-${part}-${key}`}
-            placeholder={key === 'default' ? '{type} for sale in {location}' : 'Empty: uses "All listings"'}
+            placeholder={key === 'default' ? t.defaultPlaceholder : t.emptyPlaceholder}
             value={value[part][key]?.[current] ?? ''}
             onFocus={(e) => (focused.current = { part, key, el: e.currentTarget })}
             onChange={(e) => setText(part, key, e.target.value)}
@@ -164,13 +159,8 @@ export function TitlePatternSettings({
     <div className="space-y-4 rounded-md border p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <Label htmlFor="title-patterns-enabled">Listing titles</Label>
-          <p className="text-xs text-muted-foreground">
-            Build every listing&apos;s title on the website from a pattern, per language. Click a field to add it, and
-            type the words around it: &quot;{'{type}'} for sale in {'{location}'}&quot; shows &quot;Apartment for sale in
-            Marbella&quot;. Fields use your translated names. A listing missing a field (no location, say) keeps its
-            own title. Property page addresses don&apos;t change, and feed exports keep the own titles.
-          </p>
+          <Label htmlFor="title-patterns-enabled">{t.title}</Label>
+          <p className="text-xs text-muted-foreground">{t.help}</p>
         </div>
         <Switch id="title-patterns-enabled" checked={value.enabled} onCheckedChange={(enabled) => onChange({ ...value, enabled })} />
       </div>
@@ -180,24 +170,24 @@ export function TitlePatternSettings({
           <div className="flex flex-wrap gap-1">
             {langs.map((l) => (
               <Button key={l} type="button" size="sm" variant={l === current ? 'default' : 'outline'} onClick={() => setLang(l)}>
-                {ALL_LANGUAGES[l] ?? l.toUpperCase()}
+                {languageName(st, l) ?? l.toUpperCase()}
               </Button>
             ))}
           </div>
 
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Add a field where the cursor is:</p>
+            <p className="text-xs text-muted-foreground">{t.addField}</p>
             <div className="flex flex-wrap gap-1">
-              {FIELDS.map((f) => (
-                <Button key={f.token} type="button" size="sm" variant="secondary" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.token)}>
-                  + {f.label}
+              {FIELDS.map((token) => (
+                <Button key={token} type="button" size="sm" variant="secondary" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(token)}>
+                  + {t.fields[token]}
                 </Button>
               ))}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Listing cards{value.detailSameAsCard ? ' and property page' : ''}</Label>
+            <Label>{value.detailSameAsCard ? t.cardsAndPage : t.cards}</Label>
             {boxes('card')}
           </div>
 
@@ -207,32 +197,31 @@ export function TitlePatternSettings({
               checked={value.detailSameAsCard}
               onChange={(e) => onChange({ ...value, detailSameAsCard: e.target.checked })}
             />
-            The property page uses the same titles as the cards
+            {t.sameAsCards}
           </label>
 
           {!value.detailSameAsCard && (
             <div className="space-y-2">
-              <Label>Property page</Label>
+              <Label>{t.propertyPage}</Label>
               {boxes('detail')}
             </div>
           )}
 
           <p className="text-xs text-muted-foreground">
-            A language left empty uses the English pattern. A listing&apos;s own Meta Title (SEO tab) still wins for the
-            browser tab and search results.
+            {t.fallbackHelp}
           </p>
 
           <div className="space-y-2">
             <Button type="button" variant="outline" size="sm" disabled={loading} onClick={runPreview}>
-              {loading ? 'Loading…' : 'Preview with my listings'}
+              {loading ? st.common.loading : t.preview}
             </Button>
             {preview && (preview.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No published listings to preview.</p>
+              <p className="text-xs text-muted-foreground">{t.noListings}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-xs text-muted-foreground">
-                    <tr><th className="py-1 pr-3">Ref</th><th className="py-1 pr-3">Card</th>{!value.detailSameAsCard && <th className="py-1 pr-3">Property page</th>}<th className="py-1">Own title</th></tr>
+                    <tr><th className="py-1 pr-3">{t.colRef}</th><th className="py-1 pr-3">{t.colCard}</th>{!value.detailSameAsCard && <th className="py-1 pr-3">{t.propertyPage}</th>}<th className="py-1">{t.colOwn}</th></tr>
                   </thead>
                   <tbody>
                     {preview.map((r) => (

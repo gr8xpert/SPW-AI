@@ -8,33 +8,35 @@ import { SiteAgentSettings } from './site-agent-settings';
 import { TitlePatternSettings } from './title-pattern-settings';
 import { BadgeSettings } from './badge-settings';
 import { ChoiceButtons, SettingBlock, SwitchRow } from './widget-ui';
+import { useSettingsText } from '../_i18n';
 
 // Widget tab → Listing cards and Property page.
 
 export function WidgetCardsSection({ widget }: { widget: WidgetSettings }) {
   const { wishlistIcon, setWishlistIcon, cardShareIcon, setCardShareIcon, hiddenBadges, setHiddenBadges, titlePatterns, setTitlePatterns, siteLanguages } = widget;
+  const t = useSettingsText().cards;
   return (
     <div className="space-y-6">
       <SettingBlock
-        title="Wishlist / Favorites Icon"
-        description="The icon used for saving properties across the website (listing cards, property page, wishlist)."
+        title={t.wishlistIcon}
+        description={t.wishlistHelp}
       >
         <ChoiceButtons
           value={wishlistIcon}
           onChange={setWishlistIcon}
           options={[
-            { value: 'heart', label: 'Heart', icon: <Heart className="h-4 w-4" /> },
-            { value: 'star', label: 'Star', icon: <Star className="h-4 w-4" /> },
-            { value: 'bookmark', label: 'Bookmark', icon: <Bookmark className="h-4 w-4" /> },
-            { value: 'save', label: 'Save', icon: <Save className="h-4 w-4" /> },
+            { value: 'heart', label: t.icons.heart, icon: <Heart className="h-4 w-4" /> },
+            { value: 'star', label: t.icons.star, icon: <Star className="h-4 w-4" /> },
+            { value: 'bookmark', label: t.icons.bookmark, icon: <Bookmark className="h-4 w-4" /> },
+            { value: 'save', label: t.icons.save, icon: <Save className="h-4 w-4" /> },
           ]}
         />
       </SettingBlock>
 
       <SwitchRow
         id="card-share-icon"
-        title="Share icon on listing cards"
-        description="Adds a share icon beside the wishlist heart on every listing card and carousel. Visitors can send the property by WhatsApp, Facebook, X or email, or copy its link. On phones it opens the phone's own share menu."
+        title={t.shareIcon}
+        description={t.shareHelp}
         checked={cardShareIcon}
         onCheckedChange={setCardShareIcon}
       />
@@ -59,29 +61,30 @@ export function WidgetPropertyPageSection({ widget }: { widget: WidgetSettings }
     siteAgent,
     setSiteAgent,
   } = widget;
+  const t = useSettingsText().property;
   return (
     <div className="space-y-6">
       <SettingBlock
-        title="Property Map Display"
-        description={'How the property location is shown on the property page map. "Auto" uses the best available data.'}
+        title={t.mapDisplay}
+        description={t.mapHelp}
       >
         <ChoiceButtons
           value={mapVariation}
           onChange={setMapVariation}
           options={[
-            { value: 'auto', label: 'Auto (Best Available)', desc: 'Pin → Zip → Location' },
-            { value: '0', label: 'Pin + Circle', desc: 'Approximate marker with radius' },
-            { value: '1', label: 'Zip Code Area', desc: 'Boundary around postal code' },
-            { value: '2', label: 'Location Area', desc: 'Boundary around municipality' },
+            { value: 'auto', ...t.mapOptions.auto },
+            { value: '0', ...t.mapOptions.pin },
+            { value: '1', ...t.mapOptions.zip },
+            { value: '2', ...t.mapOptions.area },
           ]}
         />
       </SettingBlock>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <SettingBlock
-          title="Similar Properties"
+          title={t.similar}
           htmlFor="similar-limit"
-          description="How many similar properties the property page shows. 0 hides the section."
+          description={t.similarHelp}
         >
           <Input
             id="similar-limit"
@@ -94,9 +97,9 @@ export function WidgetPropertyPageSection({ widget }: { widget: WidgetSettings }
           />
         </SettingBlock>
         <SettingBlock
-          title="Mortgage Interest Rate (%)"
+          title={t.mortgage}
           htmlFor="mortgage-rate"
-          description="The rate the mortgage calculator starts with; visitors can change it. Empty = 3.5%."
+          description={t.mortgageHelp}
         >
           <Input
             id="mortgage-rate"

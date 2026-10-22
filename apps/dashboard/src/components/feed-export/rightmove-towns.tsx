@@ -9,11 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPut } from '@/lib/api';
 import { errorText, unwrap } from './idealista-api';
 import type { RightmoveTown } from './rightmove-api';
+import { useFeedExportText } from './_i18n';
 
 // The towns the client's Rightmove listings sit in, and the Rightmove place
 // each is sent as. Unmatched towns can be pointed at a place by hand.
 export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
   const { toast } = useToast();
+  const tx = useFeedExportText();
   const [data, setData] = useState<{ placeCount: number; towns: RightmoveTown[] } | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [search, setSearch] = useState('');
@@ -24,7 +26,7 @@ export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
     try {
       setData(unwrap(await apiGet('/api/dashboard/feed-export/rightmove/towns')));
     } catch (err) {
-      toast({ title: 'Could not load the towns', description: errorText(err), variant: 'destructive' });
+      toast({ title: tx.rmTowns.loadFailed, description: errorText(err, tx.common.somethingWrong), variant: 'destructive' });
     }
   };
 
@@ -56,7 +58,7 @@ export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
       await load();
       onChanged();
     } catch (err) {
-      toast({ title: 'Could not save', description: errorText(err), variant: 'destructive' });
+      toast({ title: tx.common.couldNotSave, description: errorText(err, tx.common.somethingWrong), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -65,21 +67,18 @@ export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
   if (!data) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />;
   if (!data.placeCount) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Rightmove’s list of places isn’t loaded yet, so towns are sent with your own names. Once the list is loaded,
-        each town here shows the Rightmove place it goes to.
-      </p>
+      <p className="text-sm text-muted-foreground">{tx.rmTowns.notLoaded}</p>
     );
   }
-  if (!data.towns.length) return <p className="text-sm text-muted-foreground">No listings in the Rightmove feed yet.</p>;
+  if (!data.towns.length) return <p className="text-sm text-muted-foreground">{tx.rmTowns.noListings}</p>;
   const unmatched = data.towns.filter((t) => !t.place).length;
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         {unmatched
-          ? `${unmatched} town(s) aren’t on Rightmove’s list — their listings go out without a town. Pick the nearest Rightmove place.`
-          : 'Every town matches a Rightmove place.'}
+          ? tx.rmTowns.unmatched(unmatched)
+          : tx.rmTowns.allMatched}
       </p>
       <div className="border rounded-md divide-y max-h-[460px] overflow-y-auto">
         {data.towns.map((t) => (
@@ -88,21 +87,21 @@ export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
               <div>
                 <span className="font-medium">{t.name}</span>
                 {t.parent && <span className="text-muted-foreground"> · {t.parent}</span>}
-                <span className="text-muted-foreground"> · {t.listings} listing{t.listings === 1 ? '' : 's'}</span>
+                <span className="text-muted-foreground"> · {tx.rmTowns.listings(t.listings)}</span>
               </div>
               <div className="flex items-center gap-2 text-right">
                 {t.place ? (
                   <span className="text-muted-foreground">{t.place.label}</span>
                 ) : (
-                  <Badge variant="destructive">Not on Rightmove’s list</Badge>
+                  <Badge variant="destructive">{tx.rmTowns.notOnList}</Badge>
                 )}
                 {t.linked && (
-                  <Button variant="ghost" size="icon" title="Match by name again" disabled={busy} onClick={() => link(t.locationId, null)}>
+                  <Button variant="ghost" size="icon" title={tx.rmTowns.matchAgain} disabled={busy} onClick={() => link(t.locationId, null)}>
                     <RotateCcw className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={() => { setEditing(editing === t.locationId ? null : t.locationId); setSearch(''); }}>
-                  {editing === t.locationId ? 'Cancel' : 'Change'}
+                  {editing === t.locationId ? tx.rmTowns.cancel : tx.rmTowns.change}
                 </Button>
               </div>
             </div>
@@ -110,7 +109,7 @@ export function RightmoveTowns({ onChanged }: { onChanged: () => void }) {
               <div className="space-y-1">
                 <div className="relative">
                   <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
-                  <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Rightmove places…" className="pl-8" />
+                  <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tx.rmTowns.search} className="pl-8" />
                 </div>
                 {results.map((r) => (
                   <button

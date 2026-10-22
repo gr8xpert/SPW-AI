@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiPut } from '@/lib/api';
 import type { TenantCurrent } from './types';
+import { useSettingsText } from '../_i18n';
 import { EMPTY_PURCHASE_COSTS, purchaseCostsFromSettings, purchaseCostsToSettings, type PurchaseCostsForm } from './purchase-costs-settings';
 import { EMPTY_SITE_AGENT, siteAgentFromSettings, siteAgentToSettings, type SiteAgentForm } from './site-agent-settings';
 import { EMPTY_SORT_OPTIONS, sortOptionsFromSettings, sortOptionsToSettings, type SortOptionsForm } from './sort-options-settings';
@@ -17,6 +18,7 @@ const DEFAULT_SALE_PRICES = [50000, 100000, 150000, 200000, 250000, 300000, 4000
 
 export function useWidgetSettings() {
   const { toast } = useToast();
+  const t = useSettingsText();
   // Widget search options state
   const [bedroomOptions, setBedroomOptions] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const [bathroomOptions, setBathroomOptions] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -161,14 +163,14 @@ export function useWidgetSettings() {
     const secret = recaptchaSecretKey.trim();
     if ((site && !RECAPTCHA_KEY_RE.test(site)) || (secret && !secret.includes('••••') && !RECAPTCHA_KEY_RE.test(secret))) {
       toast({
-        title: 'reCAPTCHA keys look wrong',
-        description: 'Each key is 40 characters and starts with "6L" (google.com/recaptcha/admin). Leave both empty to switch reCAPTCHA off.',
+        title: t.widget.recaptchaWrong,
+        description: t.widget.recaptchaWrongText,
         variant: 'destructive',
       });
       return;
     }
     if (!!site !== !!secret) {
-      toast({ title: 'reCAPTCHA needs both keys', description: 'Fill in the site key and the secret key, or leave both empty.', variant: 'destructive' });
+      toast({ title: t.widget.recaptchaBoth, description: t.widget.recaptchaBothText, variant: 'destructive' });
       return;
     }
     setSavingWidget(true);
@@ -176,9 +178,9 @@ export function useWidgetSettings() {
       const body = payload();
       await apiPut('/api/dashboard/tenant/settings', body);
       setBaseline(JSON.stringify(body));
-      toast({ title: 'Widget settings saved', description: 'Your website picks them up within a minute.' });
+      toast({ title: t.widget.saved, description: t.widget.savedText });
     } catch (err) {
-      toast({ title: 'Failed to save widget settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: t.widget.saveFailed, description: (err as Error).message || t.common.unexpectedError, variant: 'destructive' });
     } finally {
       setSavingWidget(false);
     }

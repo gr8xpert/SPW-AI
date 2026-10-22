@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { templateName, useWebsiteDesignText } from './_i18n';
 
 type Kind = 'search' | 'listing' | 'detail' | 'map' | 'carousel';
 type SiteTemplates = Partial<Record<Kind, string>>;
@@ -18,83 +19,21 @@ const WIDGET_URL = (process.env.NEXT_PUBLIC_WIDGET_URL || 'https://spw-ai.com/wi
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 const PREVIEW_WIDTH = 1280;
 
-// `wp` replaces the WordPress note for blocks the plugin's pages don't carry.
-const KINDS: Array<{ kind: Kind; tab: string; intro: string; snippet: string; wp?: string; templates: Array<{ id: string; name: string }> }> = [
-  {
-    kind: 'search',
-    tab: 'Search box',
-    intro: 'The search form above your property results and on your homepage.',
-    snippet: '<div data-spm-widget="site-search"></div>',
-    templates: [
-      ['01', 'Compact horizontal'],
-      ['02', 'Single row with more filters'],
-      ['03', 'With reference search'],
-      ['04', 'Capsule'],
-      ['05', 'Card panel'],
-      ['06', 'Minimal hero'],
-      ['07', 'Tabs, three rows and refine buttons'],
-    ].map(([n, name]) => ({ id: `search-template-${n}`, name })),
-  },
-  {
-    kind: 'listing',
-    tab: 'Property results',
-    intro: 'How each property card looks in your search results.',
-    snippet: '<div data-spm-widget="site-listing"></div>',
-    templates: [
-      ['01', 'Classic card'],
-      ['02', 'Photo overlay'],
-      ['03', 'Blend bottom'],
-      ['04', 'Compact padded'],
-      ['05', 'Showcase'],
-      ['06', 'Elegant round action'],
-      ['07', 'Immersive panel'],
-      ['08', 'Country style'],
-      ['09', 'Rustic icons'],
-      ['10', 'Metro band'],
-      ['11', 'Classic card (variant)'],
-      ['12', 'Location first'],
-      ['13', 'Dark overlay, price first'],
-      ['14', 'Dark overlay with photo count'],
-      ['15', 'Wide card with details'],
-      ['16', 'Large development card'],
-      ['17', 'Dark content card'],
-    ].map(([n, name]) => ({ id: `listing-template-${n}`, name })),
-  },
-  {
-    kind: 'map',
-    tab: 'Map search',
-    intro: 'Search on a map. Shown on any page that has the map search block.',
-    snippet: '<div data-spm-widget="site-map"></div>',
-    templates: [
-      ['01', 'Area chips and full-width map'],
-      ['02', 'Area search with map or list'],
-      ['03', 'Map beside the results list'],
-    ].map(([n, name]) => ({ id: `map-template-${n}`, name })),
-  },
-  {
-    kind: 'detail',
-    tab: 'Property page',
-    intro: 'The page a visitor sees after clicking a property.',
-    snippet: '<div data-spm-widget="site-detail"></div>',
-    templates: [
-      { id: 'detail-template-01', name: 'Standard property page' },
-      { id: 'detail-template-02', name: 'Large photo, highlights and photo grid' },
-    ],
-  },
+// Tab names, intros and design names are in the page text (by kind and id).
+// `wp` = the page text has its own WordPress note for this block (the
+// plugin's pages don't carry it).
+const range = (kind: Kind, count: number) =>
+  Array.from({ length: count }, (_, i) => ({ id: `${kind}-template-${String(i + 1).padStart(2, '0')}` }));
+const KINDS: Array<{ kind: Kind; snippet: string; wp?: boolean; templates: Array<{ id: string }> }> = [
+  { kind: 'search', snippet: '<div data-spm-widget="site-search"></div>', templates: range('search', 7) },
+  { kind: 'listing', snippet: '<div data-spm-widget="site-listing"></div>', templates: range('listing', 17) },
+  { kind: 'map', snippet: '<div data-spm-widget="site-map"></div>', templates: range('map', 3) },
+  { kind: 'detail', snippet: '<div data-spm-widget="site-detail"></div>', templates: range('detail', 2) },
   {
     kind: 'carousel',
-    tab: 'Carousel',
-    intro: 'A slider of properties for your homepage or any other page. Each carousel shows its own properties (for example your featured ones) and never changes the search.',
     snippet: '<div data-spm-widget="site-carousel" data-spm-featured="yes"></div>',
-    wp: 'WordPress: add [spm_carousel] (for example [spm_carousel featured="yes" limit="8"]) where it should appear.',
-    templates: [
-      ['01', 'Centre focus'],
-      ['02', '3D perspective'],
-      ['03', 'Coverflow'],
-      ['04', 'Full width'],
-      ['05', 'Tilted'],
-      ['06', 'Dark numbered cards'],
-    ].map(([n, name]) => ({ id: `carousel-template-${n}`, name })),
+    wp: true,
+    templates: range('carousel', 6),
   },
 ];
 
@@ -165,20 +104,21 @@ function TemplatePreview({ src, maxHeight, title }: { src: string; maxHeight: nu
 export default function WebsiteDesignPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const t = useWebsiteDesignText();
   const [token, setToken] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState(false);
   const [templates, setTemplates] = useState<SiteTemplates>({});
   const [savedColor, setSavedColor] = useState('#2563eb');
   const [color, setColor] = useState('#2563eb');
   const [saving, setSaving] = useState<string | null>(null);
-  const [enlarged, setEnlarged] = useState<{ id: string; name: string } | null>(null);
+  const [enlarged, setEnlarged] = useState<{ id: string } | null>(null);
   // Previews wait for the saved colour, so they don't load twice.
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   // Previews follow the colour field after a short pause, not every keystroke.
   const [previewColor, setPreviewColor] = useState('#2563eb');
   useEffect(() => {
-    const t = setTimeout(() => setPreviewColor(color), 500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setPreviewColor(color), 500);
+    return () => clearTimeout(timer);
   }, [color]);
   // Changes whenever something is saved, so previews reload with it.
   const [revision, setRevision] = useState(0);
@@ -209,14 +149,14 @@ export default function WebsiteDesignPage() {
       try {
         await apiPut('/api/dashboard/tenant/settings', { siteTemplates: next });
         setTemplates(next);
-        toast({ title: 'Design updated', description: 'Your website shows the new design within a minute.' });
+        toast({ title: t.designUpdated, description: t.designUpdatedText });
       } catch (err) {
-        toast({ title: 'Could not save', description: (err as Error).message, variant: 'destructive' });
+        toast({ title: t.couldNotSave, description: (err as Error).message, variant: 'destructive' });
       } finally {
         setSaving(null);
       }
     },
-    [templates, toast],
+    [templates, toast, t],
   );
 
   const saveColor = async () => {
@@ -226,9 +166,9 @@ export default function WebsiteDesignPage() {
       await apiPut('/api/dashboard/tenant/settings', { primaryColor: color });
       setSavedColor(color);
       setRevision((r) => r + 1);
-      toast({ title: 'Brand colour saved', description: 'Buttons, prices and highlights on your website now use it.' });
+      toast({ title: t.colourSaved, description: t.colourSavedText });
     } catch (err) {
-      toast({ title: 'Could not save', description: (err as Error).message, variant: 'destructive' });
+      toast({ title: t.couldNotSave, description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSaving(null);
     }
@@ -239,19 +179,16 @@ export default function WebsiteDesignPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Website Design</h1>
-        <p className="text-muted-foreground">
-          Pick how property search and listings look on your website. The previews use your own properties. Your
-          website follows your choice automatically &mdash; no need to edit pages.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+        <p className="text-muted-foreground">{t.description}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Palette className="h-5 w-5" /> Brand colour
+            <Palette className="h-5 w-5" /> {t.brandColour}
           </CardTitle>
-          <CardDescription>Used for buttons, prices, map markers and highlights. The previews below show it straight away.</CardDescription>
+          <CardDescription>{t.brandColourDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <input
@@ -259,7 +196,7 @@ export default function WebsiteDesignPage() {
             value={isHex(color) ? color : '#2563eb'}
             onChange={(e) => setColor(e.target.value)}
             className="h-10 w-14 cursor-pointer rounded border"
-            aria-label="Brand colour"
+            aria-label={t.brandColour}
           />
           <Input value={color} onChange={(e) => setColor(e.target.value.trim())} className="w-28 font-mono" data-testid="brand-color-input" />
           <div className="flex gap-2">
@@ -276,16 +213,16 @@ export default function WebsiteDesignPage() {
           </div>
           <Button onClick={saveColor} disabled={!isHex(color) || color.toLowerCase() === savedColor.toLowerCase() || saving === 'color'}>
             {saving === 'color' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save colour
+            {t.saveColour}
           </Button>
-          {!isHex(color) && <span className="text-sm text-destructive">Use a colour like #2563eb</span>}
+          {!isHex(color) && <span className="text-sm text-destructive">{t.colourHint}</span>}
         </CardContent>
       </Card>
 
       {tokenError && (
         <Card className="border-destructive/40">
           <CardContent className="py-4 text-sm text-destructive">
-            Previews could not be loaded. Check that the website widget is enabled for your account, then reload the page.
+            {t.previewsFailed}
           </CardContent>
         </Card>
       )}
@@ -294,17 +231,18 @@ export default function WebsiteDesignPage() {
         <TabsList className="flex-wrap">
           {KINDS.map((k) => (
             <TabsTrigger key={k.kind} value={k.kind} data-testid={`tab-${k.kind}`}>
-              {k.tab}
+              {t.kinds[k.kind].tab}
             </TabsTrigger>
           ))}
         </TabsList>
 
         {KINDS.map((k) => (
           <TabsContent key={k.kind} value={k.kind} className="space-y-4">
-            <p className="text-sm text-muted-foreground">{k.intro}</p>
+            <p className="text-sm text-muted-foreground">{t.kinds[k.kind].intro}</p>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {k.templates.map((tpl) => {
                 const active = current(k.kind) === tpl.id;
+                const name = templateName(t, tpl.id);
                 return (
                   <Card key={tpl.id} data-testid={`template-${tpl.id}`} className={active ? 'border-primary ring-2 ring-primary/30' : ''}>
                     <CardContent className="space-y-3 p-3">
@@ -314,30 +252,30 @@ export default function WebsiteDesignPage() {
                           key={`${tpl.id}-${revision}-${previewColor}`}
                           src={previewUrl(tpl.id, token, previewColor)}
                           maxHeight={k.kind === 'detail' ? 1400 : 900}
-                          title={tpl.name}
+                          title={name}
                         />
                       ) : (
                         <div className="flex h-40 items-center justify-center rounded-md border text-muted-foreground">
-                          {tokenError ? 'No preview' : <Loader2 className="h-5 w-5 animate-spin" />}
+                          {tokenError ? t.noPreview : <Loader2 className="h-5 w-5 animate-spin" />}
                         </div>
                       )}
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="truncate font-medium">{tpl.name}</div>
+                          <div className="truncate font-medium">{name}</div>
                           <div className="text-xs text-muted-foreground">{tpl.id.replace(/-/g, ' ')}</div>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <Button variant="ghost" size="icon" title="View larger" onClick={() => setEnlarged(tpl)} disabled={!token}>
+                          <Button variant="ghost" size="icon" title={t.viewLarger} onClick={() => setEnlarged(tpl)} disabled={!token}>
                             <Maximize2 className="h-4 w-4" />
                           </Button>
                           {active ? (
                             <Button size="sm" variant="secondary" disabled data-testid="in-use">
-                              <Check className="mr-1 h-4 w-4" /> In use
+                              <Check className="mr-1 h-4 w-4" /> {t.inUse}
                             </Button>
                           ) : (
                             <Button size="sm" onClick={() => choose(k.kind, tpl.id)} disabled={saving !== null} data-testid="use-this">
                               {saving === tpl.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                              Use this
+                              {t.useThis}
                             </Button>
                           )}
                         </div>
@@ -349,10 +287,10 @@ export default function WebsiteDesignPage() {
             </div>
             <Card className="bg-muted/40">
               <CardContent className="space-y-1 py-4 text-sm">
-                <div className="font-medium">Where does this show?</div>
+                <div className="font-medium">{t.whereTitle}</div>
                 <p className="text-muted-foreground">
-                  {k.wp ?? 'WordPress: the pages created by the SPM plugin follow your choice automatically.'} Other websites: paste{' '}
-                  <code className="rounded bg-background px-1 py-0.5 text-xs">{k.snippet}</code> where it should appear.
+                  {k.wp ? t.carouselWp : t.wpDefault} {t.otherSitesBefore}{' '}
+                  <code className="rounded bg-background px-1 py-0.5 text-xs">{k.snippet}</code> {t.otherSitesAfter}
                 </p>
               </CardContent>
             </Card>
@@ -364,9 +302,9 @@ export default function WebsiteDesignPage() {
         <DialogContent className="max-w-6xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {enlarged?.name}
+              {enlarged && templateName(t, enlarged.id)}
               {enlarged && token && (
-                <a href={previewUrl(enlarged.id, token, color)} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" title="Open in a new tab">
+                <a href={previewUrl(enlarged.id, token, color)} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" title={t.openInNewTab}>
                   <ExternalLink className="h-4 w-4" />
                 </a>
               )}
@@ -374,7 +312,7 @@ export default function WebsiteDesignPage() {
           </DialogHeader>
           {enlarged && token && (
             <div className="max-h-[75vh] overflow-y-auto">
-              <TemplatePreview key={previewColor} src={previewUrl(enlarged.id, token, previewColor)} maxHeight={4000} title={enlarged.name} />
+              <TemplatePreview key={previewColor} src={previewUrl(enlarged.id, token, previewColor)} maxHeight={4000} title={templateName(t, enlarged.id)} />
             </div>
           )}
         </DialogContent>

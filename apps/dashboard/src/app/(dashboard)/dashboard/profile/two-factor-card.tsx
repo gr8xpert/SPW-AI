@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useProfileText } from './_i18n';
 
 // Two-factor login for the signed-in user (milestone J) and, for the agency
 // admin, the switch that makes it compulsory for everyone.
@@ -25,10 +26,11 @@ const one = <T,>(r: unknown): T => (r && typeof r === 'object' && 'data' in (r a
 
 function RecoveryCodes({ codes }: { codes: string[] }) {
   const [copied, setCopied] = useState(false);
+  const t = useProfileText();
   return (
     <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/30" data-testid="recovery-codes">
-      <p className="text-sm font-medium">Recovery codes — save them now, they are shown only once.</p>
-      <p className="text-xs text-muted-foreground">Each code works once, if you lose your phone.</p>
+      <p className="text-sm font-medium">{t.recoveryTitle}</p>
+      <p className="text-xs text-muted-foreground">{t.recoveryHelp}</p>
       <div className="grid grid-cols-2 gap-1 font-mono text-sm sm:grid-cols-4">
         {codes.map((c) => <span key={c}>{c}</span>)}
       </div>
@@ -41,7 +43,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
         }}
       >
         {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
-        {copied ? 'Copied' : 'Copy codes'}
+        {copied ? t.copied : t.copyCodes}
       </Button>
     </div>
   );
@@ -51,6 +53,7 @@ export function TwoFactorCard() {
   const api = useApi();
   const { data: session } = useSession();
   const { toast } = useToast();
+  const t = useProfileText();
   const queryClient = useQueryClient();
   const mustSetUp = !!session?.user?.mfaSetup;
   const isAdmin = session?.user?.role === 'admin';
@@ -65,7 +68,7 @@ export function TwoFactorCard() {
   const [codes, setCodes] = useState<string[] | null>(null);
   const [turningOff, setTurningOff] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['two-factor'] });
-  const fail = (e: Error) => toast({ title: 'Could not save', description: e.message, variant: 'destructive' });
+  const fail = (e: Error) => toast({ title: t.saveFailed, description: e.message, variant: 'destructive' });
 
   const start = useMutation({
     mutationFn: async () => one<{ secret: string; qr: string }>(await api.post('/api/auth/2fa/setup')),
@@ -89,7 +92,7 @@ export function TwoFactorCard() {
       setPassword('');
       setCode('');
       setCodes(null);
-      toast({ title: 'Two-factor login is off' });
+      toast({ title: t.turnedOff });
       void refresh();
     },
     onError: fail,
@@ -106,7 +109,7 @@ export function TwoFactorCard() {
   const require2fa = useMutation({
     mutationFn: async (on: boolean) => one<{ required: boolean }>(await api.put('/api/auth/2fa/require', { on })),
     onSuccess: (r) => {
-      toast({ title: r.required ? 'Everyone in your agency must now use two-factor login' : 'Two-factor login is optional again' });
+      toast({ title: r.required ? t.requiredOn : t.requiredOff });
       void refresh();
     },
     onError: fail,
@@ -119,8 +122,8 @@ export function TwoFactorCard() {
         <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm dark:bg-amber-950/30" data-testid="mfa-required">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div>
-            <p className="font-medium">Your agency requires two-factor login.</p>
-            <p className="text-muted-foreground">Set it up below. Then log in again with a code to open the dashboard.</p>
+            <p className="font-medium">{t.agencyRequires}</p>
+            <p className="text-muted-foreground">{t.agencyRequiresHelp}</p>
           </div>
         </div>
       ) : null}
@@ -129,10 +132,10 @@ export function TwoFactorCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             {s?.enabled ? <ShieldCheck className="h-5 w-5 text-emerald-600" /> : <KeyRound className="h-5 w-5 text-muted-foreground" />}
-            Two-factor login
+            {t.twoFactor}
           </CardTitle>
           <CardDescription>
-            Besides your password, log in with a 6-digit code from an app on your phone (Google Authenticator, Microsoft Authenticator, 1Password, Authy…).
+            {t.twoFactorHelp}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -143,69 +146,69 @@ export function TwoFactorCard() {
               <RecoveryCodes codes={codes} />
               {mustSetUp ? (
                 <Button onClick={() => signOut({ callbackUrl: '/login' })} data-testid="login-again">
-                  I saved them — log in again
+                  {t.savedLogInAgain}
                 </Button>
               ) : (
-                <Button variant="outline" onClick={() => setCodes(null)}>Done</Button>
+                <Button variant="outline" onClick={() => setCodes(null)}>{t.done}</Button>
               )}
             </div>
           ) : s.enabled ? (
             <div className="space-y-4">
               <p className="text-sm" data-testid="two-factor-on">
-                <span className="font-medium text-emerald-700 dark:text-emerald-400">On.</span> {s.recoveryLeft} recovery {s.recoveryLeft === 1 ? 'code' : 'codes'} left.
+                <span className="font-medium text-emerald-700 dark:text-emerald-400">{t.on}</span> {t.recoveryLeft(s.recoveryLeft)}
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="tf-code" className="text-xs">Code from your app</Label>
+                  <Label htmlFor="tf-code" className="text-xs">{t.codeFromApp}</Label>
                   <Input id="tf-code" className="w-40" inputMode="numeric" autoComplete="one-time-code" value={code} maxLength={20} onChange={(e) => setCode(e.target.value)} />
                 </div>
                 {turningOff ? (
                   <div className="space-y-1">
-                    <Label htmlFor="tf-password" className="text-xs">Your password</Label>
+                    <Label htmlFor="tf-password" className="text-xs">{t.yourPassword}</Label>
                     <Input id="tf-password" type="password" className="w-52" value={password} onChange={(e) => setPassword(e.target.value)} />
                   </div>
                 ) : null}
                 <Button variant="outline" disabled={code.trim().length < 6 || newCodes.isPending} onClick={() => newCodes.mutate()}>
-                  New recovery codes
+                  {t.newRecoveryCodes}
                 </Button>
                 {s.required ? (
-                  <span className="text-xs text-muted-foreground">Your agency requires it, so it can&apos;t be turned off.</span>
+                  <span className="text-xs text-muted-foreground">{t.cannotTurnOff}</span>
                 ) : turningOff ? (
                   <Button variant="destructive" disabled={code.trim().length < 6 || !password || disable.isPending} onClick={() => disable.mutate()} data-testid="tf-disable">
-                    Turn off
+                    {t.turnOff}
                   </Button>
                 ) : (
-                  <Button variant="ghost" onClick={() => setTurningOff(true)}>Turn off…</Button>
+                  <Button variant="ghost" onClick={() => setTurningOff(true)}>{t.turnOffEllipsis}</Button>
                 )}
               </div>
             </div>
           ) : setup ? (
             <div className="grid gap-6 sm:grid-cols-[220px_1fr]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={setup.qr} alt="QR code for your authenticator app" width={220} height={220} className="rounded-md border bg-white" data-testid="tf-qr" />
+              <img src={setup.qr} alt={t.qrAlt} width={220} height={220} className="rounded-md border bg-white" data-testid="tf-qr" />
               <div className="space-y-3 text-sm">
                 <ol className="list-decimal space-y-1 pl-5">
-                  <li>Open your authenticator app and add an account.</li>
-                  <li>Scan the QR code, or type this key: <code className="break-all rounded bg-muted px-1 py-0.5 text-xs" data-testid="tf-secret">{setup.secret}</code></li>
-                  <li>Type the 6-digit code the app shows.</li>
+                  <li>{t.step1}</li>
+                  <li>{t.step2} <code className="break-all rounded bg-muted px-1 py-0.5 text-xs" data-testid="tf-secret">{setup.secret}</code></li>
+                  <li>{t.step3}</li>
                 </ol>
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="space-y-1">
-                    <Label htmlFor="tf-first" className="text-xs">Code</Label>
+                    <Label htmlFor="tf-first" className="text-xs">{t.code}</Label>
                     <Input id="tf-first" className="w-40" inputMode="numeric" autoComplete="one-time-code" value={code} maxLength={7} onChange={(e) => setCode(e.target.value)} />
                   </div>
                   <Button disabled={code.trim().length < 6 || enable.isPending} onClick={() => enable.mutate()} data-testid="tf-enable">
                     {enable.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Turn on
+                    {t.turnOn}
                   </Button>
-                  <Button variant="ghost" onClick={() => setSetup(null)}>Cancel</Button>
+                  <Button variant="ghost" onClick={() => setSetup(null)}>{t.cancel}</Button>
                 </div>
               </div>
             </div>
           ) : (
             <Button onClick={() => start.mutate()} disabled={start.isPending} data-testid="tf-start">
               {start.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Set up two-factor login
+              {t.setUp}
             </Button>
           )}
         </CardContent>
@@ -214,15 +217,15 @@ export function TwoFactorCard() {
       {isAdmin && s && !mustSetUp ? (
         <Card data-testid="two-factor-agency">
           <CardHeader>
-            <CardTitle className="text-base">Your agency</CardTitle>
-            <CardDescription>Everyone who logs in to your dashboard must use two-factor login. Users without it are asked to set it up at their next login.</CardDescription>
+            <CardTitle className="text-base">{t.yourAgency}</CardTitle>
+            <CardDescription>{t.yourAgencyHelp}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
               <Switch id="tf-require" checked={s.required} disabled={require2fa.isPending || (!s.enabled && !s.required)} onCheckedChange={(on) => require2fa.mutate(on)} />
-              <Label htmlFor="tf-require">Require two-factor login for everyone</Label>
+              <Label htmlFor="tf-require">{t.requireForEveryone}</Label>
             </div>
-            {!s.enabled && !s.required ? <p className="mt-2 text-xs text-muted-foreground">Turn it on for yourself first.</p> : null}
+            {!s.enabled && !s.required ? <p className="mt-2 text-xs text-muted-foreground">{t.turnOnYourselfFirst}</p> : null}
           </CardContent>
         </Card>
       ) : null}

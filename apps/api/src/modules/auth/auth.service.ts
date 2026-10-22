@@ -21,7 +21,7 @@ import { PasswordResetService } from './password-reset.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { TwoFactorService } from './two-factor/two-factor.service';
 import { generateApiKey } from '../../common/crypto/api-key';
-import { JwtPayload, UserRole } from '@spm/shared';
+import { JwtPayload, UserRole, type DashboardLanguage } from '@spm/shared';
 
 @Injectable()
 export class AuthService {
@@ -95,9 +95,17 @@ export class AuthService {
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
+        dashboardLanguage: user.dashboardLanguage ?? null,
         ...(this.needsMfaSetup(user) ? { mfaSetup: true } : {}),
       },
     };
+  }
+
+  // The dashboard language picker. Always the real signed-in user (sub), so
+  // a Super Admin viewing a client keeps their own choice.
+  async setDashboardLanguage(userId: number, language: DashboardLanguage): Promise<{ language: DashboardLanguage }> {
+    await this.userRepository.update(userId, { dashboardLanguage: language === 'en' ? null : language });
+    return { language };
   }
 
   async register(dto: RegisterDto): Promise<LoginResponseDto> {

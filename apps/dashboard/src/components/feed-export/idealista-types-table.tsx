@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { apiPut } from '@/lib/api';
 import { errorText, type IdealistaTypeOption, type IdealistaTypeRow } from './idealista-api';
+import { useFeedExportText } from './_i18n';
 
 const AUTO = '__auto';
 
@@ -31,6 +32,7 @@ export function IdealistaTypesTable({
   field?: string;
 }) {
   const { toast } = useToast();
+  const tx = useFeedExportText();
   const [draft, setDraft] = useState<Record<number, string | null>>({});
   const [saving, setSaving] = useState(false);
 
@@ -48,36 +50,36 @@ export function IdealistaTypesTable({
       await apiPut(saveUrl, {
         types: changed.map((t) => ({ id: t.id, [field]: draft[t.id] ?? null })),
       });
-      toast({ title: 'Property type mapping saved' });
+      toast({ title: tx.types.saved });
       onSaved();
     } catch (err) {
-      toast({ title: 'Could not save', description: errorText(err), variant: 'destructive' });
+      toast({ title: tx.common.couldNotSave, description: errorText(err, tx.common.somethingWrong), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
 
   if (!types.length) {
-    return <p className="text-sm text-muted-foreground">No property types yet.</p>;
+    return <p className="text-sm text-muted-foreground">{tx.types.none}</p>;
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {unmapped ? `${unmapped} type(s) have no ${portal} type — their listings are left out.` : `Every type has a${/^[aeiou]/i.test(portal) ? 'n' : ''} ${portal} type.`}
+          {unmapped ? tx.types.unmapped(unmapped, portal) : tx.types.allMapped(portal)}
         </p>
         <Button size="sm" onClick={save} disabled={saving || !changed.length}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-          Save mapping{changed.length ? ` (${changed.length})` : ''}
+          {tx.types.saveMapping}{changed.length ? ` (${changed.length})` : ''}
         </Button>
       </div>
       <div className="max-h-[420px] overflow-y-auto border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Your property type</TableHead>
-              <TableHead>{portal} type</TableHead>
+              <TableHead>{tx.types.yourType}</TableHead>
+              <TableHead>{tx.types.portalType(portal)}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -88,7 +90,7 @@ export function IdealistaTypesTable({
                 <TableRow key={t.id}>
                   <TableCell>
                     <div className="font-medium">{t.name}</div>
-                    {parent && <div className="text-xs text-muted-foreground">under {parent}</div>}
+                    {parent && <div className="text-xs text-muted-foreground">{tx.types.under(parent)}</div>}
                   </TableCell>
                   <TableCell className="min-w-[260px]">
                     <Select value={value ?? AUTO} onValueChange={(v) => setDraft({ ...draft, [t.id]: v === AUTO ? null : v })}>
@@ -98,8 +100,8 @@ export function IdealistaTypesTable({
                       <SelectContent>
                         <SelectItem value={AUTO}>
                           {t.source && t.source !== 'set' && t.effectiveType
-                            ? `Automatic: ${labelOf(t.effectiveType)}`
-                            : 'Automatic'}
+                            ? tx.types.automaticAs(labelOf(t.effectiveType))
+                            : tx.types.automatic}
                         </SelectItem>
                         {options.map((o) => (
                           <SelectItem key={o.value} value={o.value}>
@@ -109,11 +111,11 @@ export function IdealistaTypesTable({
                       </SelectContent>
                     </Select>
                     {!value && !t.effectiveType && (
-                      <Badge variant="destructive" className="mt-1">Not mapped</Badge>
+                      <Badge variant="destructive" className="mt-1">{tx.types.notMapped}</Badge>
                     )}
                     {!value && t.effectiveType && t.source && t.source !== 'set' && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t.source === 'parent' ? 'From the parent type' : 'Guessed from the name'} — check it
+                        {t.source === 'parent' ? tx.types.fromParent : tx.types.guessed}
                       </p>
                     )}
                   </TableCell>

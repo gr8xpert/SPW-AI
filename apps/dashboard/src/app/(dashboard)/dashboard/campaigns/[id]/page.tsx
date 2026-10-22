@@ -61,8 +61,9 @@ import {
   Copy,
   Trash2,
 } from 'lucide-react';
-import { formatDate, formatNumber } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { formatRate, formatShortDate, useCampaignsText } from '../_i18n';
 
 // Sample campaign data
 const sampleCampaign = {
@@ -92,19 +93,24 @@ const sampleRecipients = [
   { id: 5, email: 'recipient5@company.com', name: 'Recipient Five', status: 'sent', openedAt: '2026-04-01T14:00:00Z', clickedAt: '2026-04-01T14:05:00Z' },
 ];
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }> = {
-  draft: { label: 'Draft', variant: 'secondary', icon: Edit },
-  scheduled: { label: 'Scheduled', variant: 'warning', icon: Clock },
-  sending: { label: 'Sending', variant: 'warning', icon: Send },
-  sent: { label: 'Sent', variant: 'success', icon: CheckCircle2 },
-  paused: { label: 'Paused', variant: 'secondary', icon: Pause },
-  cancelled: { label: 'Cancelled', variant: 'destructive', icon: XCircle },
+// The label comes from t.status[code] at render.
+const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive'; icon: React.ElementType }> = {
+  draft: { variant: 'secondary', icon: Edit },
+  scheduled: { variant: 'warning', icon: Clock },
+  sending: { variant: 'warning', icon: Send },
+  sent: { variant: 'success', icon: CheckCircle2 },
+  paused: { variant: 'secondary', icon: Pause },
+  cancelled: { variant: 'destructive', icon: XCircle },
 };
 
 export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const t = useCampaignsText();
+  const { locale } = useLanguage();
+  const formatDate = (value: string) => formatShortDate(value, locale);
+  const formatNumber = (value: number) => value.toLocaleString(locale);
   const [activeTab, setActiveTab] = useState('overview');
 
   const campaign = sampleCampaign;
@@ -121,8 +127,8 @@ export default function CampaignDetailPage() {
 
   const handleAction = (action: string) => {
     toast({
-      title: `Campaign ${action}`,
-      description: `The campaign has been ${action}.`,
+      title: t.detail.actionTitles[action] ?? action,
+      description: t.detail.actionTexts[action] ?? '',
     });
   };
 
@@ -143,11 +149,11 @@ export default function CampaignDetailPage() {
               </h1>
               <Badge variant={status.variant} className="gap-1">
                 <StatusIcon className="h-3 w-3" />
-                {status.label}
+                {t.status[campaign.status] ?? campaign.status}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Created {formatDate(campaign.createdAt)}
+              {t.detail.created(formatDate(campaign.createdAt))}
             </p>
           </div>
         </div>
@@ -156,24 +162,24 @@ export default function CampaignDetailPage() {
             <>
               <Button variant="outline" onClick={() => handleAction('scheduled')}>
                 <Calendar className="h-4 w-4 mr-2" />
-                Schedule
+                {t.detail.schedule}
               </Button>
               <Button onClick={() => handleAction('started')}>
                 <Send className="h-4 w-4 mr-2" />
-                Send Now
+                {t.detail.sendNow}
               </Button>
             </>
           )}
           {campaign.status === 'sending' && (
             <Button variant="outline" onClick={() => handleAction('paused')}>
               <Pause className="h-4 w-4 mr-2" />
-              Pause
+              {t.detail.pause}
             </Button>
           )}
           {campaign.status === 'paused' && (
             <Button onClick={() => handleAction('resumed')}>
               <Play className="h-4 w-4 mr-2" />
-              Resume
+              {t.detail.resume}
             </Button>
           )}
           <DropdownMenu>
@@ -185,15 +191,15 @@ export default function CampaignDetailPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem>
                 <Copy className="h-4 w-4 mr-2" />
-                Duplicate Campaign
+                {t.detail.duplicate}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Eye className="h-4 w-4 mr-2" />
-                Preview Email
+                {t.detail.previewEmail}
               </DropdownMenuItem>
               <DropdownMenuItem className="text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete Campaign
+                {t.detail.deleteCampaign}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -206,7 +212,7 @@ export default function CampaignDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
-              Recipients
+              {t.detail.recipients}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -217,7 +223,7 @@ export default function CampaignDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Mail className="h-4 w-4 text-muted-foreground" />
-              Delivered
+              {t.detail.delivered}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -228,31 +234,31 @@ export default function CampaignDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <MailOpen className="h-4 w-4 text-muted-foreground" />
-              Open Rate
+              {t.detail.openRate}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{openRate}%</div>
-            <p className="text-xs text-muted-foreground">{formatNumber(campaign.openCount)} opened</p>
+            <div className="text-2xl font-bold">{formatRate(Number(openRate), locale)}%</div>
+            <p className="text-xs text-muted-foreground">{t.detail.opened(formatNumber(campaign.openCount))}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <MousePointer className="h-4 w-4 text-muted-foreground" />
-              Click Rate
+              {t.detail.clickRate}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{clickRate}%</div>
-            <p className="text-xs text-muted-foreground">{formatNumber(campaign.clickCount)} clicks</p>
+            <div className="text-2xl font-bold">{formatRate(Number(clickRate), locale)}%</div>
+            <p className="text-xs text-muted-foreground">{t.detail.clicks(campaign.clickCount, formatNumber(campaign.clickCount))}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <XCircle className="h-4 w-4 text-muted-foreground" />
-              Unsubscribed
+              {t.detail.unsubscribed}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -263,7 +269,7 @@ export default function CampaignDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              Bounced
+              {t.detail.bounced}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -275,9 +281,9 @@ export default function CampaignDetailPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="recipients">Recipients</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="overview">{t.detail.tabs.overview}</TabsTrigger>
+          <TabsTrigger value="recipients">{t.detail.tabs.recipients}</TabsTrigger>
+          <TabsTrigger value="content">{t.detail.tabs.content}</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -285,32 +291,32 @@ export default function CampaignDetailPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Campaign Details</CardTitle>
+                <CardTitle>{t.detail.campaignDetails}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Subject Line</p>
+                  <p className="text-sm text-muted-foreground">{t.detail.subjectLine}</p>
                   <p className="font-medium">{campaign.subject}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Template</p>
+                  <p className="text-sm text-muted-foreground">{t.common.template}</p>
                   <p className="font-medium">{campaign.template.name}</p>
                 </div>
                 {campaign.scheduledAt && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Scheduled For</p>
+                    <p className="text-sm text-muted-foreground">{t.detail.scheduledFor}</p>
                     <p className="font-medium">{formatDate(campaign.scheduledAt)}</p>
                   </div>
                 )}
                 {campaign.startedAt && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Started</p>
+                    <p className="text-sm text-muted-foreground">{t.detail.started}</p>
                     <p className="font-medium">{formatDate(campaign.startedAt)}</p>
                   </div>
                 )}
                 {campaign.completedAt && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Completed</p>
+                    <p className="text-sm text-muted-foreground">{t.detail.completed}</p>
                     <p className="font-medium">{formatDate(campaign.completedAt)}</p>
                   </div>
                 )}
@@ -319,15 +325,15 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Performance Summary</CardTitle>
+                <CardTitle>{t.detail.performanceSummary}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {/* Delivery Progress */}
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span>Delivered</span>
-                      <span>{((campaign.sentCount / campaign.totalRecipients) * 100).toFixed(1)}%</span>
+                      <span>{t.detail.delivered}</span>
+                      <span>{formatRate((campaign.sentCount / campaign.totalRecipients) * 100, locale)}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
@@ -339,8 +345,8 @@ export default function CampaignDetailPage() {
                   {/* Open Progress */}
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span>Opened</span>
-                      <span>{openRate}%</span>
+                      <span>{t.detail.openedBar}</span>
+                      <span>{formatRate(Number(openRate), locale)}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
@@ -352,8 +358,8 @@ export default function CampaignDetailPage() {
                   {/* Click Progress */}
                   <div>
                     <div className="flex justify-between text-sm mb-1">
-                      <span>Clicked</span>
-                      <span>{clickRate}%</span>
+                      <span>{t.detail.clickedBar}</span>
+                      <span>{formatRate(Number(clickRate), locale)}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
@@ -372,19 +378,19 @@ export default function CampaignDetailPage() {
         <TabsContent value="recipients" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recipients ({recipients.length})</CardTitle>
+              <CardTitle>{t.detail.recipientsCount(recipients.length)}</CardTitle>
               <CardDescription>
-                View delivery status for each recipient
+                {t.detail.recipientsDescription}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Opened</TableHead>
-                    <TableHead>Clicked</TableHead>
+                    <TableHead>{t.detail.colContact}</TableHead>
+                    <TableHead>{t.common.status}</TableHead>
+                    <TableHead>{t.detail.colOpened}</TableHead>
+                    <TableHead>{t.detail.colClicked}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -406,7 +412,7 @@ export default function CampaignDetailPage() {
                               : 'secondary'
                           }
                         >
-                          {recipient.status}
+                          {t.detail.recipientStatus[recipient.status] ?? recipient.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -435,19 +441,19 @@ export default function CampaignDetailPage() {
         <TabsContent value="content" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Email Preview</CardTitle>
+              <CardTitle>{t.detail.emailPreview}</CardTitle>
               <CardDescription>
-                Preview how the email appears to recipients
+                {t.detail.emailPreviewDescription}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg p-4">
                 <div className="border-b pb-4 mb-4">
-                  <p className="text-sm text-muted-foreground">Subject</p>
+                  <p className="text-sm text-muted-foreground">{t.common.subject}</p>
                   <p className="font-medium">{campaign.subject}</p>
                 </div>
                 <div className="aspect-video bg-muted rounded flex items-center justify-center">
-                  <p className="text-muted-foreground">Email content preview would render here</p>
+                  <p className="text-muted-foreground">{t.detail.previewPlaceholder}</p>
                 </div>
               </div>
             </CardContent>

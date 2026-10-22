@@ -13,6 +13,7 @@ import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { buyerKeys, one } from '../../use-buyers';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 interface MetaSettings {
   pageId: string | null;
@@ -78,7 +79,7 @@ export function MetaSettingsCard({ canEdit }: { canEdit: boolean }) {
 
   if (!canEdit) return null;
   const d = data.data;
-  const when = (s: string | null) => (s ? new Date(s).toLocaleString() : '—');
+  const when = (s: string | null) => (s ? new Date(s).toLocaleString(dashboardLocale()) : '—');
 
   return (
     <div className="max-w-3xl space-y-6">

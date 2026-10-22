@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useAiChatText } from './_i18n';
 
 interface StatsData {
   totalConversations: number;
@@ -48,19 +50,15 @@ interface ConversationListResponse {
   meta: { total: number; page: number; limit: number; pages: number };
 }
 
-const TOOL_LABELS: Record<string, string> = {
-  search_properties: 'Property Search',
-  get_property: 'Property Details',
-  get_locations: 'Location Lookup',
-  get_features: 'Feature Lookup',
-  compare_properties: 'Comparison',
-};
-
-const LANG_LABELS: Record<string, string> = {
-  en: 'English', es: 'Spanish', de: 'German', fr: 'French',
-  nl: 'Dutch', it: 'Italian', ru: 'Russian', sv: 'Swedish',
-  no: 'Norwegian', da: 'Danish', pl: 'Polish', cs: 'Czech',
-};
+// A detected language code (e.g. "es") named in the dashboard language; an
+// unknown code is shown as it came.
+function languageName(code: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 function AiChatPageInner() {
   const [dateRange, setDateRange] = useState('30d');
@@ -72,6 +70,8 @@ function AiChatPageInner() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useAiChatText();
+  const { locale } = useLanguage();
 
   const fetchData = async (range: string, page = 1) => {
     if (!api.isReady) return;
@@ -88,7 +88,7 @@ function AiChatPageInner() {
       setConversations(convData?.data || []);
       setConvMeta(convData?.meta || null);
     } catch {
-      toast({ title: 'Failed to load AI chat analytics', variant: 'destructive' });
+      toast({ title: t.loadFailed, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -105,8 +105,8 @@ function AiChatPageInner() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">AI Chat</h1>
-          <p className="page-description mt-1">Monitor chat conversations and AI feature usage</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <div className="flex gap-2">
           <div className="flex border rounded-md">
@@ -118,7 +118,7 @@ function AiChatPageInner() {
                 className="rounded-none first:rounded-l-md last:rounded-r-md"
                 onClick={() => handleRangeChange(range)}
               >
-                {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                {t.ranges[range]}
               </Button>
             ))}
           </div>
@@ -135,50 +135,50 @@ function AiChatPageInner() {
           <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Conversations</CardTitle>
+                <CardTitle className="text-sm font-medium">{t.conversations}</CardTitle>
                 <div className="stat-card-icon">
                   <MessagesSquare className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">{(stats?.totalConversations ?? 0).toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">Total chat sessions</p>
+                <div className="text-2xl font-bold tracking-tight">{(stats?.totalConversations ?? 0).toLocaleString(locale)}</div>
+                <p className="text-xs text-muted-foreground">{t.totalSessions}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Messages</CardTitle>
+                <CardTitle className="text-sm font-medium">{t.messages}</CardTitle>
                 <div className="stat-card-icon">
                   <MessageSquare className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">{(stats?.totalMessages ?? 0).toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">User + assistant messages</p>
+                <div className="text-2xl font-bold tracking-tight">{(stats?.totalMessages ?? 0).toLocaleString(locale)}</div>
+                <p className="text-xs text-muted-foreground">{t.messagesHint}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Avg. per Chat</CardTitle>
+                <CardTitle className="text-sm font-medium">{t.avgPerChat}</CardTitle>
                 <div className="stat-card-icon">
                   <Hash className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tracking-tight">{stats?.avgMessagesPerConversation ?? 0}</div>
-                <p className="text-xs text-muted-foreground">Messages per conversation</p>
+                <div className="text-2xl font-bold tracking-tight">{Number(stats?.avgMessagesPerConversation ?? 0).toLocaleString(locale)}</div>
+                <p className="text-xs text-muted-foreground">{t.perConversation}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Languages</CardTitle>
+                <CardTitle className="text-sm font-medium">{t.languages}</CardTitle>
                 <div className="stat-card-icon">
                   <Globe className="h-4 w-4" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tracking-tight">{stats?.languageBreakdown?.length ?? 0}</div>
-                <p className="text-xs text-muted-foreground">Detected languages</p>
+                <p className="text-xs text-muted-foreground">{t.detectedLanguages}</p>
               </CardContent>
             </Card>
           </div>
@@ -187,8 +187,8 @@ function AiChatPageInner() {
             {/* Daily volume */}
             <Card>
               <CardHeader>
-                <CardTitle>Daily Conversations</CardTitle>
-                <CardDescription>New chat sessions per day</CardDescription>
+                <CardTitle>{t.dailyTitle}</CardTitle>
+                <CardDescription>{t.dailyDescription}</CardDescription>
               </CardHeader>
               <CardContent>
                 {stats?.dailyVolume && stats.dailyVolume.length > 0 ? (
@@ -198,7 +198,7 @@ function AiChatPageInner() {
                       return (
                         <div key={i} className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground w-20 shrink-0">
-                            {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                            {new Date(day.date).toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' })}
                           </span>
                           <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
                             <div
@@ -212,7 +212,7 @@ function AiChatPageInner() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-center py-8 text-sm text-muted-foreground">No conversation data for this period</p>
+                  <p className="text-center py-8 text-sm text-muted-foreground">{t.noDaily}</p>
                 )}
               </CardContent>
             </Card>
@@ -221,8 +221,8 @@ function AiChatPageInner() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Tool Usage</CardTitle>
-                  <CardDescription>AI tool calls by type</CardDescription>
+                  <CardTitle>{t.toolTitle}</CardTitle>
+                  <CardDescription>{t.toolDescription}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {stats?.toolUsage && stats.toolUsage.length > 0 ? (
@@ -233,7 +233,7 @@ function AiChatPageInner() {
                           <div key={i} className="flex items-center gap-3">
                             <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="text-sm w-32 shrink-0 truncate">
-                              {TOOL_LABELS[item.tool] || item.tool}
+                              {t.tools[item.tool] || item.tool}
                             </span>
                             <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
                               <div
@@ -247,28 +247,28 @@ function AiChatPageInner() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-center py-6 text-sm text-muted-foreground">No tool usage data</p>
+                    <p className="text-center py-6 text-sm text-muted-foreground">{t.noTools}</p>
                   )}
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Languages</CardTitle>
-                  <CardDescription>Conversation languages detected</CardDescription>
+                  <CardTitle>{t.languages}</CardTitle>
+                  <CardDescription>{t.languagesDescription}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {stats?.languageBreakdown && stats.languageBreakdown.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {stats.languageBreakdown.map((item, i) => (
                         <Badge key={i} variant="outline" className="text-sm py-1 px-3">
-                          {LANG_LABELS[item.language] || item.language}
+                          {languageName(item.language, locale)}
                           <span className="ml-2 font-bold">{item.count}</span>
                         </Badge>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-center py-6 text-sm text-muted-foreground">No language data</p>
+                    <p className="text-center py-6 text-sm text-muted-foreground">{t.noLanguages}</p>
                   )}
                 </CardContent>
               </Card>
@@ -278,8 +278,8 @@ function AiChatPageInner() {
           {/* Recent conversations */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Conversations</CardTitle>
-              <CardDescription>Latest chat sessions from your website visitors</CardDescription>
+              <CardTitle>{t.recentTitle}</CardTitle>
+              <CardDescription>{t.recentDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               {conversations.length > 0 ? (
@@ -287,12 +287,12 @@ function AiChatPageInner() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left">
-                        <th className="py-2 pr-3 font-medium">Session</th>
-                        <th className="py-2 pr-3 font-medium">Last Message</th>
-                        <th className="py-2 pr-3 font-medium">Messages</th>
-                        <th className="py-2 pr-3 font-medium">Language</th>
-                        <th className="py-2 pr-3 font-medium">Status</th>
-                        <th className="py-2 font-medium">Date</th>
+                        <th className="py-2 pr-3 font-medium">{t.colSession}</th>
+                        <th className="py-2 pr-3 font-medium">{t.colLastMessage}</th>
+                        <th className="py-2 pr-3 font-medium">{t.colMessages}</th>
+                        <th className="py-2 pr-3 font-medium">{t.colLanguage}</th>
+                        <th className="py-2 pr-3 font-medium">{t.colStatus}</th>
+                        <th className="py-2 font-medium">{t.colDate}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -306,19 +306,19 @@ function AiChatPageInner() {
                           <td className="py-2 pr-3">
                             {conv.language ? (
                               <Badge variant="outline" className="text-xs">
-                                {LANG_LABELS[conv.language] || conv.language}
+                                {languageName(conv.language, locale)}
                               </Badge>
                             ) : '—'}
                           </td>
                           <td className="py-2 pr-3">
                             <Badge variant={conv.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                              {conv.status}
+                              {t.status[conv.status] ?? conv.status}
                             </Badge>
                           </td>
                           <td className="py-2 text-muted-foreground text-xs">
                             {conv.lastMessageAt
-                              ? new Date(conv.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                              : new Date(conv.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              ? new Date(conv.lastMessageAt).toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : new Date(conv.createdAt).toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </td>
                         </tr>
                       ))}
@@ -328,7 +328,7 @@ function AiChatPageInner() {
                   {convMeta && convMeta.pages > 1 && (
                     <div className="flex items-center justify-between mt-4">
                       <p className="text-sm text-muted-foreground">
-                        Page {convMeta.page} of {convMeta.pages} ({convMeta.total} total)
+                        {t.pageOf(convMeta.page, convMeta.pages, convMeta.total)}
                       </p>
                       <div className="flex gap-1">
                         <Button
@@ -353,7 +353,7 @@ function AiChatPageInner() {
                 </>
               ) : (
                 <p className="text-center py-8 text-sm text-muted-foreground">
-                  No conversations yet. Enable AI Chat in Settings to get started.
+                  {t.empty}
                 </p>
               )}
             </CardContent>
@@ -367,8 +367,9 @@ function AiChatPageInner() {
 import { LockedRouteGuard } from '@/components/locked-route-guard';
 
 export default function AiChatPage() {
+  const t = useAiChatText();
   return (
-    <LockedRouteGuard addon="aiChat" featureName="AI Chat">
+    <LockedRouteGuard addon="aiChat" featureName={t.title}>
       <AiChatPageInner />
     </LockedRouteGuard>
   );

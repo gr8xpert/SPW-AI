@@ -6,6 +6,7 @@ import {
   type DashboardAddonKey,
 } from '@/hooks/use-dashboard-addons';
 import { LockedRouteScreen } from '@/components/locked-route-screen';
+import { useSharedText } from '@/i18n/shared';
 
 interface LockedRouteGuardProps {
   addon: DashboardAddonKey;
@@ -26,6 +27,7 @@ export function LockedRouteGuard({
   children,
 }: LockedRouteGuardProps) {
   const { addons, isLoading, isError, retry } = useDashboardAddons();
+  const t = useSharedText().locked;
   // The server always renders nothing here (no session there). The add-on
   // answer can arrive while the page is still hydrating, so the first client
   // render must match that empty output or React reports a hydration error.
@@ -35,8 +37,8 @@ export function LockedRouteGuard({
   if (isError) {
     return (
       <div className="rounded-md border p-6 text-sm text-muted-foreground">
-        Could not check your plan.{' '}
-        <button type="button" className="underline" onClick={retry}>Try again</button>
+        {t.checkFailed}{' '}
+        <button type="button" className="underline" onClick={retry}>{t.tryAgain}</button>
       </div>
     );
   }

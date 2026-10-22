@@ -35,11 +35,13 @@ import { SeoTab } from './_components/seo-tab';
 import { SettingsTab } from './_components/settings-tab';
 import { FeedLocksNotice } from './_components/feed-locks-notice';
 import { ReverseMatchCard } from '../../../buyers/_components/reverse-match-card';
+import { usePropertiesText } from '../../_i18n';
 
 export default function EditPropertyPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const t = usePropertiesText();
   const queryClient = useQueryClient();
   const id = params.id as string;
   const propertyId = Number(id);
@@ -105,7 +107,7 @@ export default function EditPropertyPage() {
           setUseCustomSchema(!!(property.seoSchemaJson && String(property.seoSchemaJson).trim().length > 0));
         }
       } catch {
-        toast({ title: 'Error', description: 'Failed to load property data.', variant: 'destructive' });
+        toast({ title: t.common.error, description: t.edit.loadFailed, variant: 'destructive' });
       } finally {
         setIsLoading(false);
       }
@@ -148,18 +150,18 @@ export default function EditPropertyPage() {
       });
       if (!built.ok) {
         setIsSaving(false);
-        toast({ title: 'Invalid JSON-LD schema', description: 'The SEO Schema block is not valid JSON. Fix or turn off the custom schema toggle.', variant: 'destructive' });
+        toast({ title: t.edit.invalidSchema, description: t.edit.invalidSchemaDescription, variant: 'destructive' });
         return;
       }
 
       await api.put(`/api/dashboard/properties/${id}`, built.payload);
 
-      toast({ title: 'Property updated', description: 'Your changes have been saved successfully.' });
+      toast({ title: t.edit.updated, description: t.edit.updatedDescription });
       // The properties list is cached; make it show the saved values.
       void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
       router.push(`/dashboard/properties/${id}`);
     } catch {
-      toast({ title: 'Error', description: 'Failed to update property. Please try again.', variant: 'destructive' });
+      toast({ title: t.common.error, description: t.edit.updateFailed, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -184,21 +186,21 @@ export default function EditPropertyPage() {
         <div className="flex items-center gap-4">
           <Link href={detailUrl}><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
-            <h1 className="page-title">Edit Property {formData.reference || id}</h1>
-            <p className="page-description mt-1">Update property details</p>
+            <h1 className="page-title">{t.edit.title(formData.reference || id)}</h1>
+            <p className="page-description mt-1">{t.edit.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={detailUrl}><Button variant="outline"><X className="h-4 w-4 mr-2" /> Cancel</Button></Link>
+          <Link href={detailUrl}><Button variant="outline"><X className="h-4 w-4 mr-2" /> {t.common.cancel}</Button></Link>
           {tenantLanguages.length > 1 && (
-            <Button variant="outline" onClick={ai.handleTranslate} disabled={ai.isTranslating || isLoading} title={ai.aiLocked ? 'AI Translation is a premium add-on — contact your account manager to unlock' : undefined}>
+            <Button variant="outline" onClick={ai.handleTranslate} disabled={ai.isTranslating || isLoading} title={ai.aiLocked ? t.edit.aiTranslateLocked : undefined}>
               {ai.isTranslating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : ai.aiLocked ? <Lock className="h-4 w-4 mr-2" /> : <Languages className="h-4 w-4 mr-2" />}
-              {ai.isTranslating ? 'Translating…' : 'AI Translate'}
+              {ai.isTranslating ? t.edit.translating : t.edit.aiTranslate}
             </Button>
           )}
           <Button onClick={handleSave} disabled={isSaving} className="shadow-sm">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Save Changes
+            {t.edit.saveChanges}
           </Button>
         </div>
       </div>
@@ -211,16 +213,16 @@ export default function EditPropertyPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="address">Address</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="images">Images</TabsTrigger>
-          <TabsTrigger value="media">Media Links</TabsTrigger>
-          <TabsTrigger value="location">Location</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="basic">{t.tabs.basic}</TabsTrigger>
+          <TabsTrigger value="details">{t.tabs.details}</TabsTrigger>
+          <TabsTrigger value="address">{t.tabs.address}</TabsTrigger>
+          <TabsTrigger value="financial">{t.tabs.financial}</TabsTrigger>
+          <TabsTrigger value="features">{t.tabs.features}</TabsTrigger>
+          <TabsTrigger value="images">{t.tabs.images}</TabsTrigger>
+          <TabsTrigger value="media">{t.tabs.media}</TabsTrigger>
+          <TabsTrigger value="location">{t.tabs.location}</TabsTrigger>
+          <TabsTrigger value="seo">{t.tabs.seo}</TabsTrigger>
+          <TabsTrigger value="settings">{t.tabs.settings}</TabsTrigger>
         </TabsList>
 
         <BasicInfoTab
@@ -271,10 +273,10 @@ export default function EditPropertyPage() {
       </Tabs>
 
       <div className="flex items-center justify-end gap-2 pb-8">
-        <Link href={detailUrl}><Button variant="outline">Cancel</Button></Link>
+        <Link href={detailUrl}><Button variant="outline">{t.common.cancel}</Button></Link>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-sm">
           {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-          Save Changes
+          {t.edit.saveChanges}
         </Button>
       </div>
     </div>

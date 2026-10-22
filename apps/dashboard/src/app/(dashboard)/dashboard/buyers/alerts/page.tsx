@@ -17,6 +17,7 @@ import { useBuyerText } from '../_i18n/use-buyer-text';
 import { BuyersNav } from '../_components/buyers-nav';
 import { useBuyerSettings } from '../use-buyers';
 import { nameOf, useBuyerAlerts, useDecideAlerts, useScanAlerts, type AlertItem, type AlertStatus } from '../use-buyer-match';
+import { useCommonText } from '@/i18n/common';
 
 const MANAGERS = new Set(['admin', 'webmaster', 'super_admin']);
 const STATUSES: AlertStatus[] = ['pending', 'approved', 'sent', 'rejected', 'skipped'];
@@ -33,6 +34,7 @@ function money(n: number, currency: string): string {
 // The agent's approval screen: every alert waits here until approved.
 function AlertsInner() {
   const t = useBuyerText().alerts;
+  const tc = useCommonText();
   const { toast } = useToast();
   const { data: session } = useSession();
   const manager = MANAGERS.has(String(session?.user?.role ?? ''));
@@ -182,7 +184,7 @@ function AlertsInner() {
                           <p className="text-xs font-medium">
                             {a.kind === 'price_drop' && a.oldPrice && a.newPrice
                               ? t.drop(money(a.oldPrice, p?.currency ?? 'EUR'), money(a.newPrice, p?.currency ?? 'EUR'))
-                              : p ? formatRowPrice(p) : ''}
+                              : p ? formatRowPrice(p, tc.table.poa, tc.table.periods) : ''}
                           </p>
                         </div>
                         <span className="w-10 text-right text-xs font-semibold tabular-nums" title={t.score}>{a.score}</span>

@@ -18,10 +18,11 @@ import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { buyerKeys, type Buyer } from '../../use-buyers';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 const MANAGERS = new Set(['admin', 'webmaster', 'super_admin']);
 const SOURCES = ['website', 'form', 'email', 'phone', 'in_person', 'import', 'other'];
-const day = (d: string) => new Date(d).toLocaleDateString();
+const day = (d: string) => new Date(d).toLocaleDateString(dashboardLocale());
 
 // The record's Privacy menu (milestone J): consent, unsubscribe from property
 // emails, and (managers) erase.

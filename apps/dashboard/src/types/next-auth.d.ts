@@ -11,6 +11,8 @@ declare module 'next-auth' {
       tenantId: number;
       // The agency requires two-factor login and it is not set up yet.
       mfaSetup?: boolean;
+      // Dashboard language (en when never picked).
+      dashboardLanguage?: string;
     } & DefaultSession['user'];
     accessToken: string;
     error?: 'RefreshAccessTokenError';
@@ -25,6 +27,7 @@ declare module 'next-auth' {
     accessToken: string;
     refreshToken: string;
     mfaSetup?: boolean;
+    dashboardLanguage?: string;
   }
 }
 
@@ -40,6 +43,7 @@ declare module 'next-auth/jwt' {
     // epoch millis — when the API's access token expires, not the NextAuth session
     accessTokenExpires: number;
     mfaSetup?: boolean;
+    dashboardLanguage?: string;
     error?: 'RefreshAccessTokenError';
   }
 }

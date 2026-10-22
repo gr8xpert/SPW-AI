@@ -10,18 +10,20 @@ import { WidgetSearchSection } from './widget-search-section';
 import { WidgetCardsSection, WidgetPropertyPageSection } from './widget-display-sections';
 import { WidgetFormsSection, WidgetLookSection, WidgetMapsSection } from './widget-site-sections';
 import { updateQuery } from './widget-ui';
+import { useSettingsText } from '../_i18n';
 
 // Settings → Widget: the website's settings in groups, one shown at a time
 // (?section= in the address, so a link can open the right one), saved
 // together from one bar that appears when something changed.
 
+// Names and descriptions: settingsText widget.sections[id].
 const SECTIONS = [
-  { id: 'search', label: 'Search', icon: Search, desc: 'What the search offers: listing types, sort, bedrooms, prices.' },
-  { id: 'cards', label: 'Listing cards', icon: CreditCard, desc: 'How listings look in lists and carousels.' },
-  { id: 'property', label: 'Property page', icon: Home, desc: 'Map, similar properties, calculators and the agent on property pages.' },
-  { id: 'maps', label: 'Maps', icon: MapIcon, desc: 'The map background on your website.' },
-  { id: 'look', label: 'Look & currency', icon: Palette, desc: 'Brand colour and the currency prices are shown in.' },
-  { id: 'forms', label: 'Forms', icon: ShieldCheck, desc: 'Spam protection for the inquiry form.' },
+  { id: 'search', icon: Search },
+  { id: 'cards', icon: CreditCard },
+  { id: 'property', icon: Home },
+  { id: 'maps', icon: MapIcon },
+  { id: 'look', icon: Palette },
+  { id: 'forms', icon: ShieldCheck },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]['id'];
@@ -32,6 +34,7 @@ function isSection(v: string | null): v is SectionId {
 
 export function WidgetTab({ widget }: { widget: WidgetSettings }) {
   const { dirty, savingWidget, onSaveWidget, onDiscardWidget } = widget;
+  const t = useSettingsText();
   const [section, setSection] = useState<SectionId>('search');
   const discarding = useRef(false);
 
@@ -62,8 +65,8 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
   return (
     <TabsContent value="widget">
       <div className="grid gap-4 md:grid-cols-[200px_minmax(0,1fr)]">
-        <nav aria-label="Widget settings" className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
-          {SECTIONS.map(({ id, label, icon: Icon }) => (
+        <nav aria-label={t.widget.navLabel} className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+          {SECTIONS.map(({ id, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -72,15 +75,15 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
               className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${section === id ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {t.widget.sections[id].label}
             </button>
           ))}
         </nav>
 
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>{active.label}</CardTitle>
-            <CardDescription>{active.desc}</CardDescription>
+            <CardTitle>{t.widget.sections[active.id].label}</CardTitle>
+            <CardDescription>{t.widget.sections[active.id].desc}</CardDescription>
           </CardHeader>
           <CardContent>
             {section === 'search' && <WidgetSearchSection widget={widget} />}
@@ -95,7 +98,7 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
 
       {(dirty || savingWidget) && (
         <div className="sticky bottom-4 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
-          <p className="text-sm font-medium">You have unsaved changes</p>
+          <p className="text-sm font-medium">{t.widget.unsaved}</p>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -106,10 +109,10 @@ export function WidgetTab({ widget }: { widget: WidgetSettings }) {
                 onDiscardWidget();
               }}
             >
-              Discard
+              {t.widget.discard}
             </Button>
             <Button size="sm" onClick={onSaveWidget} disabled={savingWidget}>
-              {savingWidget ? 'Saving...' : 'Save changes'}
+              {savingWidget ? t.common.saving : t.widget.saveChanges}
             </Button>
           </div>
         </div>

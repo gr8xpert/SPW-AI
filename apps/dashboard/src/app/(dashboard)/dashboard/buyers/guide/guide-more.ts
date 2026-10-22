@@ -8,7 +8,7 @@ import { p, steps, terms, tip, warn, type GuideSection } from './guide-types';
 export const MORE: GuideSection[] = [
   {
     id: 'more-tabs',
-    group: 'One buyer',
+    group: 'one',
     title: 'Notes, trips, tasks, files and history',
     icon: ClipboardList,
     summary: 'Everything else you keep about a buyer.',
@@ -27,7 +27,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'my-day',
-    group: 'Your working day',
+    group: 'day',
     title: 'My day and To do today',
     icon: Sun,
     summary: 'Open these first every morning.',
@@ -40,7 +40,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'board',
-    group: 'Your working day',
+    group: 'day',
     title: 'The Board',
     icon: Kanban,
     summary: 'See all buyers as cards in columns, one column per stage.',
@@ -52,7 +52,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'alerts',
-    group: 'Your working day',
+    group: 'day',
     title: 'Alerts: new listings and price drops',
     icon: Bell,
     summary: 'The system spots new matches for you. You say yes or no.',
@@ -69,7 +69,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'reverse',
-    group: 'Your working day',
+    group: 'day',
     title: 'Buyers for this property',
     icon: Building2,
     summary: 'Start from a property and find every buyer who would like it.',
@@ -81,7 +81,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'reports',
-    group: 'For managers',
+    group: 'managers',
     title: 'Reports',
     icon: BarChart3,
     summary: 'How the agency is doing, in numbers and charts.',
@@ -100,7 +100,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'settings',
-    group: 'For managers',
+    group: 'managers',
     title: 'Settings',
     icon: Settings,
     summary: 'How Buyer Match works for your whole agency.',
@@ -122,7 +122,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'import',
-    group: 'For managers',
+    group: 'managers',
     title: 'Import from Odoo',
     icon: Upload,
     summary: 'Bring your old buyers across from an Odoo export file.',
@@ -140,7 +140,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'privacy',
-    group: 'Privacy and help',
+    group: 'help',
     title: 'Privacy and deleting a buyer',
     icon: ShieldCheck,
     summary: 'Consent, unsubscribe and erasing personal data (GDPR).',
@@ -161,7 +161,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'who-sees',
-    group: 'Privacy and help',
+    group: 'help',
     title: 'Who can see and do what',
     icon: UserCog,
     summary: 'Agents, managers and owners.',
@@ -175,7 +175,7 @@ export const MORE: GuideSection[] = [
   },
   {
     id: 'faq',
-    group: 'Privacy and help',
+    group: 'help',
     title: 'Common questions',
     icon: CircleHelp,
     summary: 'Quick answers to the questions we hear most.',
@@ -194,9 +194,11 @@ export const MORE: GuideSection[] = [
   },
 ];
 
+// Labels come from the Contacts menu words (useBuyerText().nav), so they
+// always match the tabs.
 export const QUICK_LINKS = [
-  { href: '/dashboard/buyers/home', label: 'My day', icon: Sun },
-  { href: '/dashboard/buyers/today', label: 'To do today', icon: CalendarCheck },
-  { href: '/dashboard/buyers/alerts', label: 'Alerts', icon: Bell },
-  { href: '/dashboard/buyers/board', label: 'Board', icon: Kanban },
-];
+  { href: '/dashboard/buyers/home', nav: 'home', icon: Sun },
+  { href: '/dashboard/buyers/today', nav: 'today', icon: CalendarCheck },
+  { href: '/dashboard/buyers/alerts', nav: 'alerts', icon: Bell },
+  { href: '/dashboard/buyers/board', nav: 'board', icon: Kanban },
+] as const;

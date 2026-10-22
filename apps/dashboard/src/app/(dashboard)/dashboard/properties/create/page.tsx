@@ -72,19 +72,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { propertyKeys } from '@/hooks/use-tenant-query-scope';
 import { agentChoices } from '@/hooks/use-agents';
+import { labelOf, usePropertiesText } from '../_i18n';
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'de', label: 'German' },
-  { code: 'fr', label: 'French' },
-  { code: 'nl', label: 'Dutch' },
-  { code: 'sv', label: 'Swedish' },
-  { code: 'no', label: 'Norwegian' },
-  { code: 'da', label: 'Danish' },
-  { code: 'fi', label: 'Finnish' },
-  { code: 'ru', label: 'Russian' },
-];
+// Content languages a property can hold; names come from the text file.
+const LANGUAGES = ['en', 'es', 'de', 'fr', 'nl', 'sv', 'no', 'da', 'fi', 'ru'];
 
 interface LocationItem {
   id: number;
@@ -139,6 +130,7 @@ function SortableImage({
   index: number;
   onRemove: (id: number) => void;
 }) {
+  const t = usePropertiesText();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
   });
@@ -167,7 +159,7 @@ function SortableImage({
             </Button>
           </div>
           {index === 0 && (
-            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">Main</div>
+            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">{t.common.main}</div>
           )}
         </>
       )}
@@ -176,6 +168,7 @@ function SortableImage({
 }
 
 function LanguageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = usePropertiesText();
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-[160px]">
@@ -184,7 +177,7 @@ function LanguageSelect({ value, onChange }: { value: string; onChange: (v: stri
       </SelectTrigger>
       <SelectContent>
         {LANGUAGES.map((lang) => (
-          <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+          <SelectItem key={lang} value={lang}>{labelOf(t.languages, lang)}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -204,12 +197,13 @@ function MultilingualInput({
   onChange: (lang: string, val: string) => void;
   placeholder?: string;
 }) {
-  const langLabel = LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase();
+  const t = usePropertiesText();
+  const langLabel = labelOf(t.languages, lang, lang.toUpperCase());
   return (
     <div className="space-y-2">
       <Label>{label} ({langLabel})</Label>
       <Input
-        placeholder={placeholder || `${label} in ${langLabel}`}
+        placeholder={placeholder || t.form.inLanguage(label, langLabel)}
         value={value[lang] || ''}
         onChange={(e) => onChange(lang, e.target.value)}
       />
@@ -230,12 +224,13 @@ function MultilingualTextarea({
   onChange: (lang: string, val: string) => void;
   rows?: number;
 }) {
-  const langLabel = LANGUAGES.find((l) => l.code === lang)?.label || lang.toUpperCase();
+  const t = usePropertiesText();
+  const langLabel = labelOf(t.languages, lang, lang.toUpperCase());
   return (
     <div className="space-y-2">
       <Label>{label} ({langLabel})</Label>
       <Textarea
-        placeholder={`${label} in ${langLabel}`}
+        placeholder={t.form.inLanguage(label, langLabel)}
         rows={rows}
         value={value[lang] || ''}
         onChange={(e) => onChange(lang, e.target.value)}
@@ -247,6 +242,7 @@ function MultilingualTextarea({
 function CreatePropertyPageInner() {
   const router = useRouter();
   const { toast } = useToast();
+  const t = usePropertiesText();
   const queryClient = useQueryClient();
   const api = useApi();
   const [activeTab, setActiveTab] = useState('basic');
@@ -412,9 +408,9 @@ function CreatePropertyPageInner() {
       setNewTypeName('');
       setNewTypeNameEs('');
       setIsAddTypeOpen(false);
-      toast({ title: 'Property type created' });
+      toast({ title: t.create.typeCreated });
     } catch {
-      toast({ title: 'Failed to create property type', variant: 'destructive' });
+      toast({ title: t.create.typeFailed, variant: 'destructive' });
     } finally {
       setNewTypeLoading(false);
     }
@@ -433,9 +429,9 @@ function CreatePropertyPageInner() {
       setNewLocName('');
       setNewLocLevel('area');
       setIsAddLocationOpen(false);
-      toast({ title: 'Location created' });
+      toast({ title: t.create.locationCreated });
     } catch {
-      toast({ title: 'Failed to create location', variant: 'destructive' });
+      toast({ title: t.create.locationFailed, variant: 'destructive' });
     } finally {
       setNewLocLoading(false);
     }
@@ -469,11 +465,11 @@ function CreatePropertyPageInner() {
         );
       } catch {
         setImages((prev) => prev.filter((img) => img.tempId !== tempId));
-        toast({ title: 'Upload failed', description: `Failed to upload ${file.name}`, variant: 'destructive' });
+        toast({ title: t.common.uploadFailed, description: t.common.uploadFailedFile(file.name), variant: 'destructive' });
       }
     }
     e.target.value = '';
-  }, [api, toast]);
+  }, [api, toast, t]);
 
   const handleRemoveImage = useCallback(async (id: number) => {
     try {
@@ -575,15 +571,15 @@ function CreatePropertyPageInner() {
       }
 
       toast({
-        title: publish ? 'Property published' : 'Property saved',
-        description: publish ? 'Your property is now live.' : 'Your property has been saved as a draft.',
+        title: publish ? t.create.published : t.create.saved,
+        description: publish ? t.create.publishedDescription : t.create.savedDescription,
       });
 
       // The list is cached; make it load the new row.
       void queryClient.invalidateQueries({ queryKey: propertyKeys.all });
       router.push('/dashboard/properties');
     } catch {
-      toast({ title: 'Error', description: 'Failed to create property. Please try again.', variant: 'destructive' });
+      toast({ title: t.common.error, description: t.create.createFailed, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -608,16 +604,16 @@ function CreatePropertyPageInner() {
             <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
           <div>
-            <h1 className="page-title">Create Property</h1>
-            <p className="page-description mt-1">Add a new property to your portfolio</p>
+            <h1 className="page-title">{t.create.title}</h1>
+            <p className="page-description mt-1">{t.create.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => handleSave(false)} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" /> Save Draft
+            <Save className="h-4 w-4 mr-2" /> {t.create.saveDraft}
           </Button>
           <Button onClick={() => handleSave(true)} disabled={isSaving} className="shadow-sm">
-            <Eye className="h-4 w-4 mr-2" /> Publish
+            <Eye className="h-4 w-4 mr-2" /> {t.create.publish}
           </Button>
         </div>
       </div>
@@ -625,16 +621,16 @@ function CreatePropertyPageInner() {
       {/* Form */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="address">Address</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="images">Images</TabsTrigger>
-          <TabsTrigger value="media">Media Links</TabsTrigger>
-          <TabsTrigger value="location">Location</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="basic">{t.tabs.basic}</TabsTrigger>
+          <TabsTrigger value="details">{t.tabs.details}</TabsTrigger>
+          <TabsTrigger value="address">{t.tabs.address}</TabsTrigger>
+          <TabsTrigger value="financial">{t.tabs.financial}</TabsTrigger>
+          <TabsTrigger value="features">{t.tabs.features}</TabsTrigger>
+          <TabsTrigger value="images">{t.tabs.images}</TabsTrigger>
+          <TabsTrigger value="media">{t.tabs.media}</TabsTrigger>
+          <TabsTrigger value="location">{t.tabs.location}</TabsTrigger>
+          <TabsTrigger value="seo">{t.tabs.seo}</TabsTrigger>
+          <TabsTrigger value="settings">{t.tabs.settings}</TabsTrigger>
         </TabsList>
 
         {/* Basic Info Tab */}
@@ -642,48 +638,48 @@ function CreatePropertyPageInner() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Property Information</CardTitle>
-                <CardDescription>Basic details about the property</CardDescription>
+                <CardTitle>{t.create.propertyInformation}</CardTitle>
+                <CardDescription>{t.create.propertyInformationDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="reference">Reference *</Label>
-                  <Input id="reference" placeholder="e.g., PROP-001" value={formData.reference} onChange={(e) => handleInputChange('reference', e.target.value)} />
+                  <Label htmlFor="reference">{t.fields.referenceRequired}</Label>
+                  <Input id="reference" placeholder={t.common.eg('PROP-001')} value={formData.reference} onChange={(e) => handleInputChange('reference', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Listing Type *</Label>
+                  <Label>{t.fields.listingTypeRequired}</Label>
                   <Select value={formData.listingType} onValueChange={(v) => handleInputChange('listingType', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sale">For Sale</SelectItem>
-                      <SelectItem value="rent">For Rent</SelectItem>
-                      <SelectItem value="holiday_rent">Holiday Rent</SelectItem>
-                      <SelectItem value="development">Development</SelectItem>
+                      <SelectItem value="sale">{t.listingType.sale}</SelectItem>
+                      <SelectItem value="rent">{t.listingType.rent}</SelectItem>
+                      <SelectItem value="holiday_rent">{t.listingType.holiday_rent}</SelectItem>
+                      <SelectItem value="development">{t.listingType.development}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Property Type</Label>
+                    <Label>{t.fields.propertyType}</Label>
                     <Dialog open={isAddTypeOpen} onOpenChange={setIsAddTypeOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm"><Plus className="h-3 w-3 mr-1" /> Add New</Button>
+                        <Button variant="ghost" size="sm"><Plus className="h-3 w-3 mr-1" /> {t.create.addNew}</Button>
                       </DialogTrigger>
                       <DialogContent>
-                        <DialogHeader><DialogTitle>Add Property Type</DialogTitle><DialogDescription>Create a new property type.</DialogDescription></DialogHeader>
+                        <DialogHeader><DialogTitle>{t.create.addType}</DialogTitle><DialogDescription>{t.create.addTypeDescription}</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2"><Label>Name (English)</Label><Input placeholder="e.g., Duplex" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} /></div>
-                          <div className="space-y-2"><Label>Name (Spanish)</Label><Input placeholder="e.g., Dúplex" value={newTypeNameEs} onChange={(e) => setNewTypeNameEs(e.target.value)} /></div>
+                          <div className="space-y-2"><Label>{t.create.nameEnglish}</Label><Input placeholder={t.common.eg('Duplex')} value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} /></div>
+                          <div className="space-y-2"><Label>{t.create.nameSpanish}</Label><Input placeholder={t.common.eg('Dúplex')} value={newTypeNameEs} onChange={(e) => setNewTypeNameEs(e.target.value)} /></div>
                         </div>
                         <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsAddTypeOpen(false)}>Cancel</Button>
-                          <Button onClick={handleAddPropertyType} disabled={!newTypeName.trim() || newTypeLoading} loading={newTypeLoading}>Add Type</Button>
+                          <Button variant="outline" onClick={() => setIsAddTypeOpen(false)}>{t.common.cancel}</Button>
+                          <Button onClick={handleAddPropertyType} disabled={!newTypeName.trim() || newTypeLoading} loading={newTypeLoading}>{t.create.addTypeButton}</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={formData.propertyTypeId} onValueChange={(v) => handleInputChange('propertyTypeId', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t.form.selectType} /></SelectTrigger>
                     <SelectContent>
                       {propertyTypes.map((type) => (
                         <SelectItem key={type.id} value={type.id.toString()}>{displayName(type.name)}</SelectItem>
@@ -693,38 +689,38 @@ function CreatePropertyPageInner() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Location</Label>
+                    <Label>{t.fields.location}</Label>
                     <Dialog open={isAddLocationOpen} onOpenChange={setIsAddLocationOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm"><Plus className="h-3 w-3 mr-1" /> Add New</Button>
+                        <Button variant="ghost" size="sm"><Plus className="h-3 w-3 mr-1" /> {t.create.addNew}</Button>
                       </DialogTrigger>
                       <DialogContent>
-                        <DialogHeader><DialogTitle>Add Location</DialogTitle><DialogDescription>Create a new location.</DialogDescription></DialogHeader>
+                        <DialogHeader><DialogTitle>{t.create.addLocation}</DialogTitle><DialogDescription>{t.create.addLocationDescription}</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g., Golden Mile" value={newLocName} onChange={(e) => setNewLocName(e.target.value)} /></div>
+                          <div className="space-y-2"><Label>{t.create.name}</Label><Input placeholder={t.common.eg('Golden Mile')} value={newLocName} onChange={(e) => setNewLocName(e.target.value)} /></div>
                           <div className="space-y-2">
-                            <Label>Level</Label>
+                            <Label>{t.create.level}</Label>
                             <Select value={newLocLevel} onValueChange={setNewLocLevel}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="country">Country</SelectItem>
-                                <SelectItem value="province">Province</SelectItem>
-                                <SelectItem value="municipality">Municipality</SelectItem>
-                                <SelectItem value="town">Town</SelectItem>
-                                <SelectItem value="area">Area</SelectItem>
+                                <SelectItem value="country">{t.create.levels.country}</SelectItem>
+                                <SelectItem value="province">{t.create.levels.province}</SelectItem>
+                                <SelectItem value="municipality">{t.create.levels.municipality}</SelectItem>
+                                <SelectItem value="town">{t.create.levels.town}</SelectItem>
+                                <SelectItem value="area">{t.create.levels.area}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsAddLocationOpen(false)}>Cancel</Button>
-                          <Button onClick={handleAddLocation} disabled={!newLocName.trim() || newLocLoading} loading={newLocLoading}>Add Location</Button>
+                          <Button variant="outline" onClick={() => setIsAddLocationOpen(false)}>{t.common.cancel}</Button>
+                          <Button onClick={handleAddLocation} disabled={!newLocName.trim() || newLocLoading} loading={newLocLoading}>{t.create.addLocation}</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={formData.locationId} onValueChange={(v) => handleInputChange('locationId', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t.form.selectLocation} /></SelectTrigger>
                     <SelectContent>
                       {locations.map((loc) => (
                         <SelectItem key={loc.id} value={loc.id.toString()}>{displayName(loc.name)}</SelectItem>
@@ -733,25 +729,25 @@ function CreatePropertyPageInner() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="urbanization">Urbanization</Label>
-                  <Input id="urbanization" placeholder="e.g., La Zagaleta" value={formData.urbanization} onChange={(e) => handleInputChange('urbanization', e.target.value)} />
+                  <Label htmlFor="urbanization">{t.fields.urbanization}</Label>
+                  <Input id="urbanization" placeholder={t.common.eg('La Zagaleta')} value={formData.urbanization} onChange={(e) => handleInputChange('urbanization', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label>{t.fields.status}</Label>
                   <Select value={formData.status} onValueChange={(v) => handleInputChange('status', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="sold">Sold</SelectItem>
-                      <SelectItem value="rented">Rented</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
+                      <SelectItem value="draft">{t.status.draft}</SelectItem>
+                      <SelectItem value="active">{t.status.active}</SelectItem>
+                      <SelectItem value="sold">{t.status.sold}</SelectItem>
+                      <SelectItem value="rented">{t.status.rented}</SelectItem>
+                      <SelectItem value="archived">{t.status.archived}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="project">Project</Label>
-                  <Input id="project" placeholder="e.g., Beach Residences" value={formData.project} onChange={(e) => handleInputChange('project', e.target.value)} />
+                  <Label htmlFor="project">{t.fields.project}</Label>
+                  <Input id="project" placeholder={t.common.eg('Beach Residences')} value={formData.project} onChange={(e) => handleInputChange('project', e.target.value)} />
                 </div>
               </CardContent>
             </Card>
@@ -759,38 +755,38 @@ function CreatePropertyPageInner() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pricing</CardTitle>
-                  <CardDescription>Set the price for this property</CardDescription>
+                  <CardTitle>{t.form.pricing}</CardTitle>
+                  <CardDescription>{t.create.pricingDescription}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="priceOnRequest" checked={formData.priceOnRequest} onCheckedChange={(c) => handleInputChange('priceOnRequest', c)} />
-                    <Label htmlFor="priceOnRequest">Price on Request</Label>
+                    <Label htmlFor="priceOnRequest">{t.fields.priceOnRequest}</Label>
                   </div>
                   {!formData.priceOnRequest && (
                     <div className="grid gap-4 sm:grid-cols-4">
                       <div className="space-y-2">
-                        <Label htmlFor="price">Price From</Label>
+                        <Label htmlFor="price">{t.fields.priceFrom}</Label>
                         <Input id="price" type="number" placeholder="250000" value={formData.price} onChange={(e) => handleInputChange('price', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="priceTo">Price To <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                        <Input id="priceTo" type="number" placeholder="Leave empty for one price" value={formData.priceTo} onChange={(e) => handleInputChange('priceTo', e.target.value)} />
+                        <Label htmlFor="priceTo">{t.fields.priceTo} <span className="font-normal text-muted-foreground">{t.common.optional}</span></Label>
+                        <Input id="priceTo" type="number" placeholder={t.form.priceToPlaceholder} value={formData.priceTo} onChange={(e) => handleInputChange('priceTo', e.target.value)} />
                       </div>
                       <div className="space-y-2">
-                        <Label>Price per</Label>
+                        <Label>{t.fields.pricePer}</Label>
                         <Select value={formData.rentalPeriod || 'none'} onValueChange={(v) => handleInputChange('rentalPeriod', v === 'none' ? '' : v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">{formData.listingType === 'rent' ? 'Month (default)' : 'Whole price'}</SelectItem>
-                            <SelectItem value="night">Night</SelectItem>
-                            <SelectItem value="week">Week</SelectItem>
-                            <SelectItem value="month">Month</SelectItem>
+                            <SelectItem value="none">{formData.listingType === 'rent' ? t.pricePer.monthDefault : t.pricePer.whole}</SelectItem>
+                            <SelectItem value="night">{t.pricePer.night}</SelectItem>
+                            <SelectItem value="week">{t.pricePer.week}</SelectItem>
+                            <SelectItem value="month">{t.pricePer.month}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Currency</Label>
+                        <Label>{t.fields.currency}</Label>
                         <Select value={formData.currency} onValueChange={(v) => handleInputChange('currency', v)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -807,29 +803,29 @@ function CreatePropertyPageInner() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Agent / Assignment</CardTitle>
-                  <CardDescription>Assign agents to this property</CardDescription>
+                  <CardTitle>{t.form.agentAssignment}</CardTitle>
+                  <CardDescription>{t.create.agentDescription}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Agent</Label>
+                    <Label>{t.fields.agent}</Label>
                     <Select value={formData.agentId || 'none'} onValueChange={(v) => handleInputChange('agentId', v === 'none' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t.form.selectAgent} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">— None —</SelectItem>
+                        <SelectItem value="none">{t.common.none}</SelectItem>
                         {agentChoices(teamMembers, 'website', formData.agentId).map((m) => (
                           <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">People with &quot;Show on website&quot; on the Agents page. Shown on this property page.</p>
+                    <p className="text-xs text-muted-foreground">{t.form.agentHint}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Sales Agent</Label>
+                    <Label>{t.fields.salesAgent}</Label>
                     <Select value={formData.salesAgentId || 'none'} onValueChange={(v) => handleInputChange('salesAgentId', v === 'none' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select sales agent" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t.form.selectSalesAgent} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">— None —</SelectItem>
+                        <SelectItem value="none">{t.common.none}</SelectItem>
                         {agentChoices(teamMembers, 'sales', formData.salesAgentId).map((m) => (
                           <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
                         ))}
@@ -837,8 +833,8 @@ function CreatePropertyPageInner() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="propertyTypeReference">Property Type Reference</Label>
-                    <Input id="propertyTypeReference" placeholder="External type code" value={formData.propertyTypeReference} onChange={(e) => handleInputChange('propertyTypeReference', e.target.value)} />
+                    <Label htmlFor="propertyTypeReference">{t.fields.propertyTypeReference}</Label>
+                    <Input id="propertyTypeReference" placeholder={t.form.externalTypeCode} value={formData.propertyTypeReference} onChange={(e) => handleInputChange('propertyTypeReference', e.target.value)} />
                   </div>
                 </CardContent>
               </Card>
@@ -851,15 +847,15 @@ function CreatePropertyPageInner() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Languages className="h-5 w-5" /> Content</CardTitle>
-                  <CardDescription>Title and description in multiple languages</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Languages className="h-5 w-5" /> {t.form.content}</CardTitle>
+                  <CardDescription>{t.form.contentDescription}</CardDescription>
                 </div>
                 <LanguageSelect value={contentLang} onChange={setContentLang} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <MultilingualInput label="Title" lang={contentLang} value={formData.title} onChange={(lang, val) => handleMultilingualChange('title', lang, val)} />
-              <MultilingualTextarea label="Description" lang={contentLang} value={formData.description} onChange={(lang, val) => handleMultilingualChange('description', lang, val)} />
+              <MultilingualInput label={t.fields.title} lang={contentLang} value={formData.title} onChange={(lang, val) => handleMultilingualChange('title', lang, val)} />
+              <MultilingualTextarea label={t.fields.description} lang={contentLang} value={formData.description} onChange={(lang, val) => handleMultilingualChange('description', lang, val)} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -868,32 +864,32 @@ function CreatePropertyPageInner() {
         <TabsContent value="details" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Property Metrics</CardTitle>
-              <CardDescription>Bedrooms, bathrooms, sizes, and building details</CardDescription>
+              <CardTitle>{t.create.metrics}</CardTitle>
+              <CardDescription>{t.create.metricsDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                 {[
-                  ['bedrooms', 'bedroomsTo', 'Bedrooms', '2', '4'],
-                  ['bathrooms', 'bathroomsTo', 'Bathrooms', '1', '3'],
-                  ['buildSize', 'buildSizeTo', 'Build Size (m²)', '150', '300'],
-                  ['plotSize', 'plotSizeTo', 'Plot Size (m²)', '500', '2000'],
-                  ['terraceSize', 'terraceSizeTo', 'Terrace (m²)', '30', '80'],
+                  ['bedrooms', 'bedroomsTo', t.fields.bedrooms, '2', '4'],
+                  ['bathrooms', 'bathroomsTo', t.fields.bathrooms, '1', '3'],
+                  ['buildSize', 'buildSizeTo', t.fields.buildSize, '150', '300'],
+                  ['plotSize', 'plotSizeTo', t.fields.plotSize, '500', '2000'],
+                  ['terraceSize', 'terraceSizeTo', t.fields.terrace, '30', '80'],
                 ].map(([from, to, label, phFrom, phTo]) => (
                   <div key={from} className="space-y-2 md:col-span-2">
                     <Label>{label}</Label>
                     <div className="grid grid-cols-2 gap-2">
-                      <Input type="number" step="any" placeholder={`From ${phFrom}`} value={formData[from as keyof typeof formData] as string} onChange={(e) => handleInputChange(from, e.target.value)} />
-                      <Input type="number" step="any" placeholder={`To ${phTo}`} value={formData[to as keyof typeof formData] as string} onChange={(e) => handleInputChange(to, e.target.value)} />
+                      <Input type="number" step="any" placeholder={t.common.fromN(phFrom)} value={formData[from as keyof typeof formData] as string} onChange={(e) => handleInputChange(from, e.target.value)} />
+                      <Input type="number" step="any" placeholder={t.common.toN(phTo)} value={formData[to as keyof typeof formData] as string} onChange={(e) => handleInputChange(to, e.target.value)} />
                     </div>
                   </div>
                 ))}
                 {[
-                  ['gardenSize', 'Garden (m²)', '200'],
-                  ['solariumSize', 'Solarium (m²)', '30'],
-                  ['builtYear', 'Built Year', '2020'],
-                  ['energyConsumption', 'Energy (kWh/m²)', '85'],
-                  ['distanceToBeach', 'Distance to Beach (m)', '500'],
+                  ['gardenSize', t.fields.garden, '200'],
+                  ['solariumSize', t.fields.solarium, '30'],
+                  ['builtYear', t.fields.builtYear, '2020'],
+                  ['energyConsumption', t.fields.energy, '85'],
+                  ['distanceToBeach', t.fields.distanceToBeach, '500'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2">
                     <Label htmlFor={field}>{label}</Label>
@@ -901,7 +897,7 @@ function CreatePropertyPageInner() {
                   </div>
                 ))}
                 <div className="space-y-2">
-                  <Label htmlFor="energyRating">Energy Rating</Label>
+                  <Label htmlFor="energyRating">{t.fields.energyRating}</Label>
                   <select
                     id="energyRating"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -915,21 +911,21 @@ function CreatePropertyPageInner() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryDate">Delivery Date</Label>
+                  <Label htmlFor="deliveryDate">{t.fields.deliveryDate}</Label>
                   <Input id="deliveryDate" type="date" value={formData.deliveryDate} onChange={(e) => handleInputChange('deliveryDate', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="completionDate">Completion Date</Label>
+                  <Label htmlFor="completionDate">{t.fields.completionDate}</Label>
                   <Input id="completionDate" type="date" value={formData.completionDate} onChange={(e) => handleInputChange('completionDate', e.target.value)} />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="developmentName">Development Name</Label>
-                  <Input id="developmentName" value={formData.developmentName} onChange={(e) => handleInputChange('developmentName', e.target.value)} placeholder="New developments only" />
+                  <Label htmlFor="developmentName">{t.fields.developmentName}</Label>
+                  <Input id="developmentName" value={formData.developmentName} onChange={(e) => handleInputChange('developmentName', e.target.value)} placeholder={t.form.newDevelopmentsOnly} />
                 </div>
                 <div className="flex items-end pb-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="keyReady" checked={formData.keyReady} onCheckedChange={(c) => handleInputChange('keyReady', !!c)} />
-                    <Label htmlFor="keyReady">Key Ready</Label>
+                    <Label htmlFor="keyReady">{t.fields.keyReady}</Label>
                   </div>
                 </div>
               </div>
@@ -940,15 +936,15 @@ function CreatePropertyPageInner() {
         {/* Address Tab */}
         <TabsContent value="address" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Property Address</CardTitle><CardDescription>Street address and registry details</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t.form.propertyAddress}</CardTitle><CardDescription>{t.create.addressDescription}</CardDescription></CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {[
-                  ['street', 'Street', 'Calle del Valle'],
-                  ['streetNumber', 'Street No.', '12'],
-                  ['floor', 'Floor', '3A'],
-                  ['postcode', 'Postcode', '29660'],
-                  ['cadastralReference', 'Cadastral Reference', '1234567AB1234C0001XX'],
+                  ['street', t.fields.street, 'Calle del Valle'],
+                  ['streetNumber', t.fields.streetNo, '12'],
+                  ['floor', t.fields.floor, '3A'],
+                  ['postcode', t.fields.postcode, '29660'],
+                  ['cadastralReference', t.fields.cadastralReference, '1234567AB1234C0001XX'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2">
                     <Label htmlFor={field}>{label}</Label>
@@ -963,14 +959,14 @@ function CreatePropertyPageInner() {
         {/* Financial Tab */}
         <TabsContent value="financial" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Fees & Taxes</CardTitle><CardDescription>Community fees, taxes, and commission details</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t.form.feesTaxes}</CardTitle><CardDescription>{t.create.financialDescription}</CardDescription></CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {[
-                  ['communityFees', 'Community Fees (€/month)', '450'],
-                  ['basuraTax', 'Basura Tax (€/year)', '120'],
-                  ['ibiFees', 'IBI Fees (€/year)', '3200'],
-                  ['commission', 'Commission (%)', '5.00'],
+                  ['communityFees', t.fields.communityFees, '450'],
+                  ['basuraTax', t.fields.basuraTax, '120'],
+                  ['ibiFees', t.fields.ibiFees, '3200'],
+                  ['commission', t.fields.commission, '5.00'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2">
                     <Label htmlFor={field}>{label}</Label>
@@ -980,7 +976,7 @@ function CreatePropertyPageInner() {
                 <div className="flex items-end pb-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="sharedCommission" checked={formData.sharedCommission} onCheckedChange={(c) => handleInputChange('sharedCommission', c)} />
-                    <Label htmlFor="sharedCommission">Shared Commission</Label>
+                    <Label htmlFor="sharedCommission">{t.fields.sharedCommission}</Label>
                   </div>
                 </div>
               </div>
@@ -991,10 +987,10 @@ function CreatePropertyPageInner() {
         {/* Features Tab */}
         <TabsContent value="features" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Property Features</CardTitle><CardDescription>Select all features that apply</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t.form.propertyFeatures}</CardTitle><CardDescription>{t.create.featuresDescription}</CardDescription></CardHeader>
             <CardContent>
               {Object.keys(featuresByCategory).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No features available.</p>
+                <p className="text-sm text-muted-foreground">{t.form.noFeatures}</p>
               ) : (
                 <div className="space-y-6">
                   {featureCategories.map((category) => {
@@ -1002,7 +998,7 @@ function CreatePropertyPageInner() {
                     if (!categoryFeatures?.length) return null;
                     return (
                       <div key={category}>
-                        <h4 className="font-medium capitalize mb-3">{category}</h4>
+                        <h4 className="font-medium capitalize mb-3">{labelOf(t.form.featureCategories, category)}</h4>
                         <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                           {categoryFeatures.map((feature) => (
                             <div key={feature.id} className="flex items-center space-x-2">
@@ -1024,16 +1020,16 @@ function CreatePropertyPageInner() {
         <TabsContent value="images" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Property Images</CardTitle>
-              <CardDescription>Upload images and drag to reorder. The first image becomes the main photo.</CardDescription>
+              <CardTitle>{t.form.propertyImages}</CardTitle>
+              <CardDescription>{t.form.imagesDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                    <p className="text-xs text-muted-foreground">PNG, JPG, WebP up to 10MB</p>
+                    <p className="text-sm text-muted-foreground"><span className="font-semibold">{t.form.clickToUpload}</span>{t.form.orDragDrop}</p>
+                    <p className="text-xs text-muted-foreground">{t.form.fileTypes}</p>
                   </div>
                   <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
                 </label>
@@ -1051,7 +1047,7 @@ function CreatePropertyPageInner() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No images uploaded yet</p>
+                    <p>{t.create.noImagesYet}</p>
                   </div>
                 )}
               </div>
@@ -1062,16 +1058,16 @@ function CreatePropertyPageInner() {
         {/* Media Links Tab */}
         <TabsContent value="media" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Videos, Links & URLs</CardTitle><CardDescription>Add external media and link URLs</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t.create.mediaTitle}</CardTitle><CardDescription>{t.create.mediaDescription}</CardDescription></CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
-                  ['videoUrl', 'Video URL', 'https://youtube.com/watch?v=...'],
-                  ['virtualTourUrl', 'Virtual Tour URL', 'https://matterport.com/...'],
-                  ['externalLink', 'External Link', 'https://...'],
-                  ['blogUrl', 'Blog URL', 'https://yourblog.com/...'],
-                  ['mapLink', 'Map Link', 'https://maps.google.com/...'],
-                  ['websiteUrl', 'Website URL', 'https://yoursite.com/property/...'],
+                  ['videoUrl', t.fields.videoUrl, 'https://youtube.com/watch?v=...'],
+                  ['virtualTourUrl', t.fields.virtualTourUrl, 'https://matterport.com/...'],
+                  ['externalLink', t.fields.externalLink, 'https://...'],
+                  ['blogUrl', t.fields.blogUrl, 'https://yourblog.com/...'],
+                  ['mapLink', t.fields.mapLink, 'https://maps.google.com/...'],
+                  ['websiteUrl', t.fields.websiteUrl, 'https://yoursite.com/property/...'],
                 ].map(([field, label, ph]) => (
                   <div key={field} className="space-y-2">
                     <Label htmlFor={field}>{label}</Label>
@@ -1086,24 +1082,24 @@ function CreatePropertyPageInner() {
         {/* Location Tab */}
         <TabsContent value="location" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Coordinates</CardTitle><CardDescription>Set the exact location on the map</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t.form.coordinates}</CardTitle><CardDescription>{t.create.coordinatesDescription}</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="lat">Latitude</Label>
+                  <Label htmlFor="lat">{t.fields.latitude}</Label>
                   <Input id="lat" type="number" step="any" placeholder="36.5126" value={formData.lat} onChange={(e) => handleInputChange('lat', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lng">Longitude</Label>
+                  <Label htmlFor="lng">{t.fields.longitude}</Label>
                   <Input id="lng" type="number" step="any" placeholder="-4.8829" value={formData.lng} onChange={(e) => handleInputChange('lng', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="geoLocationLabel">Location Label</Label>
+                  <Label htmlFor="geoLocationLabel">{t.fields.locationLabel}</Label>
                   <Input id="geoLocationLabel" placeholder="Nueva Andalucia, Marbella" value={formData.geoLocationLabel} onChange={(e) => handleInputChange('geoLocationLabel', e.target.value)} />
                 </div>
               </div>
               <div className="aspect-video rounded-lg border bg-muted flex items-center justify-center">
-                <p className="text-muted-foreground">Map integration will be displayed here</p>
+                <p className="text-muted-foreground">{t.form.mapPlaceholder}</p>
               </div>
             </CardContent>
           </Card>
@@ -1115,37 +1111,37 @@ function CreatePropertyPageInner() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>SEO Settings</CardTitle>
-                  <CardDescription>Search engine optimization fields</CardDescription>
+                  <CardTitle>{t.form.seoSettings}</CardTitle>
+                  <CardDescription>{t.form.seoDescription}</CardDescription>
                 </div>
                 <LanguageSelect value={seoLang} onChange={setSeoLang} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
+                <Label htmlFor="slug">{t.fields.slug}</Label>
                 <Input id="slug" placeholder="luxury-villa-nueva-andalucia" value={formData.slug} onChange={(e) => handleInputChange('slug', e.target.value)} />
-                <p className="text-xs text-muted-foreground">Leave empty to use the default format from Settings. Enter a custom slug to override for this property only.</p>
+                <p className="text-xs text-muted-foreground">{t.form.slugHint}</p>
               </div>
-              <MultilingualInput label="Page Title" lang={seoLang} value={formData.pageTitle} onChange={(lang, val) => handleMultilingualChange('pageTitle', lang, val)} />
-              <MultilingualInput label="Meta Title" lang={seoLang} value={formData.metaTitle} onChange={(lang, val) => handleMultilingualChange('metaTitle', lang, val)} />
-              <MultilingualTextarea label="Meta Description" lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => handleMultilingualChange('metaDescription', lang, val)} rows={3} />
-              <MultilingualInput label="Meta Keywords" lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => handleMultilingualChange('metaKeywords', lang, val)} placeholder="Keywords separated by commas" />
+              <MultilingualInput label={t.fields.pageTitle} lang={seoLang} value={formData.pageTitle} onChange={(lang, val) => handleMultilingualChange('pageTitle', lang, val)} />
+              <MultilingualInput label={t.fields.metaTitle} lang={seoLang} value={formData.metaTitle} onChange={(lang, val) => handleMultilingualChange('metaTitle', lang, val)} />
+              <MultilingualTextarea label={t.fields.metaDescription} lang={seoLang} value={formData.metaDescription} onChange={(lang, val) => handleMultilingualChange('metaDescription', lang, val)} rows={3} />
+              <MultilingualInput label={t.fields.metaKeywords} lang={seoLang} value={formData.metaKeywords} onChange={(lang, val) => handleMultilingualChange('metaKeywords', lang, val)} placeholder={t.form.keywordsPlaceholder} />
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Visibility & Flags</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t.form.visibility}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               {[
-                ['isFeatured', 'Featured Property', 'Appears at top of search results'],
-                ['isPublished', 'Published', 'Visible on public website'],
-                ['isOwnProperty', 'Own Property', ''],
-                ['villaSelection', 'Villa Selection', ''],
-                ['luxurySelection', 'Luxury Selection', ''],
-                ['apartmentSelection', 'Apartment Selection', ''],
+                ['isFeatured', t.form.flags.isFeatured, t.form.flags.isFeaturedHint],
+                ['isPublished', t.form.flags.isPublished, t.form.flags.isPublishedHint],
+                ['isOwnProperty', t.form.flags.isOwnProperty, ''],
+                ['villaSelection', t.form.flags.villaSelection, ''],
+                ['luxurySelection', t.form.flags.luxurySelection, ''],
+                ['apartmentSelection', t.form.flags.apartmentSelection, ''],
               ].map(([field, label, desc]) => (
                 <div key={field} className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -1163,15 +1159,15 @@ function CreatePropertyPageInner() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Feed Sync</CardTitle>
-              <CardDescription>Control whether feed imports can overwrite this property if a matching record is found.</CardDescription>
+              <CardTitle>{t.form.feedSync}</CardTitle>
+              <CardDescription>{t.form.feedSyncDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Enable Feed Sync</Label>
+                  <Label>{t.form.enableFeedSync}</Label>
                   <p className="text-xs text-muted-foreground">
-                    When turned off, this property will be skipped during feed imports — your manual edits will be preserved.
+                    {t.form.feedSyncHint}
                   </p>
                 </div>
                 <Switch
@@ -1184,22 +1180,22 @@ function CreatePropertyPageInner() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Brochure / PDF</CardTitle>
+              <CardTitle>{t.form.brochure}</CardTitle>
               <CardDescription>
-                Controls which PDF layout downloads for this property. <em>Inherit</em> uses the tenant default set in Settings → Brochure.
+                {t.form.brochureBefore}<em>{t.form.brochureInherit}</em>{t.form.brochureAfter}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label>Brochure Variant</Label>
+                <Label>{t.form.brochureVariant}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={formData.brochureVariant}
                   onChange={(e) => handleInputChange('brochureVariant', e.target.value as 'inherit' | 'branded' | 'unbranded')}
                 >
-                  <option value="inherit">Inherit (tenant default)</option>
-                  <option value="branded">Branded (logo + QR + contact)</option>
-                  <option value="unbranded">Unbranded (blank header/footer)</option>
+                  <option value="inherit">{t.form.brochureOptions.inherit}</option>
+                  <option value="branded">{t.form.brochureOptions.branded}</option>
+                  <option value="unbranded">{t.form.brochureOptions.unbranded}</option>
                 </select>
               </div>
             </CardContent>
@@ -1213,8 +1209,9 @@ function CreatePropertyPageInner() {
 import { LockedRouteGuard } from '@/components/locked-route-guard';
 
 export default function CreatePropertyPage() {
+  const t = usePropertiesText();
   return (
-    <LockedRouteGuard addon="addProperty" featureName="Add Property">
+    <LockedRouteGuard addon="addProperty" featureName={t.list.addProperty}>
       <CreatePropertyPageInner />
     </LockedRouteGuard>
   );

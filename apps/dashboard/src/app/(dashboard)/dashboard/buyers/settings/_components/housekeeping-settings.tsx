@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { buyerKeys, one } from '../../use-buyers';
 import { ExportButton } from '../../_components/export-button';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 interface DuplicateBuyer {
   id: number;
@@ -87,7 +88,7 @@ export function HousekeepingSettings({ canEdit }: { canEdit: boolean }) {
                       <Link href={`/dashboard/buyers/${b.id}`} className="min-w-[160px] font-medium text-primary hover:underline">{b.name}</Link>
                       <span className="text-muted-foreground">{b.email ?? '—'}</span>
                       <span className="text-muted-foreground">{b.phone ?? ''}</span>
-                      <span className="text-xs text-muted-foreground">{[b.stage, b.agent, new Date(b.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}</span>
+                      <span className="text-xs text-muted-foreground">{[b.stage, b.agent, new Date(b.createdAt).toLocaleDateString(dashboardLocale())].filter(Boolean).join(' · ')}</span>
                       <span className="ml-auto">
                         {b.id === keep.id ? (
                           <Badge variant="secondary">{t.keep}</Badge>

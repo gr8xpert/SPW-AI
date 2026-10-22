@@ -63,6 +63,8 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/i18n/i18n-provider';
+import { useFeedsText } from './_i18n';
 
 interface FeedConfig {
   id: number;
@@ -82,21 +84,22 @@ interface FeedConfig {
 
 // Field names must match Property entity keys (see FEED_MANAGED_FIELDS in
 // apps/api/src/modules/property/property.service.ts).
-const PROTECTABLE_FIELDS: Array<{ key: string; label: string }> = [
-  { key: 'title', label: 'Title' },
-  { key: 'description', label: 'Description' },
-  { key: 'price', label: 'Price' },
-  { key: 'images', label: 'Images' },
-  { key: 'features', label: 'Features' },
-  { key: 'bedrooms', label: 'Bedrooms' },
-  { key: 'bathrooms', label: 'Bathrooms' },
-  { key: 'buildSize', label: 'Build size' },
-  { key: 'plotSize', label: 'Plot size' },
-  { key: 'terraceSize', label: 'Terrace size' },
-  { key: 'gardenSize', label: 'Garden size' },
-  { key: 'propertyTypeId', label: 'Property type' },
-  { key: 'locationId', label: 'Location' },
-  { key: 'energyRating', label: 'Energy rating' },
+// Labels come from the page dictionary (t.fields[key]).
+const PROTECTABLE_FIELDS: string[] = [
+  'title',
+  'description',
+  'price',
+  'images',
+  'features',
+  'bedrooms',
+  'bathrooms',
+  'buildSize',
+  'plotSize',
+  'terraceSize',
+  'gardenSize',
+  'propertyTypeId',
+  'locationId',
+  'energyRating',
 ];
 
 const providerLogos: Record<string, string> = {
@@ -118,9 +121,9 @@ const providerNames: Record<string, string> = {
 };
 
 const statusConfig = {
-  success: { icon: CheckCircle2, color: 'text-primary', label: 'Success' },
-  partial: { icon: AlertTriangle, color: 'text-primary/60', label: 'Partial' },
-  failed: { icon: XCircle, color: 'text-primary/40', label: 'Failed' },
+  success: { icon: CheckCircle2, color: 'text-primary' },
+  partial: { icon: AlertTriangle, color: 'text-primary/60' },
+  failed: { icon: XCircle, color: 'text-primary/40' },
 };
 
 const emptyForm = {
@@ -138,8 +141,8 @@ const emptyForm = {
   removeMissing: true,
 };
 
-function formatDate(d: string): string {
-  try { return new Date(d).toLocaleDateString(); } catch { return d; }
+function formatDate(d: string, locale: string): string {
+  try { return new Date(d).toLocaleDateString(locale); } catch { return d; }
 }
 
 interface SyncStatus {
@@ -171,6 +174,8 @@ export default function FeedsPage() {
 
   const api = useApi();
   const { toast } = useToast();
+  const t = useFeedsText();
+  const { locale } = useLanguage();
 
   const fetchFeeds = async () => {
     if (!api.isReady) return;
@@ -179,7 +184,7 @@ export default function FeedsPage() {
       const body = res?.data || res;
       setFeeds(Array.isArray(body) ? body : body.data || []);
     } catch {
-      toast({ title: 'Failed to load feeds', variant: 'destructive' });
+      toast({ title: t.toasts.loadFailed, variant: 'destructive' });
     }
   };
 
@@ -237,12 +242,12 @@ export default function FeedsPage() {
         removeMissing: form.removeMissing,
         isActive: true,
       });
-      toast({ title: 'Feed source created' });
+      toast({ title: t.toasts.created });
       setIsAddOpen(false);
       setForm(emptyForm);
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to create', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.createFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -265,13 +270,13 @@ export default function FeedsPage() {
         markAsFeatured: form.markAsFeatured,
         removeMissing: form.removeMissing,
       });
-      toast({ title: 'Feed source updated' });
+      toast({ title: t.toasts.updated });
       setIsEditOpen(false);
       setEditingFeed(null);
       setForm(emptyForm);
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.updateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -279,32 +284,32 @@ export default function FeedsPage() {
     if (!deletingFeed) return;
     try {
       await api.delete(`/api/dashboard/feeds/${deletingFeed.id}`);
-      toast({ title: 'Feed source deleted' });
+      toast({ title: t.toasts.deleted });
       setIsDeleteOpen(false);
       setDeletingFeed(null);
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.deleteFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleToggleActive = async (feed: FeedConfig) => {
     try {
       await api.put(`/api/dashboard/feeds/${feed.id}`, { isActive: !feed.isActive });
-      toast({ title: feed.isActive ? 'Feed paused' : 'Feed activated' });
+      toast({ title: feed.isActive ? t.toasts.paused : t.toasts.activated });
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to update', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.updateFailed, description: e.message, variant: 'destructive' });
     }
   };
 
   const handleSync = async (feed: FeedConfig) => {
     try {
       await api.post(`/api/dashboard/feeds/${feed.id}/sync`);
-      toast({ title: 'Sync triggered', description: `Syncing ${feed.name}...` });
+      toast({ title: t.toasts.syncTriggered, description: t.toasts.syncing(feed.name) });
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to sync', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.syncFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -312,14 +317,14 @@ export default function FeedsPage() {
   // client really shrank their filter, one confirmed sync removes them.
   const handleConfirmRemoval = async (feed: FeedConfig, note: string) => {
     const n = /(\d+) of \d+ properties would be removed/.exec(note)?.[1];
-    const what = n ? `${n} properties` : `every property from ${feed.name}`;
-    if (!window.confirm(`Remove ${what} that are no longer in this feed?\n\nOnly do this if you changed the feed's filter on purpose. A new sync runs now and removes them; this can't be undone.`)) return;
+    const what = n ? t.confirmRemovalCount(n) : t.confirmRemovalAll(feed.name);
+    if (!window.confirm(t.confirmRemoval(what))) return;
     try {
       await api.post(`/api/dashboard/feeds/${feed.id}/sync`, { confirmRemoval: true });
-      toast({ title: 'Sync started', description: `Properties no longer in ${feed.name} will be removed.` });
+      toast({ title: t.toasts.syncStarted, description: t.toasts.removalStarted(feed.name) });
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to sync', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.syncFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -329,14 +334,14 @@ export default function FeedsPage() {
       const res = await api.post(`/api/dashboard/feeds/${wipingFeed.id}/wipe-and-sync`);
       const body = res?.data || res;
       toast({
-        title: 'Wipe & re-import triggered',
-        description: `Wiped ${body?.wiped ?? 0} locations. Re-import running...`,
+        title: t.toasts.wipeTriggered,
+        description: t.toasts.wiped(body?.wiped ?? 0),
       });
       setIsWipeOpen(false);
       setWipingFeed(null);
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to wipe & re-import', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.wipeFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -346,18 +351,19 @@ export default function FeedsPage() {
       const res = await api.post(`/api/dashboard/feeds/${wipingDataFeed.id}/wipe-data`);
       const body = res?.data || res;
       toast({
-        title: 'Feed data wiped',
-        description:
-          `Deleted ${body?.propertiesDeleted ?? 0} properties, ` +
-          `${body?.locationsDeleted ?? 0} orphan locations, ` +
-          `${body?.propertyTypesDeleted ?? 0} orphan types, ` +
-          `${body?.featuresDeleted ?? 0} orphan features.`,
+        title: t.toasts.dataWiped,
+        description: t.toasts.dataWipedText(
+          body?.propertiesDeleted ?? 0,
+          body?.locationsDeleted ?? 0,
+          body?.propertyTypesDeleted ?? 0,
+          body?.featuresDeleted ?? 0,
+        ),
       });
       setIsWipeDataOpen(false);
       setWipingDataFeed(null);
       fetchFeeds();
     } catch (e: any) {
-      toast({ title: 'Failed to wipe feed data', description: e.message, variant: 'destructive' });
+      toast({ title: t.toasts.dataWipeFailed, description: e.message, variant: 'destructive' });
     }
   };
 
@@ -395,25 +401,25 @@ export default function FeedsPage() {
           : 'https://api.inmoba.com/v1';
   const endpointLabel =
     form.provider === 'kyero'
-      ? 'Kyero Feed URL *'
+      ? t.form.kyeroUrl
       : form.provider === 'redsp'
-        ? 'RedSP Feed URL *'
+        ? t.form.redspUrl
         : form.provider === 'odoo'
-          ? 'Odoo Endpoint URL *'
-          : 'Endpoint URL';
+          ? t.form.odooUrl
+          : t.form.endpointUrl;
   const apiKeyLabel =
-    form.provider === 'odoo' ? 'Bearer Token *' : 'API Key *';
+    form.provider === 'odoo' ? t.form.bearerToken : t.form.apiKey;
   const apiKeyPlaceholder =
-    form.provider === 'odoo' ? 'Odoo bearer token' : 'Provider API key';
+    form.provider === 'odoo' ? t.form.bearerTokenPlaceholder : t.form.apiKeyPlaceholder;
 
   const formFields = (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
-        <Label>Feed Name *</Label>
-        <Input placeholder="My Feed Source" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Label>{t.form.feedName}</Label>
+        <Input placeholder={t.form.feedNamePlaceholder} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </div>
       <div className="space-y-2">
-        <Label>Provider *</Label>
+        <Label>{t.form.provider}</Label>
         <Select value={form.provider} onValueChange={(v) => setForm({ ...form, provider: v })}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -435,26 +441,26 @@ export default function FeedsPage() {
       )}
       {showClientId && (
         <div className="space-y-2">
-          <Label>Client ID {form.provider === 'resales' ? '*' : ''}</Label>
-          <Input placeholder={form.provider === 'resales' ? 'Agency ID, e.g. 1029727' : 'Client identifier'} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
+          <Label>{t.form.clientId} {form.provider === 'resales' ? '*' : ''}</Label>
+          <Input placeholder={form.provider === 'resales' ? t.form.clientIdResalesPlaceholder : t.form.clientIdPlaceholder} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} />
         </div>
       )}
       {form.provider === 'resales' && (
         <div className="space-y-2">
-          <Label>Filter Alias *</Label>
-          <Input placeholder="e.g. 1" value={form.filterId} onChange={(e) => setForm({ ...form, filterId: e.target.value })} />
-          <p className="text-xs text-muted-foreground">Filter Alias from Resales-Online portal &gt; API Filters (e.g. 1 = Sale, 2 = Short Term Rental). NOT the Filter Id column.</p>
+          <Label>{t.form.filterAlias}</Label>
+          <Input placeholder={t.form.filterAliasPlaceholder} value={form.filterId} onChange={(e) => setForm({ ...form, filterId: e.target.value })} />
+          <p className="text-xs text-muted-foreground">{t.form.filterAliasHelp}</p>
         </div>
       )}
       {showUsernamePassword && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Username</Label>
-            <Input placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+            <Label>{t.form.username}</Label>
+            <Input placeholder={t.form.username} value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>Password</Label>
-            <Input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <Label>{t.form.password}</Label>
+            <Input type="password" placeholder={t.form.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
         </div>
       )}
@@ -465,18 +471,14 @@ export default function FeedsPage() {
         </div>
       )}
       <div className="space-y-2">
-        <Label>Sync Schedule (cron)</Label>
+        <Label>{t.form.syncSchedule}</Label>
         <Input placeholder="0 6 * * *" value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />
-        <p className="text-xs text-muted-foreground">Default: daily at 6 AM</p>
+        <p className="text-xs text-muted-foreground">{t.form.syncScheduleHelp}</p>
       </div>
       <div className="flex items-start justify-between gap-4 border-t pt-4">
         <div className="space-y-1">
-          <Label htmlFor="feed-mark-featured">Mark imported properties as Featured</Label>
-          <p className="text-xs text-muted-foreground">
-            For a feed that is your featured list (e.g. a Resales filter of featured listings).
-            Properties are flagged Featured on sync and unflagged when they leave this feed.
-            Featured flags you set or clear by hand are left alone.
-          </p>
+          <Label htmlFor="feed-mark-featured">{t.form.markFeatured}</Label>
+          <p className="text-xs text-muted-foreground">{t.form.markFeaturedHelp}</p>
         </div>
         <Switch
           id="feed-mark-featured"
@@ -486,12 +488,8 @@ export default function FeedsPage() {
       </div>
       <div className="flex items-start justify-between gap-4 border-t pt-4">
         <div className="space-y-1">
-          <Label htmlFor="feed-remove-missing">Remove properties that leave this feed</Label>
-          <p className="text-xs text-muted-foreground">
-            After each complete sync, properties no longer in the feed (sold, withdrawn) are deleted,
-            so your site matches the source. Turn off to keep them. A single property is always kept
-            when its &ldquo;Enable Feed Sync&rdquo; is off.
-          </p>
+          <Label htmlFor="feed-remove-missing">{t.form.removeMissing}</Label>
+          <p className="text-xs text-muted-foreground">{t.form.removeMissingHelp}</p>
         </div>
         <Switch
           id="feed-remove-missing"
@@ -500,26 +498,25 @@ export default function FeedsPage() {
         />
       </div>
       <div className="space-y-2 border-t pt-4">
-        <Label>Protected Fields</Label>
+        <Label>{t.form.protectedFields}</Label>
         <p className="text-xs text-muted-foreground">
-          Fields checked here are <strong>never overwritten</strong> by scheduled syncs from this feed.
-          Individual property edits are auto-protected on top of this.
+          {t.form.protectedBefore}<strong>{t.form.protectedStrong}</strong>{t.form.protectedAfter}
         </p>
         <div className="grid grid-cols-2 gap-2 pt-1">
-          {PROTECTABLE_FIELDS.map((f) => {
-            const checked = form.protectedFields.includes(f.key);
+          {PROTECTABLE_FIELDS.map((key) => {
+            const checked = form.protectedFields.includes(key);
             return (
-              <label key={f.key} className="flex items-center gap-2 text-sm cursor-pointer">
+              <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(v) => {
                     const next = v
-                      ? Array.from(new Set([...form.protectedFields, f.key]))
-                      : form.protectedFields.filter((k) => k !== f.key);
+                      ? Array.from(new Set([...form.protectedFields, key]))
+                      : form.protectedFields.filter((k) => k !== key);
                     setForm({ ...form, protectedFields: next });
                   }}
                 />
-                {f.label}
+                {t.fields[key] ?? key}
               </label>
             );
           })}
@@ -532,19 +529,19 @@ export default function FeedsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Feed Sources</h1>
-          <p className="page-description mt-1">Configure property feed imports from external providers</p>
+          <h1 className="page-title">{t.title}</h1>
+          <p className="page-description mt-1">{t.description}</p>
         </div>
         <Button className="shadow-sm" onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Feed Source
+          {t.addFeedSource}
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Feeds</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.totalFeeds}</CardTitle>
             <div className="stat-card-icon">
               <Settings className="h-4 w-4" />
             </div>
@@ -553,7 +550,7 @@ export default function FeedsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.active}</CardTitle>
             <div className="stat-card-icon">
               <CheckCircle2 className="h-4 w-4" />
             </div>
@@ -562,19 +559,19 @@ export default function FeedsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Last Sync Total</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.lastSyncTotal}</CardTitle>
             <div className="stat-card-icon">
               <RefreshCw className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{feeds.reduce((acc, f) => acc + (f.lastSyncCount || 0), 0)}</div>
-            <p className="text-xs text-muted-foreground">properties imported</p>
+            <p className="text-xs text-muted-foreground">{t.stats.propertiesImported}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Issues</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.issues}</CardTitle>
             <div className="stat-card-icon">
               <AlertTriangle className="h-4 w-4" />
             </div>
@@ -636,37 +633,37 @@ export default function FeedsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleSync(feed)}>
                           <RefreshCw className="h-4 w-4 mr-2" />
-                          Sync Now
+                          {t.menu.syncNow}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setWipingFeed(feed); setIsWipeOpen(true); }}>
                           <Eraser className="h-4 w-4 mr-2" />
-                          Wipe & Re-import
+                          {t.menu.wipeReimport}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => { setWipingDataFeed(feed); setIsWipeDataOpen(true); }}
                         >
                           <FlaskConical className="h-4 w-4 mr-2" />
-                          Wipe imported data
+                          {t.menu.wipeData}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(feed)}>
                           <Settings className="h-4 w-4 mr-2" />
-                          Configure
+                          {t.menu.configure}
                         </DropdownMenuItem>
                         {feed.isActive ? (
                           <DropdownMenuItem onClick={() => handleToggleActive(feed)}>
                             <Pause className="h-4 w-4 mr-2" />
-                            Pause
+                            {t.menu.pause}
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem onClick={() => handleToggleActive(feed)}>
                             <Play className="h-4 w-4 mr-2" />
-                            Activate
+                            {t.menu.activate}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingFeed(feed); setIsDeleteOpen(true); }}>
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          {t.menu.delete}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -674,32 +671,32 @@ export default function FeedsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Status</span>
+                    <span className="text-sm text-muted-foreground">{t.card.status}</span>
                     {isSyncing ? (
                       <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20">
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        Syncing
+                        {t.card.syncing}
                       </Badge>
                     ) : (
                       <Badge variant={feed.isActive ? 'success' : 'secondary'}>
-                        {feed.isActive ? 'Active' : 'Paused'}
+                        {feed.isActive ? t.card.active : t.card.paused}
                       </Badge>
                     )}
                   </div>
 
                   {feed.markAsFeatured && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Imports as</span>
-                      <Badge variant="outline">Featured</Badge>
+                      <span className="text-sm text-muted-foreground">{t.card.importsAs}</span>
+                      <Badge variant="outline">{t.card.featured}</Badge>
                     </div>
                   )}
 
                   {isSyncing && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Progress</span>
+                      <span className="text-sm text-muted-foreground">{t.card.progress}</span>
                       <span className="text-sm font-medium">
-                        {sync.totalFetched.toLocaleString()}
-                        {sync.targetCount > 0 && ` / ~${sync.targetCount.toLocaleString()} (${progressPct}%)`}
+                        {sync.totalFetched.toLocaleString(locale)}
+                        {sync.targetCount > 0 && ` / ~${sync.targetCount.toLocaleString(locale)} (${progressPct}%)`}
                       </span>
                     </div>
                   )}
@@ -707,19 +704,19 @@ export default function FeedsPage() {
                   {feed.lastSyncAt && (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Last Sync</span>
+                        <span className="text-sm text-muted-foreground">{t.card.lastSync}</span>
                         <div className="flex items-center gap-2">
                           <StatusIcon className={`h-4 w-4 ${statusColor}`} />
-                          <span className="text-sm">{formatDate(feed.lastSyncAt)}</span>
+                          <span className="text-sm">{formatDate(feed.lastSyncAt, locale)}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Properties</span>
-                        <span className="text-sm font-medium">{feed.lastSyncCount || 0} imported</span>
+                        <span className="text-sm text-muted-foreground">{t.card.properties}</span>
+                        <span className="text-sm font-medium">{t.card.imported(feed.lastSyncCount || 0)}</span>
                       </div>
                       {!isSyncing && (sync?.removedCount ?? 0) > 0 && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Removed (left feed)</span>
+                          <span className="text-sm text-muted-foreground">{t.card.removedLeftFeed}</span>
                           <span className="text-sm font-medium">{sync!.removedCount}</span>
                         </div>
                       )}
@@ -733,7 +730,7 @@ export default function FeedsPage() {
                               className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
                               onClick={() => handleConfirmRemoval(feed, sync.removalNote!)}
                             >
-                              Remove them and sync
+                              {t.card.removeAndSync}
                             </Button>
                           )}
                         </div>
@@ -743,24 +740,24 @@ export default function FeedsPage() {
 
                   {feed.removeMissing === false && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Left-feed properties</span>
-                      <Badge variant="outline">Kept</Badge>
+                      <span className="text-sm text-muted-foreground">{t.card.leftFeedProperties}</span>
+                      <Badge variant="outline">{t.card.kept}</Badge>
                     </div>
                   )}
 
                   {feed.isActive && feed.nextSyncAt && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Next Sync</span>
-                      <span className="text-sm">{formatDate(feed.nextSyncAt)}</span>
+                      <span className="text-sm text-muted-foreground">{t.card.nextSync}</span>
+                      <span className="text-sm">{formatDate(feed.nextSyncAt, locale)}</span>
                     </div>
                   )}
 
                   <div className="pt-2 border-t">
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handleSync(feed)} disabled={isSyncing}>
                       {isSyncing ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing…</>
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.card.syncingDots}</>
                       ) : (
-                        <><RefreshCw className="h-4 w-4 mr-2" />Sync Now</>
+                        <><RefreshCw className="h-4 w-4 mr-2" />{t.menu.syncNow}</>
                       )}
                     </Button>
                   </div>
@@ -774,13 +771,13 @@ export default function FeedsPage() {
               <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                 <Plus className="h-6 w-6 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold mb-2">Add Feed Source</h3>
+              <h3 className="font-semibold mb-2">{t.addFeedSource}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Connect to Resales Online, Inmoba, Infocasa, REDSP or Kyero
+                {t.connectProviders}
               </p>
               <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Source
+                {t.addSource}
               </Button>
             </CardContent>
           </Card>
@@ -791,15 +788,15 @@ export default function FeedsPage() {
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Feed Source</DialogTitle>
-            <DialogDescription>Connect a new property feed provider</DialogDescription>
+            <DialogTitle>{t.dialogs.addTitle}</DialogTitle>
+            <DialogDescription>{t.dialogs.addDescription}</DialogDescription>
           </DialogHeader>
           {formFields}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.dialogs.cancel}</Button>
             <Button onClick={handleCreate} disabled={!form.name || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create
+              {t.dialogs.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -809,15 +806,15 @@ export default function FeedsPage() {
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingFeed(null); setForm(emptyForm); } }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Configure Feed Source</DialogTitle>
-            <DialogDescription>Update feed source settings</DialogDescription>
+            <DialogTitle>{t.dialogs.editTitle}</DialogTitle>
+            <DialogDescription>{t.dialogs.editDescription}</DialogDescription>
           </DialogHeader>
           {formFields}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.dialogs.cancel}</Button>
             <Button onClick={handleUpdate} disabled={!form.name || api.isLoading}>
               {api.isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Save Changes
+              {t.dialogs.saveChanges}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -827,15 +824,13 @@ export default function FeedsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Feed Source</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingFeed?.name}&quot;? This will stop all imports from this source.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t.dialogs.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.dialogs.deleteText(deletingFeed?.name ?? '')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.dialogs.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+              {t.dialogs.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -845,24 +840,21 @@ export default function FeedsPage() {
       <AlertDialog open={isWipeDataOpen} onOpenChange={setIsWipeDataOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Wipe all imported data from this feed?</AlertDialogTitle>
+            <AlertDialogTitle>{t.dialogs.wipeDataTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes <strong>every property</strong> imported by
-              &quot;{wipingDataFeed?.name}&quot; and then removes any location,
-              property type, or feature that no other property still uses.
+              {t.dialogs.wipeDataP1Before}<strong>{t.dialogs.wipeDataP1Strong}</strong>
+              {t.dialogs.wipeDataP1After(wipingDataFeed?.name ?? '')}
               <br /><br />
-              Shared rows (e.g. a location or type also used by another feed
-              or a manual listing) are <strong>kept</strong>. The feed config
-              itself stays — re-sync to pull data back.
+              {t.dialogs.wipeDataP2Before}<strong>{t.dialogs.wipeDataP2Strong}</strong>{t.dialogs.wipeDataP2After}
               <br /><br />
-              This action cannot be undone.
+              {t.dialogs.cannotUndo}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.dialogs.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleWipeData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               <Trash2 className="h-4 w-4 mr-2" />
-              Wipe data
+              {t.dialogs.wipeDataButton}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -872,21 +864,18 @@ export default function FeedsPage() {
       <AlertDialog open={isWipeOpen} onOpenChange={setIsWipeOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Wipe locations & re-import?</AlertDialogTitle>
+            <AlertDialogTitle>{t.dialogs.wipeTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will <strong>delete every location</strong> for this tenant and rebuild the
-              hierarchy from a fresh feed import. Properties stay intact — they&apos;ll just
-              lose their location link until the import re-attaches them.
+              {t.dialogs.wipeP1Before}<strong>{t.dialogs.wipeP1Strong}</strong>{t.dialogs.wipeP1After}
               <br /><br />
-              Use this after a feed-mapping fix so the new chain isn&apos;t mixed with stale rows.
-              Property types and features are <strong>not</strong> wiped.
+              {t.dialogs.wipeP2Before}<strong>{t.dialogs.wipeP2Strong}</strong>{t.dialogs.wipeP2After}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.dialogs.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleWipeAndSync} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               <Eraser className="h-4 w-4 mr-2" />
-              Wipe & Re-import
+              {t.dialogs.wipeButton}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

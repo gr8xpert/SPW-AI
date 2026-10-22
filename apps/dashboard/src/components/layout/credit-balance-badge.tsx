@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { formatHM } from '@/lib/time';
+import { useCommonText } from '@/i18n/common';
 
 // Header widget that surfaces the tenant's support-hours credit balance on
 // every dashboard page. Balance chip and "Buy Credit Hours" button are BOTH
@@ -19,6 +20,7 @@ import { formatHM } from '@/lib/time';
 export function CreditBalanceBadge() {
   const { data: session } = useSession();
   const api = useApi();
+  const t = useCommonText();
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +58,7 @@ export function CreditBalanceBadge() {
         <Link href="/dashboard/billing">
           <Button size="sm" variant="default" className="h-8 gap-1.5 text-xs">
             <ShoppingCart className="h-3.5 w-3.5" />
-            Buy Credit Hours
+            {t.buyCredits}
           </Button>
         </Link>
       </div>
@@ -68,7 +70,7 @@ export function CreditBalanceBadge() {
       <Link href="/dashboard/billing">
         <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
           <ShoppingCart className="h-3.5 w-3.5" />
-          Buy Credit Hours
+          {t.buyCredits}
         </Button>
       </Link>
     );
@@ -86,7 +88,7 @@ export function CreditBalanceBadge() {
       <Link
         href="/dashboard/billing"
         className={chipClass}
-        title={isEmpty ? 'No credit hours remaining — top up to keep support running' : 'Support credit hours remaining'}
+        title={isEmpty ? t.creditsEmpty : t.creditsLeft}
       >
         <Coins className={iconClass} />
         <span>{numericBalance < 0 ? `-${formatHM(Math.abs(numericBalance))}` : formatHM(numericBalance)}</span>
@@ -98,7 +100,7 @@ export function CreditBalanceBadge() {
           className="h-8 gap-1.5 text-xs"
         >
           <ShoppingCart className="h-3.5 w-3.5" />
-          Buy Credit Hours
+          {t.buyCredits}
         </Button>
       </Link>
     </div>

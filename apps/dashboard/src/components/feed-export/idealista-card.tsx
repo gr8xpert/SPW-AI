@@ -24,12 +24,15 @@ import {
 import type { ExportStatus } from './export-status';
 import { IdealistaListingPicker } from './idealista-listing-picker';
 import { IdealistaTypesTable } from './idealista-types-table';
+import { useFeedExportText } from './_i18n';
 
 // Feed Export → idealista: the client's own idealista feed (customer JSON v6).
 // idealista downloads the URL; the key sits in the path.
 export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => void }) {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const t = useFeedExportText();
+  const fail = (err: unknown) => errorText(err, t.common.somethingWrong);
   const [overview, setOverview] = useState<IdealistaOverview | null>(null);
   const [settings, setSettings] = useState<IdealistaSettings | null>(null);
   const [check, setCheck] = useState<IdealistaCheck | null>(null);
@@ -45,7 +48,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
       setOverview(data);
       setSettings(data.settings);
     } catch (err) {
-      toast({ title: 'Could not load the idealista settings', description: errorText(err), variant: 'destructive' });
+      toast({ title: t.idealista.loadFailed, description: fail(err), variant: 'destructive' });
     }
   };
 
@@ -54,7 +57,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
     try {
       setCheck(unwrap<IdealistaCheck>(await apiGet('/api/dashboard/feed-export/idealista/check')));
     } catch (err) {
-      toast({ title: 'Could not check the feed', description: errorText(err), variant: 'destructive' });
+      toast({ title: t.idealista.checkFailed, description: fail(err), variant: 'destructive' });
     } finally {
       setChecking(false);
     }
@@ -82,11 +85,11 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
         enabled, customerCode: customerCode.trim(), country, contactName, contactEmail: contactEmail.trim(),
         contactPhone, addressVisibility, mode, propertyIds, propertyUrlPattern: propertyUrlPattern.trim(),
       });
-      toast({ title: 'idealista settings saved' });
+      toast({ title: t.idealista.saved });
       await load();
       runCheck();
     } catch (err) {
-      toast({ title: 'Could not save', description: errorText(err), variant: 'destructive' });
+      toast({ title: t.common.couldNotSave, description: fail(err), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -112,10 +115,10 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
     try {
       await apiPost('/api/dashboard/feed-export/idealista/regenerate-key');
       setConfirmNewUrl(false);
-      toast({ title: 'New feed URL created', description: 'The old URL no longer works. Send the new one to idealista.' });
+      toast({ title: t.idealista.newUrlCreated, description: t.idealista.newUrlCreatedText });
       await load();
     } catch (err) {
-      toast({ title: 'Could not create a new URL', description: errorText(err), variant: 'destructive' });
+      toast({ title: t.idealista.newUrlFailed, description: fail(err), variant: 'destructive' });
     } finally {
       setRegenerating(false);
     }
@@ -136,17 +139,15 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
           <div>
             <CardTitle className="flex items-center gap-2">
               idealista
-              <Badge variant={settings.enabled ? 'default' : 'secondary'}>{settings.enabled ? 'On' : 'Off'}</Badge>
+              <Badge variant={settings.enabled ? 'default' : 'secondary'}>{settings.enabled ? t.common.on : t.common.off}</Badge>
             </CardTitle>
-            <CardDescription>
-              Your own listings as an idealista feed (JSON v6). Give the feed URL to idealista and they import it on their schedule.
-            </CardDescription>
+            <CardDescription>{t.idealista.description}</CardDescription>
           </div>
           <div className="flex items-center gap-3">
             <Switch checked={settings.enabled} onCheckedChange={(v) => set({ enabled: v })} />
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Save
+              {t.common.save}
             </Button>
           </div>
         </div>
@@ -154,18 +155,18 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
       <CardContent>
         <Tabs defaultValue="settings">
           <TabsList>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="types">Property types</TabsTrigger>
-            <TabsTrigger value="listings">Listings</TabsTrigger>
+            <TabsTrigger value="settings">{t.common.settings}</TabsTrigger>
+            <TabsTrigger value="types">{t.common.propertyTypes}</TabsTrigger>
+            <TabsTrigger value="listings">{t.common.listings}</TabsTrigger>
             <TabsTrigger value="check">
-              Feed check
+              {t.idealista.feedCheck}
               {!!problems && <Badge variant="destructive" className="ml-2 h-5 px-1.5">{problems}</Badge>}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="settings" className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Feed URL</Label>
+              <Label>{t.common.feedUrl}</Label>
               {feedUrl ? (
                 <div className="flex gap-2">
                   <Input value={feedUrl} readOnly className="font-mono text-xs" />
@@ -177,29 +178,25 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
                   </Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Save once to create your feed URL.</p>
+                <p className="text-sm text-muted-foreground">{t.idealista.saveOnce}</p>
               )}
               {feedUrl && !confirmNewUrl && (
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    Only give this URL to idealista — anyone who has it can read the feed. If it gets out, create a new one.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t.idealista.urlPrivate}</p>
                   <Button variant="outline" size="sm" className="shrink-0" onClick={() => setConfirmNewUrl(true)}>
                     <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                    New URL
+                    {t.idealista.newUrl}
                   </Button>
                 </div>
               )}
               {confirmNewUrl && (
                 <div className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm">
-                    The current URL stops working straight away. idealista can’t import until you send them the new one.
-                  </p>
+                  <p className="text-sm">{t.idealista.newUrlWarning}</p>
                   <div className="flex shrink-0 gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setConfirmNewUrl(false)} disabled={regenerating}>Keep current URL</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmNewUrl(false)} disabled={regenerating}>{t.idealista.keepUrl}</Button>
                     <Button variant="destructive" size="sm" onClick={newUrl} disabled={regenerating}>
                       {regenerating && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
-                      Create new URL
+                      {t.idealista.createUrl}
                     </Button>
                   </div>
                 </div>
@@ -208,7 +205,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>idealista customer code</Label>
+                <Label>{t.idealista.customerCode}</Label>
                 <Input
                   value={settings.customerCode}
                   onChange={(e) => set({ customerCode: e.target.value.trim().toLowerCase() })}
@@ -217,46 +214,46 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
                   autoComplete="off"
                 />
                 <p className={`text-xs ${settings.customerCode && !codeOk ? 'text-destructive' : 'text-muted-foreground'}`}>
-                  Given to you by idealista: “ilc” followed by 40 letters and digits.
+                  {t.idealista.customerCodeHelp}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Country</Label>
+                <Label>{t.idealista.country}</Label>
                 <Select value={settings.country} onValueChange={(v) => set({ country: v as IdealistaSettings['country'] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Spain">Spain</SelectItem>
-                    <SelectItem value="Portugal">Portugal</SelectItem>
-                    <SelectItem value="Italy">Italy</SelectItem>
+                    <SelectItem value="Spain">{t.idealista.countries.Spain}</SelectItem>
+                    <SelectItem value="Portugal">{t.idealista.countries.Portugal}</SelectItem>
+                    <SelectItem value="Italy">{t.idealista.countries.Italy}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Contact name</Label>
+                <Label>{t.idealista.contactName}</Label>
                 <Input value={settings.contactName} maxLength={60} onChange={(e) => set({ contactName: e.target.value })} autoComplete="off" />
               </div>
               <div className="space-y-2">
-                <Label>Contact email (receives idealista leads)</Label>
+                <Label>{t.idealista.contactEmail}</Label>
                 <Input value={settings.contactEmail} onChange={(e) => set({ contactEmail: e.target.value })} autoComplete="off" />
               </div>
               <div className="space-y-2">
-                <Label>Contact phone</Label>
+                <Label>{t.idealista.contactPhone}</Label>
                 <Input value={settings.contactPhone} onChange={(e) => set({ contactPhone: e.target.value })} placeholder="+34 600 000 000" autoComplete="off" />
               </div>
               <div className="space-y-2">
-                <Label>Address shown on idealista</Label>
+                <Label>{t.idealista.address}</Label>
                 <Select value={settings.addressVisibility} onValueChange={(v) => set({ addressVisibility: v as IdealistaSettings['addressVisibility'] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hidden">Hidden (area only)</SelectItem>
-                    <SelectItem value="street">Street, no number</SelectItem>
-                    <SelectItem value="full">Full address</SelectItem>
+                    <SelectItem value="hidden">{t.idealista.addressHidden}</SelectItem>
+                    <SelectItem value="street">{t.idealista.addressStreet}</SelectItem>
+                    <SelectItem value="full">{t.idealista.addressFull}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Property page link (optional)</Label>
+              <Label>{t.idealista.pageLink}</Label>
               <Input
                 value={settings.propertyUrlPattern}
                 onChange={(e) => set({ propertyUrlPattern: e.target.value })}
@@ -264,7 +261,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                {'{segment}'} becomes the same page address your website uses (e.g. sea-view-penthouse_R123); {'{ref}'} becomes the reference.
+                {t.idealista.pageLinkHelp('{segment}', '{ref}')}
               </p>
             </div>
           </TabsContent>
@@ -275,22 +272,20 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
 
           <TabsContent value="listings" className="space-y-4 pt-4">
             <div className="space-y-2 max-w-md">
-              <Label>Which listings are sent</Label>
+              <Label>{t.common.whichListingsSent}</Label>
               <Select value={settings.mode} onValueChange={(v) => set({ mode: v as IdealistaSettings['mode'] })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="own">All my own live listings</SelectItem>
-                  <SelectItem value="selected">Only the listings I pick</SelectItem>
+                  <SelectItem value="own">{t.idealista.allOwnLive}</SelectItem>
+                  <SelectItem value="selected">{t.common.onlyPicked}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Only your own listings (and ones added by hand) are ever sent, never other agencies’. Holiday rentals are not published on idealista.
-              </p>
+              <p className="text-xs text-muted-foreground">{t.idealista.listingsHelp}</p>
             </div>
             {settings.mode === 'selected' && (
               <IdealistaListingPicker ids={settings.propertyIds} onChange={(propertyIds) => set({ propertyIds })} />
             )}
-            <p className="text-xs text-muted-foreground">Press Save to apply.</p>
+            <p className="text-xs text-muted-foreground">{t.common.pressSave}</p>
           </TabsContent>
 
           <TabsContent value="check" className="space-y-4 pt-4">
@@ -298,27 +293,27 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
               <div className="flex items-center gap-4 text-sm">
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <strong>{check?.included ?? '–'}</strong> listings in the feed
+                  <strong>{check?.included ?? '–'}</strong> {t.idealista.inFeed}
                 </span>
                 <span className="flex items-center gap-1">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <strong>{check?.issues?.length ?? '–'}</strong> need attention
+                  <strong>{check?.issues?.length ?? '–'}</strong> {t.common.needAttention}
                 </span>
                 <span className="flex items-center gap-1">
                   <XCircle className="h-4 w-4 text-destructive" />
-                  <strong>{check?.skipped.length ?? '–'}</strong> left out
+                  <strong>{check?.skipped.length ?? '–'}</strong> {t.common.leftOut}
                 </span>
               </div>
               <Button variant="outline" size="sm" onClick={runCheck} disabled={checking}>
                 {checking ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                Check again
+                {t.common.checkAgain}
               </Button>
             </div>
             {check?.warnings.map((w) => (
               <div key={w} className="text-sm p-3 rounded-md bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200">{w}</div>
             ))}
             {!!check?.skipped.length && (
-              <p className="text-sm font-medium">Left out — idealista would reject these</p>
+              <p className="text-sm font-medium">{t.idealista.leftOutTitle}</p>
             )}
             {!!check?.skipped.length && (
               <div className="border rounded-md max-h-[360px] overflow-y-auto divide-y">
@@ -332,7 +327,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
             )}
             {!!check?.issues?.length && (
               <>
-                <p className="text-sm font-medium">Sent, but need attention — fix these before idealista shows them</p>
+                <p className="text-sm font-medium">{t.idealista.issuesTitle}</p>
                 <div className="border rounded-md max-h-[420px] overflow-y-auto divide-y">
                   {check.issues.map((s) => (
                     <div key={s.id} className="flex items-start justify-between gap-3 p-2 text-sm">
@@ -346,7 +341,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
               </>
             )}
             {check && !check.skipped.length && !check.issues?.length && check.included > 0 && (
-              <p className="text-sm text-muted-foreground">Every listing in the feed is complete.</p>
+              <p className="text-sm text-muted-foreground">{t.idealista.allComplete}</p>
             )}
           </TabsContent>
         </Tabs>

@@ -15,9 +15,12 @@ import { Bell, LogOut, Settings, User } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import Link from 'next/link';
 import { CreditBalanceBadge } from './credit-balance-badge';
+import { LanguageSwitcher } from './language-switcher';
+import { useCommonText } from '@/i18n/common';
 
 export function Header() {
   const { data: session } = useSession();
+  const t = useCommonText();
 
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-6">
@@ -25,6 +28,8 @@ export function Header() {
 
       <div className="flex items-center gap-2">
         <CreditBalanceBadge />
+
+        <LanguageSwitcher />
 
         <Button variant="ghost" size="icon" className="relative rounded-lg text-muted-foreground hover:text-foreground">
           <Bell className="h-[18px] w-[18px]" />
@@ -46,7 +51,7 @@ export function Header() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {session?.user?.name || 'User'}
+                  {session?.user?.name || t.user}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {session?.user?.email}
@@ -57,13 +62,13 @@ export function Header() {
             <DropdownMenuItem asChild>
               <Link href="/dashboard/profile">
                 <User className="mr-2 h-4 w-4" />
-                Profile
+                {t.profile}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/dashboard/settings">
                 <Settings className="mr-2 h-4 w-4" />
-                Settings
+                {t.settings}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -72,7 +77,7 @@ export function Header() {
               onClick={() => signOut({ callbackUrl: '/login' })}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Log out
+              {t.logOut}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

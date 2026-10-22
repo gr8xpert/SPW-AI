@@ -3,12 +3,18 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { useLanguage } from '@/i18n/i18n-provider';
 import type { AiModelOption, TenantCurrent } from './types';
+import { useSettingsText } from '../_i18n';
 
 // State for the AI (OpenRouter key + model) and AI Chat tabs. `aiChatEnabled`
 // also decides whether the page shows the AI Chat tab.
 export function useAiSettings() {
   const { toast } = useToast();
+  const st = useSettingsText();
+  const t = st.ai;
+  const { locale } = useLanguage();
+  const money = (n: number) => n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // AI / OpenRouter state
   const [aiApiKey, setAiApiKey] = useState('');
@@ -38,7 +44,7 @@ export function useAiSettings() {
 
   const priceText = (m: AiModelOption) =>
     m.inputPrice != null && m.outputPrice != null
-      ? ` — $${m.inputPrice.toFixed(2)} in / $${m.outputPrice.toFixed(2)} out per 1M tokens`
+      ? t.price(money(m.inputPrice), money(m.outputPrice))
       : '';
   const aiModelLabel = (id: string) => aiModels.find((m) => m.id === id)?.label || id;
 
@@ -86,7 +92,7 @@ export function useAiSettings() {
     try {
       const payload: Record<string, string> = { openRouterModel: aiModel };
       if (aiApiKey.trim() && !aiApiKey.trim().startsWith('sk-or-')) {
-        toast({ title: 'That is not an OpenRouter key', description: 'OpenRouter keys start with "sk-or-". Copy yours from openrouter.ai/keys.', variant: 'destructive' });
+        toast({ title: t.notOpenRouterKey, description: t.notOpenRouterKeyText, variant: 'destructive' });
         return;
       }
       if (aiApiKey.trim()) {
@@ -107,9 +113,9 @@ export function useAiSettings() {
         savedAvailable: aiModels.some((m) => m.id === aiModel) || (prev?.saved === aiModel ? prev.savedAvailable : true),
         effective: aiModel,
       }));
-      toast({ title: 'AI settings saved', description: 'Your OpenRouter configuration has been updated.' });
+      toast({ title: t.saved, description: t.savedText });
     } catch (err) {
-      toast({ title: 'Failed to save AI settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: t.saveFailed, description: (err as Error).message || st.common.unexpectedError, variant: 'destructive' });
     } finally {
       setSavingAi(false);
     }
@@ -118,16 +124,16 @@ export function useAiSettings() {
   // An empty key clears the stored one; with no key the website stops
   // offering AI search.
   const onRemoveAiKey = async () => {
-    if (!confirm('Remove the OpenRouter key? AI features on your website stop until you add one again.')) return;
+    if (!confirm(t.removeConfirm)) return;
     setSavingAi(true);
     try {
       await apiPut('/api/dashboard/tenant/settings', { openRouterApiKey: '' });
       setAiApiKeyMasked('');
       setAiApiKey('');
       setAiTestResult(null);
-      toast({ title: 'AI key removed', description: 'AI search no longer shows on your website.' });
+      toast({ title: t.removed, description: t.removedText });
     } catch (err) {
-      toast({ title: 'Could not remove the key', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: t.removeFailed, description: (err as Error).message || st.common.unexpectedError, variant: 'destructive' });
     } finally {
       setSavingAi(false);
     }
@@ -144,7 +150,7 @@ export function useAiSettings() {
       );
       setAiTestResult(res.data);
     } catch (err) {
-      setAiTestResult({ ok: false, error: (err as Error).message || 'Connection failed' });
+      setAiTestResult({ ok: false, error: (err as Error).message || st.email.testFailedDefault });
     } finally {
       setTestingAi(false);
     }
@@ -166,9 +172,9 @@ export function useAiSettings() {
         aiChatConversationTTLDays: aiChatTTLDays,
         aiChatAutoEmailAdmin,
       });
-      toast({ title: 'AI Chat settings saved', description: 'Your chat configuration has been updated.' });
+      toast({ title: st.aiChat.saved, description: st.aiChat.savedText });
     } catch (err) {
-      toast({ title: 'Failed to save AI Chat settings', description: (err as Error).message || 'Unexpected error', variant: 'destructive' });
+      toast({ title: st.aiChat.saveFailed, description: (err as Error).message || st.common.unexpectedError, variant: 'destructive' });
     } finally {
       setSavingAiChat(false);
     }

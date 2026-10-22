@@ -5,6 +5,7 @@ import type { useApi } from '@/hooks/use-api';
 import type { useToast } from '@/hooks/use-toast';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import type { MultilingualField, PropertyFormData } from './types';
+import { usePropertiesText } from '../../../_i18n';
 
 /**
  * The page's three AI actions: translate the content, generate SEO fields,
@@ -26,6 +27,7 @@ export function usePropertyAi({
   setUseCustomSchema: (v: boolean) => void;
 }) {
   const aiTranslation = useAiTranslationGuard();
+  const t = usePropertiesText();
   const [isTranslating, setIsTranslating] = useState(false);
   const [isGeneratingSeo, setIsGeneratingSeo] = useState(false);
   const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
@@ -33,7 +35,7 @@ export function usePropertyAi({
   const handleTranslate = async () => {
     if (!aiTranslation.check()) return;
     if (tenantLanguages.length < 2) {
-      toast({ title: 'Multiple languages required', description: 'Enable at least 2 languages in Settings → General to use AI translation.', variant: 'destructive' });
+      toast({ title: t.ai.multipleLanguages, description: t.ai.multipleLanguagesDescription, variant: 'destructive' });
       return;
     }
     setIsTranslating(true);
@@ -52,10 +54,10 @@ export function usePropertyAi({
         }
         setFormData((prev) => ({ ...prev, ...updates }));
       }
-      toast({ title: 'Translation complete', description: `Translated to ${tenantLanguages.length - 1} language(s). Review and save to keep changes.` });
+      toast({ title: t.ai.translationComplete, description: t.ai.translatedTo(tenantLanguages.length - 1) });
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
-      toast({ title: 'Translation failed', description: errMsg, variant: 'destructive' });
+      const errMsg = err instanceof Error ? err.message : t.common.unexpectedError;
+      toast({ title: t.ai.translationFailed, description: errMsg, variant: 'destructive' });
     } finally {
       setIsTranslating(false);
     }
@@ -64,7 +66,7 @@ export function usePropertyAi({
   const handleGenerateSeo = async () => {
     if (!aiTranslation.check()) return;
     if (tenantLanguages.length === 0) {
-      toast({ title: 'No languages configured', description: 'Enable at least one language in Settings → General.', variant: 'destructive' });
+      toast({ title: t.ai.noLanguages, description: t.ai.noLanguagesDescription, variant: 'destructive' });
       return;
     }
     setIsGeneratingSeo(true);
@@ -94,11 +96,11 @@ export function usePropertyAi({
           next.metaKeywords = metaKeywords;
           return next;
         });
-        toast({ title: 'SEO generated', description: `Generated for ${Object.keys(body).length} language(s). Review and save to keep changes.` });
+        toast({ title: t.ai.seoGenerated, description: t.ai.seoGeneratedDescription(Object.keys(body).length) });
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
-      toast({ title: 'SEO generation failed', description: errMsg, variant: 'destructive' });
+      const errMsg = err instanceof Error ? err.message : t.common.unexpectedError;
+      toast({ title: t.ai.seoFailed, description: errMsg, variant: 'destructive' });
     } finally {
       setIsGeneratingSeo(false);
     }
@@ -114,13 +116,13 @@ export function usePropertyAi({
       if (typeof schema === 'string' && schema.trim().length > 0) {
         setUseCustomSchema(true);
         setFormData((prev) => ({ ...prev, seoSchemaJson: schema }));
-        toast({ title: 'Schema generated', description: 'Review the JSON-LD below and save to keep changes.' });
+        toast({ title: t.ai.schemaGenerated, description: t.ai.schemaGeneratedDescription });
       } else {
-        toast({ title: 'Schema generation returned empty', variant: 'destructive' });
+        toast({ title: t.ai.schemaEmpty, variant: 'destructive' });
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unexpected error';
-      toast({ title: 'Schema generation failed', description: errMsg, variant: 'destructive' });
+      const errMsg = err instanceof Error ? err.message : t.common.unexpectedError;
+      toast({ title: t.ai.schemaFailed, description: errMsg, variant: 'destructive' });
     } finally {
       setIsGeneratingSchema(false);
     }

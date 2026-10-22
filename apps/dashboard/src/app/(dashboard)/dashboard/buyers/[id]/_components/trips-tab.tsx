@@ -28,6 +28,7 @@ import {
   type ViewingStatus,
 } from '../../use-buyer-viewings';
 import { FilterSelect } from '../../_components/filter-select';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 
 const STATUS_CLASS: Record<ViewingStatus, string> = {
   planned: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
@@ -37,10 +38,10 @@ const STATUS_CLASS: Record<ViewingStatus, string> = {
 };
 
 function fmtDay(d: string) {
-  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString(dashboardLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(dashboardLocale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 // ISO → the value a datetime-local input wants (local time).
 function toLocal(iso: string) {

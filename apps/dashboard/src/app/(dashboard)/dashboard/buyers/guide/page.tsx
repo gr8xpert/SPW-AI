@@ -8,17 +8,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { LockedRouteGuard } from '@/components/locked-route-guard';
 import { cn } from '@/lib/utils';
+import { useText } from '@/i18n/i18n-provider';
 import { useBuyerText } from '../_i18n/use-buyer-text';
 import { BuyersNav } from '../_components/buyers-nav';
-import { BASICS } from './guide-basics';
-import { MORE, QUICK_LINKS } from './guide-more';
+import { QUICK_LINKS } from './guide-more';
+import { guideText } from './guide-text';
 import { sectionText, type GuideBlock, type GuideSection } from './guide-types';
+import { SECTIONS, useGuideSections } from './use-guide-sections';
 
-const SECTIONS: GuideSection[] = [...BASICS, ...MORE];
 const GROUPS = Array.from(new Set(SECTIONS.map((s) => s.group)));
-const SEARCH_TEXT = new Map(SECTIONS.map((s) => [s.id, sectionText(s)]));
 
 function Block({ block }: { block: GuideBlock }) {
+  const g = useText(guideText);
   switch (block.kind) {
     case 'p':
       return <p className="leading-relaxed text-foreground/90">{block.text}</p>;
@@ -50,14 +51,14 @@ function Block({ block }: { block: GuideBlock }) {
       return (
         <div className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
-          <p className="leading-relaxed"><span className="font-semibold">Tip: </span>{block.text}</p>
+          <p className="leading-relaxed"><span className="font-semibold">{g.tip}</span>{block.text}</p>
         </div>
       );
     case 'warn':
       return (
         <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p className="leading-relaxed"><span className="font-semibold">Watch out: </span>{block.text}</p>
+          <p className="leading-relaxed"><span className="font-semibold">{g.warn}</span>{block.text}</p>
         </div>
       );
   }
@@ -65,6 +66,7 @@ function Block({ block }: { block: GuideBlock }) {
 
 function Section({ section }: { section: GuideSection }) {
   const Icon = section.icon;
+  const g = useText(guideText);
   return (
     <Card id={section.id} className="scroll-mt-24" data-testid={`guide-${section.id}`}>
       <CardContent className="space-y-4 p-6">
@@ -76,7 +78,7 @@ function Section({ section }: { section: GuideSection }) {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-lg font-semibold">{section.title}</h3>
               {section.managersOnly ? (
-                <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Managers</span>
+                <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{g.managers}</span>
               ) : null}
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">{section.summary}</p>
@@ -103,13 +105,18 @@ function Section({ section }: { section: GuideSection }) {
 // The Buyer Match guide: every feature in plain words, searchable, with a
 // contents list that follows the reader.
 function GuideInner() {
+  const g = useText(guideText);
+  const t = useBuyerText();
+  const sections = useGuideSections();
   const [query, setQuery] = useState('');
-  const [active, setActive] = useState(SECTIONS[0].id);
+  const [active, setActive] = useState<string>(SECTIONS[0].id);
 
-  const shown = useMemo(() => {
+  // Search the text in the user's language.
+  const searchText = useMemo(() => new Map(sections.map((s) => [s.id, sectionText(s)])), [sections]);
+  const shown = useMemo<GuideSection[]>(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return words.length ? SECTIONS.filter((s) => words.every((w) => SEARCH_TEXT.get(s.id)!.includes(w))) : SECTIONS;
-  }, [query]);
+    return words.length ? sections.filter((s) => words.every((w) => searchText.get(s.id)!.includes(w))) : sections;
+  }, [query, sections, searchText]);
 
   // Highlight the section being read in the contents list.
   useEffect(() => {
@@ -138,8 +145,8 @@ function GuideInner() {
     <div className="space-y-6">
       <div className="page-header animate-fade-in">
         <div>
-          <h1 className="page-title">Buyer Match guide</h1>
-          <p className="page-description mt-1">Everything about Buyers, explained in plain words.</p>
+          <h1 className="page-title">{g.title}</h1>
+          <p className="page-description mt-1">{g.description}</p>
         </div>
       </div>
 
@@ -153,8 +160,8 @@ function GuideInner() {
                 <BookOpen className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-lg font-semibold">New here? Start with the quick start.</p>
-                <p className="text-sm text-muted-foreground">{SECTIONS.length} short topics. Five minutes is enough to send your first email.</p>
+                <p className="text-lg font-semibold">{g.introTitle}</p>
+                <p className="text-sm text-muted-foreground">{g.introText(sections.length)}</p>
               </div>
             </div>
             <div className="relative max-w-xl">
@@ -162,12 +169,12 @@ function GuideInner() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search the guide, e.g. wishlist, alerts, erase…"
+                placeholder={g.searchPlaceholder}
                 className="h-11 bg-background pl-9 pr-9"
                 data-testid="guide-search"
               />
               {query ? (
-                <button type="button" aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setQuery('')}>
+                <button type="button" aria-label={g.clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setQuery('')}>
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
@@ -176,14 +183,14 @@ function GuideInner() {
           <div className="flex flex-col gap-2">
             <Button onClick={() => { setQuery(''); setTimeout(() => jump('quick-start'), 0); }}>
               <Rocket className="mr-2 h-4 w-4" />
-              Quick start
+              {g.quickStart}
             </Button>
             <div className="grid grid-cols-2 gap-2">
-              {QUICK_LINKS.map(({ href, label, icon: Icon }) => (
+              {QUICK_LINKS.map(({ href, nav, icon: Icon }) => (
                 <Button key={href} variant="outline" size="sm" className="justify-start bg-background" asChild>
                   <Link href={href}>
                     <Icon className="mr-1.5 h-3.5 w-3.5" />
-                    {label}
+                    {t.nav[nav]}
                   </Link>
                 </Button>
               ))}
@@ -194,13 +201,13 @@ function GuideInner() {
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <aside className="hidden lg:block">
-          <nav className="sticky top-20 max-h-[calc(100vh-6rem)] space-y-5 overflow-y-auto pr-2 text-sm" aria-label="Guide contents">
-            {GROUPS.map((g) => {
-              const items = shown.filter((s) => s.group === g);
+          <nav className="sticky top-20 max-h-[calc(100vh-6rem)] space-y-5 overflow-y-auto pr-2 text-sm" aria-label={g.contents}>
+            {GROUPS.map((group) => {
+              const items = shown.filter((s) => s.group === group);
               if (!items.length) return null;
               return (
-                <div key={g}>
-                  <p className="mb-1.5 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g}</p>
+                <div key={group}>
+                  <p className="mb-1.5 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.groups[group]}</p>
                   <ul className="space-y-0.5">
                     {items.map((s) => (
                       <li key={s.id}>
@@ -227,16 +234,16 @@ function GuideInner() {
           {shown.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                Nothing in the guide matches “{query}”. Try another word, like “email” or “stage”.
+                {g.noResults(query)}
               </CardContent>
             </Card>
           ) : (
-            GROUPS.map((g) => {
-              const items = shown.filter((s) => s.group === g);
+            GROUPS.map((group) => {
+              const items = shown.filter((s) => s.group === group);
               if (!items.length) return null;
               return (
-                <section key={g} className="space-y-4">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g}</h2>
+                <section key={group} className="space-y-4">
+                  <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.groups[group]}</h2>
                   {items.map((s) => (
                     <Section key={s.id} section={s} />
                   ))}
@@ -247,7 +254,7 @@ function GuideInner() {
           <div className="flex justify-center pb-4">
             <Button variant="ghost" size="sm" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <ArrowUp className="mr-1.5 h-4 w-4" />
-              Back to top
+              {g.backToTop}
             </Button>
           </div>
         </div>

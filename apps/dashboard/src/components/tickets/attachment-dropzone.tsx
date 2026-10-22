@@ -3,6 +3,7 @@
 import { useRef, useState, DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, Paperclip, UploadCloud, X, FileText, Film, Image as ImageIcon } from 'lucide-react';
+import { useTicketComponentsText } from './_i18n';
 
 export interface Attachment {
   name: string;
@@ -38,6 +39,7 @@ export function AttachmentDropzone({
 }: AttachmentDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const t = useTicketComponentsText();
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -89,12 +91,12 @@ export function AttachmentDropzone({
           <UploadCloud className={compact ? 'h-4 w-4 text-muted-foreground' : 'h-6 w-6 text-muted-foreground'} />
         )}
         <div className="text-muted-foreground">
-          <span className="font-medium text-foreground">Drop files here</span>
-          {' or '}
-          <span className="text-primary underline underline-offset-2">browse</span>
+          <span className="font-medium text-foreground">{t.dropFiles}</span>
+          {t.or}
+          <span className="text-primary underline underline-offset-2">{t.browse}</span>
         </div>
         <div className="text-[11px] text-muted-foreground">
-          Images and PDFs up to 10 MB, videos (MP4, MOV, WebM) up to 90 MB
+          {t.limits}
         </div>
         <input
           ref={inputRef}
@@ -122,7 +124,7 @@ export function AttachmentDropzone({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onRemove(i); }}
                 className="ml-1 hover:text-destructive"
-                aria-label={`Remove ${att.name}`}
+                aria-label={t.remove(att.name)}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -143,7 +145,7 @@ export function AttachmentPickerButton({
   isUploading,
   accept = 'image/*,.pdf,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm',
   disabled = false,
-  label = 'Attach',
+  label,
 }: {
   onAdd: (files: Attachment[]) => void;
   onUpload: (files: FileList) => Promise<Attachment[]>;
@@ -153,6 +155,7 @@ export function AttachmentPickerButton({
   label?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useTicketComponentsText();
   return (
     <>
       <input
@@ -178,7 +181,7 @@ export function AttachmentPickerButton({
         disabled={disabled || isUploading}
       >
         {isUploading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Paperclip className="h-3 w-3 mr-1" />}
-        {label}
+        {label ?? t.attach}
       </Button>
     </>
   );
