@@ -174,7 +174,7 @@ export const sv: GuideTranslation = {
     title: 'AI-hjälp',
     summary: 'Låt AI läsa meddelanden, skriva anteckningar och hitta mönster. Du kollar alltid först.',
     blocks: [
-      p('AI-hjälpen använder din byrås egen OpenRouter-nyckel (Inställningar → AI). Inget som AI föreslår sparas förrän du trycker på Spara.'),
+      p('AI-hjälpen använder din byrås egen AI-nyckel (OpenRouter eller Anthropic) (Inställningar → AI). Inget som AI föreslår sparas förrän du trycker på Spara.'),
       terms(
         ['Klistra in ett meddelande', 'Klistra in ett mejl eller WhatsApp-meddelande från köparen. AI läser vad de vill ha och föreslår ändringar i önskelistan.'],
         ['Röstanteckning', 'Prata i upp till 30 sekunder efter ett samtal. AI skriver anteckningen åt dig. Inspelningen sparas inte.'],
@@ -328,7 +328,7 @@ export const sv: GuideTranslation = {
         ['Varför visar Matchade ingenting?', 'Måstena är för snäva. Välj ett större område, fler objekttyper eller en bredare budget.'],
         ['Varför saknas ett objekt jag skickat i Matchade?', 'Skickade och avvisade objekt döljs så att ingen får dem två gånger. Tryck på ”Visa alla”.'],
         ['Mejlet har inga länkar till min webbplats.', 'En chef måste fylla i Inställningar → Allmänt → ”Objektlänkar i mejl”.'],
-        ['AI-knapparna säger att jag behöver en nyckel.', 'Lägg till din OpenRouter-nyckel i Inställningar → AI (ägare eller chef).'],
+        ['AI-knapparna säger att jag behöver en nyckel.', 'Lägg till din AI-nyckel (OpenRouter eller Anthropic) i Inställningar → AI (ägare eller chef).'],
         ['Jag har lagt till samma person två gånger.', 'Använd Inställningar → Underhåll → Möjliga dubbletter och slå ihop dem.'],
         ['Hur tar jag bort en köpare?', 'Integritet → Radera personuppgifter (chefer). Köparen försvinner från dina listor för gott.'],
         ['En köpare säger att de får för många mejl.', 'Integritet → Avregistrera från objektmejl.'],

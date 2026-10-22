@@ -26,6 +26,7 @@
     "seed": "node dist/database/seed.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
     "@aws-sdk/client-s3": "^3.500.0",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.3.0",

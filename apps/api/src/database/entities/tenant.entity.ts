@@ -187,6 +187,11 @@ export class Tenant {
   @Column({ type: 'varchar', length: 500, nullable: true, transformer: encryptedColumn })
   openrouterApiKey: string | null;
 
+  // Optional per-tenant Anthropic key, used instead of the OpenRouter one
+  // when settings.aiProvider is 'anthropic'. Same encryption.
+  @Column({ type: 'varchar', length: 500, nullable: true, transformer: encryptedColumn })
+  anthropicApiKey: string | null;
+
   // Encrypted reCAPTCHA v2/v3 secret. Used server-side to verify tokens
   // submitted by the widget; never returned by GET endpoints (the public
   // `recaptchaSiteKey` lives in settings and stays public).

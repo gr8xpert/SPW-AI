@@ -31,6 +31,7 @@ function build(reply: string, opts: { key?: string | null; enabled?: boolean; vo
     {
       chatCompletion,
       hasClientKey: jest.fn(async () => !!(await tenants.findOne()).openrouterApiKey),
+      hasClientAudioKey: jest.fn(async () => !!(await tenants.findOne()).openrouterApiKey),
       firstAvailableModel: jest.fn(async (ids: string[]) => ids[0]),
     } as any,
     { findAll: jest.fn().mockResolvedValue(LOCATIONS) } as any,

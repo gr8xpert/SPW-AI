@@ -15,6 +15,7 @@ import { cleanTitlePatterns, unknownTitleTokens } from '../property/title-patter
 import { isRecaptchaKey } from '../../common/security/recaptcha-key';
 import { publicSiteAgent } from './site-agent';
 import { agentCard } from '../team/agent-profile';
+import { CLIENT_ANTHROPIC_MODELS } from '../ai/anthropic-client';
 export { publicSiteAgent } from './site-agent';
 
 export interface CacheClearResult {
@@ -145,11 +146,13 @@ export class TenantService {
     const {
       recaptchaSecretKey,
       openRouterApiKey,
+      anthropicApiKey,
       inquiryWebhookUrl,
       ...publicSettings
     } = settings as Partial<TenantSettings> & {
       recaptchaSecretKey?: string;
       openRouterApiKey?: string;
+      anthropicApiKey?: string;
       inquiryWebhookUrl?: string;
     };
 
@@ -239,6 +242,26 @@ export class TenantService {
       }
     }
 
+    if (anthropicApiKey !== undefined) {
+      const trimmed = typeof anthropicApiKey === 'string' ? anthropicApiKey.trim() : '';
+      if (trimmed === '') {
+        tenant.anthropicApiKey = null;
+      } else if (!trimmed.includes('••••')) {
+        if (!trimmed.startsWith('sk-ant-')) {
+          throw new BadRequestException('That is not an Anthropic key: Anthropic keys start with "sk-ant-".');
+        }
+        tenant.anthropicApiKey = trimmed;
+      }
+    }
+    const providerIn = (publicSettings as { aiProvider?: unknown }).aiProvider;
+    if (providerIn !== undefined && providerIn !== 'openrouter' && providerIn !== 'anthropic') {
+      delete (publicSettings as { aiProvider?: unknown }).aiProvider;
+    }
+    const claudeIn = (publicSettings as { anthropicModel?: unknown }).anthropicModel;
+    if (claudeIn !== undefined && !CLIENT_ANTHROPIC_MODELS.some((m) => m.id === claudeIn)) {
+      delete (publicSettings as { anthropicModel?: unknown }).anthropicModel;
+    }
+
     if (inquiryWebhookUrl !== undefined) {
       const trimmed = typeof inquiryWebhookUrl === 'string' ? inquiryWebhookUrl.trim() : '';
       if (trimmed === '') {
@@ -266,6 +289,7 @@ export class TenantService {
     // values in the JSON blob, scrub them so they can't be returned.
     delete merged.recaptchaSecretKey;
     delete merged.openRouterApiKey;
+    delete merged.anthropicApiKey;
     delete merged.inquiryWebhookUrl;
     tenant.settings = merged as TenantSettings;
 
@@ -627,6 +651,7 @@ export class TenantService {
       tier: tenant.tier || DEFAULT_TENANT_TIER,
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
+      anthropicApiKeyConfigured: !!tenant.anthropicApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       ownEmailDomain: tenant.featureFlags?.ownEmailDomain === true,
     };

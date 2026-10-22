@@ -173,7 +173,7 @@ export const de: GuideTranslation = {
     title: 'KI-Helfer',
     summary: 'Lassen Sie die KI Nachrichten lesen, Notizen schreiben und Muster erkennen. Sie prüfen immer zuerst.',
     blocks: [
-      p('Die KI-Helfer nutzen den eigenen OpenRouter-Schlüssel Ihrer Agentur (Einstellungen → KI). Nichts, was die KI vorschlägt, wird gespeichert, bevor Sie „Speichern“ drücken.'),
+      p('Die KI-Helfer nutzen den eigenen KI-Schlüssel (OpenRouter oder Anthropic) Ihrer Agentur (Einstellungen → KI). Nichts, was die KI vorschlägt, wird gespeichert, bevor Sie „Speichern“ drücken.'),
       terms(
         ['Nachricht einfügen', 'Fügen Sie eine E-Mail oder WhatsApp-Nachricht des Käufers ein. Die KI liest, was er möchte, und schlägt Änderungen am Suchprofil vor.'],
         ['Sprachnotiz', 'Sprechen Sie nach einem Anruf bis zu 30 Sekunden. Die KI schreibt die Notiz für Sie. Die Aufnahme wird nicht gespeichert.'],
@@ -327,7 +327,7 @@ export const de: GuideTranslation = {
         ['Warum zeigt Treffer nichts an?', 'Die Muss-Kriterien sind zu eng. Wählen Sie ein größeres Gebiet, mehr Immobilientypen oder ein größeres Budget.'],
         ['Warum fehlt eine gesendete Immobilie unter Treffer?', 'Gesendete und abgelehnte Immobilien sind ausgeblendet, damit niemand sie doppelt bekommt. Drücken Sie „Alle anzeigen“.'],
         ['Die E-Mail hat keine Links zu meiner Website.', 'Ein Manager muss Einstellungen → Allgemein → „Immobilien-Links in E-Mails“ ausfüllen.'],
-        ['Die KI-Knöpfe sagen, dass ich einen Schlüssel brauche.', 'Tragen Sie Ihren OpenRouter-Schlüssel unter Einstellungen → KI ein (Inhaber oder Manager).'],
+        ['Die KI-Knöpfe sagen, dass ich einen Schlüssel brauche.', 'Tragen Sie Ihren KI-Schlüssel (OpenRouter oder Anthropic) unter Einstellungen → KI ein (Inhaber oder Manager).'],
         ['Ich habe dieselbe Person zweimal angelegt.', 'Nutzen Sie Einstellungen → Datenpflege → Mögliche Duplikate und führen Sie sie zusammen.'],
         ['Wie entferne ich einen Käufer?', 'Datenschutz → Personenbezogene Daten löschen (Manager). Der Käufer verschwindet endgültig aus Ihren Listen.'],
         ['Ein Käufer sagt, er bekommt zu viele E-Mails.', 'Datenschutz → Von Immobilien-E-Mails abmelden.'],

@@ -11,6 +11,7 @@ import { useApi } from '@/hooks/use-api';
 import { Users, AlertTriangle, TrendingUp, Building2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { staggerContainer, staggerItem } from '@/lib/animations';
+import { PlatformAiCard } from './platform-ai-card';
 
 interface DashboardStats {
   totalClients: number;
@@ -270,6 +271,8 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <PlatformAiCard />
     </div>
   );
 }

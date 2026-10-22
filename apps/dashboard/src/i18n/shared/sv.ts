@@ -9,7 +9,7 @@ export const sv: SharedText = {
     running: (progress) => `SEO ${progress} %`,
     title: 'Skapa SEO med AI',
     description:
-      'Fyller i sidtitel, metatitel, metabeskrivning och nyckelord för hela ditt utbud. Körs i bakgrunden på ditt OpenRouter-saldo.',
+      'Fyller i sidtitel, metatitel, metabeskrivning och nyckelord för hela ditt utbud. Körs i bakgrunden på ditt AI-saldo.',
     languages: 'Språk',
     overwrite: 'Skriv över befintlig SEO',
     overwriteHelp:

@@ -152,6 +152,10 @@ export interface TenantSettings {
    */
   openRouterApiKey?: string;
   openRouterModel?: string;
+  // Which of the client's keys AI uses: OpenRouter (default) or Anthropic
+  // direct (key in the encrypted `tenants.anthropicApiKey` column).
+  aiProvider?: 'openrouter' | 'anthropic';
+  anthropicModel?: string;
 
   // How many AI searches a client's website may run per day. The feature
   // spends the client's own OpenRouter credit, so this is their spending
@@ -278,6 +282,7 @@ export interface TenantPublic {
   // are never returned by the API.
   recaptchaSecretKeyConfigured: boolean;
   openRouterApiKeyConfigured: boolean;
+  anthropicApiKeyConfigured: boolean;
   inquiryWebhookUrlConfigured: boolean;
   // Form emails are sent from settings.formSenderEmail (Super Admin switch).
   ownEmailDomain?: boolean;

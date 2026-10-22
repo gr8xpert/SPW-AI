@@ -140,7 +140,7 @@ export class TranslationMemoryFillService {
   // the cron; the dated job id lets only the first one queue it.
   @Cron('15 4 * * *')
   async nightly(): Promise<void> {
-    if (!process.env.OPENROUTER_API_KEY) return;
+    if (!this.aiService.hasPlatformKey()) return;
     await this.start(undefined, `nightly-${new Date().toISOString().slice(0, 10)}`);
   }
 

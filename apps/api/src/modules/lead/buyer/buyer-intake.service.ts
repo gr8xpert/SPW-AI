@@ -244,7 +244,14 @@ export class BuyerIntakeService {
       sourcePropertyId: c.propertyId ?? undefined,
     });
     const existing = await this.leads.findOne({ where: { tenantId, contactId: contact.id, mergedIntoId: IsNull() } });
-    if (existing) return { lead: existing, created: false };
+    if (existing) {
+      // A new form from someone whose enquiry was marked handled: waiting again.
+      if (existing.isNewLead && existing.newLeadHandledAt) {
+        await this.leads.update(existing.id, { newLeadHandledAt: null });
+        existing.newLeadHandledAt = null;
+      }
+      return { lead: existing, created: false };
+    }
     const lead = await this.leads.save(
       this.leads.create({
         tenantId,

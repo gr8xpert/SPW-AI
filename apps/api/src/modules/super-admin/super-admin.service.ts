@@ -276,6 +276,7 @@ export class SuperAdminService {
       lastCacheClearedAt: tenant.lastCacheClearedAt,
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
       openRouterApiKeyConfigured: !!tenant.openrouterApiKey,
+      anthropicApiKeyConfigured: !!tenant.anthropicApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       adminUser,
       users,

@@ -29,6 +29,19 @@ export const en = {
     other: 'Website form',
   },
   viewPage: 'Page',
+  descriptionInbox: 'Enquiries from the forms on your website. Reply to each one, then mark it handled.',
+  tabWaiting: 'Waiting',
+  tabHandled: 'Handled',
+  emptyHandled: 'Nothing handled yet. Enquiries you mark handled are kept here.',
+  reply: 'Reply',
+  replySubject: (what?: string) => (what ? `Your enquiry: ${what}` : 'Your enquiry'),
+  markHandled: 'Mark as handled',
+  markedHandled: 'Marked as handled',
+  reopen: 'Back to waiting',
+  reopened: 'Back on the waiting list',
+  handledFailed: 'Could not update the enquiry',
+  handledOn: (date: string) => `Handled ${date}`,
+  totalHandled: (n: number) => `${n} handled`,
 };
 
 export type NewLeadText = typeof en;

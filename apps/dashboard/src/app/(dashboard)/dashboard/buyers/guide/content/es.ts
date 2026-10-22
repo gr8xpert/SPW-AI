@@ -173,7 +173,7 @@ export const es: GuideTranslation = {
     title: 'Ayudas con IA',
     summary: 'Deja que la IA lea mensajes, escriba notas y encuentre patrones. Tú siempre lo revisas antes.',
     blocks: [
-      p('Las ayudas con IA usan la clave de OpenRouter de tu propia agencia (Ajustes → IA). Nada de lo que propone la IA se guarda hasta que pulsas Guardar.'),
+      p('Las ayudas con IA usan la clave de IA (OpenRouter o Anthropic) de tu propia agencia (Ajustes → IA). Nada de lo que propone la IA se guarda hasta que pulsas Guardar.'),
       terms(
         ['Pegar un mensaje', 'Pega un email o un mensaje de WhatsApp del comprador. La IA lee lo que quiere y propone cambios en la lista de deseos.'],
         ['Nota de voz', 'Habla hasta 30 segundos después de una llamada. La IA escribe la nota por ti. La grabación no se guarda.'],
@@ -327,7 +327,7 @@ export const es: GuideTranslation = {
         ['¿Por qué Coincidencias no muestra nada?', 'Los imprescindibles son demasiado estrictos. Elige una zona más grande, más tipos de propiedad o un presupuesto más amplio.'],
         ['¿Por qué falta en Coincidencias una propiedad que envié?', 'Las propiedades enviadas y rechazadas se ocultan para que nadie las reciba dos veces. Pulsa "Mostrar todas".'],
         ['El email no tiene enlaces a mi web.', 'Un responsable debe rellenar Ajustes → General → "Enlaces a propiedades en los emails".'],
-        ['Los botones de IA dicen que necesito una clave.', 'Añade tu clave de OpenRouter en Ajustes → IA (dueño o responsable).'],
+        ['Los botones de IA dicen que necesito una clave.', 'Añade tu clave de IA (OpenRouter o Anthropic) en Ajustes → IA (dueño o responsable).'],
         ['Añadí a la misma persona dos veces.', 'Usa Ajustes → Mantenimiento → Posibles duplicados y fusiónalos.'],
         ['¿Cómo elimino un comprador?', 'Privacidad → Borrar datos personales (responsables). El comprador sale de tus listas para siempre.'],
         ['Un comprador dice que recibe demasiados emails.', 'Privacidad → Darse de baja de los emails de propiedades.'],

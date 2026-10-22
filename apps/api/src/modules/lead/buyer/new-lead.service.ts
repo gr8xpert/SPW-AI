@@ -9,7 +9,11 @@ import { BuyerChangeLogService } from './buyer-change-log.service';
 
 // New Leads: people a website form (enquiry, wishlist, Meta) created and
 // nobody has given a role yet. Picking a role moves them into Contacts;
-// spam is deleted outright. Open to every client, Buyer Match or not.
+// spam is deleted outright. Open to every client, Buyer Match or not: without
+// Buyer Match it is their enquiry inbox, where a dealt-with enquiry is marked
+// handled (still a new lead, so it can go to Contacts later).
+
+export type NewLeadView = 'waiting' | 'handled';
 
 const FORM_TYPES: LeadActivity['type'][] = ['enquiry', 'wishlist_form'];
 
@@ -21,6 +25,7 @@ export interface NewLeadItem {
   phone: string | null;
   source: Lead['source'];
   createdAt: Date;
+  handledAt: Date | null;
   agent: { id: number; name: string | null } | null;
   // The form(s) they sent, newest first.
   forms: { type: LeadActivity['type']; message: string | null; metadata: Record<string, unknown> | null; createdAt: Date }[];
@@ -35,7 +40,8 @@ export class NewLeadService {
     private readonly changeLog: BuyerChangeLogService,
   ) {}
 
-  private async base(tenantId: number, viewer: BuyerViewer) {
+  // `view` narrows to waiting or handled; without it, any new lead.
+  private async base(tenantId: number, viewer: BuyerViewer, view?: NewLeadView) {
     const { agentsSeeAll } = await this.settingsService.get(tenantId);
     const qb = this.leads
       .createQueryBuilder('lead')
@@ -43,21 +49,29 @@ export class NewLeadService {
       .andWhere('lead.isNewLead = 1')
       .andWhere('lead.mergedIntoId IS NULL')
       .andWhere('lead.erasedAt IS NULL');
+    if (view === 'waiting') qb.andWhere('lead.newLeadHandledAt IS NULL');
+    if (view === 'handled') qb.andWhere('lead.newLeadHandledAt IS NOT NULL');
     applyVisibility(qb, viewer, agentsSeeAll);
     return qb;
   }
 
   async count(tenantId: number, viewer: BuyerViewer): Promise<{ count: number }> {
-    return { count: await (await this.base(tenantId, viewer)).getCount() };
+    return { count: await (await this.base(tenantId, viewer, 'waiting')).getCount() };
   }
 
-  async list(tenantId: number, viewer: BuyerViewer, page = 1, limit = 20): Promise<{ data: NewLeadItem[]; total: number; page: number; limit: number }> {
-    const [rows, total] = await (await this.base(tenantId, viewer))
+  async list(
+    tenantId: number,
+    viewer: BuyerViewer,
+    page = 1,
+    view: NewLeadView = 'waiting',
+    limit = 20,
+  ): Promise<{ data: NewLeadItem[]; total: number; page: number; limit: number }> {
+    const [rows, total] = await (await this.base(tenantId, viewer, view))
       .leftJoin('lead.contact', 'contact')
       .addSelect(['contact.id', 'contact.email'])
       .leftJoin('lead.assignedToUser', 'agent')
       .addSelect(['agent.id', 'agent.name'])
-      .orderBy('lead.createdAt', 'DESC')
+      .orderBy(view === 'handled' ? 'lead.newLeadHandledAt' : 'lead.createdAt', 'DESC')
       .addOrderBy('lead.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -85,6 +99,7 @@ export class NewLeadService {
       phone: l.phone ?? l.mobile ?? null,
       source: l.source,
       createdAt: l.createdAt,
+      handledAt: l.newLeadHandledAt,
       agent: l.assignedToUser ? { id: l.assignedToUser.id, name: l.assignedToUser.name } : null,
       forms: byLead.get(l.id) ?? [],
     }));
@@ -106,6 +121,15 @@ export class NewLeadService {
       { field: 'newLead', from: 'new lead', to: 'contact' },
     ]);
     return { id: lead.id, role };
+  }
+
+  // Dealt with outside Contacts (replied by email or phone): out of the
+  // waiting list, kept under Handled. `false` puts it back.
+  async setHandled(tenantId: number, viewer: BuyerViewer, id: number, handled: boolean): Promise<{ id: number; handledAt: Date | null }> {
+    const lead = await this.findNew(tenantId, viewer, id);
+    const handledAt = handled ? new Date() : null;
+    await this.leads.update(lead.id, { newLeadHandledAt: handledAt });
+    return { id: lead.id, handledAt };
   }
 
   // Spam or a test: the record goes (its activities cascade). Only while it

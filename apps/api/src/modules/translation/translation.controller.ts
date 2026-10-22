@@ -14,11 +14,16 @@ export class TranslationController {
     private readonly aiService: AiService,
   ) {}
 
-  // Optional { model } tests a model before saving it.
+  // Optional { model } tests a model before saving it; { provider } tests
+  // that provider's saved key (OpenRouter IDs have a slash, Claude IDs don't).
   @Post('test')
-  async testConnection(@CurrentTenant() tenantId: number, @Body() body: { model?: string } = {}) {
-    const model = typeof body?.model === 'string' && /^[\w.-]+\/[\w.:-]+$/.test(body.model) ? body.model : undefined;
-    return this.aiService.testConnection(tenantId, model);
+  async testConnection(
+    @CurrentTenant() tenantId: number,
+    @Body() body: { model?: string; provider?: string } = {},
+  ) {
+    const model = typeof body?.model === 'string' && /^[\w.-]+(\/[\w.:-]+)?$/.test(body.model) ? body.model : undefined;
+    const provider = body?.provider === 'anthropic' || body?.provider === 'openrouter' ? body.provider : undefined;
+    return this.aiService.testConnection(tenantId, model, provider);
   }
 
   // Property translations

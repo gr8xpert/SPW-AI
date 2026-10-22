@@ -7,6 +7,8 @@ import { AI_SEARCH_STATUS } from './ai-search-status.token';
 import { OpenRouterCatalogService } from './openrouter-catalog.service';
 import { AiModelsController } from './ai-models.controller';
 import { PublicAiSearchController } from './public-ai-search.controller';
+import { PlatformAiController } from './platform-ai.controller';
+import { AnthropicBudgetService } from './anthropic-budget.service';
 import { TenantModule } from '../tenant/tenant.module';
 import { LocationModule } from '../location/location.module';
 import { PropertyTypeModule } from '../property-type/property-type.module';
@@ -20,9 +22,10 @@ import { FeatureModule } from '../feature/feature.module';
     PropertyTypeModule,
     FeatureModule,
   ],
-  controllers: [AiModelsController, PublicAiSearchController],
+  controllers: [AiModelsController, PublicAiSearchController, PlatformAiController],
   providers: [
     AiService,
+    AnthropicBudgetService,
     AiSearchService,
     OpenRouterCatalogService,
     { provide: AI_SEARCH_STATUS, useExisting: AiSearchService },

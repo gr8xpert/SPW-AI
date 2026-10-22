@@ -9,7 +9,7 @@ export const es: SharedText = {
     running: (progress) => `SEO ${progress}%`,
     title: 'Generar SEO con IA',
     description:
-      'Rellena el título de página, el meta título, la meta descripción y las palabras clave de todo tu catálogo. Se ejecuta en segundo plano con tu crédito de OpenRouter.',
+      'Rellena el título de página, el meta título, la meta descripción y las palabras clave de todo tu catálogo. Se ejecuta en segundo plano con tu crédito de IA.',
     languages: 'Idiomas',
     overwrite: 'Sobrescribir el SEO existente',
     overwriteHelp:

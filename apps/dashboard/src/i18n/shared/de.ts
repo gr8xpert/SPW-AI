@@ -9,7 +9,7 @@ export const de: SharedText = {
     running: (progress) => `SEO ${progress} %`,
     title: 'SEO mit KI erstellen',
     description:
-      'Füllt Seitentitel, Meta-Titel, Meta-Beschreibung und Keywords für Ihren gesamten Bestand. Läuft im Hintergrund über Ihr OpenRouter-Guthaben.',
+      'Füllt Seitentitel, Meta-Titel, Meta-Beschreibung und Keywords für Ihren gesamten Bestand. Läuft im Hintergrund über Ihr KI-Guthaben.',
     languages: 'Sprachen',
     overwrite: 'Vorhandenes SEO überschreiben',
     overwriteHelp:

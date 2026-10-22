@@ -166,6 +166,8 @@ export interface SenderDomainVerifyResponse {
   };
 }
 
+export type AiProvider = 'openrouter' | 'anthropic';
+
 export interface AiModelOption {
   id: string;
   label: string;

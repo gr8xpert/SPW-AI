@@ -24,23 +24,28 @@ export interface NewLead {
   phone: string | null;
   source: string;
   createdAt: string;
+  handledAt: string | null;
   agent: { id: number; name: string | null } | null;
   forms: NewLeadForm[];
 }
 
 export const newLeadKeys = {
   all: ['new-leads'] as const,
-  list: (scope: readonly unknown[], page: number) => ['new-leads', 'list', ...scope, page] as const,
+  list: (scope: readonly unknown[], page: number, view: NewLeadView) => ['new-leads', 'list', ...scope, view, page] as const,
   count: (scope: readonly unknown[]) => ['new-leads', 'count', ...scope] as const,
 };
 
-export function useNewLeads(page: number) {
+// Waiting: not dealt with yet (the badge). Handled: marked handled by a
+// client without Buyer Match; kept so they can still go to Contacts later.
+export type NewLeadView = 'waiting' | 'handled';
+
+export function useNewLeads(page: number, view: NewLeadView = 'waiting') {
   const api = useApi();
   const { scope, ready } = useTenantQueryScope();
   return useQuery({
-    queryKey: newLeadKeys.list(scope, page),
+    queryKey: newLeadKeys.list(scope, page, view),
     queryFn: async (): Promise<{ data: NewLead[]; total: number; limit: number }> => {
-      const res = await api.get(`/api/dashboard/new-leads?page=${page}`);
+      const res = await api.get(`/api/dashboard/new-leads?page=${page}&view=${view}`);
       const body = res?.data && Array.isArray(res.data.data) ? res.data : res;
       return { data: body?.data ?? [], total: body?.total ?? 0, limit: body?.limit ?? 20 };
     },
@@ -78,6 +83,13 @@ function useNewLeadMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
 export function useAssignNewLeadRole() {
   const api = useApi();
   return useNewLeadMutation(({ id, role }: { id: number; role: BuyerRole }) => api.put(`/api/dashboard/new-leads/${id}/role`, { role }));
+}
+
+export function useSetNewLeadHandled() {
+  const api = useApi();
+  return useNewLeadMutation(({ id, handled }: { id: number; handled: boolean }) =>
+    api.put(`/api/dashboard/new-leads/${id}/handled`, { handled }),
+  );
 }
 
 export function useDeleteNewLead() {

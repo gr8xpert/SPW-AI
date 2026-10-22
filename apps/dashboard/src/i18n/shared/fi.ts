@@ -8,7 +8,7 @@ export const fi: SharedText = {
     running: (progress) => `SEO ${progress} %`,
     title: 'Luo SEO tekoälyllä',
     description:
-      'Täyttää sivun otsikon, metaotsikon, metakuvauksen ja avainsanat koko kohdevalikoimaasi. Toimii taustalla OpenRouter-saldollasi.',
+      'Täyttää sivun otsikon, metaotsikon, metakuvauksen ja avainsanat koko kohdevalikoimaasi. Toimii taustalla tekoälysaldollasi.',
     languages: 'Kielet',
     overwrite: 'Korvaa nykyinen SEO',
     overwriteHelp:

@@ -1,10 +1,19 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
 import { Tenant } from '../../database/entities';
 import { FALLBACK_DEFAULT_MODEL, FALLBACK_ENRICHMENT_MODEL, RECOMMENDED_MODELS, openRouterBase } from './ai-models';
 import { OpenRouterCatalogService } from './openrouter-catalog.service';
+import { AnthropicBudgetService } from './anthropic-budget.service';
+import {
+  AnthropicCallError,
+  CLIENT_ANTHROPIC_MODELS,
+  anthropicComplete,
+  clientAnthropicModel,
+  platformAnthropicModel,
+} from './anthropic-client';
+import { anthropicCompleteWithTools } from './anthropic-tools';
 
 const chatUrl = () => `${openRouterBase()}/chat/completions`;
 
@@ -34,9 +43,47 @@ export const ENRICHMENT_MODEL =
 //                  key. Locations, property types, features and labels (incl.
 //                  their translations and AI organize) — cheap, and needed for
 //                  the site to work.
-//  - platform:     OPENROUTER_API_KEY from .env. Super-admin work (global
-//                  location templates).
+//  - platform:     our key from .env. Super-admin work (global location
+//                  templates, translation memory). ANTHROPIC_API_KEY first
+//                  (our monthly Anthropic credit, see AnthropicBudgetService),
+//                  else OPENROUTER_API_KEY — also when an Anthropic call fails.
 export type AiKeySource = 'client' | 'client-first' | 'platform';
+
+// Which API a resolved key belongs to. Absent means OpenRouter.
+export type AiProvider = 'openrouter' | 'anthropic';
+
+interface ResolvedKey {
+  apiKey: string;
+  model: string;
+  provider?: AiProvider;
+  // Set on Anthropic keys: our credit (budget-tracked) or the client's own.
+  owner?: 'platform' | 'client';
+}
+
+type TenantKeys = Pick<Tenant, 'id' | 'settings' | 'openrouterApiKey' | 'anthropicApiKey'>;
+
+// The client's key for one call. settings.aiProvider picks OpenRouter (the
+// default) or Anthropic; audio always needs OpenRouter (Claude can't hear),
+// so a client on Anthropic uses their OpenRouter key for voice when they
+// kept one.
+function clientKeyOf(
+  tenant: TenantKeys | null,
+  needsAudio: boolean,
+  // Settings → AI test: this provider's key, whichever one is saved as in use.
+  provider?: AiProvider,
+): { apiKey: string; provider: AiProvider } | null {
+  if (!tenant) return null;
+  if ((provider ?? tenant.settings?.aiProvider) === 'anthropic' && !needsAudio) {
+    return tenant.anthropicApiKey ? { apiKey: tenant.anthropicApiKey, provider: 'anthropic' } : null;
+  }
+  return tenant.openrouterApiKey ? { apiKey: tenant.openrouterApiKey, provider: 'openrouter' } : null;
+}
+
+function hasAudio(messages: Array<ChatMessage | MultimodalMessage>): boolean {
+  return messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'input_audio'));
+}
+
+const KEY_SELECT: Array<keyof Tenant> = ['id', 'settings', 'openrouterApiKey', 'anthropicApiKey'];
 
 export interface ToolCall {
   id: string;
@@ -87,7 +134,13 @@ export class AiService {
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
     private readonly catalog: OpenRouterCatalogService,
+    @Optional() private readonly anthropicBudget?: AnthropicBudgetService,
   ) {}
+
+  /** Whether .env has any platform key (Anthropic or OpenRouter). */
+  hasPlatformKey(): boolean {
+    return !!(process.env.ANTHROPIC_API_KEY || process.env.OPENROUTER_API_KEY);
+  }
 
   // For features that need a particular kind of model (audio input): the
   // first candidate OpenRouter still offers, or null when none is.
@@ -132,6 +185,10 @@ export class AiService {
       savedAvailable: saved ? await this.catalog.isAvailable(saved) : true,
       savedName: saved ? models?.get(saved)?.name ?? null : null,
       effective: await this.usableModel(saved || DEFAULT_MODEL),
+      // Anthropic direct: which provider is in use and the Claude models.
+      provider: tenant?.settings?.aiProvider === 'anthropic' ? 'anthropic' : 'openrouter',
+      anthropicModels: CLIENT_ANTHROPIC_MODELS,
+      anthropicSaved: clientAnthropicModel(undefined, tenant?.settings?.anthropicModel),
     };
   }
 
@@ -144,11 +201,27 @@ export class AiService {
       maxTokens?: number;
       // Defaults to the client's own key; see AiKeySource.
       keySource?: AiKeySource;
+      // Ask for a JSON object reply (OpenRouter's response_format; on
+      // Anthropic the prompt alone asks for it).
+      json?: boolean;
+      // Platform key: go straight to OpenRouter (set when Anthropic failed).
+      skipAnthropic?: boolean;
+      // Client key of this provider, whichever is saved (Settings → AI test).
+      provider?: AiProvider;
     },
   ): Promise<string> {
     const source = options?.keySource ?? 'client';
-    const { apiKey, model: resolvedModel } = await this.resolveKeyAndModel(tenantId, options?.model, source);
-    const model = resolvedModel;
+    const resolved = await this.resolveKeyAndModel(tenantId, options?.model, source, {
+      skipAnthropic: options?.skipAnthropic,
+      needsAudio: hasAudio(messages),
+      provider: options?.provider,
+    });
+    if (resolved.provider === 'anthropic') {
+      return resolved.owner === 'client'
+        ? this.clientAnthropicChat(tenantId, messages, resolved, source, options)
+        : this.platformAnthropicChat(tenantId, messages, resolved, options);
+    }
+    const { apiKey, model } = resolved;
     // Say whose key failed: a rejected platform key used to read "check your
     // key in Settings → AI", sending a client without a key to the wrong place.
     const onPlatformKey = source === 'platform' || (source === 'client-first' && !(await this.hasClientKey(tenantId)));
@@ -164,6 +237,7 @@ export class AiService {
           messages,
           temperature: options?.temperature ?? 0.3,
           max_tokens: options?.maxTokens ?? 4096,
+          ...(options?.json ? { response_format: { type: 'json_object' } } : {}),
         },
         {
           headers: {
@@ -193,7 +267,7 @@ export class AiService {
         this.logger.error(`OpenRouter API error (${status}, ${onPlatformKey ? 'platform' : 'client'} key, tenant=${tenantId}): ${msg}`);
         // Types, features and labels: a client key OpenRouter rejects or that
         // has run dry counts as no key, so the platform key takes over.
-        if (source === 'client-first' && !onPlatformKey && (status === 401 || status === 402) && process.env.OPENROUTER_API_KEY) {
+        if (source === 'client-first' && !onPlatformKey && (status === 401 || status === 402) && this.hasPlatformKey()) {
           this.logger.warn(`Client key of tenant=${tenantId} failed (${status}); retrying on the platform key`);
           return this.chatCompletion(tenantId, messages, { ...options, keySource: 'platform' });
         }
@@ -209,6 +283,69 @@ export class AiService {
     }
   }
 
+  // Platform work on our Anthropic credit. Any failure hands the same call to
+  // the OpenRouter platform key when there is one; a bad key or an empty
+  // credit also pauses Anthropic for a while so the next calls skip it.
+  private async platformAnthropicChat(
+    tenantId: number,
+    messages: Array<ChatMessage | MultimodalMessage>,
+    resolved: ResolvedKey,
+    options?: Parameters<AiService['chatCompletion']>[2],
+  ): Promise<string> {
+    try {
+      const { text, usage } = await anthropicComplete(resolved.apiKey, resolved.model, messages, options?.maxTokens ?? 4096);
+      await this.anthropicBudget?.record(resolved.model, usage);
+      return text;
+    } catch (err) {
+      const usage = (err as { usage?: { inputTokens: number; outputTokens: number } }).usage;
+      if (usage) await this.anthropicBudget?.record(resolved.model, usage);
+      const kind = err instanceof AnthropicCallError ? err.kind : 'other';
+      if (kind === 'credits' || kind === 'auth') await this.anthropicBudget?.pause(kind);
+      this.logger.error(`Anthropic platform call failed (${kind}, tenant=${tenantId}): ${(err as Error).message}`);
+      if (process.env.OPENROUTER_API_KEY) {
+        this.logger.warn(`Retrying tenant=${tenantId} on the OpenRouter platform key`);
+        return this.chatCompletion(tenantId, messages, { ...options, keySource: 'platform', skipAnthropic: true });
+      }
+      throw new BadRequestException(
+        kind === 'credits'
+          ? 'The platform Anthropic key (ANTHROPIC_API_KEY) has no credit left, and no OpenRouter platform key is set.'
+          : kind === 'auth'
+            ? 'The platform Anthropic key (ANTHROPIC_API_KEY) was rejected, and no OpenRouter platform key is set.'
+            : `AI request failed: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  // The client's own Anthropic key. Their credit, so nothing is recorded
+  // against our budget. Types/features/labels (client-first) move to the
+  // platform key when theirs is rejected or empty, as on OpenRouter.
+  private async clientAnthropicChat(
+    tenantId: number,
+    messages: Array<ChatMessage | MultimodalMessage>,
+    resolved: ResolvedKey,
+    source: AiKeySource,
+    options?: Parameters<AiService['chatCompletion']>[2],
+  ): Promise<string> {
+    try {
+      return (await anthropicComplete(resolved.apiKey, resolved.model, messages, options?.maxTokens ?? 4096)).text;
+    } catch (err) {
+      this.logger.error(`Anthropic API error (client key, tenant=${tenantId}): ${(err as Error).message}`);
+      const kind = err instanceof AnthropicCallError ? err.kind : 'other';
+      if (source === 'client-first' && (kind === 'credits' || kind === 'auth') && this.hasPlatformKey()) {
+        this.logger.warn(`Client Anthropic key of tenant=${tenantId} failed (${kind}); retrying on the platform key`);
+        return this.chatCompletion(tenantId, messages, { ...options, keySource: 'platform' });
+      }
+      throw this.clientAnthropicError(err);
+    }
+  }
+
+  private clientAnthropicError(err: unknown): BadRequestException {
+    const kind = err instanceof AnthropicCallError ? err.kind : 'other';
+    if (kind === 'auth') return new BadRequestException('Your Anthropic API key (Settings → AI) was rejected by Anthropic.');
+    if (kind === 'credits') return new BadRequestException('Your Anthropic API key (Settings → AI) has no credit left.');
+    return new BadRequestException(`AI request failed: ${(err as Error).message}`);
+  }
+
   async chatCompletionWithTools(
     tenantId: number,
     messages: ChatMessage[],
@@ -216,7 +353,16 @@ export class AiService {
     options?: { model?: string; temperature?: number; maxTokens?: number },
   ): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     // The website chatbot: always the client's own key.
-    const { apiKey, model } = await this.resolveKeyAndModel(tenantId, options?.model, 'client');
+    const resolved = await this.resolveKeyAndModel(tenantId, options?.model, 'client');
+    const { apiKey, model } = resolved;
+    if (resolved.provider === 'anthropic') {
+      try {
+        return await anthropicCompleteWithTools(apiKey, model, messages, tools, options?.maxTokens ?? 4096);
+      } catch (err) {
+        this.logger.error(`Anthropic API error (chatbot, tenant=${tenantId}): ${(err as Error).message}`);
+        throw this.clientAnthropicError(err);
+      }
+    }
 
     try {
       const body: Record<string, any> = {
@@ -265,24 +411,40 @@ export class AiService {
     }
   }
 
-  /** Whether the client has entered their own key in Settings → AI. */
+  /** Whether the client has a key for their chosen provider in Settings → AI. */
   async hasClientKey(tenantId: number): Promise<boolean> {
-    const row = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'openrouterApiKey'] });
-    return !!row?.openrouterApiKey;
+    const row = await this.tenantRepository.findOne({ where: { id: tenantId }, select: KEY_SELECT });
+    return !!clientKeyOf(row, false);
+  }
+
+  /** Whether the client's keys can send audio (voice search, voice notes). */
+  async hasClientAudioKey(tenantId: number): Promise<boolean> {
+    const row = await this.tenantRepository.findOne({ where: { id: tenantId }, select: KEY_SELECT });
+    return !!clientKeyOf(row, true);
   }
 
   private async resolveKeyAndModel(
     tenantId: number,
     modelOverride: string | undefined,
     source: AiKeySource,
-  ): Promise<{ apiKey: string; model: string }> {
-    const platform = async () => {
+    opts: { skipAnthropic?: boolean; needsAudio?: boolean; provider?: AiProvider } = {},
+  ): Promise<ResolvedKey> {
+    const { skipAnthropic = false, needsAudio = false } = opts;
+    const platform = async (): Promise<ResolvedKey> => {
+      // Our own work, so our model: the Anthropic one from .env, whatever
+      // OpenRouter model the caller asked for.
+      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      if (anthropicKey && !skipAnthropic && (!this.anthropicBudget || (await this.anthropicBudget.available()))) {
+        return { apiKey: anthropicKey, model: platformAnthropicModel(), provider: 'anthropic', owner: 'platform' };
+      }
       const apiKey = process.env.OPENROUTER_API_KEY;
       if (!apiKey) {
         throw new BadRequestException(
           source === 'client-first'
             ? 'No AI key: add your OpenRouter key in Settings → AI (the platform key OPENROUTER_API_KEY is not set on the server either).'
-            : 'Platform AI key (OPENROUTER_API_KEY) is not set.',
+            : anthropicKey
+              ? 'The platform Anthropic key is paused (monthly budget reached or credit used up) and OPENROUTER_API_KEY is not set.'
+              : 'Platform AI key (ANTHROPIC_API_KEY or OPENROUTER_API_KEY) is not set.',
         );
       }
       // Our bill, our model: the client's model choice applies to their key only.
@@ -291,17 +453,31 @@ export class AiService {
     if (source === 'platform') return platform();
 
     const tenant = tenantId
-      ? await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'settings', 'openrouterApiKey'] })
+      ? await this.tenantRepository.findOne({ where: { id: tenantId }, select: KEY_SELECT })
       : null;
-    // Only the key shown in Settings → AI. A legacy settings.openRouterApiKey
+    // Only the keys shown in Settings → AI. A legacy settings.openRouterApiKey
     // copy is hidden from the dashboard, so it is never spent.
-    const apiKey = tenant?.openrouterApiKey;
-    if (!apiKey && source === 'client-first') return platform();
-    if (!apiKey) {
+    const key = clientKeyOf(tenant, needsAudio, opts.provider);
+    if (!key && source === 'client-first') return platform();
+    if (!key) {
+      const onAnthropic = (opts.provider ?? tenant?.settings?.aiProvider) === 'anthropic';
       throw new BadRequestException(
-        'OpenRouter API key not configured. Go to Settings → AI to add your key.',
+        onAnthropic && needsAudio
+          ? 'Voice needs an OpenRouter key: Claude cannot hear recordings. Add an OpenRouter key in Settings → AI.'
+          : onAnthropic
+            ? 'Anthropic API key not configured. Go to Settings → AI to add your key.'
+            : 'OpenRouter API key not configured. Go to Settings → AI to add your key.',
       );
     }
+    if (key.provider === 'anthropic') {
+      return {
+        apiKey: key.apiKey,
+        model: clientAnthropicModel(modelOverride, tenant?.settings?.anthropicModel),
+        provider: 'anthropic',
+        owner: 'client',
+      };
+    }
+    const apiKey = key.apiKey;
     return {
       apiKey,
       model: await this.usableModel(modelOverride || tenant?.settings?.openRouterModel || DEFAULT_MODEL),
@@ -309,7 +485,7 @@ export class AiService {
   }
 
   // The platform key (super-admin work). Returns null when .env has no key.
-  async resolvePlatformKey(modelOverride?: string): Promise<{ apiKey: string; model: string } | null> {
+  async resolvePlatformKey(modelOverride?: string): Promise<ResolvedKey | null> {
     try {
       return await this.resolveKeyAndModel(0, modelOverride, 'platform');
     } catch {
@@ -322,7 +498,7 @@ export class AiService {
   async resolveClientFirstKey(
     tenantId: number,
     modelOverride?: string,
-  ): Promise<{ apiKey: string; model: string; source: 'client' | 'platform' } | null> {
+  ): Promise<(ResolvedKey & { source: 'client' | 'platform' }) | null> {
     try {
       const own = await this.hasClientKey(tenantId);
       const resolved = await this.resolveKeyAndModel(tenantId, modelOverride, 'client-first');
@@ -333,12 +509,27 @@ export class AiService {
   }
 
   // Tests with the saved model (or the one it would fall back to), and says
-  // so when OpenRouter has retired the saved one.
+  // so when OpenRouter has retired the saved one. `provider` tests that
+  // provider's saved key, even before switching to it is saved.
   async testConnection(
     tenantId: number,
     requestedModel?: string,
+    provider?: AiProvider,
   ): Promise<{ ok: boolean; model: string; requested?: string; retired?: boolean; error?: string }> {
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'settings'] });
+    if ((provider ?? tenant?.settings?.aiProvider) === 'anthropic') {
+      const model = clientAnthropicModel(requestedModel, tenant?.settings?.anthropicModel);
+      try {
+        const response = await this.chatCompletion(tenantId, [{ role: 'user', content: 'Reply with exactly: OK' }], {
+          maxTokens: 64,
+          model,
+          provider: 'anthropic',
+        });
+        return { ok: response.toLowerCase().includes('ok'), model };
+      } catch (err) {
+        return { ok: false, model, error: (err as Error).message };
+      }
+    }
     const requested = requestedModel || tenant?.settings?.openRouterModel || DEFAULT_MODEL;
     const model = await this.usableModel(requested);
     try {
@@ -347,6 +538,7 @@ export class AiService {
         // they answer; a tiny cap leaves the reply empty.
         maxTokens: 1024,
         model,
+        provider: 'openrouter',
       });
       return { ok: response.toLowerCase().includes('ok'), model, requested, retired: model !== requested };
     } catch (err) {

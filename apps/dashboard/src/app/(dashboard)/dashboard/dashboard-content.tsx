@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -21,6 +22,8 @@ import { staggerContainer, staggerItem } from '@/lib/animations';
 import { useApi } from '@/hooks/use-api';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { useLanguage, useText } from '@/i18n/i18n-provider';
+import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
+import { useNewLeadCount } from './leads/use-new-leads';
 import { homeText } from './_i18n/home';
 
 interface DashboardStats {
@@ -96,10 +99,23 @@ export function DashboardContent() {
   const topProperties = query.data?.topProperties ?? [];
   const recentViews = query.data?.recentViews ?? [];
 
+  // Contacts is Buyer Match. Without it, Tier 2+ clients see how many
+  // website enquiries wait on New Leads instead; Tier 1 has neither.
+  // Decided after mount: the server renders before the add-ons are known.
+  const { addons, tier, known } = useDashboardAddons();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const contactsLocked = mounted && known && !addons.buyerMatch;
+  const enquiries = useNewLeadCount(contactsLocked && tier >= 2).data ?? 0;
+
   const statCards = [
     // contacts = the email subscriber list; leads = Contacts (Buyer Match).
     { name: t.properties, value: stats.properties, icon: Building2 },
-    { name: t.contacts, value: stats.leads, icon: MessageSquare },
+    ...(!contactsLocked
+      ? [{ name: t.contacts, value: stats.leads, icon: MessageSquare }]
+      : tier >= 2
+        ? [{ name: t.enquiriesWaiting, value: enquiries, icon: MessageSquare }]
+        : []),
     { name: t.subscribers, value: stats.contacts, icon: Users },
     { name: t.views, value: stats.views, icon: Eye },
   ];

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
-import axios from 'axios';
 import {
   Location,
   PropertyType,
@@ -9,7 +8,6 @@ import {
   FeatureCategory,
 } from '../../database/entities';
 import { AiService, ENRICHMENT_MODEL } from '../ai/ai.service';
-import { openRouterBase } from '../ai/ai-models';
 import { LocationService } from '../location/location.service';
 import { PropertyTypeService } from '../property-type/property-type.service';
 
@@ -679,43 +677,28 @@ Use the exact category strings above (lowercase).`;
     return this.callOpenRouterJson(tenantId, prompt);
   }
 
-  // Single thin wrapper around OpenRouter for enrichment work. Locations,
+  // Single thin wrapper around the AI service for enrichment work. Locations,
   // property types and features run on the client's own key when they have
-  // one, else the platform key from .env; tenant 0 (Super Admin's template
-  // work) always on the platform key. Parses JSON from the response. Returns
-  // null on failure so callers can skip gracefully instead of crashing the import.
+  // one, else the platform key from .env (Anthropic first, then OpenRouter);
+  // tenant 0 (Super Admin's template work) always on the platform key. Parses
+  // JSON from the response. Returns null on failure so callers can skip
+  // gracefully instead of crashing the import.
   private async callOpenRouterJson(tenantId: number, prompt: string): Promise<Record<string, any> | null> {
     const resolved = await this.aiService.resolveClientFirstKey(tenantId, ENRICHMENT_MODEL);
     if (!resolved) {
-      this.logger.warn(`No OpenRouter key (client or OPENROUTER_API_KEY) — skipping enrichment for tenant=${tenantId}`);
+      this.logger.warn(`No AI key (client, ANTHROPIC_API_KEY or OPENROUTER_API_KEY) — skipping enrichment for tenant=${tenantId}`);
       return null;
     }
 
     try {
-      const response = await axios.post(
-        `${openRouterBase()}/chat/completions`,
-        {
-          model: resolved.model,
-          messages: [
-            { role: 'system', content: 'You are a precise data classifier. Reply with valid JSON only.' },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0,
-          max_tokens: 4096,
-          response_format: { type: 'json_object' },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${resolved.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://spw-ai.com',
-            'X-Title': 'SPW Enrichment',
-          },
-          timeout: 60_000,
-        },
+      const content = await this.aiService.chatCompletion(
+        tenantId,
+        [
+          { role: 'system', content: 'You are a precise data classifier. Reply with valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        { model: ENRICHMENT_MODEL, temperature: 0, maxTokens: 4096, json: true, keySource: 'client-first' },
       );
-
-      const content = response.data?.choices?.[0]?.message?.content;
       if (!content) return null;
 
       // Tolerate models that wrap JSON in markdown code fences despite
@@ -723,7 +706,7 @@ Use the exact category strings above (lowercase).`;
       const stripped = String(content).replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
       return JSON.parse(stripped);
     } catch (err) {
-      this.logger.warn(`OpenRouter enrichment call failed: ${(err as Error).message}`);
+      this.logger.warn(`AI enrichment call failed: ${(err as Error).message}`);
       return null;
     }
   }

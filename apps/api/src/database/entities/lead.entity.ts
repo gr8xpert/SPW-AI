@@ -254,6 +254,12 @@ export class Lead {
   @Column({ type: 'boolean', default: false })
   isNewLead: boolean;
 
+  // A new lead whose enquiry was dealt with without adding them to Contacts
+  // (clients without Buyer Match; migration 1777400000000). Shown under
+  // Handled on New Leads; a new form from them clears it.
+  @Column({ type: 'timestamp', nullable: true })
+  newLeadHandledAt: Date | null;
+
   // Id in the system the buyer was imported from (Odoo), for re-imports.
   @Column({ type: 'varchar', length: 50, nullable: true })
   importRef: string | null;

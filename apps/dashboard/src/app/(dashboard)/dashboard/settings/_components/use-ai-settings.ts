@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { useLanguage } from '@/i18n/i18n-provider';
-import type { AiModelOption, TenantCurrent } from './types';
+import type { AiModelOption, AiProvider, TenantCurrent } from './types';
 import { useSettingsText } from '../_i18n';
 
-// State for the AI (OpenRouter key + model) and AI Chat tabs. `aiChatEnabled`
+// State for the AI (provider, OpenRouter/Anthropic keys + models) and AI Chat tabs. `aiChatEnabled`
 // also decides whether the page shows the AI Chat tab.
 export function useAiSettings() {
   const { toast } = useToast();
@@ -28,6 +28,14 @@ export function useAiSettings() {
   const [aiModels, setAiModels] = useState<AiModelOption[]>([]);
   const [aiModelStatus, setAiModelStatus] = useState<{ saved: string | null; savedAvailable: boolean; effective: string } | null>(null);
 
+  // Anthropic direct: which provider pays, the client's Anthropic key and
+  // their Claude model. The OpenRouter key stays for voice (Claude can't hear).
+  const [aiProvider, setAiProvider] = useState<AiProvider>('openrouter');
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [anthropicKeyMasked, setAnthropicKeyMasked] = useState('');
+  const [anthropicModel, setAnthropicModel] = useState('');
+  const [anthropicModels, setAnthropicModels] = useState<AiModelOption[]>([]);
+
   // AI Chat settings state
   const [aiChatEnabled, setAiChatEnabled] = useState(false);
   const [aiChatNLSearch, setAiChatNLSearch] = useState(true);
@@ -46,7 +54,7 @@ export function useAiSettings() {
     m.inputPrice != null && m.outputPrice != null
       ? t.price(money(m.inputPrice), money(m.outputPrice))
       : '';
-  const aiModelLabel = (id: string) => aiModels.find((m) => m.id === id)?.label || id;
+  const aiModelLabel = (id: string) => [...aiModels, ...anthropicModels].find((m) => m.id === id)?.label || id;
 
   // Fills both tabs from GET /api/dashboard/tenant (called by the page
   // loader), then loads the live model list.
@@ -56,17 +64,32 @@ export function useAiSettings() {
     // *Configured booleans on the tenant payload instead. Set masked
     // placeholders so the UI continues to render a "configured" state, and
     // the save handler (which skips masked values) won't overwrite.
-    const tenantData = res.data as unknown as { openRouterApiKeyConfigured?: boolean };
+    const tenantData = res.data as unknown as { openRouterApiKeyConfigured?: boolean; anthropicApiKeyConfigured?: boolean };
     if (tenantData.openRouterApiKeyConfigured) {
       setAiApiKeyMasked('••••••••••••');
     }
+    if (tenantData.anthropicApiKeyConfigured) {
+      setAnthropicKeyMasked('••••••••••••');
+    }
+    setAiProvider(settings?.aiProvider === 'anthropic' ? 'anthropic' : 'openrouter');
     if (settings?.openRouterModel) {
       setAiModel(settings.openRouterModel);
     }
-    apiGet<{ data: { models: AiModelOption[]; saved: string | null; savedAvailable: boolean; effective: string } }>('/api/dashboard/ai/models')
+    apiGet<{
+      data: {
+        models: AiModelOption[];
+        saved: string | null;
+        savedAvailable: boolean;
+        effective: string;
+        anthropicModels?: AiModelOption[];
+        anthropicSaved?: string;
+      };
+    }>('/api/dashboard/ai/models')
       .then((r) => {
         const body = r.data;
         setAiModels(body.models || []);
+        setAnthropicModels(body.anthropicModels || []);
+        if (body.anthropicSaved) setAnthropicModel(body.anthropicSaved);
         setAiModelStatus({ saved: body.saved, savedAvailable: body.savedAvailable, effective: body.effective });
         // Nothing saved yet: preselect the recommended model.
         if (!body.saved && body.models?.length) setAiModel(body.models[0].id);
@@ -90,21 +113,30 @@ export function useAiSettings() {
   const onSaveAi = async () => {
     setSavingAi(true);
     try {
-      const payload: Record<string, string> = { openRouterModel: aiModel };
+      const payload: Record<string, string> = { aiProvider, openRouterModel: aiModel };
+      if (anthropicModel) payload.anthropicModel = anthropicModel;
       if (aiApiKey.trim() && !aiApiKey.trim().startsWith('sk-or-')) {
         toast({ title: t.notOpenRouterKey, description: t.notOpenRouterKeyText, variant: 'destructive' });
+        return;
+      }
+      if (anthropicKey.trim() && !anthropicKey.trim().startsWith('sk-ant-')) {
+        toast({ title: t.notAnthropicKey, description: t.notAnthropicKeyText, variant: 'destructive' });
         return;
       }
       if (aiApiKey.trim()) {
         payload.openRouterApiKey = aiApiKey.trim();
       }
+      if (anthropicKey.trim()) {
+        payload.anthropicApiKey = anthropicKey.trim();
+      }
       await apiPut('/api/dashboard/tenant/settings', payload);
       if (aiApiKey.trim()) {
-        const masked = aiApiKey.length > 8
-          ? aiApiKey.slice(0, 5) + '••••' + aiApiKey.slice(-4)
-          : '••••••••';
-        setAiApiKeyMasked(masked);
+        setAiApiKeyMasked(maskKey(aiApiKey));
         setAiApiKey('');
+      }
+      if (anthropicKey.trim()) {
+        setAnthropicKeyMasked(maskKey(anthropicKey));
+        setAnthropicKey('');
       }
       setAiTestResult(null);
       // The model just saved is one from the live list, so the retired warning goes.
@@ -121,15 +153,21 @@ export function useAiSettings() {
     }
   };
 
-  // An empty key clears the stored one; with no key the website stops
-  // offering AI search.
+  // An empty key clears the stored one (the provider in use); with no key the
+  // website stops offering AI search.
   const onRemoveAiKey = async () => {
-    if (!confirm(t.removeConfirm)) return;
+    const anthropic = aiProvider === 'anthropic';
+    if (!confirm(anthropic ? t.removeConfirmAnthropic : t.removeConfirm)) return;
     setSavingAi(true);
     try {
-      await apiPut('/api/dashboard/tenant/settings', { openRouterApiKey: '' });
-      setAiApiKeyMasked('');
-      setAiApiKey('');
+      await apiPut('/api/dashboard/tenant/settings', anthropic ? { anthropicApiKey: '' } : { openRouterApiKey: '' });
+      if (anthropic) {
+        setAnthropicKeyMasked('');
+        setAnthropicKey('');
+      } else {
+        setAiApiKeyMasked('');
+        setAiApiKey('');
+      }
       setAiTestResult(null);
       toast({ title: t.removed, description: t.removedText });
     } catch (err) {
@@ -143,10 +181,12 @@ export function useAiSettings() {
     setTestingAi(true);
     setAiTestResult(null);
     try {
-      // Tests the model picked in the dropdown, even before it is saved.
+      // Tests the provider and model picked here, even before they are saved
+      // (the key itself must be saved).
+      const model = aiProvider === 'anthropic' ? anthropicModel : aiModel;
       const res = await apiPost<{ data: { ok: boolean; model: string; requested?: string; retired?: boolean; error?: string } }>(
         '/api/dashboard/translate/test',
-        aiModel ? { model: aiModel } : {},
+        { provider: aiProvider, ...(model ? { model } : {}) },
       );
       setAiTestResult(res.data);
     } catch (err) {
@@ -196,6 +236,17 @@ export function useAiSettings() {
     onSaveAi,
     onRemoveAiKey,
     onTestAi,
+    aiProvider,
+    setAiProvider: (p: AiProvider) => {
+      setAiProvider(p);
+      setAiTestResult(null);
+    },
+    anthropicKey,
+    setAnthropicKey,
+    anthropicKeyMasked,
+    anthropicModel,
+    setAnthropicModel,
+    anthropicModels,
     aiChatEnabled,
     setAiChatEnabled,
     aiChatNLSearch,
@@ -225,3 +276,5 @@ export function useAiSettings() {
 }
 
 export type AiSettings = ReturnType<typeof useAiSettings>;
+
+const maskKey = (key: string) => (key.length > 8 ? key.slice(0, 5) + '••••' + key.slice(-4) : '••••••••');

@@ -95,7 +95,10 @@ export class AiSearchService {
   /** What the widget needs to know: show the AI button, and the mic in it. */
   async publicStatus(tenant: Tenant): Promise<{ enabled: boolean; voice: boolean }> {
     const state = await this.status(tenant);
-    return { enabled: state.enabled, voice: state.enabled && this.voiceEnabled(tenant) };
+    // Voice needs an audio model, so an OpenRouter key even for a client
+    // whose AI runs on Anthropic.
+    const voice = state.enabled && this.voiceEnabled(tenant) && (await this.ai.hasClientAudioKey(tenant.id));
+    return { enabled: state.enabled, voice };
   }
 
   async search(tenant: Tenant, query: string, language = 'en'): Promise<AiSearchResult> {
@@ -158,7 +161,7 @@ export class AiSearchService {
     if (!state.enabled) {
       throw new ForbiddenException(
         state.reason === 'no_api_key'
-          ? 'AI search needs an OpenRouter API key. Add yours in Settings → AI.'
+          ? 'AI search needs an AI key (OpenRouter or Anthropic). Add yours in Settings → AI.'
           : 'AI search is not enabled for this website.',
       );
     }

@@ -173,7 +173,7 @@ export const nl: GuideTranslation = {
     title: 'AI-hulpjes',
     summary: 'Laat AI berichten lezen, notities schrijven en patronen zien. Jij controleert altijd eerst.',
     blocks: [
-      p('De AI-hulpjes gebruiken de eigen OpenRouter-sleutel van je kantoor (Instellingen → AI). Niets wat de AI voorstelt wordt opgeslagen tot je op Opslaan drukt.'),
+      p('De AI-hulpjes gebruiken de eigen AI-sleutel (OpenRouter of Anthropic) van je kantoor (Instellingen → AI). Niets wat de AI voorstelt wordt opgeslagen tot je op Opslaan drukt.'),
       terms(
         ['Bericht plakken', 'Plak een e-mail of WhatsApp-bericht van de koper. AI leest wat hij wil en stelt wijzigingen in de wensenlijst voor.'],
         ['Spraaknotitie', 'Praat na een gesprek maximaal 30 seconden. AI schrijft de notitie voor je. De opname wordt niet bewaard.'],
@@ -327,7 +327,7 @@ export const nl: GuideTranslation = {
         ['Waarom toont Matches niets?', 'De must-haves zijn te streng. Kies een groter gebied, meer woningtypes of een ruimer budget.'],
         ['Waarom staat een woning die ik stuurde niet meer in Matches?', 'Verstuurde en afgewezen woningen worden verborgen zodat niemand ze twee keer krijgt. Druk op "Alles tonen".'],
         ['De e-mail heeft geen links naar mijn website.', 'Een manager moet Instellingen → Algemeen → "Woninglinks in e-mails" invullen.'],
-        ['De AI-knoppen zeggen dat ik een sleutel nodig heb.', 'Voeg je OpenRouter-sleutel toe in Instellingen → AI (eigenaar of manager).'],
+        ['De AI-knoppen zeggen dat ik een sleutel nodig heb.', 'Voeg je AI-sleutel (OpenRouter of Anthropic) toe in Instellingen → AI (eigenaar of manager).'],
         ['Ik heb dezelfde persoon twee keer toegevoegd.', 'Gebruik Instellingen → Onderhoud → Mogelijke dubbele en voeg ze samen.'],
         ['Hoe verwijder ik een koper?', 'Privacy → Persoonsgegevens wissen (managers). De koper verdwijnt voorgoed uit je lijsten.'],
         ['Een koper zegt dat hij te veel e-mails krijgt.', 'Privacy → Afmelden voor woningmails.'],

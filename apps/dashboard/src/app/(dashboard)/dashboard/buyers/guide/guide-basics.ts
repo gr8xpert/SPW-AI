@@ -212,7 +212,7 @@ export const BASICS: GuideSection[] = [
     icon: Search,
     summary: 'Let AI read messages, write notes and spot patterns. You always check first.',
     blocks: [
-      p('The AI helpers use your agency\'s own OpenRouter key (Settings → AI). Nothing the AI suggests is saved until you press Save.'),
+      p('The AI helpers use your agency\'s own AI key (OpenRouter or Anthropic) (Settings → AI). Nothing the AI suggests is saved until you press Save.'),
       terms(
         ['Paste a message', 'Paste an email or WhatsApp message from the buyer. AI reads what they want and suggests wishlist changes.'],
         ['Voice note', 'Talk for up to 30 seconds after a call. AI writes the note for you. The recording is not kept.'],

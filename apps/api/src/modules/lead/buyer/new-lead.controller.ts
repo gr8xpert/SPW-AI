@@ -4,7 +4,7 @@ import { JwtAuthGuard, RolesGuard, TenantGuard } from '../../../common/guards';
 import { CurrentTenant, CurrentUser } from '../../../common/decorators';
 import { viewerOf } from './buyer.controller';
 import { NewLeadService } from './new-lead.service';
-import { ListNewLeadsDto, NewLeadRoleDto } from './dto/buyer.dto';
+import { ListNewLeadsDto, NewLeadHandledDto, NewLeadRoleDto } from './dto/buyer.dto';
 
 // New Leads page (sidebar). No add-on: every client gets website-form leads.
 @Controller('api/dashboard/new-leads')
@@ -14,7 +14,7 @@ export class NewLeadController {
 
   @Get()
   list(@CurrentTenant() tenantId: number, @CurrentUser() user: JwtPayload, @Query() dto: ListNewLeadsDto) {
-    return this.newLeads.list(tenantId, viewerOf(user), dto.page ?? 1);
+    return this.newLeads.list(tenantId, viewerOf(user), dto.page ?? 1, dto.view ?? 'waiting');
   }
 
   @Get('count')
@@ -30,6 +30,16 @@ export class NewLeadController {
     @Body() dto: NewLeadRoleDto,
   ) {
     return this.newLeads.assignRole(tenantId, viewerOf(user), id, dto.role);
+  }
+
+  @Put(':id/handled')
+  setHandled(
+    @CurrentTenant() tenantId: number,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: NewLeadHandledDto,
+  ) {
+    return this.newLeads.setHandled(tenantId, viewerOf(user), id, dto.handled);
   }
 
   @Delete(':id')

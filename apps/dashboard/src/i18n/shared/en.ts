@@ -10,7 +10,7 @@ export const en = {
     running: (progress: number) => `SEO ${progress}%`,
     title: 'Generate SEO with AI',
     description:
-      'Fills page title, meta title, meta description and keywords across your whole catalog. Runs in the background on your OpenRouter credit.',
+      'Fills page title, meta title, meta description and keywords across your whole catalog. Runs in the background on your AI credit.',
     languages: 'Languages',
     overwrite: 'Overwrite existing SEO',
     overwriteHelp:

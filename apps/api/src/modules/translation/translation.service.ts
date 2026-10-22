@@ -221,7 +221,7 @@ export class TranslationService {
     // Property translation spends the client's own key; refuse up front
     // rather than queue a run where every property fails.
     if (!(await this.aiService.hasClientKey(tenantId))) {
-      throw new BadRequestException('Add your OpenRouter API key in Settings → AI to translate properties.');
+      throw new BadRequestException('Add your AI key (OpenRouter or Anthropic) in Settings → AI to translate properties.');
     }
     // One run per tenant + entity type: a repeat click resumes the job in
     // flight rather than paying to translate the same catalog twice.

@@ -74,7 +74,7 @@ export class AiSeoService {
     }
     // Refuse up front rather than queue a run where every property fails.
     if (!(await this.aiService.hasClientKey(tenantId))) {
-      throw new BadRequestException('Add your OpenRouter API key in Settings → AI to generate SEO.');
+      throw new BadRequestException('Add your AI key (OpenRouter or Anthropic) in Settings → AI to generate SEO.');
     }
 
     // One run per tenant. A second click — after a refresh, from another tab,

@@ -174,7 +174,7 @@ export const fi: GuideTranslation = {
     title: 'Tekoälyavustajat',
     summary: 'Anna tekoälyn lukea viestejä, kirjoittaa muistiinpanoja ja huomata toistuvia asioita. Sinä tarkistat aina ensin.',
     blocks: [
-      p('Tekoälyavustajat käyttävät toimistosi omaa OpenRouter-avainta (Asetukset → Tekoäly). Mitään tekoälyn ehdottamaa ei tallenneta ennen kuin painat Tallenna.'),
+      p('Tekoälyavustajat käyttävät toimistosi omaa tekoälyavainta (OpenRouter tai Anthropic) (Asetukset → Tekoäly). Mitään tekoälyn ehdottamaa ei tallenneta ennen kuin painat Tallenna.'),
       terms(
         ['Liitä viesti', 'Liitä ostajan sähköposti tai WhatsApp-viesti. Tekoäly lukee, mitä hän haluaa, ja ehdottaa muutoksia toivelistaan.'],
         ['Ääniviesti', 'Puhu puhelun jälkeen enintään 30 sekuntia. Tekoäly kirjoittaa muistiinpanon puolestasi. Äänitettä ei säilytetä.'],
@@ -328,7 +328,7 @@ export const fi: GuideTranslation = {
         ['Miksi Sopivat ei näytä mitään?', 'Pakolliset ovat liian tiukat. Valitse isompi alue, useampi kohdetyyppi tai laajempi budjetti.'],
         ['Miksi lähettämäni kohde puuttuu Sopivat-välilehdeltä?', 'Lähetetyt ja hylätyt kohteet piilotetaan, jotta kukaan ei saa niitä kahdesti. Paina ”Näytä kaikki”.'],
         ['Sähköpostissa ei ole linkkejä verkkosivulleni.', 'Esihenkilön on täytettävä Asetukset → Yleiset → ”Kohdelinkit sähköposteissa”.'],
-        ['Tekoälypainikkeet sanovat, että tarvitsen avaimen.', 'Lisää OpenRouter-avaimesi kohdassa Asetukset → Tekoäly (omistaja tai esihenkilö).'],
+        ['Tekoälypainikkeet sanovat, että tarvitsen avaimen.', 'Lisää tekoälyavaimesi (OpenRouter tai Anthropic) kohdassa Asetukset → Tekoäly (omistaja tai esihenkilö).'],
         ['Lisäsin saman ihmisen kahdesti.', 'Käytä kohtaa Asetukset → Ylläpito → Mahdolliset kaksoiskappaleet ja yhdistä heidät.'],
         ['Miten poistan ostajan?', 'Tietosuoja → Poista henkilötiedot (esihenkilöt). Ostaja poistuu listoiltasi pysyvästi.'],
         ['Ostaja sanoo saavansa liikaa sähköposteja.', 'Tietosuoja → Peru kohdesähköpostien tilaus.'],

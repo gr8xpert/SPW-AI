@@ -66,7 +66,7 @@ export class BuyerAiService {
 
   async requireKey(tenantId: number): Promise<void> {
     if (!(await this.ai.hasClientKey(tenantId))) {
-      throw new BadRequestException({ code: 'NO_AI_KEY', message: 'AI needs your OpenRouter key. Add it in Settings → AI.' });
+      throw new BadRequestException({ code: 'NO_AI_KEY', message: 'AI needs your AI key (OpenRouter or Anthropic). Add it in Settings → AI.' });
     }
   }
 
@@ -190,6 +190,10 @@ export class BuyerAiService {
     if (!wav) throw new BadRequestException({ code: 'BAD_AUDIO', message: 'That recording could not be read. Please try again.' });
     if (wav.seconds < MIN_NOTE_SECONDS) throw new BadRequestException({ code: 'TOO_SHORT', message: 'That was too short.' });
     if (wav.seconds > MAX_NOTE_SECONDS) throw new BadRequestException({ code: 'TOO_LONG', message: 'That recording is too long (30 seconds at most).' });
+    // Claude can't hear: a client on Anthropic needs an OpenRouter key too.
+    if (!(await this.ai.hasClientAudioKey(tenantId))) {
+      throw new BadRequestException({ code: 'NO_AUDIO_KEY', message: 'Voice notes need an OpenRouter key (Claude cannot hear recordings). Add one in Settings → AI.' });
+    }
     const model = await this.ai.firstAvailableModel(VOICE_MODELS);
     if (!model) {
       this.logger.error('No audio-capable model is available on OpenRouter for voice notes');

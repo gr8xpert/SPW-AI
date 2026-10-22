@@ -357,4 +357,12 @@ export class NewLeadRoleDto {
 export class ListNewLeadsDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   page?: number;
+
+  @IsOptional() @IsIn(['waiting', 'handled'])
+  view?: 'waiting' | 'handled';
+}
+
+export class NewLeadHandledDto {
+  @IsBoolean()
+  handled: boolean;
 }

@@ -184,7 +184,7 @@ export const MORE: GuideSection[] = [
         ['Why does Matched show nothing?', 'The must-haves are too tight. Choose a bigger area, more property types or a wider budget.'],
         ['Why is a property I sent missing from Matched?', 'Sent and rejected properties are hidden so nobody gets them twice. Press "Show all".'],
         ['The email has no links to my website.', 'A manager must fill in Settings → General → "Property links in emails".'],
-        ['The AI buttons say I need a key.', 'Add your OpenRouter key in Settings → AI (owner or manager).'],
+        ['The AI buttons say I need a key.', 'Add your AI key (OpenRouter or Anthropic) in Settings → AI (owner or manager).'],
         ['I added the same person twice.', 'Use Settings → Housekeeping → Possible duplicates and merge them.'],
         ['How do I remove a buyer?', 'Privacy → Erase personal data (managers). The buyer leaves your lists for good.'],
         ['A buyer says they get too many emails.', 'Privacy → Unsubscribe from property emails.'],

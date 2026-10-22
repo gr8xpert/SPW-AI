@@ -173,7 +173,7 @@ export const fr: GuideTranslation = {
     title: 'Les aides IA',
     summary: 'Laissez l’IA lire les messages, écrire des notes et repérer des tendances. Vous vérifiez toujours d’abord.',
     blocks: [
-      p('Les aides IA utilisent la clé OpenRouter de votre agence (Paramètres → IA). Rien de ce que propose l’IA n’est enregistré avant que vous cliquiez sur Enregistrer.'),
+      p('Les aides IA utilisent la clé d’IA (OpenRouter ou Anthropic) de votre agence (Paramètres → IA). Rien de ce que propose l’IA n’est enregistré avant que vous cliquiez sur Enregistrer.'),
       terms(
         ['Coller un message', 'Collez un e-mail ou un message WhatsApp de l’acheteur. L’IA lit ce qu’il veut et propose des changements dans ses souhaits.'],
         ['Note vocale', 'Parlez jusqu’à 30 secondes après un appel. L’IA écrit la note pour vous. L’enregistrement n’est pas conservé.'],
@@ -327,7 +327,7 @@ export const fr: GuideTranslation = {
         ['Pourquoi Correspondances n’affiche-t-il rien ?', 'Les critères obligatoires sont trop stricts. Choisissez une zone plus grande, plus de types de bien ou un budget plus large.'],
         ['Pourquoi un bien que j’ai envoyé n’est-il plus dans Correspondances ?', 'Les biens envoyés et refusés sont masqués pour que personne ne les reçoive deux fois. Cliquez sur « Tout afficher ».'],
         ['L’e-mail n’a pas de liens vers mon site.', 'Un responsable doit remplir Paramètres → Général → « Liens vers les biens dans les e-mails ».'],
-        ['Les boutons IA disent qu’il me faut une clé.', 'Ajoutez votre clé OpenRouter dans Paramètres → IA (propriétaire ou responsable).'],
+        ['Les boutons IA disent qu’il me faut une clé.', 'Ajoutez votre clé d’IA (OpenRouter ou Anthropic) dans Paramètres → IA (propriétaire ou responsable).'],
         ['J’ai ajouté la même personne deux fois.', 'Utilisez Paramètres → Entretien → Doublons possibles et fusionnez-les.'],
         ['Comment supprimer un acheteur ?', 'Confidentialité → Effacer les données personnelles (responsables). L’acheteur quitte vos listes pour de bon.'],
         ['Un acheteur dit qu’il reçoit trop d’e-mails.', 'Confidentialité → Désabonner des e-mails de biens.'],

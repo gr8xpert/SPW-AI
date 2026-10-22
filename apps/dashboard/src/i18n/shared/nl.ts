@@ -9,7 +9,7 @@ export const nl: SharedText = {
     running: (progress) => `SEO ${progress}%`,
     title: 'SEO genereren met AI',
     description:
-      'Vult paginatitel, metatitel, metabeschrijving en zoekwoorden in voor je hele aanbod. Draait op de achtergrond op je OpenRouter-tegoed.',
+      'Vult paginatitel, metatitel, metabeschrijving en zoekwoorden in voor je hele aanbod. Draait op de achtergrond op je AI-tegoed.',
     languages: 'Talen',
     overwrite: 'Bestaande SEO overschrijven',
     overwriteHelp:
