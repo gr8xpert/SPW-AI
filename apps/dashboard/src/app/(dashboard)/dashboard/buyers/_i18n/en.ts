@@ -210,7 +210,7 @@ export const en = {
       visitorNote: 'Their notes',
     },
   },
-  nav: { home: 'My day', list: 'Buyers', board: 'Board', today: 'To do today', alerts: 'Alerts', reports: 'Reports', settings: 'Settings', import: 'Import' },
+  nav: { home: 'My day', list: 'Buyers', board: 'Board', today: 'To do today', alerts: 'Alerts', reports: 'Reports', settings: 'Settings', import: 'Import', guide: 'Guide' },
   reports: {
     title: 'Reports',
     description: 'How your agency is doing: new buyers, the pipeline, your agents and the revenue to expect.',
@@ -306,7 +306,7 @@ export const en = {
     unsubscribedOn: (d: string) => `Unsubscribed from property emails on ${d}`,
     erase: 'Erase personal data…',
     eraseTitle: 'Erase this buyer\'s personal data?',
-    eraseText: 'Names, email, phone numbers, address, ID, notes, answers, files and the text of their history are removed for good. The anonymous numbers (stage, source, dates) stay for your reports. This cannot be undone.',
+    eraseText: 'Names, email, phone numbers, address, ID, notes, answers, files and the text of their history are removed for good. The buyer leaves your list; only the anonymous numbers (stage, source, dates) stay for your reports. This cannot be undone.',
     eraseType: 'Type ERASE to confirm',
     eraseButton: 'Erase for good',
     erased: 'Erased buyer',

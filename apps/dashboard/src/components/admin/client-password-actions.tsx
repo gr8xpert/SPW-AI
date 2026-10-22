@@ -26,6 +26,8 @@ export interface ClientUser {
   role: string;
   isActive: boolean;
   lastLoginAt: string | null;
+  // false = a Team → Agents profile without a dashboard login.
+  canLogin?: boolean;
 }
 
 // Unambiguous characters only — this password gets read out over the phone or
@@ -290,7 +292,22 @@ export function ClientUsersCard({ clientId, users: initialUsers }: { clientId: s
           <p className="text-sm text-muted-foreground">This client has no users.</p>
         ) : (
           <div className="divide-y">
-            {users.map((user) => (
+            {users.map((user) =>
+              // A person added on Team → Agents without a login (shown on the
+              // website or working buyers). Their address is a placeholder, so
+              // there is no password to reset.
+              user.canLogin === false ? (
+                <div key={user.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0" data-testid="no-login-agent">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium truncate">{user.name || 'Agent'}</p>
+                    <Badge variant="outline">Agent profile · no login</Badge>
+                    {!user.isActive && <Badge variant="destructive">Inactive</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    A person on the client&apos;s Team → Agents page (shown on the website or working buyers). They cannot sign in, so there is no password.
+                  </p>
+                </div>
+              ) : (
               <div
                 key={user.id}
                 className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
@@ -311,7 +328,8 @@ export function ClientUsersCard({ clientId, users: initialUsers }: { clientId: s
                   <UserPasswordActions clientId={clientId} user={user} />
                 </div>
               </div>
-            ))}
+              ),
+            )}
           </div>
         )}
       </CardContent>

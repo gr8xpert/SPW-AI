@@ -6,10 +6,14 @@ import { elementAttributes } from './attribute-parser';
 //                             with at most plain search filters as a starting
 //                             point — it gets the count, the sort chooser and
 //                             the page numbers
-//   a curated list            "our featured six", "six of ours" — it picks a
-//                             selection (featured, own, limit, ref) or is
-//                             standalone, and shows exactly that, with no
-//                             toolbar and no paging
+//   a curated list            "our featured six" — it has a limit or a
+//                             hand-picked ref list, or is standalone (the
+//                             [spm_short_list] shortcode), and shows exactly
+//                             that, with no toolbar and no paging
+//
+// featured / own alone pick WHICH listings, not how many: since 10-22 such a
+// block is a full results page ("all our featured listings", paged), so a
+// client with hundreds of them still gets every one.
 //
 // Telling them apart is what stops a homepage carousel swallowing a search,
 // and what keeps page furniture off a block that is only decoration.
@@ -29,13 +33,14 @@ export function onlyFormBlocks(names: string[]): boolean {
   return names.length > 0 && names.every((n) => FORM_COMPONENTS.has(n));
 }
 
-// Attributes that pick a hand-chosen selection rather than describe a search:
-// "our featured six", "our own listings", one reference. Plain search filters
+// Attributes that make a short list rather than describe a search: a number
+// ("six of them") or hand-picked references. Plain search filters
 // (for, location, type, beds, price, sort…) don't — for="sale" on a results
 // page is that page's starting search, which the visitor can change, and the
 // block keeps its toolbar and paging. Until 10-05 any filter made a block
-// curated, so the only way to keep paging was lock-*, which also froze it.
-const CURATED_ATTRS = new Set(['featured', 'own', 'own-only', 'limit', 'reference', 'ref', 'references', 'refs']);
+// curated, so the only way to keep paging was lock-*, which also froze it;
+// until 10-22 featured / own did too (a featured page stopped at six).
+const CURATED_ATTRS = new Set(['limit', 'reference', 'ref', 'references', 'refs']);
 
 export function isCurated(el: HTMLElement): boolean {
   if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;

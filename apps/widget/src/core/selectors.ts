@@ -49,5 +49,7 @@ function flattenLocked(locked: LockedFilters): Partial<SearchFilters> {
   if (locked.features?.length) {
     out.features = locked.features;
   }
+  if (locked.isFeatured) out.isFeatured = true;
+  if (locked.isOwnProperty) out.isOwnProperty = true;
   return out;
 }

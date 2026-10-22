@@ -14,6 +14,8 @@ if (!defined('ABSPATH')) exit;
  *   [spm_carousel]   a property carousel; searches on its own, e.g.
  *                    featured="yes" limit="8" autoplay="yes"
  *   [spm_wishlist_form] the wishlist form (the visitor's own wishlist)
+ *   [spm_short_list] a few cards for the homepage, e.g. featured="yes"
+ *                    limit="6" — no filters, sort, map or page numbers
  * They follow the design picked in the SPM dashboard → Website Design.
  * Pin one design instead with template="3" (or "listing-template-03").
  *
@@ -54,6 +56,25 @@ class SPM_Shortcode {
         add_shortcode('spm_wishlist', [$this, 'render_wishlist']);
         add_shortcode('spm_wishlist_form', [$this, 'render_wishlist_form']);
         add_shortcode('spm_buyer_page', [$this, 'render_buyer_page']);
+        add_shortcode('spm_short_list', [$this, 'render_short_list']);
+    }
+
+    /**
+     * A short list for the homepage or any page: a few cards and nothing
+     * else — no filters, view tabs, map, sort or page numbers — and it never
+     * becomes the page's search. 6 cards unless limit="" says otherwise.
+     *
+     *   [spm_short_list featured="yes"]   [spm_short_list own="yes" limit="8"]
+     *
+     * [spm_listing featured="yes"] is the opposite: every featured listing,
+     * with page numbers, for a "Featured properties" page.
+     */
+    public function render_short_list($atts) {
+        $atts = is_array($atts) ? $atts : [];
+        $atts['standalone'] = 'true';
+        unset($atts['own-search'], $atts['own_search']);
+        if (empty($atts['limit']) || (int) $atts['limit'] < 1) $atts['limit'] = '6';
+        return $this->render_page($atts, '', 'spm_listing');
     }
 
     /**

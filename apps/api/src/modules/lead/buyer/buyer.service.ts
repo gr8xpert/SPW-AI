@@ -87,7 +87,10 @@ export class BuyerService {
       .addSelect(['contact.id', 'contact.email'])
       .leftJoin('lead.assignedToUser', 'agent')
       .addSelect(AGENT_FIELDS('agent'))
-      .leftJoinAndSelect('lead.stage', 'stage');
+      .leftJoinAndSelect('lead.stage', 'stage')
+      // Erased buyers keep an anonymous row for Reports only; they leave the
+      // list, the board and the export.
+      .andWhere('lead.erasedAt IS NULL');
 
     if (dto.q) {
       qb.andWhere(

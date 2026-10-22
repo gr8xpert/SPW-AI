@@ -51,8 +51,8 @@ export class BuyerHomeService {
     const tz = settings.timezone || 'UTC';
     const bm = normalizeBuyerSettings(settings.buyerMatch);
     const today = localDayTime(now, tz).day;
-    // "Mine": main agent or related agent, not merged away.
-    const MINE = `l.tenantId = ? AND l.mergedIntoId IS NULL AND (l.assignedTo = ? OR EXISTS (SELECT 1 FROM lead_agents la WHERE la.leadId = l.id AND la.userId = ?))`;
+    // "Mine": main agent or related agent, not merged away or erased.
+    const MINE = `l.tenantId = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL AND (l.assignedTo = ? OR EXISTS (SELECT 1 FROM lead_agents la WHERE la.leadId = l.id AND la.userId = ?))`;
     const mineArgs = [tenantId, agentId, agentId];
 
     const pipeline: { stageId: number | null; name: string | null; color: string | null; count: string }[] = await this.db.query(

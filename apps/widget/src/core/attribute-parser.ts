@@ -53,13 +53,18 @@ export function elementAttributes(el: HTMLElement): Record<string, string> {
   return out;
 }
 
+// featured / own pick which listings a page is about ("our featured
+// listings"), and no search form has a control for them, so they are always
+// fixed: a visitor's search narrows within them instead of dropping them.
+const SELECTION_KEYS = ['isFeatured', 'isOwnProperty'] as const;
+
 function collect(root: HTMLElement, wantFixed: boolean): SearchFilters {
   const out: SearchFilters = {};
   for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) {
     if (isStandalone(el)) continue;
     const { filters, fixed } = filtersFromAttributes(elementAttributes(el));
-    if (fixed !== wantFixed) continue;
-    Object.assign(out, filters);
+    if (fixed === wantFixed) Object.assign(out, filters);
+    else if (wantFixed) for (const k of SELECTION_KEYS) if (filters[k]) out[k] = true;
   }
   return out;
 }

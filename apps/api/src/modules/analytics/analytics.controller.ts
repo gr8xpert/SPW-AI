@@ -51,6 +51,16 @@ export class AnalyticsController {
     return this.analyticsService.getEventBreakdown(tenantId, dateRange);
   }
 
+  @Get('recent-views')
+  async getRecentViews(
+    @CurrentTenant() tenantId: number,
+    @Query('range') range: string = '7d',
+    @Query('limit') limit: string = '5',
+  ) {
+    const { start } = this.parseDateRange(range);
+    return this.analyticsService.getRecentViews(tenantId, start, parseInt(limit) || 5);
+  }
+
   @Get('properties')
   async getTopProperties(
     @CurrentTenant() tenantId: number,

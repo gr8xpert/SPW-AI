@@ -27,6 +27,19 @@ export function DetailsTab({ buyer }: { buyer: Buyer }) {
       { key: 'phone', label: c.phone, maxLength: 50 },
       { key: 'mobile', label: c.mobile, maxLength: 50 },
       {
+        key: 'preferredContact',
+        label: c.preferredContact,
+        render: (value, set) => (
+          <FilterSelect
+            className="w-full"
+            value={value}
+            onChange={set}
+            anyLabel="—"
+            options={(['call', 'email', 'whatsapp'] as const).map((p) => ({ value: p, label: t.preferredContact[p] }))}
+          />
+        ),
+      },
+      {
         key: 'language',
         label: c.language,
         render: (value, set) => {
@@ -42,38 +55,29 @@ export function DetailsTab({ buyer }: { buyer: Buyer }) {
           );
         },
       },
-      {
-        key: 'preferredContact',
-        label: c.preferredContact,
-        render: (value, set) => (
-          <FilterSelect
-            className="w-full"
-            value={value}
-            onChange={set}
-            anyLabel="—"
-            options={(['call', 'email', 'whatsapp'] as const).map((p) => ({ value: p, label: t.preferredContact[p] }))}
-          />
-        ),
-      },
-      // Uploaded to R2 (dashboard upload route); saved with the card's Save.
+      // Pairs: language | country, street full width, then street 2 | city
+      // and ZIP | state, so no row is left half empty.
+      { key: 'country', label: c.country, maxLength: 2 },
+      { key: 'street', label: c.street, maxLength: 255, wide: true },
+      { key: 'street2', label: c.street2, maxLength: 255 },
+      { key: 'city', label: c.city, maxLength: 100 },
+      { key: 'zip', label: c.zip, maxLength: 20 },
+      { key: 'state', label: c.state, maxLength: 100 },
+      // Last, full width. Uploaded to R2
+      // (dashboard upload route); saved with the card's Save.
       {
         key: 'photoUrl',
         label: c.photoUrl,
+        wide: true,
         render: (value, set) => (
           <PhotoUpload
-            className="items-start"
+            layout="row"
             value={value}
             onChange={set}
             initials={[buyer.firstName, buyer.lastName].filter(Boolean).map((n) => String(n).charAt(0)).join('').toUpperCase()}
           />
         ),
       },
-      { key: 'street', label: c.street, maxLength: 255 },
-      { key: 'street2', label: c.street2, maxLength: 255 },
-      { key: 'city', label: c.city, maxLength: 100 },
-      { key: 'zip', label: c.zip, maxLength: 20 },
-      { key: 'state', label: c.state, maxLength: 100 },
-      { key: 'country', label: c.country, maxLength: 2 },
     ],
     [c, t, langs.data, buyer.firstName, buyer.lastName],
   );

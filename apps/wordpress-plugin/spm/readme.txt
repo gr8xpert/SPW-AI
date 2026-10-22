@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.11
+Stable tag: 2.9.13
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,10 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.13 =
+* New [spm_short_list] shortcode for the homepage: a few cards (6 unless limit="" says otherwise), with no filters, view tabs, map, sort or page numbers. E.g. [spm_short_list featured="yes"].
+* [spm_listing featured="yes"] (or own="yes") now shows every featured listing with page numbers, so a "Featured properties" page no longer stops at 6. A search on that page stays within the featured listings. Needs the widget from the same release.
 
 = 2.9.12 =
 * Buyer Match: a "My properties" page for each buyer's personal link. Create it on SPM → Pages (optional). It holds the new [spm_buyer_page] block: the properties the agent sent, with Like, Not for me and Request a viewing.

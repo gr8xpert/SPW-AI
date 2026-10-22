@@ -193,6 +193,26 @@ export class AnalyticsService {
     ];
   }
 
+  // The latest property views, newest first, for the dashboard's Recent
+  // Activity card. Title in English, else the first language it has.
+  async getRecentViews(tenantId: number, since: Date, limit = 5) {
+    const rows: { reference: string; title: string | null; viewedAt: Date }[] = await this.propertyViewRepository
+      .createQueryBuilder('view')
+      .select('property.reference', 'reference')
+      .addSelect(
+        "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(property.title, '$.en')), JSON_UNQUOTE(JSON_EXTRACT(JSON_EXTRACT(property.title, '$.*'), '$[0]')))",
+        'title',
+      )
+      .addSelect('view.viewedAt', 'viewedAt')
+      .innerJoin('view.property', 'property')
+      .where('view.tenantId = :tenantId', { tenantId })
+      .andWhere('view.viewedAt >= :since', { since })
+      .orderBy('view.viewedAt', 'DESC')
+      .limit(Math.min(Math.max(limit, 1), 20))
+      .getRawMany();
+    return rows.map((r) => ({ reference: r.reference, title: r.title || r.reference, viewedAt: r.viewedAt }));
+  }
+
   async getTopProperties(
     tenantId: number,
     dateRange: { start: Date; end: Date },

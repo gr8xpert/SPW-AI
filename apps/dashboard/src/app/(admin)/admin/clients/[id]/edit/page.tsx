@@ -9,6 +9,7 @@ import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,7 +32,7 @@ import {
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { ClientUsersCard, type ClientUser } from '@/components/admin/client-password-actions';
-import { ArrowLeft, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, StickyNote } from 'lucide-react';
 
 const clientSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -69,6 +70,7 @@ const clientSchema = z.object({
   }),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   xeroContactId: z.string().optional().nullable(),
+  adminNotes: z.string().max(20000, 'Notes can be at most 20,000 characters').optional().nullable(),
 });
 
 // Kept in sync with TIER_PRESETS in packages/shared/src/types/tenant.types.ts.
@@ -155,6 +157,7 @@ export default function EditClientPage() {
       },
       tier: 1,
       xeroContactId: '',
+      adminNotes: '',
     },
   });
 
@@ -210,6 +213,7 @@ export default function EditClientPage() {
           },
           tier: (client.tier as 1 | 2 | 3) || 1,
           xeroContactId: client.xeroContactId || '',
+          adminNotes: client.adminNotes || '',
         });
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -232,6 +236,7 @@ export default function EditClientPage() {
         ownerEmail: data.ownerEmail || null,
         siteName: data.siteName || null,
         xeroContactId: data.xeroContactId?.trim() ? data.xeroContactId.trim() : null,
+        adminNotes: data.adminNotes ?? '',
       };
 
       await api.put(`/api/super-admin/clients/${clientId}`, cleanData);
@@ -407,6 +412,38 @@ export default function EditClientPage() {
                         <FormControl>
                           <Switch checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Super Admin only: never sent to the client's dashboard. */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <StickyNote className="h-4 w-4 text-muted-foreground" />
+                    Private notes
+                  </CardTitle>
+                  <CardDescription>Only Super Admins see these. The client never does.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name="adminNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            rows={6}
+                            placeholder="Contact person, how they pay, what was agreed, anything worth remembering…"
+                            {...field}
+                            value={field.value || ''}
+                            data-testid="admin-notes"
+                          />
+                        </FormControl>
+                        <FormDescription>Saved with Save Changes.</FormDescription>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />

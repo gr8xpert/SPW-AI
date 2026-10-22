@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Card,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/lib/animations';
 import { useApi } from '@/hooks/use-api';
+import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 
 interface DashboardStats {
   properties: number;
@@ -39,70 +40,57 @@ interface RecentView {
   viewedAt: string;
 }
 
+// The numbers come from four different endpoints with three shapes:
+// { data: [...], meta: { total } } (properties), { data: [...], total }
+// (contacts) and { data: { total } } (buyer stats). Until 10-22 the card read
+// data.total on all of them, so Properties and Contacts always showed 0.
+const totalOf = (res: any): number => Number(res?.meta?.total ?? res?.total ?? res?.data?.total ?? 0) || 0;
+
+async function loadDashboard(api: ReturnType<typeof useApi>) {
+  const [propsRes, contactsRes, analyticsRes, leadsRes, topRes, recentRes] = await Promise.allSettled([
+    api.get('/api/dashboard/properties?limit=1'),
+    api.get('/api/dashboard/contacts?limit=1'),
+    api.get('/api/dashboard/analytics/overview?range=30d'),
+    api.get('/api/dashboard/leads/stats'),
+    api.get('/api/dashboard/analytics/properties?range=30d&limit=5'),
+    api.get('/api/dashboard/analytics/recent-views?range=7d&limit=5'),
+  ]);
+  const ok = <T,>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null);
+
+  const stats: DashboardStats = {
+    properties: totalOf(ok(propsRes)),
+    contacts: totalOf(ok(contactsRes)),
+    views: Number((ok(analyticsRes) as any)?.data?.views ?? 0) || 0,
+    leads: totalOf(ok(leadsRes)),
+  };
+  const top = (ok(topRes) as any)?.data;
+  const topProperties: TopProperty[] = Array.isArray(top)
+    ? top.slice(0, 5).map((p: any) => ({ reference: p.reference || '', title: p.title || p.reference || '', views: Number(p.views) || 0 }))
+    : [];
+  const recent = (ok(recentRes) as any)?.data;
+  const recentViews: RecentView[] = Array.isArray(recent)
+    ? recent.map((e: any) => ({ propertyTitle: e.title || e.reference || '', propertyReference: e.reference || '', viewedAt: e.viewedAt || '' }))
+    : [];
+  return { stats, topProperties, recentViews };
+}
+
 export function DashboardContent() {
   const { data: session } = useSession();
   const api = useApi();
-  const [stats, setStats] = useState<DashboardStats>({ properties: 0, contacts: 0, views: 0, leads: 0 });
-  const [topProperties, setTopProperties] = useState<TopProperty[]>([]);
-  const [recentViews, setRecentViews] = useState<RecentView[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!session?.accessToken) return;
-
-    async function load() {
-      setLoading(true);
-      try {
-        const [propsRes, contactsRes, analyticsRes, leadsRes, topRes, activityRes] = await Promise.allSettled([
-          api.get('/api/dashboard/properties?limit=1'),
-          api.get('/api/dashboard/contacts?limit=1'),
-          api.get('/api/dashboard/analytics/overview?range=30d'),
-          api.get('/api/dashboard/leads/stats'),
-          api.get('/api/dashboard/analytics/properties?range=30d&limit=5'),
-          api.get('/api/dashboard/analytics/events?range=7d'),
-        ]);
-
-        const propCount = propsRes.status === 'fulfilled' && propsRes.value?.data?.total != null
-          ? propsRes.value.data.total
-          : 0;
-        const contactCount = contactsRes.status === 'fulfilled' && contactsRes.value?.data?.total != null
-          ? contactsRes.value.data.total
-          : 0;
-        const viewCount = analyticsRes.status === 'fulfilled' && analyticsRes.value?.data?.views != null
-          ? analyticsRes.value.data.views
-          : 0;
-        const leadCount = leadsRes.status === 'fulfilled' && leadsRes.value?.data?.total != null
-          ? leadsRes.value.data.total
-          : leadsRes.status === 'fulfilled' && typeof leadsRes.value?.data === 'number'
-          ? leadsRes.value.data
-          : 0;
-
-        setStats({ properties: propCount, contacts: contactCount, views: viewCount, leads: leadCount });
-
-        if (topRes.status === 'fulfilled' && Array.isArray(topRes.value?.data)) {
-          setTopProperties(topRes.value.data.slice(0, 5).map((p: any) => ({
-            reference: p.reference || p.propertyReference || '',
-            title: p.title || p.propertyTitle || p.reference || '',
-            views: p.views || p.count || 0,
-          })));
-        }
-
-        if (activityRes.status === 'fulfilled' && Array.isArray(activityRes.value?.data)) {
-          setRecentViews(activityRes.value.data.slice(0, 5).map((e: any) => ({
-            propertyTitle: e.propertyTitle || e.title || e.reference || 'Property',
-            propertyReference: e.propertyReference || e.reference || '',
-            viewedAt: e.viewedAt || e.createdAt || e.timestamp || '',
-          })));
-        }
-      } catch {
-        // silently fail — cards will show 0
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, [session?.accessToken]);
+  const { scope, ready } = useTenantQueryScope();
+  // Keyed by login + impersonated client, so switching client refetches;
+  // refreshes every minute and when the tab comes back into view.
+  const query = useQuery({
+    queryKey: ['dashboard-home', ...scope],
+    queryFn: () => loadDashboard(api),
+    enabled: ready,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const loading = query.isLoading;
+  const stats = query.data?.stats ?? { properties: 0, contacts: 0, views: 0, leads: 0 };
+  const topProperties = query.data?.topProperties ?? [];
+  const recentViews = query.data?.recentViews ?? [];
 
   const statCards = [
     { name: 'Total Properties', value: stats.properties, icon: Building2 },

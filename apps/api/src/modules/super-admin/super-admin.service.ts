@@ -225,7 +225,7 @@ export class SuperAdminService {
   /**
    * Get a single client with full details
    */
-  async getClient(clientId: number): Promise<TenantFull & { adminUser?: any; users?: any[] }> {
+  async getClient(clientId: number): Promise<TenantFull & { adminUser?: any; users?: any[]; adminNotes: string | null }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: clientId },
       relations: ['plan'],
@@ -242,6 +242,7 @@ export class SuperAdminService {
     });
 
     const users = await this.getClientUsers(clientId);
+    const adminNotes = await this.getAdminNotes(clientId);
 
     return {
       id: tenant.id,
@@ -278,7 +279,19 @@ export class SuperAdminService {
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       adminUser,
       users,
+      adminNotes,
     };
+  }
+
+  // adminNotes is select: false on the entity (never sent to the client), so
+  // it is read and written here on its own.
+  private async getAdminNotes(clientId: number): Promise<string | null> {
+    const row = await this.tenantRepository
+      .createQueryBuilder('t')
+      .select('t.adminNotes', 'adminNotes')
+      .where('t.id = :id', { id: clientId })
+      .getRawOne<{ adminNotes: string | null }>();
+    return row?.adminNotes ?? null;
   }
 
   /**
@@ -533,6 +546,15 @@ export class SuperAdminService {
 
     await this.tenantRepository.save(tenant);
 
+    if (dto.adminNotes !== undefined) {
+      const notes = typeof dto.adminNotes === 'string' && dto.adminNotes.trim() !== '' ? dto.adminNotes.trim() : null;
+      if (notes !== (await this.getAdminNotes(clientId))) {
+        await this.tenantRepository.update(clientId, { adminNotes: notes });
+        // The audit log says the notes changed, not what they say.
+        changes.adminNotes = { before: '(notes)', after: notes ? '(notes changed)' : '(notes cleared)' };
+      }
+    }
+
     // Log audit
     if (Object.keys(changes).length > 0) {
       const auditLog = this.auditLogRepository.create({
@@ -779,7 +801,7 @@ export class SuperAdminService {
   async getClientUsers(clientId: number) {
     const users = await this.userRepository.find({
       where: { tenantId: clientId },
-      select: ['id', 'email', 'name', 'role', 'isActive', 'lastLoginAt', 'createdAt'],
+      select: ['id', 'email', 'name', 'role', 'isActive', 'lastLoginAt', 'createdAt', 'canLogin'],
       order: { id: 'ASC' },
     });
     return users

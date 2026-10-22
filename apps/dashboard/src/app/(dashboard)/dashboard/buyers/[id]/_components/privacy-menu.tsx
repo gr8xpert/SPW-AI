@@ -111,7 +111,8 @@ export function PrivacyMenu({ buyer }: { buyer: Buyer }) {
                 act.mutate(() => api.post(`${base}/erase`, { confirm: typed }), {
                   onSuccess: () => {
                     setErasing(false);
-                    router.refresh();
+                    // Erased buyers leave the list, so go back to it.
+                    router.push('/dashboard/buyers');
                   },
                 })
               }

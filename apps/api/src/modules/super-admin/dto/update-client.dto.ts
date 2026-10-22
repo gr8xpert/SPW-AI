@@ -120,6 +120,12 @@ export class UpdateClientDto {
   @IsOptional()
   @MaxLength(64)
   xeroContactId?: string | null;
+
+  // Super Admin's private notes; '' clears them.
+  @IsString()
+  @IsOptional()
+  @MaxLength(20000)
+  adminNotes?: string | null;
 }
 
 export class ExtendSubscriptionDto {

@@ -14,11 +14,14 @@ export function PhotoUpload({
   onChange,
   initials,
   className,
+  layout = 'column',
 }: {
   value: string;
   onChange: (url: string) => void;
   initials?: string;
   className?: string;
+  // 'row' = photo on the left, buttons beside it (a form's full-width row).
+  layout?: 'column' | 'row';
 }) {
   const { toast } = useToast();
   // useApi sends FormData as multipart; the axios client forces JSON and the
@@ -48,9 +51,15 @@ export function PhotoUpload({
     }
   };
 
+  const row = layout === 'row';
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
-      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border bg-muted text-2xl font-semibold text-muted-foreground">
+    <div className={cn(row ? 'flex items-center gap-4' : 'flex flex-col items-center gap-2', className)}>
+      <div
+        className={cn(
+          'flex shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted font-semibold text-muted-foreground',
+          row ? 'h-16 w-16 text-lg' : 'h-24 w-24 text-2xl',
+        )}
+      >
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={value} alt="" className="h-full w-full object-cover" />
@@ -66,14 +75,17 @@ export function PhotoUpload({
         data-testid="photo-file"
         onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
       />
-      <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
-        {uploading ? 'Uploading…' : value ? 'Change photo' : 'Upload photo'}
-      </Button>
-      {value && !uploading && (
-        <button type="button" className="text-xs text-muted-foreground underline" onClick={() => onChange('')}>
-          Remove photo
-        </button>
-      )}
+      <div className={row ? 'flex flex-col items-start gap-1.5' : 'contents'}>
+        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? 'Uploading…' : value ? 'Change photo' : 'Upload photo'}
+        </Button>
+        {value && !uploading && (
+          <button type="button" className="text-xs text-muted-foreground underline" onClick={() => onChange('')}>
+            Remove photo
+          </button>
+        )}
+        {row && !value && <p className="text-xs text-muted-foreground">JPG, PNG or WebP</p>}
+      </div>
     </div>
   );
 }

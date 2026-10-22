@@ -55,6 +55,10 @@ export interface LockedFilters {
   minBedrooms?: number;
   maxBedrooms?: number;
   features?: number[];
+  // featured / own on a results page: the search form has no control for
+  // them, so a visitor's search must keep them (see attribute-parser).
+  isFeatured?: boolean;
+  isOwnProperty?: boolean;
 }
 
 export interface PrefilledFilters extends SearchFilters {}

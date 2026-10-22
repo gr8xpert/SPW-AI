@@ -67,6 +67,15 @@ class SPM_Shortcode_Reference {
                 ],
             ],
             [
+                'title' => 'Homepage short lists',
+                'intro' => 'A few cards and nothing else: no filters, view tabs, map, sort or page numbers, and it never changes the page\'s search. Shortcode: <code>[spm_short_list featured="yes" limit="6"]</code> (6 cards unless <code>limit</code> says otherwise). For a whole "Featured properties" page with page numbers, use <code>[spm_listing featured="yes"]</code> instead.',
+                'shortcodes' => [
+                    '<div data-spm-widget="site-listing" data-spm-featured="yes" data-spm-limit="6" data-spm-standalone></div>' => 'Six featured properties, in the listing design chosen in your dashboard',
+                    '<div data-spm-widget="site-listing" data-spm-own="yes" data-spm-limit="8" data-spm-standalone></div>' => 'Eight of your own listings',
+                    '<div data-spm-widget="site-listing" data-spm-featured="yes"></div>' => 'Every featured property, with sort and page numbers — for a Featured page',
+                ],
+            ],
+            [
                 'title' => 'Hand-picked properties',
                 'intro' => 'Show exactly the properties you choose, in the order you list their reference numbers (up to 50). Works with any listing design, and never changes the page\'s search.',
                 'shortcodes' => [
@@ -218,11 +227,11 @@ class SPM_Shortcode_Reference {
             'data-spm-baths="2"'            => 'At least 2 bathrooms (ranges allowed).',
             'data-spm-under="500000"'       => 'Maximum price. <code>over="200000"</code> sets a minimum, <code>price="200000-500000"</code> both.',
             'data-spm-built="120-300"'      => 'Built area in m². <code>plot=""</code> and <code>terrace=""</code> work the same way.',
-            'data-spm-featured="yes"'       => 'Only listings marked Featured in the dashboard. Mark some first, or the block will be empty.',
+            'data-spm-featured="yes"'       => 'Only listings marked Featured in the dashboard — all of them, with page numbers. Add <code>limit</code> (or use <code>[spm_short_list]</code>) for just a few. Mark some first, or the block will be empty.',
             'data-spm-own="yes"'            => 'Only your own listings, not the ones shared from a feed.',
             'data-spm-own-first="yes"'      => 'Everything, with your own listings at the top.',
             'data-spm-sort="newest"'        => 'newest, oldest, price_asc, price_desc, featured or updated',
-            'data-spm-limit="6"'            => 'How many properties to show',
+            'data-spm-limit="6"'            => 'Show only this many, as a short list (no page numbers or sort)',
             'data-spm-ref="R1234,R2345"'  => 'Only these properties, in this order (reference numbers, comma separated, up to 50). One reference shows just that property.',
             'data-spm-template="3"'         => 'Pin one design instead of the dashboard one',
             'data-spm-fixed="yes"'          => 'The visitor cannot change these filters (for a page like "Marbella villas")',

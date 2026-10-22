@@ -422,7 +422,8 @@ export default function FeedsPage() {
             <SelectItem value="infocasa">Infocasa</SelectItem>
             <SelectItem value="redsp">REDSP</SelectItem>
             <SelectItem value="kyero">Kyero</SelectItem>
-            <SelectItem value="odoo">Odoo CRM</SelectItem>
+            {/* Odoo is no longer offered for new feeds; an existing one still edits. */}
+            {form.provider === 'odoo' && <SelectItem value="odoo">Odoo CRM</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -775,7 +776,7 @@ export default function FeedsPage() {
               </div>
               <h3 className="font-semibold mb-2">Add Feed Source</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Connect to Resales Online, Inmoba, Infocasa, REDSP, Kyero, or Odoo CRM
+                Connect to Resales Online, Inmoba, Infocasa, REDSP or Kyero
               </p>
               <Button onClick={() => { setForm(emptyForm); setIsAddOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />

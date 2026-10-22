@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { BarChart3, Bell, CalendarCheck, Kanban, Settings, Sun, Upload, Users } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, CalendarCheck, Kanban, Settings, Sun, Upload, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
 import { useBuyerAlerts } from '../use-buyer-match';
@@ -29,7 +29,7 @@ export function BuyersNav() {
     ...(manager ? [{ href: '/dashboard/buyers/import', label: t.nav.import, icon: Upload }] : []),
   ];
   return (
-    <nav className="flex flex-wrap gap-1 border-b">
+    <nav className="flex flex-wrap items-center gap-1 border-b">
       {items.map(({ href, label, icon: Icon, exact, count }: { href: string; label: string; icon: typeof Users; exact?: boolean; count?: number }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
         return (
@@ -51,6 +51,20 @@ export function BuyersNav() {
           </Link>
         );
       })}
+      {/* The plain-words guide to every Buyers feature, on every Buyers page. */}
+      <Link
+        href="/dashboard/buyers/guide"
+        data-testid="buyers-guide"
+        className={cn(
+          'mb-1.5 ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors',
+          pathname.startsWith('/dashboard/buyers/guide')
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10',
+        )}
+      >
+        <BookOpen className="h-4 w-4" />
+        {t.nav.guide}
+      </Link>
     </nav>
   );
 }

@@ -175,6 +175,12 @@ export class Tenant {
   @Column({ type: 'varchar', length: 64, nullable: true })
   xeroContactId: string | null;
 
+  // Super Admin's private notes about the client (Edit client page). Never
+  // loaded with the tenant (select: false), so no client-facing endpoint can
+  // return it; SuperAdminService reads and writes it on its own.
+  @Column({ type: 'text', nullable: true, select: false })
+  adminNotes: string | null;
+
   // Optional per-tenant OpenRouter key for AI enrichment. NULL → falls back
   // to the platform key (OPENROUTER_API_KEY env var). Encrypted at rest via
   // the same AES-256-GCM transformer used for webhookSecret.
