@@ -71,6 +71,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/use-api';
 import { propertyKeys } from '@/hooks/use-tenant-query-scope';
+import { agentChoices } from '@/hooks/use-agents';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -102,10 +103,14 @@ interface FeatureItem {
   category?: string;
 }
 
+// A person from GET /api/dashboard/agents (Agents page).
 interface TeamMember {
   id: number;
   name: string | null;
-  email: string;
+  email: string | null;
+  showOnWebsite?: boolean;
+  canLogin?: boolean;
+  isActive?: boolean;
 }
 
 interface UploadedImage {
@@ -351,7 +356,7 @@ function CreatePropertyPageInner() {
           api.get('/api/dashboard/locations'),
           api.get('/api/dashboard/property-types'),
           api.get('/api/dashboard/features'),
-          api.get('/api/dashboard/team'),
+          api.get('/api/dashboard/agents'),
         ].map(p => p.catch(() => null)));
 
         const locs = locsRes?.data || locsRes;
@@ -812,11 +817,12 @@ function CreatePropertyPageInner() {
                       <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">— None —</SelectItem>
-                        {teamMembers.map((m) => (
+                        {agentChoices(teamMembers, 'website', formData.agentId).map((m) => (
                           <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">People with &quot;Show on website&quot; on the Agents page. Shown on this property page.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Sales Agent</Label>
@@ -824,7 +830,7 @@ function CreatePropertyPageInner() {
                       <SelectTrigger><SelectValue placeholder="Select sales agent" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">— None —</SelectItem>
-                        {teamMembers.map((m) => (
+                        {agentChoices(teamMembers, 'sales', formData.salesAgentId).map((m) => (
                           <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
                         ))}
                       </SelectContent>

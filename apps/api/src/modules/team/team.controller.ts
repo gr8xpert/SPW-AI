@@ -12,7 +12,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { TeamService } from './team.service';
-import { InviteUserDto, UpdateUserDto, ChangePasswordDto, ResetPasswordDto } from './dto';
+import { AgentsService } from './agents.service';
+import { InviteUserDto, AgentDto, ChangePasswordDto, ResetPasswordDto } from './dto';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
 import { JwtPayload } from '@spm/shared';
@@ -21,11 +22,14 @@ import { JwtPayload } from '@spm/shared';
 @UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
 @RequiresAddon('team')
 export class TeamController {
-  constructor(private readonly teamService: TeamService) {}
+  constructor(
+    private readonly teamService: TeamService,
+    private readonly agentsService: AgentsService,
+  ) {}
 
   @Get()
   async getTeamMembers(@CurrentTenant() tenantId: number) {
-    return this.teamService.getTeamMembers(tenantId);
+    return this.agentsService.list(tenantId);
   }
 
   @Get('stats')
@@ -41,23 +45,38 @@ export class TeamController {
     return this.teamService.getTeamMember(tenantId, userId);
   }
 
+  // Agents page: add a person (with or without a dashboard login).
+  @Post()
+  async createAgent(
+    @CurrentTenant() tenantId: number,
+    @Body() dto: AgentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.agentsService.create(tenantId, dto, user.sub);
+  }
+
+  // The old Team invite (email, name, password, role): a login agent.
   @Post('invite')
   async inviteUser(
     @CurrentTenant() tenantId: number,
     @Body() dto: InviteUserDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.teamService.inviteUser(tenantId, dto, user.sub);
+    return this.agentsService.create(
+      tenantId,
+      { email: dto.email, name: dto.name || dto.email, password: dto.password, access: dto.role === 'admin' ? 'manager' : 'agent' },
+      user.sub,
+    );
   }
 
   @Put(':id')
   async updateUser(
     @CurrentTenant() tenantId: number,
     @Param('id', ParseIntPipe) userId: number,
-    @Body() dto: UpdateUserDto,
+    @Body() dto: AgentDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.teamService.updateUser(tenantId, userId, dto, user.sub);
+    return this.agentsService.update(tenantId, userId, dto, user.sub);
   }
 
   @Delete(':id')

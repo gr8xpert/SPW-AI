@@ -132,6 +132,9 @@ export function registerAllComponents(): void {
   // wishlist_shared_banner — removed, no functionality
   registerComponent('wishlist_modals', () => import('@/components/wishlist/RsWishlistModals'));
   registerComponent('wishlist_counter', () => import('@/components/utility/RsWishlistCounter'));
+  // Buyer Match: the visitor fills in their own wishlist (a form, not a search).
+  registerComponent('wishlist-form', () => import('@/components/wishlist-form/RsWishlistForm'));
+  registerComponent('buyer-page', () => import('@/components/buyer-page/RsBuyerPage'));
 
   // Map components
   registerComponent('map_container', () => import('@/components/map/RsMapContainer'));

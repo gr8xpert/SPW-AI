@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 import { SuperAdminRedirectGuard } from '@/components/layout/super-admin-redirect-guard';
+import { MfaSetupGuard } from '@/components/layout/mfa-setup-guard';
 
 export default async function DashboardLayout({
   children,
@@ -41,6 +42,7 @@ export default async function DashboardLayout({
           the cookie was somehow lost but localStorage still says
           impersonating (e.g. a user tampered with cookies via devtools). */}
       <SuperAdminRedirectGuard />
+      <MfaSetupGuard />
       <ImpersonationBanner />
       <Sidebar userRole={userRole} />
       <DashboardShell>

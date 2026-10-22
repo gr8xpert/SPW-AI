@@ -9200,3 +9200,594 @@ button.rs-d02-photos__tile {
 .rs-detail-not-found__button:hover {
   background: var(--rs-primary-hover);
 }
+
+/* ── Wishlist form (Buyer Match) ── */
+.rs-wishlist-form {
+  /* Laid out by its own width, not the screen: on many sites the form sits
+     in a narrow column of a wide page. */
+  container: rs-wishlist-form / inline-size;
+  padding: 24px;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg, 8px);
+  color: var(--rs-text);
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.rs-wishlist-form__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--rs-text);
+}
+
+.rs-wishlist-form__intro {
+  margin: 0 0 20px;
+  color: var(--rs-text-light);
+  font-size: 0.9375rem;
+}
+
+.rs-wishlist-form__section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  border: 0;
+  border-top: 1px solid var(--rs-border);
+  margin: 0;
+  padding: 20px 0 24px;
+  min-width: 0;
+}
+
+.rs-wishlist-form__legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 2px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rs-primary);
+}
+
+.rs-wishlist-form__legend + * {
+  clear: both;
+}
+
+.rs-wishlist-form__wide,
+.rs-wishlist-form__legend {
+  grid-column: 1 / -1;
+}
+
+/* Two small fields side by side inside one grid cell. */
+.rs-wishlist-form__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.rs-wishlist-form .rs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rs-wishlist-form .rs-field__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--rs-text);
+  /* Long translations ("Superficie construida desde") wrap instead of
+     running into the field beside them. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Side by side: a two-line label must not push its field out of line. */
+.rs-wishlist-form__pair > .rs-field {
+  justify-content: flex-end;
+}
+
+.rs-wishlist-form .rs_location--multi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.rs-feature-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rs-feature-picker__category {
+  font-size: 0.75rem;
+  color: var(--rs-text-light);
+  margin-bottom: 6px;
+  text-transform: capitalize;
+}
+
+.rs-wishlist-form__submit {
+  width: 100%;
+  justify-content: center;
+  min-height: 46px;
+  font-size: 1rem;
+}
+
+.rs-wishlist-form__done {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 1.0625rem;
+  color: var(--rs-text);
+  background: var(--rs-bg-secondary);
+  border-radius: var(--rs-radius, 6px);
+}
+
+/* Features: one button + the chosen ones (the popup holds the full list). */
+.rs-wishlist-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+[data-spm-widget] .rs-wishlist-features__open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rs-wishlist-features__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--rs-primary);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.rs-wishlist-features__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rs-wishlist-features__x {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+/* The phone field never gets squeezed: the number box keeps room to type. */
+.rs-wishlist-form .rs-detail-inquiry__phone-row {
+  min-width: 0;
+}
+
+.rs-wishlist-form .rs-detail-inquiry__phone-input {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+/* A narrow form (a sidebar, a column, a phone): one field per row, except
+   the short pairs (beds/baths, budget, sizes). */
+@container rs-wishlist-form (max-width: 620px) {
+  .rs-wishlist-form__section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rs-wishlist-form__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rs-wishlist-form__pair--short {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container rs-wishlist-form (max-width: 260px) {
+  .rs-wishlist-form__pair--short {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .rs-wishlist-form {
+    padding: 16px;
+  }
+}
+
+/* Browsers without container queries: the old screen-width rule. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 640px) {
+    .rs-wishlist-form__section,
+    .rs-wishlist-form__pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rs-wishlist-form__pair--short {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}
+
+/* ── Buyer page (Buyer Match): the buyer's own properties ── */
+.rs-buyer-page {
+  color: var(--rs-text);
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.rs-buyer-page--loading {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rs-buyer-page__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--rs-border);
+  border-top-color: var(--rs-primary);
+  border-radius: 50%;
+  animation: rs-spin 0.8s linear infinite;
+}
+
+.rs-buyer-page__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.rs-buyer-page__intro,
+.rs-buyer-page__empty,
+.rs-buyer-page__inactive {
+  color: var(--rs-text-light);
+  margin: 0 0 20px;
+}
+
+.rs-buyer-page__inactive {
+  padding: 24px;
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg, 8px);
+  text-align: center;
+}
+
+.rs-buyer-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.rs-buyer-page__card {
+  display: flex;
+  flex-direction: column;
+  background: var(--rs-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg, 8px);
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+.rs-buyer-page__card.is-rejected .rs-buyer-page__photo,
+.rs-buyer-page__card.is-rejected .rs-buyer-page__name,
+.rs-buyer-page__card.is-rejected .rs-buyer-page__price {
+  opacity: 0.55;
+}
+
+.rs-buyer-page__photo {
+  display: block;
+  aspect-ratio: 4 / 3;
+  background: var(--rs-bg-light, #f1f5f9);
+  overflow: hidden;
+}
+
+/* base.css sets [data-spm-widget] img { height: auto }: beat it. */
+.rs-buyer-page__photo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  display: block;
+}
+
+.rs-buyer-page__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 14px;
+  flex: 1;
+}
+
+.rs-buyer-page__name {
+  font-weight: 600;
+  color: var(--rs-text);
+  text-decoration: none;
+}
+
+.rs-buyer-page__name:hover {
+  color: var(--rs-primary);
+}
+
+.rs-buyer-page__meta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--rs-text-light);
+}
+
+.rs-buyer-page__price {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.rs-buyer-page__reason {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
+.rs-buyer-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+/* [data-spm-widget] in front: base.css resets every widget button. */
+[data-spm-widget] .rs-buyer-page__btn {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius, 6px);
+  background: var(--rs-bg);
+  color: var(--rs-text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+[data-spm-widget] .rs-buyer-page__btn:hover:not(:disabled) {
+  border-color: var(--rs-primary);
+}
+
+[data-spm-widget] .rs-buyer-page__btn.is-on {
+  background: var(--rs-primary);
+  border-color: var(--rs-primary);
+  color: #fff;
+}
+
+[data-spm-widget] .rs-buyer-page__btn--no.is-on {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.rs-buyer-page__btn:disabled {
+  cursor: default;
+}
+
+.rs-buyer-page__box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rs-buyer-page__box textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 8px;
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius, 6px);
+  resize: vertical;
+}
+
+.rs-buyer-page__box-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+[data-spm-widget] .rs-buyer-page__cancel,
+[data-spm-widget] .rs-buyer-page__send {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--rs-radius, 6px);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+[data-spm-widget] .rs-buyer-page__cancel {
+  background: var(--rs-bg-light, #f1f5f9);
+  color: var(--rs-text);
+}
+
+[data-spm-widget] .rs-buyer-page__send {
+  background: var(--rs-primary);
+  color: #fff;
+}
+
+.rs-buyer-page__agent {
+  margin: 28px 0 0;
+  font-size: 0.875rem;
+}
+
+.rs-buyer-page__agent a {
+  color: var(--rs-primary);
+}
+
+.rs-buyer-page__toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: var(--rs-radius, 6px);
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.875rem;
+  z-index: 9999;
+}
+
+@media (max-width: 480px) {
+  .rs-buyer-page__grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Wishlist form in three steps: progress, one section at a time, Back/Next. */
+.rs-wishlist-form__section[hidden] {
+  display: none !important;
+}
+
+/* The step bar already divides the header from the step. */
+.rs-wishlist-form .rs-wishlist-form__section {
+  border-top: 0;
+  padding-top: 20px;
+}
+
+/* The step bar names the section, so its heading is for screen readers only. */
+.rs-wishlist-form__legend {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+
+.rs-wishlist-form__steps {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0 0 16px;
+  counter-reset: none;
+}
+
+.rs-wishlist-form__step {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+/* The line under each step: filled up to the current one. */
+.rs-wishlist-form__step::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -16px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--rs-border);
+}
+
+.rs-wishlist-form__step.is-current::after,
+.rs-wishlist-form__step.is-done::after {
+  background: var(--rs-primary);
+}
+
+[data-spm-widget] .rs-wishlist-form__step-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--rs-text-light);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: default;
+}
+
+[data-spm-widget] .rs-wishlist-form__step.is-done .rs-wishlist-form__step-btn {
+  cursor: pointer;
+}
+
+.rs-wishlist-form__step.is-current .rs-wishlist-form__step-btn,
+.rs-wishlist-form__step.is-done .rs-wishlist-form__step-btn {
+  color: var(--rs-text);
+}
+
+.rs-wishlist-form__step-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--rs-border);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rs-wishlist-form__step.is-current .rs-wishlist-form__step-num,
+.rs-wishlist-form__step.is-done .rs-wishlist-form__step-num {
+  border-color: var(--rs-primary);
+  background: var(--rs-primary);
+  color: #fff;
+}
+
+.rs-wishlist-form__step-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-wishlist-form__nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+[data-spm-widget] .rs-wishlist-form__nav .rs-wishlist-form__next,
+[data-spm-widget] .rs-wishlist-form__nav .rs-wishlist-form__submit {
+  flex: 1 1 auto;
+  width: auto;
+  justify-content: center;
+  min-height: 46px;
+  font-size: 1rem;
+}
+
+[data-spm-widget] .rs-wishlist-form__nav .rs-wishlist-form__back {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 20px;
+}
+
+/* Narrow: only the current step keeps its name. */
+@container rs-wishlist-form (max-width: 480px) {
+  .rs-wishlist-form__step:not(.is-current) .rs-wishlist-form__step-label {
+    display: none;
+  }
+
+  .rs-wishlist-form__step:not(.is-current) {
+    flex: 0 0 auto;
+  }
+
+  .rs-wishlist-form__step.is-current {
+    flex: 1 1 auto;
+  }
+}

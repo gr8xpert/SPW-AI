@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
 import { Tenant } from '../../database/entities';
-import { FALLBACK_DEFAULT_MODEL, FALLBACK_ENRICHMENT_MODEL, RECOMMENDED_MODELS } from './ai-models';
+import { FALLBACK_DEFAULT_MODEL, FALLBACK_ENRICHMENT_MODEL, RECOMMENDED_MODELS, openRouterBase } from './ai-models';
 import { OpenRouterCatalogService } from './openrouter-catalog.service';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const chatUrl = () => `${openRouterBase()}/chat/completions`;
 
 // Default model is read from env so operators can swap to a newer Claude/GPT
 // release without a code change. Fallback (the hardcoded constant below)
@@ -158,7 +158,7 @@ export class AiService {
 
     try {
       const response = await axios.post(
-        OPENROUTER_URL,
+        chatUrl(),
         {
           model,
           messages,
@@ -230,7 +230,7 @@ export class AiService {
         body.tool_choice = 'auto';
       }
 
-      const response = await axios.post(OPENROUTER_URL, body, {
+      const response = await axios.post(chatUrl(), body, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',

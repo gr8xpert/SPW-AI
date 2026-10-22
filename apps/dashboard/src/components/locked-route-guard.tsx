@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   useDashboardAddons,
   type DashboardAddonKey,
@@ -25,7 +26,12 @@ export function LockedRouteGuard({
   children,
 }: LockedRouteGuardProps) {
   const { addons, isLoading, isError, retry } = useDashboardAddons();
-  if (isLoading) return null;
+  // The server always renders nothing here (no session there). The add-on
+  // answer can arrive while the page is still hydrating, so the first client
+  // render must match that empty output or React reports a hydration error.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || isLoading) return null;
   if (isError) {
     return (
       <div className="rounded-md border p-6 text-sm text-muted-foreground">

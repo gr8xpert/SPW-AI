@@ -147,6 +147,11 @@ export class Tenant {
   @Column({ default: false })
   feedImagesToR2: boolean;
 
+  // Every user of this agency must use two-factor login (migration
+  // 1777300000000). Set by Super Admin or the agency admin.
+  @Column({ default: false })
+  require2fa: boolean;
+
   @Column({ type: 'json', default: () => "'[\"search\", \"detail\", \"wishlist\"]'" })
   widgetFeatures: string[];
 

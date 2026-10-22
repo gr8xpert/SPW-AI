@@ -4,29 +4,11 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Property } from '@/types';
-import { countryCodes, guessCountry, isCountry } from './country-codes';
+import { countryCodes, guessCountry } from './country-codes';
+import { askVisitorCountry } from '@/core/visitor-country';
 import { trackingSession } from '@/core/tracker';
 import { useRecaptcha } from '@/hooks/useRecaptcha';
 import RsDetailCustomForm, { customFormHolder } from './RsDetailCustomForm';
-
-// The visitor's country from the API (Cloudflare knows it from their IP),
-// asked once per browser session. Undefined until known.
-let visitorCountry: Promise<string | null> | null = null;
-function askVisitorCountry(apiUrl: string): Promise<string | null> {
-  try {
-    const saved = sessionStorage.getItem('spm_country');
-    if (saved) return Promise.resolve(isCountry(saved) ? saved : null);
-  } catch { /* storage blocked */ }
-  visitorCountry ??= fetch(`${apiUrl.replace(/\/$/, '')}/api/v1/visitor-country`)
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => {
-      const c = (j?.data?.country ?? j?.country ?? '').toUpperCase();
-      try { sessionStorage.setItem('spm_country', c || '-'); } catch { /* storage blocked */ }
-      return isCountry(c) ? c : null;
-    })
-    .catch(() => null);
-  return visitorCountry;
-}
 
 interface Props {
   property?: Property;

@@ -53,6 +53,16 @@ jQuery(function ($) {
         });
     });
 
+    $('#spm-create-buyer-page').on('click', function () {
+        post('spm_create_buyer_page', this, function (resp) {
+            if (!resp.success) {
+                alert('Page creation failed: ' + (resp.data || 'unknown'));
+                return;
+            }
+            location.reload();
+        });
+    });
+
     $('#spm-create-pages').on('click', function () {
         post('spm_create_pages', this, function (resp) {
             if (!resp.success) {

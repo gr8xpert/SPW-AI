@@ -9,6 +9,8 @@ import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordResetService } from './password-reset.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { TwoFactorService } from './two-factor/two-factor.service';
+import { TwoFactorController } from './two-factor/two-factor.controller';
 import { ImpersonationService } from './impersonation.service';
 import { ImpersonationController } from './impersonation.controller';
 import { ImpersonationAuditInterceptor } from '../../common/interceptors/impersonation-audit.interceptor';
@@ -45,9 +47,10 @@ import {
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, ImpersonationController],
+  controllers: [AuthController, ImpersonationController, TwoFactorController],
   providers: [
     AuthService,
+    TwoFactorService,
     RefreshTokenService,
     EmailVerificationService,
     PasswordResetService,

@@ -83,6 +83,10 @@ export class UpdateClientDto {
   @IsOptional()
   feedImagesToR2?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  require2fa?: boolean;
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

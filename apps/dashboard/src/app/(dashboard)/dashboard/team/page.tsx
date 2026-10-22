@@ -1,480 +1,198 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  UserPlus,
-  MoreHorizontal,
-  Shield,
-  User,
-  AlertCircle,
-  KeyRound,
-  Trash2,
-  Edit,
-  Users,
-} from 'lucide-react';
+import { Edit, Globe, KeyRound, MoreHorizontal, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useApi } from '@/hooks/use-api';
+import { LockedRouteGuard } from '@/components/locked-route-guard';
+import { AgentDialog, ACCESS_LABELS } from './_components/agent-dialog';
+import { initialsOf, useAgents, useAgentStats, useRemoveAgent, useResetAgentPassword, type Agent } from '@/hooks/use-agents';
 
-interface TeamMember {
-  id: number;
-  email: string;
-  name: string | null;
-  role: 'admin' | 'user';
-  permissions: string[] | null;
-  avatarUrl: string | null;
-  isActive: boolean;
-  lastLoginAt: string | null;
-  createdAt: string;
-}
-
-interface TeamStats {
-  currentUsers: number;
-  maxUsers: number;
-  admins: number;
-  users: number;
-}
-
-const roleColors: Record<string, 'default' | 'secondary'> = {
-  admin: 'default',
-  user: 'secondary',
-};
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return 'Never';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch {
-    return '-';
-  }
-}
-
-function TeamPageInner() {
+function AgentsPageInner() {
   const { toast } = useToast();
-  const api = useApi();
+  const { data: session } = useSession();
+  const agents = useAgents();
+  const stats = useAgentStats();
+  const remove = useRemoveAgent();
+  const reset = useResetAgentPassword();
 
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [stats, setStats] = useState<TeamStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-
-  const [inviteForm, setInviteForm] = useState({ email: '', name: '', password: '', role: 'user' });
-  const [editForm, setEditForm] = useState({ name: '', role: 'user', isActive: true });
+  const [editing, setEditing] = useState<Agent | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [resetFor, setResetFor] = useState<Agent | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [removing, setRemoving] = useState<Agent | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  const list = agents.data ?? [];
+  const selfId = list.find((a) => a.email && a.email === session?.user?.email)?.id ?? null;
+  const open = (a: Agent | null) => {
+    setEditing(a);
+    setFormOpen(true);
+  };
+
+  const doReset = async () => {
+    if (!resetFor) return;
     try {
-      const [membersRes, statsRes] = await Promise.all([
-        api.get('/api/dashboard/team'),
-        api.get('/api/dashboard/team/stats'),
-      ]);
-      const membersData = (membersRes as { data: TeamMember[] })?.data || membersRes;
-      const statsData = (statsRes as { data: TeamStats })?.data || statsRes;
-      if (Array.isArray(membersData)) setMembers(membersData);
-      if (statsData && typeof statsData === 'object') setStats(statsData as TeamStats);
-    } catch {
-      // handled by useApi
-    } finally {
-      setLoading(false);
+      await reset.mutateAsync({ id: resetFor.id, newPassword });
+      toast({ title: 'Password changed' });
+      setResetFor(null);
+    } catch (e) {
+      toast({ title: 'Could not change the password', description: (e as Error).message, variant: 'destructive' });
     }
   };
 
-  useEffect(() => {
-    if (!api.isReady) return;
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api.isReady]);
-
-  const handleInvite = async () => {
-    setSaving(true);
+  const doRemove = async () => {
+    if (!removing) return;
     try {
-      await api.post('/api/dashboard/team/invite', inviteForm);
-      await loadData();
-      setInviteOpen(false);
-      setInviteForm({ email: '', name: '', password: '', role: 'user' });
-      toast({ title: 'Invitation sent', description: 'Team member has been added.' });
-    } catch (err: any) {
-      toast({ title: 'Invite failed', description: err?.message || 'Could not invite user.', variant: 'destructive' });
+      await remove.mutateAsync(removing.id);
+      toast({ title: 'Agent removed' });
+    } catch (e) {
+      toast({ title: 'Could not remove', description: (e as Error).message, variant: 'destructive' });
     } finally {
-      setSaving(false);
+      setRemoving(null);
     }
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedMember) return;
-    setSaving(true);
-    try {
-      await api.put(`/api/dashboard/team/${selectedMember.id}`, editForm);
-      await loadData();
-      setEditOpen(false);
-      setSelectedMember(null);
-      toast({ title: 'Member updated' });
-    } catch (err: any) {
-      toast({ title: 'Update failed', description: err?.message, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (!selectedMember) return;
-    setSaving(true);
-    try {
-      await api.post(`/api/dashboard/team/${selectedMember.id}/reset-password`, { newPassword });
-      setResetPasswordOpen(false);
-      setNewPassword('');
-      setSelectedMember(null);
-      toast({ title: 'Password reset', description: 'The password has been changed.' });
-    } catch (err: any) {
-      toast({ title: 'Reset failed', description: err?.message, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedMember) return;
-    setSaving(true);
-    try {
-      await api.delete(`/api/dashboard/team/${selectedMember.id}`);
-      await loadData();
-      setDeleteConfirmOpen(false);
-      setSelectedMember(null);
-      toast({ title: 'Member removed' });
-    } catch (err: any) {
-      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const openEdit = (member: TeamMember) => {
-    setSelectedMember(member);
-    setEditForm({ name: member.name || '', role: member.role, isActive: member.isActive });
-    setEditOpen(true);
-  };
-
-  const openResetPassword = (member: TeamMember) => {
-    setSelectedMember(member);
-    setNewPassword('');
-    setResetPasswordOpen(true);
-  };
-
-  const openDeleteConfirm = (member: TeamMember) => {
-    setSelectedMember(member);
-    setDeleteConfirmOpen(true);
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Team</h1>
-          <p className="page-description mt-1">Manage your team members and their roles</p>
+          <h1 className="page-title">Agents</h1>
+          <p className="page-description mt-1">
+            Everyone in your agency, for your website and your buyers. Tick &quot;Show on website&quot; for property pages and
+            &quot;Works with buyers&quot; for Buyer Match.
+          </p>
         </div>
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button className="shadow-sm"><UserPlus className="h-4 w-4 mr-2" /> Invite Member</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>Add a new member to your team. They will be able to log in immediately.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-email">Email *</Label>
-                <Input id="invite-email" type="email" placeholder="email@company.com" value={inviteForm.email} onChange={(e) => setInviteForm(p => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-name">Name</Label>
-                <Input id="invite-name" placeholder="Full name" value={inviteForm.name} onChange={(e) => setInviteForm(p => ({ ...p, name: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-password">Password *</Label>
-                <Input id="invite-password" type="password" placeholder="Minimum 8 characters" value={inviteForm.password} onChange={(e) => setInviteForm(p => ({ ...p, password: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Select value={inviteForm.role} onValueChange={(v) => setInviteForm(p => ({ ...p, role: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button onClick={handleInvite} disabled={saving || !inviteForm.email || !inviteForm.password}>
-                {saving ? 'Inviting...' : 'Invite'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button className="shadow-sm" onClick={() => open(null)} data-testid="agent-add">
+          <UserPlus className="mr-2 h-4 w-4" /> Add agent
+        </Button>
       </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid gap-4 sm:grid-cols-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="stat-card-icon">
-                  <Users className="h-5 w-5" />
+      {stats.data && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Logins', value: `${stats.data.currentUsers} / ${stats.data.maxUsers}`, icon: Users },
+            { label: 'Managers', value: stats.data.admins, icon: Shield },
+            { label: 'On the website', value: list.filter((a) => a.showOnWebsite && a.isActive).length, icon: Globe },
+            { label: 'Work with buyers', value: list.filter((a) => a.worksBuyers && a.isActive).length, icon: UserPlus },
+          ].map((s) => (
+            <Card key={s.label}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="stat-card-icon"><s.icon className="h-5 w-5" /></div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className="text-xl font-bold tracking-tight">{s.value}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Members</p>
-                  <p className="text-2xl font-bold tracking-tight">{stats.currentUsers} <span className="text-sm font-normal text-muted-foreground">/ {stats.maxUsers}</span></p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="stat-card-icon">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Admins</p>
-                  <p className="text-2xl font-bold tracking-tight">{stats.admins}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="stat-card-icon">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Users</p>
-                  <p className="text-2xl font-bold tracking-tight">{stats.users}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="stat-card-icon">
-                  <UserPlus className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Seats Available</p>
-                  <p className="text-2xl font-bold tracking-tight">{stats.maxUsers - stats.currentUsers}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      {/* Members Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Team Members</CardTitle>
-          <CardDescription>All members of your organization</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-          ) : members.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No team members yet</p>
-            </div>
+        <CardContent className="p-0">
+          {agents.isLoading ? (
+            <div className="flex justify-center py-10"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>
+          ) : list.length === 0 ? (
+            <p className="py-10 text-center text-muted-foreground">No agents yet</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="py-2 pr-3 font-medium">Name</th>
-                    <th className="py-2 pr-3 font-medium">Email</th>
-                    <th className="py-2 pr-3 font-medium">Role</th>
-                    <th className="py-2 pr-3 font-medium">Status</th>
-                    <th className="py-2 pr-3 font-medium">Last Login</th>
-                    <th className="py-2 pr-3 font-medium">Joined</th>
-                    <th className="py-2 w-[70px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((member) => (
-                    <tr key={member.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium">{member.name || '-'}</td>
-                      <td className="py-2 pr-3">{member.email}</td>
-                      <td className="py-2 pr-3">
-                        <Badge variant={roleColors[member.role]} className="capitalize">
-                          {member.role === 'admin' && <Shield className="h-3 w-3 mr-1" />}
-                          {member.role}
-                        </Badge>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Badge variant={member.isActive ? 'success' : 'destructive'}>
-                          {member.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
-                      <td className="py-2 pr-3 text-muted-foreground">
-                        {formatDate(member.lastLoginAt)}
-                      </td>
-                      <td className="py-2 pr-3 text-muted-foreground">
-                        {formatDate(member.createdAt)}
-                      </td>
-                      <td className="py-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(member)}>
-                              <Edit className="h-4 w-4 mr-2" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openResetPassword(member)}>
-                              <KeyRound className="h-4 w-4 mr-2" /> Reset Password
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => openDeleteConfirm(member)}>
-                              <Trash2 className="h-4 w-4 mr-2" /> Remove
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className="divide-y" data-testid="agent-list">
+              {list.map((a) => (
+                <li key={a.id} className="flex items-center gap-3 p-4" data-testid={`agent-row-${a.id}`}>
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                    {a.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      initialsOf(a.name || a.email)
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium">{a.name || a.email}</span>
+                      {a.title && <span className="text-sm text-muted-foreground">{a.title}</span>}
+                      {!a.isActive && <Badge variant="destructive">Inactive</Badge>}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant={a.access === 'manager' ? 'default' : 'secondary'}>
+                        {a.access === 'manager' && <Shield className="mr-1 h-3 w-3" />}
+                        {ACCESS_LABELS[a.access]}
+                      </Badge>
+                      {a.worksBuyers && <Badge variant="outline">Buyers</Badge>}
+                      {a.showOnWebsite && <Badge variant="outline"><Globe className="mr-1 h-3 w-3" />Website</Badge>}
+                      {a.email && <span className="truncate text-xs text-muted-foreground">{a.email}</span>}
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="Actions"><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => open(a)}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                      {a.canLogin && (
+                        <DropdownMenuItem onClick={() => { setNewPassword(''); setResetFor(a); }}>
+                          <KeyRound className="mr-2 h-4 w-4" /> Change password
+                        </DropdownMenuItem>
+                      )}
+                      {a.id !== selfId && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => setRemoving(a)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Remove
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <AgentDialog open={formOpen} onOpenChange={setFormOpen} agent={editing} selfId={selfId} />
+
+      <Dialog open={!!resetFor} onOpenChange={(o) => !o && setResetFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Team Member</DialogTitle>
-            <DialogDescription>{selectedMember?.email}</DialogDescription>
+            <DialogTitle>Change password</DialogTitle>
+            <DialogDescription>A new password for {resetFor?.name || resetFor?.email}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input id="edit-name" value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={editForm.role} onValueChange={(v) => setEditForm(p => ({ ...p, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={editForm.isActive ? 'active' : 'inactive'} onValueChange={(v) => setEditForm(p => ({ ...p, isActive: v === 'active' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input id="new-password" type="password" placeholder="At least 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
+            <Button variant="outline" onClick={() => setResetFor(null)}>Cancel</Button>
+            <Button onClick={doReset} disabled={reset.isPending || newPassword.length < 8}>{reset.isPending ? 'Saving…' : 'Change password'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Dialog */}
-      <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>Set a new password for {selectedMember?.name || selectedMember?.email}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" placeholder="Minimum 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>Cancel</Button>
-            <Button onClick={handleResetPassword} disabled={saving || newPassword.length < 8}>
-              {saving ? 'Resetting...' : 'Reset Password'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <AlertDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogTitle>Remove {removing?.name || removing?.email}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove <span className="font-semibold">{selectedMember?.name || selectedMember?.email}</span> from your team. They will no longer be able to log in.
+              They can no longer log in and disappear from the website. Their buyers and listings stay, without an agent.
+              Someone with buyer history or support tickets can&apos;t be removed (it would delete that history): switch
+              them to Inactive instead (Edit).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {saving ? 'Removing...' : 'Remove'}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={doRemove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -482,12 +200,10 @@ function TeamPageInner() {
   );
 }
 
-import { LockedRouteGuard } from '@/components/locked-route-guard';
-
-export default function TeamPage() {
+export default function AgentsPage() {
   return (
-    <LockedRouteGuard addon="team" featureName="Team Management">
-      <TeamPageInner />
+    <LockedRouteGuard addon="team" featureName="Agents">
+      <AgentsPageInner />
     </LockedRouteGuard>
   );
 }

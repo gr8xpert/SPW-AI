@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) exit;
  * carries the OG / loading-overlay hooks.
  */
 class SPM_Page_Generator {
-    const TYPES = ['listings', 'detail', 'wishlist', 'map'];
+    const TYPES = ['listings', 'detail', 'wishlist', 'map', 'buyer'];
 
     /** Page body for a type: dashboard-controlled `site-*` blocks. */
     public static function content($type) {
@@ -29,6 +29,8 @@ class SPM_Page_Generator {
             'detail'   => ['site-detail'],
             'wishlist' => ['wishlist_header', 'wishlist_actions', 'wishlist_grid', 'wishlist_empty'],
             'map'      => ['site-map'],
+            // The buyer's personal page (Buyer Match): see SPM_Buyer_Page.
+            'buyer'    => ['buyer-page'],
         ];
         $html = [];
         foreach ($blocks[$type] ?? [] as $w) {
@@ -73,7 +75,8 @@ class SPM_Page_Generator {
                 // rewrite uses for /{slug}/{ref} property URLs.
                 return SPM_Plugin::slug('detail', $lang) . '-detail';
             case 'map':
-                return sanitize_title(SPM_Plugin::page_title('map', $lang));
+            case 'buyer':
+                return sanitize_title(SPM_Plugin::page_title($type, $lang));
             default:
                 return SPM_Plugin::slug($type, $lang);
         }

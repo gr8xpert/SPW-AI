@@ -108,7 +108,7 @@ export function DashboardContent() {
     { name: 'Total Properties', value: stats.properties, icon: Building2 },
     { name: 'Total Contacts', value: stats.contacts, icon: Users },
     { name: 'Property Views', value: stats.views, icon: Eye },
-    { name: 'Active Leads', value: stats.leads, icon: MessageSquare },
+    { name: 'Buyers', value: stats.leads, icon: MessageSquare },
   ];
 
   function timeAgo(dateStr: string): string {

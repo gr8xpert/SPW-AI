@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPM Widget — Wishlist form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 1rem; background: #f6f7f9; }
+    h1 { font-size: 1.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Wishlist form (API on :3001) — add ?lang=es to test the page language</h1>
+  <!-- A page with only a form: no property search runs. -->
+  <div
+    data-spm-widget="wishlist-form"
+    data-spm-api-url="http://localhost:3001"
+    data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ></div>
+  <script>
+    const lang = new URLSearchParams(location.search).get('lang');
+    // ?narrow=1: the form in a 480px column, like a page builder column.
+    if (new URLSearchParams(location.search).get('narrow')) document.querySelector('[data-spm-widget]').style.maxWidth = '480px';
+    if (lang) {
+      document.documentElement.lang = lang;
+      document.querySelector('[data-spm-widget]').setAttribute('data-spm-language', lang);
+    }
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

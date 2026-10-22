@@ -9,20 +9,18 @@ import {
   HttpStatus,
   Logger,
   Post,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import type { TenantSettings } from '@spm/shared';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { Public } from '../../common/decorators';
-import { Tenant } from '../../database/entities';
 import { TenantService } from '../tenant/tenant.service';
 import { WebhookService } from '../webhook/webhook.service';
 import { LeadService } from './lead.service';
 import { FormMailService } from './form-mail.service';
 import { InquiryDto, ShareFavoritesDto } from './dto';
-import { isRecaptchaKey } from '../../common/security/recaptcha-key';
+import { BuyerIntakeService } from './buyer/buyer-intake.service';
+import { language, requireRecaptcha, widgetTenant } from './website-form-guard';
 import { AnalyticsService } from '../analytics/analytics.service';
 
 // The forms on a client's website. Write-heavy and abuse-prone, so rate
@@ -33,48 +31,6 @@ import { AnalyticsService } from '../analytics/analytics.service';
 // refresh: answer with the first lead, send nothing again.
 const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
 
-async function widgetTenant(tenantService: TenantService, apiKey: string): Promise<Tenant> {
-  if (!apiKey) throw new UnauthorizedException('API key required');
-  const tenant = await tenantService.findActiveWidgetTenantByApiKey(apiKey);
-  if (!tenant) throw new UnauthorizedException('Invalid API key');
-  return tenant;
-}
-
-function language(acceptLanguage?: string): string {
-  const tag = (acceptLanguage || '').split(',')[0].trim().slice(0, 2).toLowerCase();
-  return /^[a-z]{2}$/.test(tag) ? tag : 'en';
-}
-
-/**
- * A website form's reCAPTCHA (inquiry and wishlist email), when the client
- * set a key pair. The encrypted column is authoritative; settings.
- * recaptchaSecretKey is a pre-migration legacy fallback. Only a real key pair
- * turns the captcha on — the same rule decides whether the widget shows the
- * box (getPublicWidgetConfig), so a malformed key can never demand a token
- * the form couldn't get.
- */
-async function requireRecaptcha(tenant: Tenant, token: string | undefined): Promise<void> {
-  const settings = (tenant.settings || {}) as TenantSettings;
-  const secretKey = tenant.recaptchaSecretKey || settings.recaptchaSecretKey;
-  if (!isRecaptchaKey(secretKey) || !isRecaptchaKey(settings.recaptchaSiteKey)) return;
-  if (!token) throw new BadRequestException('reCAPTCHA verification required');
-  if (!(await verifyRecaptcha(secretKey, token))) throw new BadRequestException('reCAPTCHA verification failed');
-}
-
-async function verifyRecaptcha(secretKey: string, token: string): Promise<boolean> {
-  try {
-    const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${encodeURIComponent(secretKey)}&response=${encodeURIComponent(token)}`,
-    });
-    const data = await res.json();
-    return data.success === true;
-  } catch {
-    return false;
-  }
-}
-
 @Controller('api/v1/inquiry')
 @UseGuards(ApiKeyThrottlerGuard)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
@@ -84,6 +40,7 @@ export class InquiryController {
 
   constructor(
     private readonly leadService: LeadService,
+    private readonly intake: BuyerIntakeService,
     private readonly tenantService: TenantService,
     private readonly formMail: FormMailService,
     private readonly webhookService: WebhookService,
@@ -113,13 +70,17 @@ export class InquiryController {
       return { success: true };
     }
 
-    const lead = await this.leadService.create(tenant.id, 0, {
+    // The buyer with this email (or a new one, given an agent), with a
+    // wishlist guessed from the property unless an agent already set one.
+    const { lead } = await this.intake.upsertFromWebsite(tenant.id, {
       email: dto.email,
       name: dto.name,
       phone: dto.phone,
       message: dto.message,
-      propertyId,
+      propertyIds: propertyId ? [propertyId] : [],
       source: 'widget_inquiry',
+      kind: 'enquiry',
+      pageUrl: dto.pageUrl,
     });
 
     // Analytics → Inquiries (and the property's row in Property Analytics).
@@ -180,6 +141,7 @@ export class ShareFavoritesController {
 
   constructor(
     private readonly leadService: LeadService,
+    private readonly intake: BuyerIntakeService,
     private readonly tenantService: TenantService,
     private readonly formMail: FormMailService,
   ) {}
@@ -217,14 +179,19 @@ export class ShareFavoritesController {
     if (dto.senderEmail) {
       const existing = await this.leadService.findRecentDuplicateInquiry(tenant.id, dto.senderEmail, null, DEDUPE_WINDOW_MS);
       if (!existing) {
-        await this.leadService
-          .create(tenant.id, 0, {
+        // The visitor is a buyer too, and their favourites say what they like
+        // (the references and the recipient go in the activity).
+        await this.intake
+          .upsertFromWebsite(tenant.id, {
             email: dto.senderEmail,
             name: dto.senderName,
-            message: `Emailed their wishlist to ${dto.recipientEmail}: ${refs.join(', ')}${dto.message?.trim() ? `\n\n${dto.message.trim()}` : ''}`,
+            message: dto.message?.trim() || undefined,
+            propertyIds: dto.items.map((i) => i.id),
             source: 'website',
+            kind: 'favorites',
+            recipient: dto.recipientEmail,
           })
-          .catch((err) => this.logger.warn(`Wishlist lead failed: ${(err as Error).message}`));
+          .catch((err) => this.logger.warn(`Wishlist buyer failed: ${(err as Error).message}`));
       }
     }
 

@@ -73,6 +73,8 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        // Two-factor code, sent on the second try (milestone J).
+        code: { label: 'Code', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -82,7 +84,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const response = await axios.post(
             `${API_URL}/api/auth/login`,
-            { email: credentials.email, password: credentials.password },
+            { email: credentials.email, password: credentials.password, ...(credentials.code ? { code: credentials.code } : {}) },
             // Login checks a password hash, so allow more than a refresh, but
             // never leave the sign-in button spinning on a dead connection.
             { timeout: AUTH_TIMEOUT_MS * 2 },
@@ -100,11 +102,18 @@ export const authOptions: NextAuthOptions = {
               tenantId: user.tenantId,
               accessToken,
               refreshToken,
+              ...(user.mfaSetup ? { mfaSetup: true } : {}),
             };
           }
 
           return null;
         } catch (error) {
+          // Two-factor steps reach the login page as signIn()'s result.error
+          // (next-auth v4 passes a thrown message through).
+          const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+          if (code === 'TWO_FACTOR_REQUIRED' || code === 'TWO_FACTOR_INVALID' || code === 'TWO_FACTOR_LOCKED') {
+            throw new Error(code);
+          }
           console.error('Auth error:', error);
           return null;
         }
@@ -123,6 +132,7 @@ export const authOptions: NextAuthOptions = {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = readJwtExpiryMs(user.accessToken);
+        token.mfaSetup = !!user.mfaSetup;
         return token;
       }
 
@@ -141,6 +151,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as number;
+        session.user.mfaSetup = !!token.mfaSetup;
         session.accessToken = token.accessToken as string;
         session.error = token.error;
       }

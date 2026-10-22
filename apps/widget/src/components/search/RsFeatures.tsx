@@ -127,3 +127,52 @@ function TagsVariation({ features, selected, toggle, locked }: {
     </div>
   );
 }
+
+/**
+ * The feature list on its own, for a form (the wishlist form): chips by
+ * category, kept in the form's own state — never the page's search filters.
+ * facets={false} shows every feature, none hidden for having no listings.
+ */
+export function FeaturePicker({ value, onChange, facets = true }: {
+  value: number[];
+  onChange: (ids: number[]) => void;
+  facets?: boolean;
+}) {
+  const { t } = useLabels();
+  const all = useSelector(selectors.getFeatures);
+  const nonEmpty = useNonEmpty(all, 'features', value);
+  const features = facets ? nonEmpty : all;
+  const grouped = useMemo(() => {
+    const map = new Map<string, Feature[]>();
+    for (const f of features) {
+      const cat = f.category || t('features_label', 'Features');
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(f);
+    }
+    return map;
+  }, [features, t]);
+  const toggle = (id: number) => onChange(value.includes(id) ? value.filter((f) => f !== id) : [...value, id]);
+
+  return (
+    <div class="rs_features rs-feature-picker">
+      {[...grouped.entries()].map(([cat, items]) => (
+        <div key={cat} class="rs-feature-picker__group">
+          {grouped.size > 1 && <div class="rs-feature-picker__category">{cat}</div>}
+          <div class="rs-tags">
+            {items.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                class={`rs-tag${value.includes(f.id) ? ' rs-tag--active' : ''}`}
+                aria-pressed={value.includes(f.id)}
+                onClick={() => toggle(f.id)}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

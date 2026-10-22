@@ -19,6 +19,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordResetService } from './password-reset.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
+import { TwoFactorService } from './two-factor/two-factor.service';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { JwtPayload, UserRole } from '@spm/shared';
 
@@ -40,11 +41,13 @@ export class AuthService {
     private emailVerificationService: EmailVerificationService,
     private passwordResetService: PasswordResetService,
     private systemMailer: SystemMailerService,
+    private twoFactorService: TwoFactorService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
     const user = await this.userRepository.findOne({
-      where: { email: dto.email.toLowerCase() },
+      // canLogin: people on the Agents page without a login never match.
+      where: { email: dto.email.toLowerCase(), canLogin: true },
       relations: ['tenant'],
     });
 
@@ -76,6 +79,9 @@ export class AuthService {
       });
     }
 
+    // Two-factor login (milestone J): asks for the code once the password is right.
+    await this.twoFactorService.verifyLogin(user.id, dto.code);
+
     // Update last login
     await this.userRepository.update(user.id, { lastLoginAt: new Date() });
 
@@ -89,6 +95,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
+        ...(this.needsMfaSetup(user) ? { mfaSetup: true } : {}),
       },
     };
   }
@@ -194,7 +201,7 @@ export class AuthService {
       await this.refreshTokenService.consume(refreshToken);
 
     const user = await this.userRepository.findOne({
-      where: { id: payload.sub, isActive: true },
+      where: { id: payload.sub, isActive: true, canLogin: true },
       relations: ['tenant'],
     });
 
@@ -227,7 +234,7 @@ export class AuthService {
   // enumerate registered emails by probing this endpoint.
   async resendVerification(email: string): Promise<{ sent: true }> {
     const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
+      where: { email: email.toLowerCase(), canLogin: true },
     });
     if (user && user.emailVerifiedAt === null && user.isActive) {
       const token = await this.emailVerificationService.issue(user);
@@ -245,7 +252,7 @@ export class AuthService {
   // check by the tight per-IP throttle on the route.
   async forgotPassword(email: string): Promise<{ sent: true }> {
     const user = await this.userRepository.findOne({
-      where: { email: email.trim().toLowerCase() },
+      where: { email: email.trim().toLowerCase(), canLogin: true },
       relations: ['tenant'],
     });
     if (!user) {
@@ -312,7 +319,7 @@ export class AuthService {
   async resetPassword(token: string, password: string): Promise<{ reset: true }> {
     const { userId } = await this.passwordResetService.consume(token);
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || !user.canLogin) {
       throw new BadRequestException('This reset link is invalid or has expired');
     }
 
@@ -398,12 +405,19 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  // The agency requires two-factor login and this user has not set it up:
+  // the token only reaches the set-up routes until they log in again with a code.
+  private needsMfaSetup(user: User): boolean {
+    return TwoFactorService.required(user) && !user.twoFactorEnabled;
+  }
+
   private generateAccessToken(user: User): string {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       tenantId: user.tenantId,
       role: user.role,
+      ...(this.needsMfaSetup(user) ? { mfaSetup: true } : {}),
     };
 
     return this.jwtService.sign(payload, {

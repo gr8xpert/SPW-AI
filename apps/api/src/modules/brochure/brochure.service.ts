@@ -18,6 +18,7 @@ import {
   PDF_MARGIN_V1,
 } from './templates/layout-v1';
 import { BrochureContext, BrochureVariant } from './templates/template-context';
+import { renderSelectionV1, type SelectionCover } from './templates/selection-v1';
 
 interface RenderArgs {
   tenantId: number;
@@ -86,6 +87,46 @@ export class BrochureService {
     this.cache.set({ tenantId, reference, updatedAt: property.updatedAt, lang, variant }, pdf);
 
     return { pdf, filename: this.buildFilename(property, lang) };
+  }
+
+  // Several properties in one PDF behind an agency cover (Buyer Match
+  // Suggested). Properties that are gone are skipped; the header carries no
+  // QR code (it would point at one property only). Not cached.
+  async renderSelection(args: {
+    tenantId: number;
+    propertyIds: number[];
+    lang: string;
+    cover: SelectionCover;
+  }): Promise<{ pdf: Buffer; count: number }> {
+    const tenantFull = await this.tenantRepo.findOne({ where: { id: args.tenantId } });
+    if (!tenantFull) throw new NotFoundException('Tenant not found');
+    const contexts: BrochureContext[] = [];
+    for (const id of args.propertyIds) {
+      const property = await this.propertyService.findOne(args.tenantId, id).catch(() => null);
+      if (!property || property.status !== 'active' || !property.isPublished) continue;
+      const variant = this.resolveVariant(property, tenantFull);
+      contexts.push({ ...(await this.buildContext(property, tenantFull, args.lang, variant)), qrDataUrl: null });
+    }
+    if (!contexts.length) throw new NotFoundException('None of these properties is on the website');
+
+    const html = renderSelectionV1(contexts[0].tenant, args.lang, args.cover, contexts);
+    const header = { ...contexts[0], variant: (tenantFull.settings?.defaultBrochureVariant as BrochureVariant) || 'branded' };
+    const isBranded = header.variant === 'branded';
+    const pdf = await this.puppeteerPool.renderPdf(html, {
+      format: 'A4',
+      printBackground: true,
+      margin: PDF_MARGIN_V1,
+      displayHeaderFooter: true,
+      headerTemplate: isBranded ? renderBrandedHeader(header) : renderUnbrandedHeader(),
+      footerTemplate: isBranded ? renderBrandedFooter(header) : renderUnbrandedFooter(),
+    });
+    return { pdf, count: contexts.length };
+  }
+
+  // Any finished HTML document as an A4 PDF (a buyer's itinerary), through
+  // the same Chrome pool as the brochures.
+  async renderHtml(html: string): Promise<Buffer> {
+    return this.puppeteerPool.renderPdf(html, { format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } });
   }
 
   private resolveVariant(

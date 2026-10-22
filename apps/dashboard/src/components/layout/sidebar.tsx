@@ -44,6 +44,8 @@ interface NavItem {
   // dashboardAddons. Click on a locked item opens the upgrade dialog
   // instead of navigating.
   addon?: DashboardAddonKey;
+  // Also highlighted on every page under this path (an item whose link is a sub-page).
+  activePrefix?: string;
   // Minimum tenant tier required to show this item at all. Items with
   // minTier > tenant.tier are hidden entirely (not shown greyed out) —
   // Tier 1 is "support only", the property module simply doesn't exist
@@ -82,9 +84,14 @@ const navigation: NavItem[] = [
 
 const marketing: NavItem[] = [
   { name: 'Contacts', href: '/dashboard/contacts', icon: Users, minTier: 2 },
-  { name: 'Leads', href: '/dashboard/leads', icon: UserCircle, minTier: 2 },
+  { name: 'Buyers', href: '/dashboard/buyers', icon: UserCircle, addon: 'buyerMatch' },
   { name: 'Email Campaigns', href: '/dashboard/campaigns', icon: Mail, addon: 'emailCampaign', minTier: 3 },
 ];
+
+// Agents open Buyers on their own day (Buyer Match "My day").
+const marketingForAgents: NavItem[] = marketing.map((i) =>
+  i.href === '/dashboard/buyers' ? { ...i, href: '/dashboard/buyers/home', activePrefix: '/dashboard/buyers' } : i,
+);
 
 const integrations: NavItem[] = [
   { name: 'Add to Website', href: '/dashboard/add-to-website', icon: Code2, minTier: 2 },
@@ -95,7 +102,7 @@ const integrations: NavItem[] = [
 ];
 
 const management: NavItem[] = [
-  { name: 'Team', href: '/dashboard/team', icon: Users, addon: 'team', minTier: 2 },
+  { name: 'Agents', href: '/dashboard/team', icon: Users, addon: 'team', minTier: 2 },
 ];
 
 const other: NavItem[] = [
@@ -154,7 +161,10 @@ function NavSection({
         )}
       </AnimatePresence>
       {items.map((item) => {
-        const isActive = pathname === item.href || (item.href.split('/').length > 2 && pathname.startsWith(item.href + '/'));
+        const isActive =
+          pathname === item.href ||
+          (item.href.split('/').length > 2 && pathname.startsWith(item.href + '/')) ||
+          (!!item.activePrefix && (pathname === item.activePrefix || pathname.startsWith(item.activePrefix + '/')));
         // Tier lock: requires the tenant tier to be >= item.minTier.
         // Super-admin bypasses.
         const tierLocked = !bypassTier && !!item.minTier && item.minTier > tier;
@@ -305,7 +315,7 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
         ) : (
           <>
             <NavSection title="Main" items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title="Marketing" items={marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+            <NavSection title="Marketing" items={role === 'user' ? marketingForAgents : marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
             <NavSection title="Integrations" items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
             <NavSection title="Management" items={management} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
             <NavSection title="Other" items={other} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />

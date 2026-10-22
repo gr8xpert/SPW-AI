@@ -75,6 +75,7 @@ const createClientSchema = z.object({
     team: z.boolean(),
     aiChat: z.boolean(),
     aiTranslation: z.boolean(),
+    buyerMatch: z.boolean(),
   }),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   xeroContactId: z.string().optional(),
@@ -91,6 +92,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, CreateClientFormData['dashboardAddon
     team: false,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   2: {
     addProperty: true,
@@ -99,6 +101,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, CreateClientFormData['dashboardAddon
     team: true,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   3: {
     addProperty: true,
@@ -107,6 +110,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, CreateClientFormData['dashboardAddon
     team: true,
     aiChat: true,
     aiTranslation: true,
+    buyerMatch: true,
   },
 };
 
@@ -156,6 +160,7 @@ export default function CreateClientPage() {
         team: false,
         aiChat: false,
         aiTranslation: false,
+        buyerMatch: false,
       },
       tier: 1,
       xeroContactId: '',
@@ -637,9 +642,10 @@ export default function CreateClientPage() {
                     { name: 'dashboardAddons.addProperty' as const, label: 'Add Property', description: 'Allow this client to manually create properties from the dashboard' },
                     { name: 'dashboardAddons.emailCampaign' as const, label: 'Email Campaigns', description: 'Send marketing emails and manage campaigns' },
                     { name: 'dashboardAddons.feedExport' as const, label: 'Feed Export', description: 'Generate XML/JSON feeds to syndicate to portals' },
-                    { name: 'dashboardAddons.team' as const, label: 'Team Management', description: 'Invite team members and assign roles' },
+                    { name: 'dashboardAddons.team' as const, label: 'Agents', description: 'Agents page: logins, website agents and buyer agents' },
                     { name: 'dashboardAddons.aiChat' as const, label: 'AI Chat', description: 'Conversational AI analytics and chat history' },
                     { name: 'dashboardAddons.aiTranslation' as const, label: 'AI Translation & SEO', description: 'AI-powered content translation and SEO generation across properties, features, labels, and property types' },
+                    { name: 'dashboardAddons.buyerMatch' as const, label: 'Buyer Match', description: 'Buyers, wishlists, property matching, pipeline and tasks' },
                   ].map((addon) => (
                     <FormField
                       key={addon.name}

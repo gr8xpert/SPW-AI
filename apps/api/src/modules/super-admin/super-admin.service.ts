@@ -265,6 +265,7 @@ export class SuperAdminService {
       widgetEnabled: tenant.widgetEnabled,
       aiSearchEnabled: tenant.aiSearchEnabled,
       feedImagesToR2: tenant.feedImagesToR2,
+      require2fa: tenant.require2fa,
       widgetFeatures: tenant.widgetFeatures,
       featureFlags: tenant.featureFlags || DEFAULT_FEATURE_FLAGS,
       dashboardAddons: tenant.dashboardAddons || DEFAULT_DASHBOARD_ADDONS,
@@ -462,7 +463,7 @@ export class SuperAdminService {
       'name', 'domain', 'ownerEmail', 'siteName', 'apiUrl', 'planId',
       'subscriptionStatus', 'billingCycle', 'billingSource',
       'expiresAt', 'graceEndsAt', 'adminOverride', 'isInternal',
-      'widgetEnabled', 'aiSearchEnabled', 'feedImagesToR2', 'widgetFeatures', 'isActive',
+      'widgetEnabled', 'aiSearchEnabled', 'feedImagesToR2', 'require2fa', 'widgetFeatures', 'isActive',
     ];
 
     for (const field of updateFields) {

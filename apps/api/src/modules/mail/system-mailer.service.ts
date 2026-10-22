@@ -37,6 +37,8 @@ export interface SystemMailMessage {
   /** Address instead of SMTP_FROM. Only one on a domain verified in the SMTP
    *  provider: anything else is rejected or lands in spam. */
   fromEmail?: string;
+  /** Files to attach (a buyer's itinerary PDF). */
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 }
 
 interface MailTransport {
@@ -140,6 +142,7 @@ export class SystemMailerService {
         text: message.text,
         ...(message.replyTo ? { replyTo: message.replyTo } : {}),
         ...(message.headers ? { headers: message.headers } : {}),
+        ...(message.attachments?.length ? { attachments: message.attachments } : {}),
       });
       return { delivered: true, messageId: result.messageId };
     } catch (err) {

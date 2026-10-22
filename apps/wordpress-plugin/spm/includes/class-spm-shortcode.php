@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) exit;
  *   [spm_wishlist]   saved properties (all its parts)
  *   [spm_carousel]   a property carousel; searches on its own, e.g.
  *                    featured="yes" limit="8" autoplay="yes"
+ *   [spm_wishlist_form] the wishlist form (the visitor's own wishlist)
  * They follow the design picked in the SPM dashboard → Website Design.
  * Pin one design instead with template="3" (or "listing-template-03").
  *
@@ -51,6 +52,28 @@ class SPM_Shortcode {
             add_shortcode($tag, [$this, 'render_page']);
         }
         add_shortcode('spm_wishlist', [$this, 'render_wishlist']);
+        add_shortcode('spm_wishlist_form', [$this, 'render_wishlist_form']);
+        add_shortcode('spm_buyer_page', [$this, 'render_buyer_page']);
+    }
+
+    /**
+     * The wishlist form (Buyer Match): the visitor fills in what they are
+     * looking for and becomes a buyer in the SPM dashboard. Any page.
+     */
+    public function render_wishlist_form($atts) {
+        $atts = is_array($atts) ? $atts : [];
+        unset($atts['widget'], $atts['template']);
+        return $this->render(array_merge($atts, ['block' => 'wishlist-form']));
+    }
+
+    /**
+     * The buyer's personal page (Buyer Match): the properties their agent
+     * sent them, opened from the link in the email (?t=<code>).
+     */
+    public function render_buyer_page($atts) {
+        $atts = is_array($atts) ? $atts : [];
+        unset($atts['widget'], $atts['template']);
+        return $this->render(array_merge($atts, ['block' => 'buyer-page']));
     }
 
     /**

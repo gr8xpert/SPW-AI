@@ -50,6 +50,9 @@ function LoginForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [shake, setShake] = useState(false);
+  // Two-factor step: the password was right, now the code from the app.
+  const [needCode, setNeedCode] = useState(false);
+  const [code, setCode] = useState('');
 
   const {
     register,
@@ -66,6 +69,7 @@ function LoginForm() {
       const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
+        ...(needCode ? { code: code.trim() } : {}),
         redirect: false,
         // Without an explicit callbackUrl next-auth uses the current address,
         // and it reads `?error=` from the URL it hands back. Landing on
@@ -75,18 +79,28 @@ function LoginForm() {
         callbackUrl,
       });
 
-      if (result?.error) {
+      if (result?.error === 'TWO_FACTOR_REQUIRED') {
+        setNeedCode(true);
+      } else if (result?.error) {
         setShake(true);
         setTimeout(() => setShake(false), 500);
         toast({
           title: 'Login failed',
-          description: 'Invalid email or password',
+          description:
+            result.error === 'TWO_FACTOR_INVALID'
+              ? 'That code is not right. Use the newest code from your app, or a recovery code.'
+              : result.error === 'TWO_FACTOR_LOCKED'
+                ? 'Too many wrong codes. Try again in 15 minutes.'
+                : 'Invalid email or password',
           variant: 'destructive',
         });
+        if (result.error === 'TWO_FACTOR_INVALID') setCode('');
       } else {
         const session = await getSession();
         const role = session?.user?.role;
-        const target = role === 'super_admin' ? '/admin' : role === 'webmaster' ? '/dashboard/time-tracking' : callbackUrl;
+        const target = session?.user?.mfaSetup
+          ? '/dashboard/profile'
+          : role === 'super_admin' ? '/admin' : role === 'webmaster' ? '/dashboard/time-tracking' : callbackUrl;
         router.push(target);
         router.refresh();
       }
@@ -152,8 +166,27 @@ function LoginForm() {
                 </p>
               )}
             </div>
+            {needCode ? (
+              <div className="space-y-2 animate-fade-in" data-testid="two-factor-step">
+                <Label htmlFor="code" className="text-sm font-medium">Two-factor code</Label>
+                <Input
+                  id="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  placeholder="6-digit code"
+                  value={code}
+                  maxLength={20}
+                  onChange={(e) => setCode(e.target.value)}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Open your authenticator app and type the code for SPM Dashboard. Lost your phone? Type one of your recovery codes.
+                </p>
+              </div>
+            ) : null}
             <div>
-              <Button type="submit" className="w-full shadow-sm" loading={isLoading}>
+              <Button type="submit" className="w-full shadow-sm" loading={isLoading} disabled={needCode && code.trim().length < 6}>
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </div>

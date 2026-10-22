@@ -51,6 +51,7 @@ import {
   Building2,
   Eye,
   Timer,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDate } from '@/lib/utils';
@@ -75,7 +76,7 @@ interface TicketData {
   priority: string;
   category: string;
   tenantId: number;
-  tenant?: { id: number; name: string };
+  tenant?: { id: number; name: string; domain?: string | null };
   user?: { id: number; name: string; email: string };
   assignedTo: number | null;
   assignedToUser?: { id: number; name: string; email: string };
@@ -532,6 +533,21 @@ export default function AdminTicketDetailPage() {
                     Client
                   </p>
                   <p className="font-medium">{ticket.tenant.name}</p>
+                  {ticket.tenant.domain && (
+                    <a
+                      href={
+                        /^https?:\/\//i.test(ticket.tenant.domain)
+                          ? ticket.tenant.domain
+                          : `https://${ticket.tenant.domain}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm flex items-center gap-1 text-primary hover:underline break-all"
+                    >
+                      {ticket.tenant.domain.replace(/^https?:\/\//i, '').replace(/\/$/, '')}
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  )}
                 </div>
               )}
               <div>

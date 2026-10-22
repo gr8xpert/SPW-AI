@@ -122,8 +122,11 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.message || `Request failed with status ${response.status}`
+          // status / code / details ride along for callers that branch on
+          // them (e.g. a 409 naming the record it clashes with).
+          throw Object.assign(
+            new Error(errorData.message || `Request failed with status ${response.status}`),
+            { status: response.status, code: errorData.code, details: errorData.details }
           );
         }
 

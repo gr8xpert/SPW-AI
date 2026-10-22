@@ -71,6 +71,32 @@ $page_types = [
                     <?php endforeach; ?>
                 </div>
 
+                <?php $buyer_id = SPM_Buyer_Page::page_id(); ?>
+                <div class="spm-page-card <?php echo $buyer_id ? 'is-ready' : 'is-pending'; ?>" style="margin-top:16px;">
+                    <div class="spm-page-card-head">
+                        <span class="spm-page-icon">&#9733;</span>
+                        <div>
+                            <div class="spm-page-type">My properties</div>
+                            <div class="spm-page-sub">Buyer Match: each buyer's personal page (opened from their emails, hidden from Google)</div>
+                        </div>
+                        <?php if ($buyer_id): ?>
+                            <span class="spm-badge ok">Ready</span>
+                        <?php else: ?>
+                            <span class="spm-badge warn">Optional</span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($buyer_id): ?>
+                        <p class="description">Buyers' links open <code><?php echo esc_html(SPM_Buyer_Page::url()); ?>?t=&hellip;</code>. SPM picks this address up by itself on the next sync.</p>
+                        <div class="spm-page-links">
+                            <a href="<?php echo esc_url(get_edit_post_link($buyer_id)); ?>">Edit</a>
+                        </div>
+                    <?php else: ?>
+                        <p class="description">Only needed when you use Buyer Match. Until it exists, buyers' links open a page on SPM with your logo.</p>
+                        <button type="button" class="button button-secondary" id="spm-create-buyer-page">Create My properties page</button>
+                        <span id="spm-create-buyer-page-result" class="spm-status"></span>
+                    <?php endif; ?>
+                </div>
+
                 <p class="spm-save-row">
                     <?php submit_button('Save Titles', 'primary large', 'submit', false); ?>
                     <button type="button" class="button button-secondary button-large" id="spm-create-pages">Create Missing Pages</button>

@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { propertyUrlSegment } from './property-url';
 import type { SiteMinPrices } from './site-limits';
+import { agentCard, type AgentCardSource } from '../team/agent-profile';
 
 // The controller puts the tenant's slug format here once it has resolved the key.
 export interface PropertyUrlRequest extends Request {
@@ -25,17 +26,15 @@ export class PropertyUrlInterceptor implements NestInterceptor {
   }
 }
 
-// The listing's agent, sales agent and last editor are dashboard user
-// accounts: the public answer sent each whole (login email, role,
-// permissions, 2FA and last login). A website only needs the agent's name and
-// photo; the contact details shown come from Settings → Website agent.
+// The listing's agent, sales agent and last editor are user rows: the public
+// answer sent each whole (login email, role, permissions, 2FA and last
+// login). The website gets only the agent's card (Agents page: name, title,
+// phone, WhatsApp, website email, photo), and only when they are on the
+// website.
 export function publicPeople(obj: Record<string, unknown>): void {
-  const agent = obj.agent as { name?: unknown; avatarUrl?: unknown } | null | undefined;
-  if (agent && typeof agent === 'object') {
-    obj.agent = {
-      name: typeof agent.name === 'string' ? agent.name : '',
-      ...(typeof agent.avatarUrl === 'string' && agent.avatarUrl ? { photo: agent.avatarUrl } : {}),
-    };
+  if (obj.agent !== undefined) {
+    const agent = obj.agent as AgentCardSource | null;
+    obj.agent = agent && typeof agent === 'object' ? agentCard(agent) : null;
   }
   delete obj.salesAgent;
   delete obj.lastUpdatedByUser;

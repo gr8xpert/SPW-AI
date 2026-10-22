@@ -8,14 +8,7 @@ import type { Property, PropertyListResponse, PropertySource } from '@spm/shared
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { PropertyRowsTable } from '@/components/property-rows-table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -59,7 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
-import { PROPERTY_SOURCE_LABELS, formatCurrency, hasPrice } from '@/lib/utils';
+import { PROPERTY_SOURCE_LABELS } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
@@ -530,65 +523,36 @@ export default function PropertiesPage() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px]">Image</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Beds/Baths</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="w-[70px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {properties.map((property: Property) => (
-                    <TableRow key={property.id}>
-                      <TableCell>
-                        <div className="h-12 w-16 rounded-lg bg-muted overflow-hidden">
-                          {property.images?.[0]?.url ? (
-                            <img src={property.images[0].url} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">No image</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{property.reference}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{property.title?.en || property.title?.es || '-'}</TableCell>
-                      <TableCell>{property.location?.name?.en || '-'}</TableCell>
-                      <TableCell>{hasPrice(property.price) ? `${formatCurrency(Number(property.price), property.currency)}${Number(property.priceTo) > Number(property.price) ? ` – ${formatCurrency(Number(property.priceTo), property.currency)}` : ''}${property.rentalPeriod ? ` / ${property.rentalPeriod}` : ''}` : 'POA'}</TableCell>
-                      <TableCell>{property.bedrooms || '-'} / {property.bathrooms || '-'}</TableCell>
-                      <TableCell><Badge variant={statusColors[property.status]}>{property.status}</Badge></TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{property.source}</Badge></TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> View</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              disabled={deleteProperty.isPending}
-                              onSelect={() => setDeleteTarget(property)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <PropertyRowsTable
+                rows={properties.map((property: Property) => ({ ...property, image: property.images?.[0]?.url ?? null, property }))}
+                columns={['image', 'reference', 'title', 'location', 'price', 'bedsBaths']}
+                extra={[
+                  { key: 'status', header: 'Status', cell: ({ property }) => <Badge variant={statusColors[property.status]}>{property.status}</Badge> },
+                  { key: 'source', header: 'Source', cell: ({ property }) => <Badge variant="outline" className="capitalize">{property.source}</Badge> },
+                ]}
+                actions={({ property }) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> View</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        disabled={deleteProperty.isPending}
+                        onSelect={() => setDeleteTarget(property)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              />
 
               {meta && meta.pages > 1 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t">

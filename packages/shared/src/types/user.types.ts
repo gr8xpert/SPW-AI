@@ -44,4 +44,8 @@ export interface JwtPayload {
   originalRole?: UserRoleType;
   impersonatedTenantId?: number;
   impersonatedUserId?: number;
+
+  // The agency requires two-factor login and this user has not set it up:
+  // the API only lets the token reach /api/auth/me and /api/auth/2fa/*.
+  mfaSetup?: boolean;
 }

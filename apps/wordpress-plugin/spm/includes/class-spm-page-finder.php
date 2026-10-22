@@ -21,8 +21,10 @@ class SPM_Page_Finder {
     /** Text that marks a page as playing a role. Quote-free: Divi encodes quotes. */
     const MARKERS = [
         'detail'   => ['site-detail', 'detail-template-', '[spm_detail', '[spm_property'],
-        'wishlist' => ['wishlist_grid', '[spm_wishlist'],
+        // Not a bare "[spm_wishlist": that also matched [spm_wishlist_form] (2.9.11).
+        'wishlist' => ['wishlist_grid', '[spm_wishlist]', '[spm_wishlist '],
         'listings' => ['site-listing', 'listing-template-', '[spm_listing'],
+        'buyer'    => ['buyer-page', '[spm_buyer_page'],
     ];
 
     private static $instance = null;

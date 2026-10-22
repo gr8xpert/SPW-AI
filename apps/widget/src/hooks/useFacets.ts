@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { createContext } from 'preact';
+import { useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { getDataLoader, type Facets } from '@/core/data-loader';
 import { selectors } from '@/core/selectors';
 import { useSelector } from './useStore';
@@ -29,7 +30,12 @@ function facetsFor(key: string): Promise<Facets | null> {
   return promise;
 }
 
+// Off inside a form (the wishlist form): pickers there show every choice,
+// with no counts and no request, because the visitor isn't searching.
+export const FacetsEnabled = createContext(true);
+
 export function useFacets(): Facets | null {
+  const enabled = useContext(FacetsEnabled);
   const filters = useSelector(selectors.getEffectiveFilters);
   const [facets, setFacets] = useState<Facets | null>(lastFacets);
   const latest = useRef(0);
@@ -39,7 +45,7 @@ export function useFacets(): Facets | null {
   const key = JSON.stringify(rest);
 
   useEffect(() => {
-    if (!getDataLoader()) return;
+    if (!enabled || !getDataLoader()) return;
     const run = ++latest.current;
     const timer = setTimeout(() => {
       // A slower earlier answer must not overwrite a newer one.
@@ -50,9 +56,9 @@ export function useFacets(): Facets | null {
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [key]);
+  }, [key, enabled]);
 
-  return facets;
+  return enabled ? facets : null;
 }
 
 // The number to show beside a choice: the live count once known — 0 included,

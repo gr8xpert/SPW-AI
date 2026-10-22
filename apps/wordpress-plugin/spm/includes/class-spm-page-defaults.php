@@ -26,6 +26,14 @@ class SPM_Page_Defaults {
 
     private static $aliases = ['no' => 'nb', 'nn' => 'nb', 'pt-br' => 'pt', 'pt-pt' => 'pt', 'se' => 'sv'];
 
+    // The buyer's personal page (Buyer Match): lang => title (the slug is made from it).
+    private static $buyer = [
+        'en' => 'My properties', 'es' => 'Mis propiedades', 'de' => 'Meine Immobilien', 'fr' => 'Mes biens',
+        'nl' => 'Mijn woningen', 'it' => 'I miei immobili', 'pt' => 'Os meus imóveis', 'sv' => 'Mina bostäder',
+        'nb' => 'Mine eiendommer', 'da' => 'Mine boliger', 'fi' => 'Omat kohteet', 'pl' => 'Moje nieruchomości',
+        'ru' => 'Мои объекты',
+    ];
+
     private static function row($lang) {
         $lang = strtolower((string) $lang);
         $lang = self::$aliases[$lang] ?? $lang;
@@ -42,10 +50,13 @@ class SPM_Page_Defaults {
         return ['listings' => $r[0], 'detail' => $r[1], 'wishlist' => $r[2]];
     }
 
-    /** @return array{listings:string,detail:string,wishlist:string,map:string} */
+    /** @return array{listings:string,detail:string,wishlist:string,map:string,buyer:string} */
     public static function titles($lang) {
         $r = self::row($lang);
-        return ['listings' => $r[3], 'detail' => $r[4], 'wishlist' => $r[5], 'map' => $r[6]];
+        $l = strtolower((string) $lang);
+        $l = self::$aliases[$l] ?? $l;
+        $buyer = self::$buyer[$l] ?? (self::$buyer[substr($l, 0, 2)] ?? self::$buyer['en']);
+        return ['listings' => $r[3], 'detail' => $r[4], 'wishlist' => $r[5], 'map' => $r[6], 'buyer' => $buyer];
     }
 
     /** True when the language has its own suggestions (not the English fallback). */

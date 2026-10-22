@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { Tenant, WebhookDelivery } from '../../database/entities';
+import { Tenant, User, WebhookDelivery } from '../../database/entities';
 import { TenantPublic, TenantSettings, DEFAULT_TENANT_TIER, DEFAULT_LOCATION_SEARCH_CONFIG } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { createPreviewToken, isPreviewToken, verifyPreviewToken } from '../../common/crypto/preview-token';
@@ -13,6 +13,9 @@ import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/we
 import { siteMinPrices } from '../property/site-limits';
 import { cleanTitlePatterns, unknownTitleTokens } from '../property/title-pattern';
 import { isRecaptchaKey } from '../../common/security/recaptcha-key';
+import { publicSiteAgent } from './site-agent';
+import { agentCard } from '../team/agent-profile';
+export { publicSiteAgent } from './site-agent';
 
 export interface CacheClearResult {
   tenantId: number;
@@ -42,6 +45,8 @@ export class TenantService {
     @InjectRepository(WebhookDelivery)
     private readonly webhookDeliveryRepo: Repository<WebhookDelivery>,
     private readonly webhookService: WebhookService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async findById(id: number): Promise<TenantPublic> {
@@ -167,6 +172,16 @@ export class TenantService {
     const agentIn = (publicSettings as { siteAgent?: unknown }).siteAgent;
     if (agentIn !== undefined && (agentIn === null || typeof agentIn !== 'object' || Array.isArray(agentIn))) {
       delete (publicSettings as { siteAgent?: unknown }).siteAgent;
+    } else if (agentIn !== undefined) {
+      // A person from the Agents page: the card is copied from them here (and
+      // refreshed when they are edited), never taken from the request.
+      const userId = Number((agentIn as { userId?: unknown }).userId);
+      if (Number.isInteger(userId) && userId > 0) {
+        const person = await this.userRepository.findOne({ where: { id: userId, tenantId } });
+        const card = agentCard(person);
+        if (!card) throw new BadRequestException('Pick an active agent who is shown on the website.');
+        (publicSettings as { siteAgent?: unknown }).siteAgent = { ...card, userId };
+      }
     }
     const costsIn = (publicSettings as { purchaseCosts?: unknown }).purchaseCosts;
     if (costsIn !== undefined && (costsIn === null || typeof costsIn !== 'object' || Array.isArray(costsIn))) {
@@ -597,6 +612,7 @@ export class TenantService {
         team: false,
         aiChat: false,
         aiTranslation: false,
+        buyerMatch: false,
       },
       tier: tenant.tier || DEFAULT_TENANT_TIER,
       recaptchaSecretKeyConfigured: !!tenant.recaptchaSecretKey,
@@ -648,27 +664,6 @@ export function mortgageRate(v: unknown): number | null {
   if (v == null || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) && n >= 0 && n <= 30 ? Math.round(n * 100) / 100 : null;
-}
-
-// The agent the website shows on property pages (Settings → Widget → Website
-// agent): the client's own public contact details, cleaned. Null when no name.
-export function publicSiteAgent(value: TenantSettings['siteAgent']): Record<string, string> | null {
-  if (!value || typeof value !== 'object') return null;
-  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-  const name = text(value.name, 120);
-  if (!name) return null;
-  const out: Record<string, string> = { name };
-  const title = text(value.title, 120);
-  if (title) out.title = title;
-  const email = text(value.email, 200);
-  if (/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(email)) out.email = email;
-  for (const key of ['phone', 'whatsapp'] as const) {
-    const phone = text(value[key], 40);
-    if (/^\+?[\d\s().-]{6,40}$/.test(phone)) out[key] = phone;
-  }
-  const photo = text(value.photo, 1000);
-  if (/^https?:\/\/[^\s"'<>]+$/i.test(photo)) out.photo = photo;
-  return out;
 }
 
 const PURCHASE_COST_RATES = [

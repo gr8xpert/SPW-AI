@@ -37,6 +37,7 @@ class SPM_Plugin {
         SPM_Shortcode::instance();
         SPM_Health::instance();
         SPM_Custom_Form::instance();
+        SPM_Buyer_Page::instance();
         if (is_admin()) SPM_Setup_Wizard::instance();
 
         // Rewrite flush requested by a settings save (see SPM_Settings::sanitize).
@@ -149,6 +150,7 @@ class SPM_Plugin {
                 'listings' => 'Properties',
                 'detail'   => 'Property Detail',
                 'wishlist' => 'Wishlist',
+                'buyer'    => 'My properties',
             ],
             // Titles for the other languages of a multilingual site: lang => type => title.
             'page_titles_i18n' => [],
@@ -159,6 +161,8 @@ class SPM_Plugin {
             'listings_page_id' => 0,
             'wishlist_page_id' => 0,
             'map_page_id'      => 0,
+            // The buyer's personal page (Buyer Match), made from SPM → Pages.
+            'buyer_page_id'    => 0,
         ];
     }
 
@@ -196,7 +200,7 @@ class SPM_Plugin {
      * Falls back: requested lang → 'en' → hard default.
      */
     public static function slug($type, $lang = null) {
-        $defaults = ['listings' => 'properties', 'detail' => 'property', 'wishlist' => 'wishlist'];
+        $defaults = ['listings' => 'properties', 'detail' => 'property', 'wishlist' => 'wishlist', 'buyer' => 'my-properties'];
         $map = (array) self::get('slugs_' . $type, []);
         $lang = $lang ?: (class_exists('SPM_I18n') ? SPM_I18n::instance()->current_lang() : 'en');
         if ($lang && !empty($map[$lang])) return $map[$lang];

@@ -33,6 +33,18 @@ export * from './ticket.entity';
 // Contact and Lead entities
 export * from './contact.entity';
 export * from './lead.entity';
+export * from './buyer-stage.entity';
+export * from './lead-agent.entity';
+export * from './buyer-task.entity';
+export * from './lead-file.entity';
+export * from './lead-suggestion.entity';
+export * from './buyer-question.entity';
+export * from './buyer-send.entity';
+export * from './lead-suggestion-event.entity';
+export * from './lead-change.entity';
+export * from './buyer-alert.entity';
+export * from './buyer-viewing.entity';
+export * from './meta-lead.entity';
 
 // Analytics entities
 export * from './analytics.entity';

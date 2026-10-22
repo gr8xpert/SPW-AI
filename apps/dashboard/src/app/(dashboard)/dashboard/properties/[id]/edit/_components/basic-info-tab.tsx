@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { TabsContent } from '@/components/ui/tabs';
 import { LanguageSelect, MultilingualInput, MultilingualTextarea } from './multilingual-fields';
+import { agentChoices } from '@/hooks/use-agents';
 import {
   displayName,
   type FormSectionProps,
@@ -167,9 +168,10 @@ export function BasicInfoTab({
                 <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">&mdash; None &mdash;</SelectItem>
-                  {teamMembers.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>))}
+                  {agentChoices(teamMembers, 'website', formData.agentId).map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">People with &quot;Show on website&quot; on the Agents page. Shown on this property page.</p>
             </div>
             <div className="space-y-2">
               <Label>Sales Agent</Label>
@@ -177,7 +179,7 @@ export function BasicInfoTab({
                 <SelectTrigger><SelectValue placeholder="Select sales agent" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">&mdash; None &mdash;</SelectItem>
-                  {teamMembers.map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>))}
+                  {agentChoices(teamMembers, 'sales', formData.salesAgentId).map((m) => (<SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>

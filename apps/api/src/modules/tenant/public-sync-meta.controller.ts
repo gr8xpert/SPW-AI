@@ -40,6 +40,8 @@ export class PublicSyncMetaController {
     @Headers('x-api-key') apiKey: string,
     @Headers('x-spm-site') site?: string,
     @Headers('x-spm-plugin') pluginVersion?: string,
+    // Plugin 2.9.12+: the address of its My properties page (Buyer Match).
+    @Headers('x-spm-buyer-page') buyerPage?: string,
     // Plugins before 2.8 (named SPW) send these. 2.8 renamed them to x-spm-*
     // while this read only x-spw-*, so from 09-30 no site checked in and
     // Website Health said "plugin last connected N days ago".
@@ -56,7 +58,7 @@ export class PublicSyncMetaController {
       throw new UnauthorizedException('Invalid API key');
     }
     // The WordPress plugin says which site it is (Website Health page).
-    if (site && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, site, 'plugin', pluginVersion);
+    if (site && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, site, 'plugin', pluginVersion, buyerPage);
     return this.tenantService.getSyncMeta(tenant.id);
   }
 }

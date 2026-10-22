@@ -12,6 +12,7 @@ export interface DashboardAddons {
   team: boolean;
   aiChat: boolean;
   aiTranslation: boolean;
+  buyerMatch: boolean;
 }
 
 export type TenantTier = 1 | 2 | 3;
@@ -23,6 +24,7 @@ export const ALL_LOCKED: DashboardAddons = {
   team: false,
   aiChat: false,
   aiTranslation: false,
+  buyerMatch: false,
 };
 
 const ALL_UNLOCKED: DashboardAddons = {
@@ -32,6 +34,7 @@ const ALL_UNLOCKED: DashboardAddons = {
   team: true,
   aiChat: true,
   aiTranslation: true,
+  buyerMatch: true,
 };
 
 interface TenantResponse {

@@ -16,7 +16,8 @@ export const LANGUAGES = [
 export interface PropertyTypeOption { id: number; name: Record<string, string> | string; }
 export interface LocationOption { id: number; name: Record<string, string> | string; level?: string; }
 export interface FeatureOption { id: number; name: Record<string, string> | string; category?: string; }
-export interface TeamMember { id: number; name: string | null; email: string; }
+// A person from GET /api/dashboard/agents (Agents page).
+export interface TeamMember { id: number; name: string | null; email: string | null; showOnWebsite?: boolean; canLogin?: boolean; isActive?: boolean; }
 
 export interface MediaFileItem {
   id: number;

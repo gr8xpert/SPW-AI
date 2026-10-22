@@ -46,6 +46,7 @@ const clientSchema = z.object({
   isInternal: z.boolean(),
   widgetEnabled: z.boolean(),
   feedImagesToR2: z.boolean(),
+  require2fa: z.boolean(),
   isActive: z.boolean(),
   featureFlags: z.object({
     mapSearch: z.boolean(),
@@ -64,6 +65,7 @@ const clientSchema = z.object({
     team: z.boolean(),
     aiChat: z.boolean(),
     aiTranslation: z.boolean(),
+    buyerMatch: z.boolean(),
   }),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   xeroContactId: z.string().optional().nullable(),
@@ -80,6 +82,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, ClientFormData['dashboardAddons']> =
     team: false,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   2: {
     addProperty: true,
@@ -88,6 +91,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, ClientFormData['dashboardAddons']> =
     team: true,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   3: {
     addProperty: true,
@@ -96,6 +100,7 @@ const TIER_ADDON_PRESETS: Record<1 | 2 | 3, ClientFormData['dashboardAddons']> =
     team: true,
     aiChat: true,
     aiTranslation: true,
+    buyerMatch: true,
   },
 };
 
@@ -127,6 +132,7 @@ export default function EditClientPage() {
       isInternal: false,
       widgetEnabled: true,
       feedImagesToR2: false,
+      require2fa: false,
       isActive: true,
       featureFlags: {
         mapSearch: false,
@@ -145,6 +151,7 @@ export default function EditClientPage() {
         team: false,
         aiChat: false,
         aiTranslation: false,
+        buyerMatch: false,
       },
       tier: 1,
       xeroContactId: '',
@@ -179,6 +186,7 @@ export default function EditClientPage() {
           isInternal: client.isInternal,
           widgetEnabled: client.widgetEnabled,
           feedImagesToR2: client.feedImagesToR2 ?? false,
+          require2fa: client.require2fa ?? false,
           isActive: client.isActive,
           featureFlags: {
             mapSearch: !!client.featureFlags?.mapSearch,
@@ -198,6 +206,7 @@ export default function EditClientPage() {
             team: !!client.dashboardAddons?.team,
             aiChat: !!client.dashboardAddons?.aiChat,
             aiTranslation: !!client.dashboardAddons?.aiTranslation,
+            buyerMatch: !!client.dashboardAddons?.buyerMatch,
           },
           tier: (client.tier as 1 | 2 | 3) || 1,
           xeroContactId: client.xeroContactId || '',
@@ -555,6 +564,24 @@ export default function EditClientPage() {
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="require2fa"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Require Two-Factor Login</FormLabel>
+                          <FormDescription>
+                            Every user of this client must log in with a code from an authenticator app. Users without it are asked to set it up at their next login. Your own &ldquo;view as client&rdquo; is not affected.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="require-2fa" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
                   {[
                     { name: 'featureFlags.mapSearch' as const, label: 'Map Search', description: 'Search properties by drawing on a map' },
                     { name: 'featureFlags.mapView' as const, label: 'Map View', description: 'Display properties on an interactive map' },
@@ -642,9 +669,10 @@ export default function EditClientPage() {
                     { name: 'dashboardAddons.addProperty' as const, label: 'Add Property', description: 'Allow this client to manually create properties from the dashboard' },
                     { name: 'dashboardAddons.emailCampaign' as const, label: 'Email Campaigns', description: 'Send marketing emails and manage campaigns' },
                     { name: 'dashboardAddons.feedExport' as const, label: 'Feed Export', description: 'Generate XML/JSON feeds to syndicate to portals' },
-                    { name: 'dashboardAddons.team' as const, label: 'Team Management', description: 'Invite team members and assign roles' },
+                    { name: 'dashboardAddons.team' as const, label: 'Agents', description: 'Agents page: logins, website agents and buyer agents' },
                     { name: 'dashboardAddons.aiChat' as const, label: 'AI Chat', description: 'Conversational AI analytics and chat history' },
                     { name: 'dashboardAddons.aiTranslation' as const, label: 'AI Translation & SEO', description: 'AI-powered content translation and SEO generation across properties, features, labels, and property types' },
+                    { name: 'dashboardAddons.buyerMatch' as const, label: 'Buyer Match', description: 'Buyers, wishlists, property matching, pipeline and tasks' },
                   ].map((addon) => (
                     <FormField
                       key={addon.name}

@@ -11,7 +11,7 @@ import { isMounted, mountAll, releaseDetached, remountChangedSiteBlocks } from '
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
-import { isCurated, isPageResults, liftSearchBlocks, markCuratedBlocksStandalone, RESULT_COMPONENTS } from './core/block-role';
+import { isCurated, isPageResults, liftSearchBlocks, markCuratedBlocksStandalone, onlyFormBlocks, RESULT_COMPONENTS } from './core/block-role';
 import { installLegacyAPI, setRefreshHandler, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
 import { startTracking, trackSearch } from './core/tracker';
@@ -101,7 +101,9 @@ function startBoot(config: WidgetConfig): Boot {
   b.earlyDetail = entries.some((e) => e.isTemplate && e.templateId?.startsWith('detail-template'));
   b.earlyRefs = b.earlyDetail ? detailRefCandidates(config) : [];
   b.earlyProperty = b.earlyRefs[0] ? loader.getProperty(b.earlyRefs[0]).catch(() => null) : null;
-  const guess = b.earlyDetail || !entries.length ? null : guessFirstSearch(config);
+  // A page holding only forms (the wishlist form) searches for nothing.
+  const formsOnly = onlyFormBlocks(entries.map((e) => e.componentType));
+  const guess = b.earlyDetail || !entries.length || formsOnly ? null : guessFirstSearch(config);
   b.earlyKey = guess ? loader.searchKeyFor(guess) : '';
   b.earlySearch = guess ? loader.searchProperties(guess).catch(() => null) : null;
   return b;
@@ -411,7 +413,7 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
     // A saved answer to the first search (the plugin's file, or this
     // browser's last visit) is on screen the moment the blocks mount; the
     // live answer replaces it below.
-    if (!earlyDetail && !store.getState().results) {
+    if (!earlyDetail && !store.getState().results && !onlyFormBlocks(scanDOM().map((e) => e.componentType))) {
       savedShown = loader.peekSearch(initialFilters());
       if (savedShown) actions.setResults(savedShown);
     }
@@ -479,7 +481,9 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   // The first search — or, when a saved copy is already on screen, its live
   // refresh. Skipped on a detail page, which only needs its property, and on
   // a page without blocks.
-  if ((savedShown || !store.getState().results) && !hasDetailTemplate && allEntries.length) {
+  // Skipped too on a page holding only forms (the wishlist form).
+  const formsOnly = onlyFormBlocks(allEntries.map((e) => e.componentType));
+  if ((savedShown || !store.getState().results) && !hasDetailTemplate && !formsOnly && allEntries.length) {
     const effectiveFilters = initialFilters();
     const shown = store.getState().results;
     if (!savedShown) actions.setSearchLoading(true);

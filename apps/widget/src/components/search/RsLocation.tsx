@@ -7,7 +7,7 @@ import { useConfig } from '@/hooks/useConfig';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import type { Location } from '@/types';
-import { useFacets, facetCount, countClass, useNonEmpty } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass, useNonEmpty, FacetsEnabled } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -1024,5 +1024,38 @@ export default function RsLocation({ variation = 1 }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The location tabs on their own, for a form (the wishlist form): several
+ * places at any level, kept in the form's own state — never the page's
+ * search filters. Same tabs as the site's search (Locations → Website Search
+ * Dropdowns). facets={false} shows every place, with no counts.
+ */
+export function LocationPicker({ value, onChange, facets = true }: {
+  value: number[];
+  onChange: (ids: number[]) => void;
+  facets?: boolean;
+}) {
+  const { t } = useLabels();
+  const widgetConfig = useConfig();
+  const all = useSelector(selectors.getLocations);
+  const locations = useMemo(() => (facets ? all : all.map((l) => ({ ...l, propertyCount: undefined }))), [all, facets]);
+  const boxes = locationBoxes(widgetConfig.locationSearchConfig, 2);
+  return (
+    <FacetsEnabled.Provider value={facets}>
+      <div class={`rs_location${boxes > 1 ? ` rs_location--multi rs_location--n${boxes}` : ''}`}>
+        <CascadingMultiSelect
+          locations={locations}
+          value={value}
+          onChange={onChange}
+          locked={false}
+          t={t}
+          config={widgetConfig.locationSearchConfig}
+          visibleCount={boxes}
+        />
+      </div>
+    </FacetsEnabled.Provider>
   );
 }

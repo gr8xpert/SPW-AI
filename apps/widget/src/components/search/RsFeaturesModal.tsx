@@ -9,9 +9,11 @@ interface Props {
   toggle: (id: number) => void;
   clearAll: () => void;
   onClose: () => void;
+  // The wishlist form has no search filters: no "Key ready" toggle there.
+  hideKeyReady?: boolean;
 }
 
-export default function RsFeaturesModal({ grouped, selected, toggle, clearAll, onClose }: Props) {
+export default function RsFeaturesModal({ grouped, selected, toggle, clearAll, onClose, hideKeyReady }: Props) {
   const { t } = useLabels();
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -55,7 +57,7 @@ export default function RsFeaturesModal({ grouped, selected, toggle, clearAll, o
           />
         </div>
         <div class="rs-modal-body">
-          <RsKeyReady />
+          {!hideKeyReady && <RsKeyReady />}
           <div class="rs-features-modal__categories">
             {Array.from(filteredGrouped.entries()).map(([cat, feats]) => {
               const isOpen = expanded.has(cat) || search.trim().length > 0;

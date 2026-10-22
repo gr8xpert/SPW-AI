@@ -34,6 +34,7 @@ import { MediaTab } from './_components/media-tab';
 import { SeoTab } from './_components/seo-tab';
 import { SettingsTab } from './_components/settings-tab';
 import { FeedLocksNotice } from './_components/feed-locks-notice';
+import { ReverseMatchCard } from '../../../buyers/_components/reverse-match-card';
 
 export default function EditPropertyPage() {
   const params = useParams();
@@ -74,7 +75,7 @@ export default function EditPropertyPage() {
             api.get('/api/dashboard/locations'),
             api.get('/api/dashboard/property-types'),
             api.get('/api/dashboard/features'),
-            api.get('/api/dashboard/team'),
+            api.get('/api/dashboard/agents'),
             api.get(`/api/dashboard/upload/property/${id}`),
             api.get('/api/dashboard/tenant'),
           ].map(p => p.catch(() => null)));
@@ -201,6 +202,8 @@ export default function EditPropertyPage() {
           </Button>
         </div>
       </div>
+
+      <ReverseMatchCard propertyId={propertyId} />
 
       {propertySource !== 'manual' && (
         <FeedLocksNotice api={api} toast={toast} propertyId={propertyId} source={propertySource} lockedFields={lockedFields} onChange={setLockedFields} />

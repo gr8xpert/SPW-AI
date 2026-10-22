@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import { openRouterBase } from './ai-models';
 
 export interface CatalogModel {
   id: string;
@@ -9,7 +10,6 @@ export interface CatalogModel {
   outputPrice: number;
 }
 
-const CATALOG_URL = 'https://openrouter.ai/api/v1/models';
 const TTL_MS = 6 * 60 * 60 * 1000;
 const RETRY_AFTER_FAILURE_MS = 10 * 60 * 1000;
 
@@ -47,7 +47,7 @@ export class OpenRouterCatalogService {
 
   private async refresh(): Promise<void> {
     try {
-      const res = await axios.get(CATALOG_URL, { timeout: 10_000 });
+      const res = await axios.get(`${openRouterBase()}/models`, { timeout: 10_000 });
       const list: any[] = Array.isArray(res.data?.data) ? res.data.data : [];
       if (!list.length) throw new Error('empty model list');
       this.models = new Map(

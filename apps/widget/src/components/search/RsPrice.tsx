@@ -4,6 +4,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useConfig } from '@/hooks/useConfig';
 import RsCustomSelect from './RsCustomSelect';
+import type { WidgetConfig } from '@/types';
 
 interface Props {
   variation?: number;
@@ -27,6 +28,26 @@ const DEFAULT_PRICES: Record<string, number[]> = {
   holiday_rent: [150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000],
 };
 
+/**
+ * The price choices for a listing type: the client's own list (Settings →
+ * Widget), else built-in steps, minus anything under "Hide properties below".
+ * Also used by the wishlist form's budget.
+ */
+export function priceSteps(config: Pick<WidgetConfig, 'priceOptions' | 'minPrices'>, lt: string): number[] {
+  const floor = Number(config.minPrices?.[lt] ?? (lt === 'development' ? config.minPrices?.sale : 0)) || 0;
+  const opts = config.priceOptions;
+  const own = opts && typeof opts === 'object' ? opts[lt] : undefined;
+  // An empty list: New Development uses the client's Sale prices; rentals
+  // their own built-in steps (never sale prices for a monthly rent).
+  const isSaleLike = lt === 'sale' || lt === 'development';
+  const list = own?.length
+    ? own
+    : isSaleLike && opts?.sale?.length
+      ? opts.sale
+      : DEFAULT_PRICES[lt] ?? DEFAULT_SALE_PRICES;
+  return floor > 0 ? list.filter((v) => v >= floor) : list;
+}
+
 export default function RsPrice({ variation = 1 }: Props) {
   const config = useConfig();
   const { filters, setFilter, isLocked } = useFilters();
@@ -40,19 +61,7 @@ export default function RsPrice({ variation = 1 }: Props) {
   // Nothing cheaper than the client's "Hide properties below" exists on the
   // site, so no choice below it either.
   const floor = Number(config.minPrices?.[lt] ?? (lt === 'development' ? config.minPrices?.sale : 0)) || 0;
-  const priceOptions = useMemo(() => {
-    const opts = config.priceOptions;
-    const own = opts && typeof opts === 'object' ? opts[lt] : undefined;
-    // An empty list: New Development uses the client's Sale prices; rentals
-    // their own built-in steps (never sale prices for a monthly rent).
-    const isSaleLike = lt === 'sale' || lt === 'development';
-    const list = own?.length
-      ? own
-      : isSaleLike && opts?.sale?.length
-        ? opts.sale
-        : DEFAULT_PRICES[lt] ?? DEFAULT_SALE_PRICES;
-    return floor > 0 ? list.filter((v) => v >= floor) : list;
-  }, [config.priceOptions, lt, floor]);
+  const priceOptions = useMemo(() => priceSteps(config, lt), [config.priceOptions, config.minPrices, lt]);
 
   const handleMin = useCallback((value: string) => {
     const num = value ? Number(value) : undefined as unknown as number;

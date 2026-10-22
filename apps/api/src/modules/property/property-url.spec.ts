@@ -53,10 +53,19 @@ describe('PropertyUrlInterceptor', () => {
     expect(one.urlSegment).toBe('luxury-villa-in-malaga_R5P-123');
   });
 
-  it('sends only the agent name and photo, never the user accounts', async () => {
-    const user = { id: 3, email: 'staff@agency.test', name: 'Ana', role: 'admin', permissions: {}, avatarUrl: 'https://x/a.jpg', lastLoginAt: 'x' };
+  it('sends only the agent card, never the user accounts', async () => {
+    const user = {
+      id: 3, email: 'staff@agency.test', name: 'Ana', role: 'admin', permissions: {}, avatarUrl: 'https://x/a.jpg', lastLoginAt: 'x',
+      showOnWebsite: true, isActive: true, title: 'Partner', phone: '+34 600 111 222', publicEmail: 'ana@agency.test',
+    };
     const one: any = await run({ ...villa, agent: user, agentId: 3, salesAgent: user, salesAgentId: 3, lastUpdatedByUser: user, lastUpdatedById: 3 });
-    expect(one.agent).toEqual({ name: 'Ana', photo: 'https://x/a.jpg' });
+    expect(one.agent).toEqual({ name: 'Ana', title: 'Partner', phone: '+34 600 111 222', email: 'ana@agency.test', photo: 'https://x/a.jpg' });
     for (const k of ['salesAgent', 'salesAgentId', 'lastUpdatedByUser', 'lastUpdatedById', 'agentId']) expect(one).not.toHaveProperty(k);
+  });
+
+  it('hides an agent who is not on the website', async () => {
+    const user = { id: 3, email: 'staff@agency.test', name: 'Ana', role: 'user', showOnWebsite: false };
+    const one: any = await run({ ...villa, agent: user });
+    expect(one.agent).toBeNull();
   });
 });

@@ -15,6 +15,9 @@ interface ErrorResponse {
   // Stable machine-readable code (e.g. 'EMAIL_NOT_VERIFIED') so clients can
   // branch on the error without parsing the human-readable message string.
   code?: string;
+  // Small machine-readable extras for that code (e.g. the id of the record a
+  // 409 conflicts with). Only a plain object thrown as `details` is passed on.
+  details?: Record<string, unknown>;
   // Propagates the request ID attached by RequestIdMiddleware so operators
   // can search logs by the same correlation ID the client sees in its
   // X-Request-Id response header.
@@ -36,6 +39,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message: string | string[];
     let error: string;
     let code: string | undefined;
+    let details: Record<string, unknown> | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -46,6 +50,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = responseObj.message || exception.message;
         error = responseObj.error || 'Error';
         code = typeof responseObj.code === 'string' ? responseObj.code : undefined;
+        const d = responseObj.details;
+        details = d && typeof d === 'object' && !Array.isArray(d) ? d : undefined;
       } else {
         message = exception.message;
         error = 'Error';
@@ -68,6 +74,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       error,
       ...(code ? { code } : {}),
+      ...(details ? { details } : {}),
       ...(request.requestId ? { requestId: request.requestId } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,

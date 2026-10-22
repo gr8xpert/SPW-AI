@@ -33,7 +33,7 @@ const FEATURE_CATEGORY_DEFAULTS: Record<string, string> = {
   other: 'Other',
 };
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return String(s)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -81,8 +81,10 @@ function groupFeatures(features: Array<{ category: string; name: string }>) {
     .map((cat) => ({ category: cat, items: grouped[cat] }));
 }
 
-export function renderLayoutV1(ctx: BrochureContext): string {
-  const { property, tenant, labels, lang } = ctx;
+// The three pages of one property (cover, description, features), without
+// the document around them: the selection PDF puts several in one file.
+export function renderLayoutV1Sections(ctx: BrochureContext, opts: { skipEmptyFeatures?: boolean } = {}): string {
+  const { property, labels } = ctx;
   const t = (key: string, fallback: string) => labels[key] || fallback;
 
   const hero = property.images[0]?.url || '';
@@ -99,15 +101,7 @@ export function renderLayoutV1(ctx: BrochureContext): string {
   if (property.buildSize != null) specs.push({ label: t('detail_build_size', 'Build Size'), value: `${property.buildSize}m²` });
   if (property.terraceSize != null) specs.push({ label: t('detail_terrace', 'Terrace'), value: `${property.terraceSize}m²` });
 
-  return `<!DOCTYPE html>
-<html lang="${escapeHtml(lang)}">
-<head>
-<meta charset="utf-8" />
-<title>${escapeHtml(property.title)}</title>
-<style>${CSS}</style>
-</head>
-<body style="--accent:${escapeHtml(tenant.primaryColor)};">
-
+  return `
   <!-- ===== Page 1: Cover ===== -->
   <section class="page page-cover">
     <header class="cover-header">
@@ -142,7 +136,7 @@ export function renderLayoutV1(ctx: BrochureContext): string {
     </div>
   </section>
 
-  <!-- ===== Page 3: Features ===== -->
+  ${opts.skipEmptyFeatures && !featureGroups.length ? '' : `<!-- ===== Page 3: Features ===== -->
   <section class="page page-features">
     <h2 class="section-heading">${escapeHtml(t('brochure_features_heading', 'Features'))}</h2>
     <div class="features-grid">
@@ -155,7 +149,22 @@ export function renderLayoutV1(ctx: BrochureContext): string {
         </div>
       `).join('')}
     </div>
-  </section>
+  </section>`}
+`;
+}
+
+export function renderLayoutV1(ctx: BrochureContext): string {
+  const { property, tenant, lang } = ctx;
+  return `<!DOCTYPE html>
+<html lang="${escapeHtml(lang)}">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(property.title)}</title>
+<style>${LAYOUT_V1_CSS}</style>
+</head>
+<body style="--accent:${escapeHtml(tenant.primaryColor)};">
+
+${renderLayoutV1Sections(ctx)}
 
 </body>
 </html>`;
@@ -207,7 +216,7 @@ export function renderUnbrandedFooter(): string {
     </div>`;
 }
 
-const CSS = `
+export const LAYOUT_V1_CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page { size: A4; margin: 24mm 15mm 18mm 15mm; }
   html, body {

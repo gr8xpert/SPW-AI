@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -7,6 +7,13 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  // Two-factor code (6 digits) or a recovery code, sent on the second try
+  // after the API answered TWO_FACTOR_REQUIRED.
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  code?: string;
 }
 
 export class LoginResponseDto {
@@ -24,5 +31,7 @@ export class LoginResponseDto {
     name: string | null;
     role: string;
     tenantId: number;
+    // The agency requires two-factor login and this user must set it up first.
+    mfaSetup?: boolean;
   };
 }

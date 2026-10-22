@@ -3,6 +3,12 @@
 // retires disappears from the list instead of failing every request.
 // Review this list when new model generations come out; the IDs are
 // OpenRouter's (https://openrouter.ai/models).
+// OpenRouter's API root. Only from the server's .env (OPENROUTER_BASE_URL),
+// so tests can point every AI call at a local fake server.
+export function openRouterBase(): string {
+  return (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
+}
+
 export interface RecommendedModel {
   id: string;
   label: string;

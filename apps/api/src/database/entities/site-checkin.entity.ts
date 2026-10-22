@@ -23,6 +23,10 @@ export class SiteCheckin {
   @Column({ type: 'varchar', length: 20, nullable: true })
   pluginVersion: string | null;
 
+  // The plugin's My properties page (Buyer Match), when it has one.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  buyerPageUrl: string | null;
+
   @Column({ type: 'timestamp' })
   firstSeenAt: Date;
 

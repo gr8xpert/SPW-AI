@@ -28,25 +28,45 @@ export class SiteCheckinService {
 
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown): void {
+  // buyerPageUrl: undefined = not sent (an older plugin: keep what is
+  // stored); anything else is stored when it is a page of the same site.
+  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown, buyerPageUrl?: unknown): void {
     const siteUrl = normaliseSiteUrl(site);
     if (!siteUrl) return;
     // Our own pages (template gallery previews, demo) and local test copies are not client sites.
     if (/^https?:\/\/(localhost|127\.|\[::1\])/.test(siteUrl)) return;
     if (/^https?:\/\/(www\.)?spw-ai\.com(\/|$)/.test(siteUrl) || /^https?:\/\/dashboard\.spw-ai\.com/.test(siteUrl)) return;
     const version = typeof pluginVersion === 'string' && /^[\w.-]{1,20}$/.test(pluginVersion) ? pluginVersion : null;
-    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}`;
+    const sentPage = buyerPageUrl !== undefined;
+    const page = sentPage ? sameSitePage(buyerPageUrl, siteUrl) : null;
+    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}|${sentPage ? page ?? '-' : ''}`;
     const now = Date.now();
     if ((this.lastWrite.get(key) ?? 0) > now - WRITE_EVERY_MS) return;
     if (this.lastWrite.size > MAX_TRACKED) this.lastWrite.clear();
     this.lastWrite.set(key, now);
     this.dataSource
       .query(
-        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, firstSeenAt, lastSeenAt)
-         VALUES (?, ?, ?, ?, NOW(), NOW())
-         ON DUPLICATE KEY UPDATE lastSeenAt = NOW(), pluginVersion = COALESCE(VALUES(pluginVersion), pluginVersion)`,
-        [tenantId, siteUrl, source, version],
+        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, buyerPageUrl, firstSeenAt, lastSeenAt)
+         VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE lastSeenAt = NOW(), pluginVersion = COALESCE(VALUES(pluginVersion), pluginVersion),
+           buyerPageUrl = IF(?, VALUES(buyerPageUrl), buyerPageUrl)`,
+        [tenantId, siteUrl, source, version, page, sentPage ? 1 : 0],
       )
       .catch((err: Error) => this.logger.warn(`check-in not saved: ${err.message}`));
+  }
+}
+
+// The plugin's buyer page, only when it is an http(s) page on the same host
+// as the site that checked in (a header can't point buyers' links elsewhere).
+export function sameSitePage(raw: unknown, siteUrl: string): string | null {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 500) return null;
+  try {
+    const u = new URL(raw.trim());
+    const site = new URL(siteUrl);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.host.toLowerCase() !== site.host.toLowerCase()) return null;
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return null;
   }
 }

@@ -6,7 +6,7 @@ import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
 import { useDragScroll } from '@/hooks/useDragScroll';
 import type { PropertyType } from '@/types';
-import { useFacets, facetCount, countClass, useNonEmpty } from '@/hooks/useFacets';
+import { useFacets, facetCount, countClass, useNonEmpty, FacetsEnabled } from '@/hooks/useFacets';
 
 interface Props {
   variation?: number;
@@ -607,5 +607,36 @@ export default function RsPropertyType({ variation = 1 }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The type list on its own, for a form (the wishlist form): several ticks,
+ * kept in the form's own state — never the page's search filters.
+ * facets={false} shows every type, with no counts.
+ */
+export function PropertyTypePicker({ value, onChange, facets = true, placeholder }: {
+  value: number[];
+  onChange: (ids: number[]) => void;
+  facets?: boolean;
+  placeholder?: string;
+}) {
+  const { t } = useLabels();
+  const all = useSelector(selectors.getPropertyTypes);
+  const types = useMemo(() => (facets ? all : all.map((pt) => ({ ...pt, propertyCount: undefined }))), [all, facets]);
+  const selected = useMemo(() => new Set(value), [value]);
+  return (
+    <FacetsEnabled.Provider value={facets}>
+      <div class="rs_property_type">
+        <MultiSelectDropdown
+          types={types}
+          selected={selected}
+          onChange={onChange}
+          allLabel={placeholder ?? t('property_type_all', 'Property Type')}
+          locked={false}
+          t={t}
+        />
+      </div>
+    </FacetsEnabled.Provider>
   );
 }

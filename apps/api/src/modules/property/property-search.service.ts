@@ -347,7 +347,8 @@ export class PropertySearchService {
     return [...result];
   }
 
-  private async applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto, tenantId: number): Promise<void> {
+  // Public so Buyer Match runs the exact website search rules.
+  async applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto, tenantId: number): Promise<void> {
     if (dto.reference) {
       query.andWhere('p.reference = :reference', { reference: dto.reference });
     }

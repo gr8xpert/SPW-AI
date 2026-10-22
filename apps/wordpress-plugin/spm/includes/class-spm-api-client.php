@@ -29,6 +29,8 @@ class SPM_API_Client {
                 // Lets the SPM dashboard show this site on its Website Health page.
                 'x-spm-site'   => home_url('/'),
                 'x-spm-plugin' => SPM_VERSION,
+                // Buyer Match: where buyers' personal links should open ('' = no page).
+                'x-spm-buyer-page' => class_exists('SPM_Buyer_Page') ? SPM_Buyer_Page::url() : '',
             ]),
         ]);
 

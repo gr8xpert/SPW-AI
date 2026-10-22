@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPM Widget — Buyer page</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 1rem; background: #f6f7f9; }
+    h1 { font-size: 1.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Buyer page (API on :3001): open with ?t=CODE (&lang=es)</h1>
+  <!-- The buyer page needs no property search. -->
+  <div
+    data-spm-widget="buyer-page"
+    data-spm-api-url="http://localhost:3001"
+    data-spm-api-key="spm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ></div>
+  <script>
+    const lang = new URLSearchParams(location.search).get('lang');
+    if (lang) {
+      document.documentElement.lang = lang;
+      document.querySelector('[data-spm-widget]').setAttribute('data-spm-language', lang);
+    }
+  </script>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

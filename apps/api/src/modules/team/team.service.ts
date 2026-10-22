@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
@@ -9,7 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, Tenant, Plan } from '../../database/entities';
-import { InviteUserDto, UpdateUserDto, ChangePasswordDto, ResetPasswordDto } from './dto';
+import { ChangePasswordDto, ResetPasswordDto } from './dto';
+import { AgentsService } from './agents.service';
+import { agentCard } from './agent-profile';
 import { UserRole, hasPermission } from '@spm/shared';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TeamService {
     private tenantRepository: Repository<Tenant>,
     @InjectRepository(Plan)
     private planRepository: Repository<Plan>,
+    private readonly agents: AgentsService,
   ) {}
 
   /**
@@ -48,114 +50,6 @@ export class TeamService {
     }
 
     return user;
-  }
-
-  /**
-   * Invite/create a new team member
-   */
-  async inviteUser(
-    tenantId: number,
-    dto: InviteUserDto,
-    invitedByUserId: number,
-  ): Promise<User> {
-    // Check if user can invite with this role
-    const inviter = await this.userRepository.findOne({
-      where: { id: invitedByUserId, tenantId },
-    });
-
-    if (!inviter) {
-      throw new ForbiddenException('Inviter not found');
-    }
-
-    // Only admins can invite users
-    if (!hasPermission(inviter.role, UserRole.ADMIN)) {
-      throw new ForbiddenException('Only admins can invite team members');
-    }
-
-    // Check if email already exists in this tenant
-    const existingUser = await this.userRepository.findOne({
-      where: { email: dto.email, tenantId },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('A user with this email already exists in your team');
-    }
-
-    // Check tenant user limit
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
-      relations: ['plan'],
-    });
-
-    if (tenant?.plan) {
-      const currentUserCount = await this.userRepository.count({ where: { tenantId } });
-      if (currentUserCount >= tenant.plan.maxUsers) {
-        throw new BadRequestException(
-          `User limit reached. Your plan allows up to ${tenant.plan.maxUsers} users.`,
-        );
-      }
-    }
-
-    // Hash password
-    const passwordHash = await bcrypt.hash(dto.password, 13);
-
-    const user = this.userRepository.create({
-      tenantId,
-      email: dto.email,
-      name: dto.name,
-      passwordHash,
-      role: dto.role,
-      isActive: true,
-    });
-
-    return this.userRepository.save(user);
-  }
-
-  /**
-   * Update a team member
-   */
-  async updateUser(
-    tenantId: number,
-    userId: number,
-    dto: UpdateUserDto,
-    updatedByUserId: number,
-  ): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId, tenantId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Team member not found');
-    }
-
-    // Cannot change super admin role
-    if (user.role === UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException('Cannot modify super admin users');
-    }
-
-    // Only admins can update other users
-    const updater = await this.userRepository.findOne({
-      where: { id: updatedByUserId, tenantId },
-    });
-
-    if (!updater || !hasPermission(updater.role, UserRole.ADMIN)) {
-      // Users can only update themselves
-      if (userId !== updatedByUserId) {
-        throw new ForbiddenException('You can only update your own profile');
-      }
-      // And they cannot change their own role
-      if (dto.role !== undefined) {
-        throw new ForbiddenException('You cannot change your own role');
-      }
-    }
-
-    // Update fields
-    if (dto.name !== undefined) user.name = dto.name;
-    if (dto.role !== undefined) user.role = dto.role;
-    if (dto.permissions !== undefined) user.permissions = dto.permissions;
-    if (dto.isActive !== undefined) user.isActive = dto.isActive;
-
-    return this.userRepository.save(user);
   }
 
   /**
@@ -194,9 +88,9 @@ export class TeamService {
     }
 
     // Ensure at least one admin remains
-    if (user.role === UserRole.ADMIN) {
+    if (user.role === UserRole.ADMIN && user.canLogin) {
       const adminCount = await this.userRepository.count({
-        where: { tenantId, role: UserRole.ADMIN },
+        where: { tenantId, role: UserRole.ADMIN, canLogin: true },
       });
 
       if (adminCount <= 1) {
@@ -204,7 +98,21 @@ export class TeamService {
       }
     }
 
+    // The database deletes a user's buyer history (calls, notes, emails) and
+    // support tickets with them: anyone who has some is switched off instead.
+    const [[activity], [tickets]] = await Promise.all([
+      this.userRepository.query('SELECT COUNT(*) AS n FROM lead_activities WHERE userId = ?', [userId]),
+      this.userRepository.query('SELECT COUNT(*) AS n FROM tickets WHERE userId = ?', [userId]),
+    ]);
+    if (Number(activity?.n) > 0 || Number(tickets?.n) > 0) {
+      throw new BadRequestException(
+        'This agent has buyer history or support tickets, which removing would delete. Switch them to Inactive instead (Edit).',
+      );
+    }
+
+    const wasOnWebsite = !!agentCard(user);
     await this.userRepository.delete(userId);
+    if (wasOnWebsite) await this.agents.websiteChanged(tenantId, userId, null);
   }
 
   /**
@@ -265,6 +173,11 @@ export class TeamService {
       throw new ForbiddenException('Cannot reset super admin password');
     }
 
+    // People without a login get one on the Agents page (email + password).
+    if (!user.canLogin) {
+      throw new BadRequestException('This agent has no dashboard login.');
+    }
+
     // Hash and save new password
     user.passwordHash = await bcrypt.hash(dto.newPassword, 13);
     await this.userRepository.save(user);
@@ -286,14 +199,16 @@ export class TeamService {
 
     const users = await this.userRepository.find({
       where: { tenantId },
-      select: ['role'],
+      select: ['role', 'canLogin'],
     });
 
-    const admins = users.filter((u) => u.role === UserRole.ADMIN).length;
-    const regularUsers = users.filter((u) => u.role === UserRole.USER).length;
+    // Only logins take a seat; people without a login are website faces.
+    const logins = users.filter((u) => u.canLogin !== false);
+    const admins = logins.filter((u) => u.role === UserRole.ADMIN).length;
+    const regularUsers = logins.filter((u) => u.role === UserRole.USER).length;
 
     return {
-      currentUsers: users.length,
+      currentUsers: logins.length,
       maxUsers: tenant?.plan?.maxUsers || 5,
       admins,
       users: regularUsers,

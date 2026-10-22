@@ -1,3 +1,5 @@
+import type { BuyerMatchSettings } from './buyer.types';
+
 // Subscription status enum
 export type SubscriptionStatus = 'active' | 'grace' | 'expired' | 'manual' | 'internal';
 export type BillingCycle = 'monthly' | 'yearly';
@@ -176,7 +178,9 @@ export interface TenantSettings {
   defaultSort?: string;
   // The agent shown on property pages (design 02's side column and contact
   // section): the client's own public details. No name = not shown.
-  siteAgent?: { name?: string; title?: string; phone?: string; whatsapp?: string; email?: string; photo?: string };
+  // userId: the person on the Agents page it was copied from (refreshed when
+  // they are edited).
+  siteAgent?: { name?: string; title?: string; phone?: string; whatsapp?: string; email?: string; photo?: string; userId?: number };
   // Listing titles built from patterns per language ("{type} for sale in
   // {location}") on cards and the property page; see the API's
   // property/title-pattern.ts. Keys of card/detail: default, sale, rent,
@@ -246,6 +250,9 @@ export interface TenantSettings {
   aiChatMaxMessagesPerConversation?: number;
   aiChatConversationTTLDays?: number;
   aiChatAutoEmailAdmin?: boolean;
+
+  // Buyer Match — written by PUT /api/dashboard/buyers/settings only
+  buyerMatch?: Partial<BuyerMatchSettings>;
 }
 
 export interface TenantPublic {
@@ -301,6 +308,8 @@ export interface TenantFull extends TenantWithApiKey {
   aiSearchEnabled: boolean;
   // Super-admin: download feed images to R2 with dedup. Default false.
   feedImagesToR2: boolean;
+  // Every user of the agency must use two-factor login (milestone J).
+  require2fa?: boolean;
   widgetFeatures: string[];
 
   // Super-admin add-on flags
@@ -450,6 +459,7 @@ export interface DashboardAddons {
   team: boolean;            // /dashboard/team
   aiChat: boolean;          // /dashboard/ai-chat
   aiTranslation: boolean;   // AI Translate + AI SEO across properties, features, labels, property-types
+  buyerMatch: boolean;      // /dashboard/buyers (Buyer Match)
 }
 
 export const DEFAULT_DASHBOARD_ADDONS: DashboardAddons = {
@@ -459,6 +469,7 @@ export const DEFAULT_DASHBOARD_ADDONS: DashboardAddons = {
   team: false,
   aiChat: false,
   aiTranslation: false,
+  buyerMatch: false,
 };
 
 export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
@@ -468,6 +479,7 @@ export const ALL_ENABLED_DASHBOARD_ADDONS: DashboardAddons = {
   team: true,
   aiChat: true,
   aiTranslation: true,
+  buyerMatch: true,
 };
 
 // Tenant tier. Drives a preset DashboardAddons bundle:
@@ -486,6 +498,7 @@ export const TIER_PRESETS: Record<TenantTier, DashboardAddons> = {
     team: false,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   2: {
     addProperty: true,
@@ -494,6 +507,7 @@ export const TIER_PRESETS: Record<TenantTier, DashboardAddons> = {
     team: true,
     aiChat: false,
     aiTranslation: false,
+    buyerMatch: false,
   },
   3: {
     addProperty: true,
@@ -502,6 +516,7 @@ export const TIER_PRESETS: Record<TenantTier, DashboardAddons> = {
     team: true,
     aiChat: true,
     aiTranslation: true,
+    buyerMatch: true,
   },
 };
 

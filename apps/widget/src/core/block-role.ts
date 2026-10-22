@@ -21,6 +21,14 @@ export const RESULT_COMPONENTS = new Set([
 ]);
 const RESULT_BLOCK_RE = /^(site-listing|site-map|listing-template-\d+|map-template-\d+)$/;
 
+// Blocks that need no property search at all (forms, the buyer's own page).
+export const FORM_COMPONENTS = new Set(['wishlist-form', 'buyer-page']);
+
+/** True when every block on the page is a form: nothing to search for. */
+export function onlyFormBlocks(names: string[]): boolean {
+  return names.length > 0 && names.every((n) => FORM_COMPONENTS.has(n));
+}
+
 // Attributes that pick a hand-chosen selection rather than describe a search:
 // "our featured six", "our own listings", one reference. Plain search filters
 // (for, location, type, beds, price, sort…) don't — for="sale" on a results

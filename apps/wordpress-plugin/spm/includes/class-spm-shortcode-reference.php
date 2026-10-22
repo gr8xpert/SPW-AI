@@ -15,6 +15,7 @@ class SPM_Shortcode_Reference {
         'site-map'      => 'spm_map',
         'site-wishlist' => 'spm_wishlist',
         'site-carousel' => 'spm_carousel',
+        'wishlist-form' => 'spm_wishlist_form',
     ];
 
     /**
@@ -185,6 +186,13 @@ class SPM_Shortcode_Reference {
                     'wishlist_compare_btn'  => 'Compare button',
                     'wishlist_modals'       => 'Share / compare windows (needed by the buttons)',
                     'wishlist_counter'      => 'Counter for a menu or header',
+                ],
+            ],
+            [
+                'title' => 'Wishlist form (Buyer Match)',
+                'intro' => 'A form where visitors fill in their own wishlist: listing type, locations, property types, bedrooms, budget, sizes, features, your buyer questions and their contact details. Each one becomes a buyer in your SPM dashboard → Buyers, and gets a confirmation email in the page language. Its words are in SPM dashboard → Labels → Wishlist Form.',
+                'shortcodes' => [
+                    '<div data-spm-widget="wishlist-form"></div>' => 'The wishlist form — any page, e.g. "Tell us what you are looking for"',
                 ],
             ],
             [

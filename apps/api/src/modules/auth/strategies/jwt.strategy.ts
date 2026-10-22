@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // super-admin was allowed to become them at start time, and the
     // interceptor logs each request for audit.
     const user = await this.userRepository.findOne({
-      where: { id: payload.sub, isActive: true },
+      where: { id: payload.sub, isActive: true, canLogin: true },
       select: ['id', 'tenantId', 'role', 'isActive'],
     });
 
@@ -51,6 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       impersonatedUserId: payload.impersonatedUserId,
       // sessionId isn't in the JwtPayload type but rides along for the
       // audit interceptor. Cast to any to survive TS's strict shape.
+      ...(payload.mfaSetup ? { mfaSetup: true } : {}),
       ...((payload as any).sessionId
         ? { sessionId: (payload as any).sessionId }
         : {}),

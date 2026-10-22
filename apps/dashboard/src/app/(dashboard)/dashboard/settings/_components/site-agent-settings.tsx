@@ -1,137 +1,76 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import Link from 'next/link';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
-import { useApi } from '@/hooks/use-api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { initialsOf, useAgentOptions } from '@/hooks/use-agents';
 
-// The agent shown on property pages (design 02's side column, above the
-// form). The client's own public details.
+// The agent shown on every property page (design 02's side column, above the
+// form): one of the "Show on website" people from the Agents page, or none —
+// then each listing shows its own agent. The server copies the person's card
+// into settings and refreshes it when they are edited.
 export interface SiteAgentForm {
-  name: string;
-  title: string;
-  phone: string;
-  whatsapp: string;
-  email: string;
-  photo: string;
+  userId: string;
 }
 
-export const EMPTY_SITE_AGENT: SiteAgentForm = { name: '', title: '', phone: '', whatsapp: '', email: '', photo: '' };
+export const EMPTY_SITE_AGENT: SiteAgentForm = { userId: '' };
 
 export function siteAgentFromSettings(value: unknown): SiteAgentForm {
   const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
-  const s = (k: keyof SiteAgentForm) => (typeof v[k] === 'string' ? (v[k] as string) : '');
-  return { name: s('name'), title: s('title'), phone: s('phone'), whatsapp: s('whatsapp'), email: s('email'), photo: s('photo') };
+  const id = Number(v.userId);
+  return { userId: Number.isInteger(id) && id > 0 ? String(id) : '' };
 }
 
 export function siteAgentToSettings(form: SiteAgentForm) {
-  return Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v.trim()]));
+  return form.userId ? { userId: Number(form.userId) } : {};
 }
 
-const FIELDS: { key: Exclude<keyof SiteAgentForm, 'photo'>; label: string; placeholder: string }[] = [
-  { key: 'name', label: 'Name', placeholder: 'Pia Arrieta' },
-  { key: 'title', label: 'Job title', placeholder: 'Principal Partner' },
-  { key: 'phone', label: 'Phone', placeholder: '+34 952 765 138' },
-  { key: 'whatsapp', label: 'WhatsApp number', placeholder: '+34 600 000 000' },
-  { key: 'email', label: 'Email', placeholder: 'info@your-agency.com' },
-];
+const NONE = 'none';
 
 export function SiteAgentSettings({ value, onChange }: { value: SiteAgentForm; onChange: (v: SiteAgentForm) => void }) {
-  const { toast } = useToast();
-  // useApi sends FormData as multipart; the axios client forces JSON and the
-  // file never reached the server.
-  const api = useApi();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  // On while there's a name, or once the client switches it on / edits. Off
-  // empties the details (no name = no agent); on again brings them back.
-  const [opened, setOpened] = useState(false);
-  const removed = useRef<SiteAgentForm | null>(null);
-  const on = opened || value.name.trim() !== '';
-  const edit = (next: SiteAgentForm) => {
-    setOpened(true);
-    onChange(next);
-  };
-  const toggle = (next: boolean) => {
-    if (next) {
-      setOpened(true);
-      if (removed.current) onChange(removed.current);
-    } else {
-      removed.current = value;
-      setOpened(false);
-      onChange(EMPTY_SITE_AGENT);
-    }
-  };
-
-  const upload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Choose an image', description: 'The photo must be a JPG, PNG or WebP file.', variant: 'destructive' });
-      return;
-    }
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await api.post('/api/dashboard/upload', form);
-      const data = (res?.data ?? res) as { url?: string };
-      if (!data?.url) throw new Error('The upload returned no address.');
-      edit({ ...value, photo: data.url });
-    } catch (e) {
-      toast({ title: 'Photo upload failed', description: (e as Error).message, variant: 'destructive' });
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
+  const options = useAgentOptions();
+  const people = (options.data ?? []).filter((a) => a.showOnWebsite);
+  const picked = people.find((a) => String(a.id) === value.userId) ?? null;
 
   return (
-    <div className="space-y-4 rounded-md border p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <Label htmlFor="site-agent-on">Website agent</Label>
-          <p className="text-xs text-muted-foreground">
-            A contact shown on property pages (property page design 02: in the side column, above the contact
-            form). It needs at least a name.
-          </p>
-        </div>
-        <Switch id="site-agent-on" checked={on} onCheckedChange={toggle} />
+    <div className="space-y-3 rounded-md border p-4" data-testid="site-agent">
+      <div className="space-y-1">
+        <Label>Website agent</Label>
+        <p className="text-xs text-muted-foreground">
+          Shown on every property page (property page design 02: in the side column, above the contact form). None = each
+          listing shows its own agent. Only people with &quot;Show on website&quot; on the{' '}
+          <Link href="/dashboard/team" className="underline">Agents page</Link> can be picked; edit their photo and details there.
+        </p>
       </div>
-      {on && (
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-24 w-24 overflow-hidden rounded-full border bg-muted">
-            {value.photo && (
+      <Select value={value.userId || NONE} onValueChange={(v) => onChange({ userId: v === NONE ? '' : v })}>
+        <SelectTrigger className="sm:max-w-sm" aria-label="Website agent"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>None (each listing&apos;s own agent)</SelectItem>
+          {people.map((a) => (
+            <SelectItem key={a.id} value={String(a.id)}>{a.name || a.email}</SelectItem>
+          ))}
+          {value.userId && !picked && !options.isLoading && (
+            <SelectItem value={value.userId}>Not on the website any more</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+      {picked && (
+        <div className="flex items-center gap-3 rounded-md bg-muted/50 p-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+            {picked.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={value.photo} alt="" className="h-full w-full object-cover" />
+              <img src={picked.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initialsOf(picked.name)
             )}
           </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-          <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
-            {uploading ? 'Uploading…' : value.photo ? 'Change photo' : 'Upload photo'}
-          </Button>
-          {value.photo && (
-            <button type="button" className="text-xs text-muted-foreground underline" onClick={() => edit({ ...value, photo: '' })}>
-              Remove photo
-            </button>
-          )}
+          <div className="min-w-0 text-sm">
+            <p className="font-medium">{picked.name}</p>
+            <p className="truncate text-muted-foreground">
+              {[picked.title, picked.phone, picked.whatsapp && `WhatsApp ${picked.whatsapp}`, picked.publicEmail].filter(Boolean).join(' · ') || 'No details yet'}
+            </p>
+          </div>
         </div>
-        <div className="grid flex-1 gap-3 sm:grid-cols-2">
-          {FIELDS.map((f) => (
-            <div key={f.key} className="space-y-1">
-              <Label htmlFor={`site-agent-${f.key}`} className="text-sm font-normal">{f.label}</Label>
-              <Input
-                id={`site-agent-${f.key}`}
-                placeholder={f.placeholder}
-                value={value[f.key]}
-                onChange={(e) => edit({ ...value, [f.key]: e.target.value })}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
       )}
     </div>
   );

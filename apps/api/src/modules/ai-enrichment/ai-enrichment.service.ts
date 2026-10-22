@@ -9,10 +9,10 @@ import {
   FeatureCategory,
 } from '../../database/entities';
 import { AiService, ENRICHMENT_MODEL } from '../ai/ai.service';
+import { openRouterBase } from '../ai/ai-models';
 import { LocationService } from '../location/location.service';
 import { PropertyTypeService } from '../property-type/property-type.service';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Result counters surfaced back to the dashboard so users can see what AI
 // did on a given run.
@@ -693,7 +693,7 @@ Use the exact category strings above (lowercase).`;
 
     try {
       const response = await axios.post(
-        OPENROUTER_URL,
+        `${openRouterBase()}/chat/completions`,
         {
           model: resolved.model,
           messages: [

@@ -1,37 +1,33 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Construction } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TwoFactorCard } from './two-factor-card';
 
 export default function ProfilePage() {
+  const { data: session } = useSession();
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="max-w-3xl space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Profile</h1>
-          <p className="page-description mt-1">
-            Manage your account settings and preferences
-          </p>
+          <h1 className="page-title">Profile & security</h1>
+          <p className="page-description mt-1">Your account and how you log in</p>
         </div>
       </div>
 
       <Card>
-        <CardHeader className="text-center">
-          <Construction className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <CardTitle>Coming Soon</CardTitle>
-          <CardDescription>
-            This feature is currently under development. Check back soon!
-          </CardDescription>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Account</CardTitle>
         </CardHeader>
-        <CardContent className="text-center text-sm text-muted-foreground">
-          <p>You will be able to:</p>
-          <ul className="mt-2 space-y-1">
-            <li>Update your personal information</li>
-            <li>Change your password</li>
-            <li>Manage notification preferences</li>
-          </ul>
+        <CardContent className="grid gap-1 text-sm sm:grid-cols-[120px_1fr]">
+          <span className="text-muted-foreground">Name</span>
+          <span>{session?.user?.name || '—'}</span>
+          <span className="text-muted-foreground">Email</span>
+          <span>{session?.user?.email}</span>
         </CardContent>
       </Card>
+
+      <TwoFactorCard />
     </div>
   );
 }

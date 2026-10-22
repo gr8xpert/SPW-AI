@@ -237,7 +237,7 @@ export class FormMailService {
   }
 }
 
-function validEmail(v: unknown): string | null {
+export function validEmail(v: unknown): string | null {
   return typeof v === 'string' && EMAIL_RE.test(v.trim()) ? v.trim().toLowerCase() : null;
 }
 
@@ -255,7 +255,7 @@ function bareHost(host: string): string {
   return host.toLowerCase().replace(/^www\./, '');
 }
 
-function titleOf(title: unknown, language = 'en'): string {
+export function titleOf(title: unknown, language = 'en'): string {
   if (typeof title === 'string') return title;
   const t = (title || {}) as Record<string, string>;
   return t[language] || t.en || Object.values(t).find(Boolean) || '';
@@ -270,14 +270,14 @@ function firstImage(p: Property): string | undefined {
   return img?.url && /^https:\/\//i.test(img.url) ? img.url : undefined;
 }
 
-function quote(message: string, label?: string): string {
+export function quote(message: string, label?: string): string {
   return `<div style="background:#f8fafc;border-radius:6px;padding:16px;margin:16px 0;">
     ${label ? `<p style="margin:0 0 8px;color:#64748b;font-size:13px;">${escapeHtml(label)}</p>` : ''}
     <p style="margin:0;white-space:pre-wrap;">${escapeHtml(message)}</p>
   </div>`;
 }
 
-function frame(from: FormSender, heading: string, body: string): string {
+export function frame(from: FormSender, heading: string, body: string): string {
   const site = from.website
     ? `<p style="margin:0;"><a href="${escapeHtml(from.website)}" style="color:#64748b;">${escapeHtml(from.website.replace(/^https?:\/\//i, '').replace(/\/$/, ''))}</a></p>`
     : '';
