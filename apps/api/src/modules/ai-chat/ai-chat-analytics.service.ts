@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import { ChatConversation, ChatMessage } from '../../database/entities';
+import { ChatConversation, ChatMessage, Tenant } from '../../database/entities';
 
 @Injectable()
 export class AiChatAnalyticsService {
@@ -10,7 +10,17 @@ export class AiChatAnalyticsService {
     private conversationRepo: Repository<ChatConversation>,
     @InjectRepository(ChatMessage)
     private messageRepo: Repository<ChatMessage>,
+    @InjectRepository(Tenant)
+    private tenantRepo: Repository<Tenant>,
   ) {}
+
+  async status(tenantId: number): Promise<{ allowed: boolean; enabled: boolean }> {
+    const tenant = await this.tenantRepo.findOne({ where: { id: tenantId }, select: ['id', 'featureFlags', 'settings'] });
+    return {
+      allowed: tenant?.featureFlags?.aiChatbot === true,
+      enabled: (tenant?.settings as { aiChatEnabled?: boolean } | null)?.aiChatEnabled === true,
+    };
+  }
 
   async getStats(tenantId: number, range: string) {
     const since = this.rangeToDays(range);
@@ -95,10 +105,12 @@ export class AiChatAnalyticsService {
       data.map(async (conv) => {
         const lastMsg = await this.messageRepo.findOne({
           where: { conversationId: conv.id, role: 'user' as any },
-          order: { createdAt: 'DESC' },
+          order: { id: 'DESC' },
         });
+        // The session id is the visitor's chat secret: not shown.
+        const { sessionId: _secret, ...rest } = conv;
         return {
-          ...conv,
+          ...rest,
           lastUserMessage: lastMsg?.content?.slice(0, 100) || null,
         };
       }),

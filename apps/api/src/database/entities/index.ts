@@ -105,3 +105,4 @@ export * from './site-checkin.entity';
 // AI search: daily usage per client, for the spend ceiling
 export * from './ai-search-usage.entity';
 export * from './translation-memory.entity';
+export * from './email-designer.entity';

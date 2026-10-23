@@ -4,6 +4,7 @@ export const fi: AddToWebsiteText = {
   title: 'Lisää verkkosivullesi',
   description: 'Valitse, mitä näytetään, aseta suodattimet ja kopioi koodi. Toimii WordPressissä, Wixissä, Squarespacessa, Webflow’ssa, Next.js:ssä ja millä tahansa sivustolla.',
 
+  mapOff: 'Karttahaku ei ole käytössä tililläsi, joten karttalohkot eivät näy verkkosivustollasi. Ota meihin yhteyttä sen lisäämiseksi.',
   blocks: {
     search: 'Hakulomake',
     listing: 'Kohdetulokset',

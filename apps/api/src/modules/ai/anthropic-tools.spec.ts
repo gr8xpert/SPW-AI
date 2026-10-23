@@ -58,4 +58,18 @@ describe('Chatbot on Anthropic: tool format', () => {
       { role: 'user', content: [{ type: 'text', text: 'Cheaper ones?' }] },
     ]);
   });
+
+  it('forwards the per-call timeout and retries (default 120 s, SDK retries)', async () => {
+    const client = require('./anthropic-client');
+    const { anthropicCompleteWithTools } = require('./anthropic-tools');
+    const spy = jest.spyOn(client, 'callAnthropic').mockResolvedValue({ content: [], usage: { input_tokens: 0, output_tokens: 0 }, stop_reason: 'end_turn' });
+    try {
+      await anthropicCompleteWithTools('k', 'm', [{ role: 'user', content: 'x' }], [], 100, { timeoutMs: 20_000, maxRetries: 0 });
+      expect(spy.mock.calls[0].slice(4)).toEqual([20_000, 0]);
+      await anthropicCompleteWithTools('k', 'm', [{ role: 'user', content: 'x' }], [], 100);
+      expect(spy.mock.calls[1].slice(4)).toEqual([120_000, undefined]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

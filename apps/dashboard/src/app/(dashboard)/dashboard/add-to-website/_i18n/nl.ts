@@ -4,6 +4,7 @@ export const nl: AddToWebsiteText = {
   title: 'Toevoegen aan je website',
   description: 'Kies wat je wilt tonen, stel de filters in en kopieer de code. Werkt op WordPress, Wix, Squarespace, Webflow, Next.js of elke andere website.',
 
+  mapOff: 'Kaartzoeken staat niet aan voor uw account, dus kaartblokken worden niet op uw website getoond. Neem contact met ons op om het toe te voegen.',
   blocks: {
     search: 'Zoekformulier',
     listing: 'Zoekresultaten',

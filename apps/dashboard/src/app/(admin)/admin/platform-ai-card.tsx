@@ -14,7 +14,7 @@ interface PlatformAiStatus {
     month: string;
     spentUsd: number;
     budgetUsd: number;
-    paused: 'budget' | 'credits' | 'auth' | null;
+    paused: 'budget' | 'credits' | 'auth' | 'workspace' | null;
   };
   openrouterConfigured: boolean;
 }
@@ -23,6 +23,7 @@ const PAUSED: Record<NonNullable<PlatformAiStatus['anthropic']['paused']>, strin
   budget: 'Monthly budget reached — back on Anthropic next month',
   credits: 'Anthropic credit used up — retrying within the hour',
   auth: 'Anthropic key rejected — check ANTHROPIC_API_KEY',
+  workspace: 'Anthropic key is not linked to a workspace — create the key inside a workspace in the Anthropic Console',
 };
 
 // Which account pays for platform AI (templates, translation memory,

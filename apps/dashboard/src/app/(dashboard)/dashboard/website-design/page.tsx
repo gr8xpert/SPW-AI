@@ -114,6 +114,8 @@ export default function WebsiteDesignPage() {
   const [enlarged, setEnlarged] = useState<{ id: string } | null>(null);
   // Previews wait for the saved colour, so they don't load twice.
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Super Admin add-on: off = map blocks don't show on the website.
+  const [mapSearch, setMapSearch] = useState(true);
   // Previews follow the colour field after a short pause, not every keystroke.
   const [previewColor, setPreviewColor] = useState('#2563eb');
   useEffect(() => {
@@ -125,9 +127,10 @@ export default function WebsiteDesignPage() {
 
   useEffect(() => {
     if (!session?.accessToken) return;
-    apiGet<{ data: { settings?: { siteTemplates?: SiteTemplates; primaryColor?: string } } }>('/api/dashboard/tenant')
+    apiGet<{ data: { settings?: { siteTemplates?: SiteTemplates; primaryColor?: string }; mapSearch?: boolean } }>('/api/dashboard/tenant')
       .then((res) => {
         const s = res.data?.settings;
+        setMapSearch(res.data?.mapSearch !== false);
         if (s?.siteTemplates) setTemplates(s.siteTemplates);
         if (s?.primaryColor && isHex(s.primaryColor)) {
           setSavedColor(s.primaryColor);
@@ -239,6 +242,11 @@ export default function WebsiteDesignPage() {
         {KINDS.map((k) => (
           <TabsContent key={k.kind} value={k.kind} className="space-y-4">
             <p className="text-sm text-muted-foreground">{t.kinds[k.kind].intro}</p>
+            {k.kind === 'map' && !mapSearch && (
+              <p data-testid="map-off" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                {t.mapOff}
+              </p>
+            )}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {k.templates.map((tpl) => {
                 const active = current(k.kind) === tpl.id;

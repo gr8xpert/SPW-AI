@@ -258,6 +258,12 @@ describe('AI key source: client Anthropic key', () => {
     expect(seen).toEqual(['Bearer sk-or-platform']);
   });
 
+  it('a key outside a workspace says how to fix it', async () => {
+    jest.spyOn(anthropic, 'anthropicComplete').mockRejectedValue(new anthropic.AnthropicCallError('not scoped to a workspace', 'workspace', 400));
+    await expect(onAnthropic({ anthropic: 'sk-ant-client' }).chatCompletion(1, [{ role: 'user', content: 'x' }], { keySource: 'client' }))
+      .rejects.toThrow(/isn't linked to a workspace.*create a key inside a workspace/);
+  });
+
   it('the chatbot runs on the Anthropic key', async () => {
     const reply = { content: 'Here you go', toolCalls: [], usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } };
     const spy = jest.spyOn(tools, 'anthropicCompleteWithTools').mockResolvedValue(reply);
@@ -265,6 +271,27 @@ describe('AI key source: client Anthropic key', () => {
       .resolves.toEqual(reply);
     expect(spy.mock.calls[0][0]).toBe('sk-ant-client');
     expect(spy.mock.calls[0][1]).toBe('claude-sonnet-5-5');
+  });
+
+  it('the designer can set a per-call timeout and no retries (Anthropic)', async () => {
+    const reply = { content: 'ok', toolCalls: [], usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } };
+    const spy = jest.spyOn(tools, 'anthropicCompleteWithTools').mockResolvedValue(reply);
+    await onAnthropic({ anthropic: 'sk-ant-client' }).chatCompletionWithTools(1, [{ role: 'user', content: 'x' }], [], { timeoutMs: 30_000, maxRetries: 0 });
+    expect(spy.mock.calls[0][5]).toEqual({ timeoutMs: 30_000, maxRetries: 0 });
+  });
+
+  it('the designer timeout reaches the OpenRouter call too (120 s when not set)', async () => {
+    const axios = require('axios');
+    const timeouts: number[] = [];
+    jest.spyOn(axios, 'post').mockImplementation(async (_u: any, _b: any, cfg: any) => {
+      timeouts.push(cfg.timeout);
+      return { data: { choices: [{ message: { content: 'ok' } }] } };
+    });
+    const svc = onAnthropic({ openrouter: 'sk-or-client' });
+    (svc as any).resolveKeyAndModel = async () => ({ apiKey: 'sk-or-client', model: 'x/y', provider: 'openrouter', owner: 'client' });
+    await svc.chatCompletionWithTools(1, [{ role: 'user', content: 'x' }], [], { timeoutMs: 30_000, maxRetries: 0 });
+    await svc.chatCompletionWithTools(1, [{ role: 'user', content: 'x' }], []);
+    expect(timeouts).toEqual([30_000, 120_000]);
   });
 
   it('Settings → AI test can try the OpenRouter key while Anthropic is saved', async () => {
@@ -277,5 +304,16 @@ describe('AI key source: client Anthropic key', () => {
     await expect(onAnthropic({ anthropic: 'sk-ant-client', openrouter: 'sk-or-client' }).testConnection(1, 'x/y', 'openrouter'))
       .resolves.toMatchObject({ ok: true });
     expect(seen).toEqual(['Bearer sk-or-client']);
+  });
+});
+
+describe('AiService.clientModel (email designer)', () => {
+  it('names the provider and model of the client key, never the platform key', async () => {
+    process.env.OPENROUTER_API_KEY = 'sk-or-platform';
+    await expect(service('sk-or-client').clientModel(1)).resolves.toEqual({ provider: 'openrouter', model: 'client/model' });
+    await expect(service(null).clientModel(1)).resolves.toBeNull();
+    const catalog = { get: jest.fn().mockResolvedValue(null), isAvailable: jest.fn().mockResolvedValue(true) };
+    const repo = { findOne: jest.fn().mockResolvedValue({ id: 1, settings: { aiProvider: 'anthropic', anthropicModel: 'claude-haiku-5-5' }, anthropicApiKey: 'sk-ant', openrouterApiKey: null }) };
+    await expect(new AiService(repo as any, catalog as any).clientModel(1)).resolves.toEqual({ provider: 'anthropic', model: 'claude-haiku-5-5' });
   });
 });

@@ -22,7 +22,7 @@ export interface PlatformAiStatus {
     spentUsd: number;
     budgetUsd: number;
     // Why Anthropic is skipped right now, if it is.
-    paused: 'budget' | 'credits' | 'auth' | null;
+    paused: 'budget' | 'credits' | 'auth' | 'workspace' | null;
   };
   openrouterConfigured: boolean;
 }
@@ -61,7 +61,7 @@ export class AnthropicBudgetService {
     if (!this.redis) return null;
     try {
       const blocked = await this.redis.get(BLOCK_KEY);
-      if (blocked === 'credits' || blocked === 'auth') return blocked;
+      if (blocked === 'credits' || blocked === 'auth' || blocked === 'workspace') return blocked;
     } catch {
       return null;
     }
@@ -90,7 +90,7 @@ export class AnthropicBudgetService {
     }
   }
 
-  async pause(reason: 'credits' | 'auth'): Promise<void> {
+  async pause(reason: 'credits' | 'auth' | 'workspace'): Promise<void> {
     if (!this.redis) return;
     try {
       await this.redis.set(BLOCK_KEY, reason, 'EX', BLOCK_SECONDS);

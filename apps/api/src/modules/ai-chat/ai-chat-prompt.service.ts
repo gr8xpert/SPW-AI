@@ -6,6 +6,8 @@ import { TenantService } from '../tenant/tenant.service';
 import { ChatContext } from './interfaces/chat-tool.interface';
 import { TenantSettings } from '@spm/shared';
 
+const MAX_PROMPT_LOCATIONS = 150;
+
 @Injectable()
 export class AiChatPromptService {
   constructor(
@@ -55,7 +57,17 @@ export class AiChatPromptService {
     parts.push('');
 
     parts.push(`PROPERTY TYPES: ${JSON.stringify(typeSummary)}`);
-    parts.push(`LOCATIONS: ${JSON.stringify(locationSummary)}`);
+    // A feed can bring thousands of places: the prompt lists the bigger ones
+    // and get_locations searches the rest.
+    if (locationSummary.length <= MAX_PROMPT_LOCATIONS) {
+      parts.push(`LOCATIONS: ${JSON.stringify(locationSummary)}`);
+    } else {
+      const order = ['region', 'province', 'area', 'municipality', 'town', 'urbanization'];
+      const top = [...locationSummary]
+        .sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level))
+        .slice(0, MAX_PROMPT_LOCATIONS);
+      parts.push(`MAIN LOCATIONS (${locationSummary.length} in total; use get_locations with "search" for any other place): ${JSON.stringify(top)}`);
+    }
     parts.push(`FEATURES: ${JSON.stringify(featureSummary)}`);
     parts.push(`CURRENCY: ${currency}`);
     parts.push('');

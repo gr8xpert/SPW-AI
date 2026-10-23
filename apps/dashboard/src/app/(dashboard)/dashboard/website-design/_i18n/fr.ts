@@ -23,6 +23,7 @@ export const fr: WebsiteDesignText = {
   wpDefault: 'WordPress : les pages créées par l’extension SPM suivent votre choix automatiquement.',
   otherSitesBefore: 'Autres sites : collez',
   otherSitesAfter: 'à l’endroit où il doit apparaître.',
+  mapOff: 'La recherche sur carte n’est pas activée pour votre compte : les blocs carte ne s’affichent pas sur votre site. Contactez-nous pour l’ajouter.',
   kinds: {
     search: { tab: 'Barre de recherche', intro: 'Le formulaire de recherche au-dessus de vos résultats et sur votre page d’accueil.' },
     listing: { tab: 'Résultats de biens', intro: 'L’apparence de chaque fiche de bien dans vos résultats de recherche.' },

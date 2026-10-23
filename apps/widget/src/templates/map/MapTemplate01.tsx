@@ -25,7 +25,8 @@ export default function MapTemplate01() {
       <RsMapLocationTags onZoomToBounds={handleZoomToBounds} />
 
       <div class="rs-map-template-01__map">
-        <RsMapContainer zoom={10} fitBounds={fitBoundsKey} mode={view === 'zones' ? 'zones' : undefined} />
+        {/* No list here, so "Search this area" would have nothing to show. */}
+        <RsMapContainer zoom={10} fitBounds={fitBoundsKey} mode={view === 'zones' ? 'zones' : undefined} areaSearch={false} />
       </div>
 
       <div class="rs-map-template-01__footer">

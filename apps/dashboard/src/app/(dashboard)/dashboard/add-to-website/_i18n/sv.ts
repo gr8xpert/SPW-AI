@@ -4,6 +4,7 @@ export const sv: AddToWebsiteText = {
   title: 'Lägg till på din webbplats',
   description: 'Välj vad som ska visas, ställ in filtren och kopiera koden. Fungerar på WordPress, Wix, Squarespace, Webflow, Next.js eller vilken webbplats som helst.',
 
+  mapOff: 'Kartsökning är inte aktiverad för ditt konto, så kartblock visas inte på din webbplats. Kontakta oss för att lägga till den.',
   blocks: {
     search: 'Sökformulär',
     listing: 'Objektresultat',

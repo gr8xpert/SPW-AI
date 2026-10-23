@@ -38,6 +38,8 @@ export interface WidgetConfig {
   enableInquiry?: boolean;
   enableTracking?: boolean;
   enableAiChat?: boolean;
+  // Dashboard -> Settings -> AI Chat: the chat's opening line.
+  aiChatWelcome?: string;
   enableMortgageCalculator?: boolean;
   mapSearchEnabled?: boolean;
   enableMapView?: boolean;

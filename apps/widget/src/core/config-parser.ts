@@ -18,7 +18,8 @@ const DEFAULT_CONFIG: Partial<WidgetConfig> = {
   enableTracking: true,
   enableAiChat: false,
   enableMortgageCalculator: false,
-  mapSearchEnabled: false,
+  // mapSearchEnabled / enableMapView: no default — maps show until the
+  // dashboard settings say the add-on is off (see feature-gate.tsx).
   similarProperties: true,
   syncPollIntervalMs: 60_000,
   bedroomOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9],

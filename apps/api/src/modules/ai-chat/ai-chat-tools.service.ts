@@ -57,10 +57,11 @@ const GET_LOCATIONS_TOOL: ToolDefinition = {
   type: 'function',
   function: {
     name: 'get_locations',
-    description: 'Get available locations. Use this to find a location ID when the user mentions a place name.',
+    description: 'Find locations and their IDs. Use this when the user mentions a place name: pass the name as "search".',
     parameters: {
       type: 'object',
       properties: {
+        search: { type: 'string', description: 'Part of the place name (any language)' },
         level: { type: 'string', enum: ['region', 'province', 'area', 'municipality', 'town', 'urbanization'], description: 'Filter by location level' },
       },
     },
@@ -95,6 +96,13 @@ const COMPARE_PROPERTIES_TOOL: ToolDefinition = {
     },
   },
 };
+
+const MAX_LOCATIONS = 100;
+
+// Lowercase without accents, so "malaga" finds "Málaga".
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 @Injectable()
 export class AiChatToolsService {
@@ -192,20 +200,35 @@ export class AiChatToolsService {
     };
   }
 
+  // Only listings that are live on the website; the chat is public.
+  private async findLive(tenantId: number, reference: unknown) {
+    if (typeof reference !== 'string' || !reference.trim()) return null;
+    const property = await this.propertyService.findByReference(tenantId, reference.trim());
+    return property && property.status === 'active' && property.isPublished ? property : null;
+  }
+
   private async executeGetProperty(tenantId: number, args: { reference: string }) {
-    const property = await this.propertyService.findByReference(tenantId, args.reference);
+    const property = await this.findLive(tenantId, args.reference);
     if (!property) return { error: 'Property not found' };
     return this.detailProperty(property);
   }
 
-  private async executeGetLocations(tenantId: number, args: { level?: string }) {
+  private async executeGetLocations(tenantId: number, args: { level?: string; search?: string }) {
     const locations = await this.locationService.findAll(tenantId, args.level as any);
-    return locations.map((l) => ({
-      id: l.id,
-      name: l.name?.en || Object.values(l.name)[0] || '',
-      level: l.level,
-      parentId: l.parentId,
-    }));
+    const needle = typeof args.search === 'string' ? fold(args.search.trim()) : '';
+    const matches = needle
+      ? locations.filter((l) => Object.values(l.name || {}).some((n) => typeof n === 'string' && fold(n).includes(needle)))
+      : locations;
+    return {
+      total: matches.length,
+      // Capped: a feed can bring thousands of places.
+      locations: matches.slice(0, MAX_LOCATIONS).map((l) => ({
+        id: l.id,
+        name: l.name?.en || Object.values(l.name || {})[0] || '',
+        level: l.level,
+        parentId: l.parentId,
+      })),
+    };
   }
 
   private async executeGetFeatures(tenantId: number, args: { category?: string }) {
@@ -218,9 +241,8 @@ export class AiChatToolsService {
   }
 
   private async executeCompare(tenantId: number, args: { references: string[] }) {
-    const properties = await Promise.all(
-      args.references.map((ref) => this.propertyService.findByReference(tenantId, ref)),
-    );
+    const refs = Array.isArray(args.references) ? args.references.slice(0, 4) : [];
+    const properties = await Promise.all(refs.map((ref) => this.findLive(tenantId, ref)));
     return properties
       .filter((p) => p !== null)
       .map((p) => this.detailProperty(p!));
@@ -230,6 +252,7 @@ export class AiChatToolsService {
     return {
       id: p.id,
       reference: p.reference,
+      slug: p.slug || null,
       title: p.title?.en || (typeof p.title === 'string' ? p.title : Object.values(p.title || {})[0]) || '',
       listingType: p.listingType,
       price: p.price,
@@ -266,8 +289,6 @@ export class AiChatToolsService {
       videoUrl: p.videoUrl,
       virtualTourUrl: p.virtualTourUrl,
       images: (p.images || []).slice(0, 5).map((img: any) => img.url),
-      status: p.status,
-      isPublished: p.isPublished,
     };
   }
 }

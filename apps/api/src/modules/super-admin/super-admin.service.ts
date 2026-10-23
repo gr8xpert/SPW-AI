@@ -546,6 +546,11 @@ export class SuperAdminService {
     }
 
     await this.tenantRepository.save(tenant);
+    // Add-ons and settings reach the website (map switches, AI chat…): the WP
+    // plugin and the widget's saved copy only refresh when syncVersion moves.
+    if (dto.featureFlags || dto.settings) {
+      await this.tenantRepository.increment({ id: clientId }, 'syncVersion', 1);
+    }
 
     if (dto.adminNotes !== undefined) {
       const notes = typeof dto.adminNotes === 'string' && dto.adminNotes.trim() !== '' ? dto.adminNotes.trim() : null;

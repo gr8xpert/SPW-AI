@@ -34,7 +34,18 @@ const SELECTOR = [
 const OWN_SEARCH_BLOCK_RE = /^(site-carousel|carousel-template-\d+)$/;
 const REF_ATTRS = ['data-spm-ref', 'data-spm-reference', 'data-spm-refs', 'data-spm-references'];
 
+// A map has no search of its own: it always draws the page's search, so its
+// filters (even with standalone, a ref list or a limit) must feed that search
+// or they are lost and the map shows every listing.
+const MAP_BLOCK_RE = /^(site-map|map-template-\d+|map_view|map_container|map_results_panel)$/;
+
+export function isMapBlock(el: HTMLElement): boolean {
+  const block = el.closest<HTMLElement>('[data-spm-widget], [data-spm-template]');
+  return MAP_BLOCK_RE.test(block?.getAttribute('data-spm-widget') || block?.getAttribute('data-spm-template') || '');
+}
+
 export function isStandalone(el: HTMLElement): boolean {
+  if (isMapBlock(el)) return false;
   if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;
   const block = el.closest<HTMLElement>('[data-spm-widget], [data-spm-template]');
   const name = block?.getAttribute('data-spm-widget') || block?.getAttribute('data-spm-template') || '';

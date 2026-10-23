@@ -286,6 +286,9 @@ export interface TenantPublic {
   inquiryWebhookUrlConfigured: boolean;
   // Form emails are sent from settings.formSenderEmail (Super Admin switch).
   ownEmailDomain?: boolean;
+  // Super Admin add-ons Map Search / Map View: off = the website hides those blocks.
+  mapSearch?: boolean;
+  mapView?: boolean;
 }
 
 export interface TenantWithApiKey extends TenantPublic {

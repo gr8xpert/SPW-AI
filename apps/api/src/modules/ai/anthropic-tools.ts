@@ -76,6 +76,7 @@ export async function anthropicCompleteWithTools(
   messages: ChatMessage[],
   tools: ToolDefinition[] | undefined,
   maxTokens: number,
+  call?: { timeoutMs?: number; maxRetries?: number },
 ): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
   const conversation = toAnthropicConversation(messages);
   const response = await callAnthropic(
@@ -83,7 +84,8 @@ export async function anthropicCompleteWithTools(
     model,
     maxTokens,
     { ...conversation, tools: tools?.length ? toAnthropicTools(tools) : undefined },
-    120_000,
+    call?.timeoutMs ?? 120_000,
+    call?.maxRetries,
   );
   const text = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')

@@ -23,6 +23,7 @@ export const es: WebsiteDesignText = {
   wpDefault: 'WordPress: las páginas creadas por el plugin de SPM siguen tu elección automáticamente.',
   otherSitesBefore: 'Otras webs: pega',
   otherSitesAfter: 'donde deba aparecer.',
+  mapOff: 'La búsqueda en mapa no está activada en su cuenta, así que los bloques de mapa no se muestran en su web. Contáctenos para añadirla.',
   kinds: {
     search: { tab: 'Buscador', intro: 'El formulario de búsqueda sobre tus resultados de propiedades y en tu página de inicio.' },
     listing: { tab: 'Resultados de propiedades', intro: 'Cómo se ve cada tarjeta de propiedad en tus resultados de búsqueda.' },

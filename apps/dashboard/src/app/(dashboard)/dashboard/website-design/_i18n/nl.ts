@@ -23,6 +23,7 @@ export const nl: WebsiteDesignText = {
   wpDefault: 'WordPress: de pagina’s die de SPM-plugin aanmaakt volgen je keuze automatisch.',
   otherSitesBefore: 'Andere websites: plak',
   otherSitesAfter: 'waar het moet verschijnen.',
+  mapOff: 'Kaartzoeken staat niet aan voor uw account, dus kaartblokken worden niet op uw website getoond. Neem contact met ons op om het toe te voegen.',
   kinds: {
     search: { tab: 'Zoekvak', intro: 'Het zoekformulier boven je woningresultaten en op je homepage.' },
     listing: { tab: 'Woningresultaten', intro: 'Hoe elke woningkaart eruitziet in je zoekresultaten.' },

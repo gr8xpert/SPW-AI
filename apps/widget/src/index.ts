@@ -352,6 +352,23 @@ async function runSearch(requested: SearchFilters, options?: SearchOptions): Pro
  * search. Runs once at start, and again on every single-page-app route change
  * (refresh) — then only blocks not drawn yet are mounted.
  */
+// The AI chat bubble on every page once the client switched AI Chat on
+// (Settings -> AI Chat), unless the page placed its own chat blocks.
+async function mountChat(): Promise<void> {
+  if (!store.getState().config.enableAiChat || !document.body) return;
+  const missing = ['chat_bubble', 'chat_panel'].filter((n) => !document.querySelector(`[data-spm-widget="${n}"]`));
+  if (!missing.length) return;
+  const host = document.createElement('div');
+  host.className = 'spm-chat-host';
+  for (const name of missing) {
+    const el = document.createElement('div');
+    el.setAttribute('data-spm-widget', name);
+    host.appendChild(el);
+  }
+  document.body.appendChild(host);
+  await mountAll(scanDOM(host));
+}
+
 async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   if (!dataLoader) return;
   const run = ++pageRun;
@@ -464,6 +481,7 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   }
 
   await mountAll(mountEntries);
+  await mountChat();
   // Views, wishlist and card clicks for the client's Analytics.
   startTracking();
   // Live settings that arrived while the blocks were being drawn.

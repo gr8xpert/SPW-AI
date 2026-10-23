@@ -30,7 +30,9 @@ export function useContacts<TContact>(page: number, search: string) {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
       if (search) params.set('search', search);
       const res = await api.get(`/api/dashboard/contacts?${params}`);
-      const body = res?.data || res;
+      // The list comes as { data: [...], total } — already the page, not
+      // wrapped again (taking res.data here gave the bare array: no rows).
+      const body = Array.isArray(res?.data) ? res : res?.data || res;
       return {
         contacts: body.data || [],
         total: body.total || 0,

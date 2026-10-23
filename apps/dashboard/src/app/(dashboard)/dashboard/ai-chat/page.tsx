@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -19,11 +20,14 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/i18n/i18n-provider';
 import { useAiChatText } from './_i18n';
+import { useAiChatTranscriptText } from './_i18n/transcript';
+import { ConversationDialog } from './_components/conversation-dialog';
 
 interface StatsData {
   totalConversations: number;
@@ -36,7 +40,6 @@ interface StatsData {
 
 interface ConversationRow {
   id: number;
-  sessionId: string;
   language: string | null;
   status: 'active' | 'closed';
   messageCount: number;
@@ -67,11 +70,28 @@ function AiChatPageInner() {
   const [convMeta, setConvMeta] = useState<{ total: number; page: number; pages: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [convPage, setConvPage] = useState(1);
+  const [openId, setOpenId] = useState<number | null>(null);
+  // Why the chat might be missing from the website (null = it is shown).
+  const [widgetOff, setWidgetOff] = useState<'settings' | 'admin' | null>(null);
 
   const api = useApi();
   const { toast } = useToast();
   const t = useAiChatText();
+  const x = useAiChatTranscriptText();
   const { locale } = useLanguage();
+
+  useEffect(() => {
+    if (!api.isReady) return;
+    api
+      .get('/api/dashboard/ai-chat/status')
+      .then((res: any) => {
+        const status = res?.data ?? res;
+        if (!status?.allowed) setWidgetOff('admin');
+        else if (!status?.enabled) setWidgetOff('settings');
+        else setWidgetOff(null);
+      })
+      .catch(() => {});
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = async (range: string, page = 1) => {
     if (!api.isReady) return;
@@ -84,7 +104,8 @@ function AiChatPageInner() {
 
       const unwrap = (res: any) => res?.data ?? res;
       setStats(unwrap(statsRes));
-      const convData = unwrap(convRes);
+      // A paged list comes as { data, meta } (not wrapped again).
+      const convData = convRes?.meta ? convRes : unwrap(convRes);
       setConversations(convData?.data || []);
       setConvMeta(convData?.meta || null);
     } catch {
@@ -124,6 +145,16 @@ function AiChatPageInner() {
           </div>
         </div>
       </div>
+
+      {widgetOff && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:bg-amber-950/30">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{widgetOff === 'admin' ? x.widgetOffAdmin : x.widgetOff}</span>
+          {widgetOff === 'settings' && (
+            <Link href="/dashboard/settings?tab=ai-chat" className="font-medium text-primary underline">{x.settingsLink}</Link>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -287,7 +318,7 @@ function AiChatPageInner() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left">
-                        <th className="py-2 pr-3 font-medium">{t.colSession}</th>
+                        <th className="py-2 pr-3 font-medium">{x.colChat}</th>
                         <th className="py-2 pr-3 font-medium">{t.colLastMessage}</th>
                         <th className="py-2 pr-3 font-medium">{t.colMessages}</th>
                         <th className="py-2 pr-3 font-medium">{t.colLanguage}</th>
@@ -297,8 +328,16 @@ function AiChatPageInner() {
                     </thead>
                     <tbody>
                       {conversations.map((conv) => (
-                        <tr key={conv.id} className="border-b last:border-0">
-                          <td className="py-2 pr-3 font-mono text-xs">{conv.sessionId.slice(0, 12)}…</td>
+                        <tr
+                          key={conv.id}
+                          className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                          onClick={() => setOpenId(conv.id)}
+                        >
+                          <td className="py-2 pr-3">
+                            <button type="button" className="font-mono text-xs text-primary underline" onClick={(e) => { e.stopPropagation(); setOpenId(conv.id); }}>
+                              #{conv.id}
+                            </button>
+                          </td>
                           <td className="py-2 pr-3 max-w-[300px] truncate text-muted-foreground">
                             {conv.lastUserMessage || '—'}
                           </td>
@@ -360,6 +399,8 @@ function AiChatPageInner() {
           </Card>
         </>
       )}
+
+      <ConversationDialog id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }

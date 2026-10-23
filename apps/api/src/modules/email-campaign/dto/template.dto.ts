@@ -1,7 +1,7 @@
 import {
   IsString,
   IsOptional,
-  IsEnum,
+  IsIn,
   IsBoolean,
   MaxLength,
 } from 'class-validator';
@@ -23,7 +23,7 @@ export class CreateTemplateDto {
   @IsOptional()
   bodyText?: string;
 
-  @IsEnum(['property_alert', 'newsletter', 'welcome', 'custom'])
+  @IsIn(['property_alert', 'newsletter', 'welcome', 'custom'])
   @IsOptional()
   type?: EmailTemplateType;
 

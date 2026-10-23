@@ -4,6 +4,7 @@ export const es: AddToWebsiteText = {
   title: 'Añadir a tu web',
   description: 'Elige qué mostrar, ajusta los filtros y copia el código. Funciona en WordPress, Wix, Squarespace, Webflow, Next.js o cualquier web.',
 
+  mapOff: 'La búsqueda en mapa no está activada en su cuenta, así que los bloques de mapa no se muestran en su web. Contáctenos para añadirla.',
   blocks: {
     search: 'Formulario de búsqueda',
     listing: 'Resultados de propiedades',

@@ -116,12 +116,23 @@ export class AnthropicCallError extends Error {
   constructor(
     message: string,
     // 'credits': account has no credit left; 'auth': key rejected;
+    // 'workspace': key not created inside a workspace (unusable as it is);
     // 'other': anything else (rate limit, overload, refusal, bad output).
-    readonly kind: 'credits' | 'auth' | 'other',
+    readonly kind: 'credits' | 'auth' | 'workspace' | 'other',
     readonly status?: number,
   ) {
     super(message);
   }
+}
+
+// What a 4xx/5xx from the Messages API means for us. An empty account
+// answers 400 "Your credit balance is too low ..."; a key outside any
+// workspace, 400 "... not scoped to a workspace ... anthropic-workspace-id
+// header" (seen 2026-10-23).
+export function apiErrorKind(message: string): AnthropicCallError['kind'] {
+  if (/credit balance/i.test(message)) return 'credits';
+  if (/not scoped to a workspace|anthropic-workspace-id/i.test(message)) return 'workspace';
+  return 'other';
 }
 
 // One Messages API call with our thinking settings; API failures come back
@@ -132,6 +143,7 @@ export async function callAnthropic(
   maxTokens: number,
   body: Pick<Anthropic.MessageCreateParamsNonStreaming, 'system' | 'messages' | 'tools'>,
   timeoutMs = 60_000,
+  maxRetries?: number,
 ): Promise<Anthropic.Message> {
   const { thinking, effort, extraTokens } = thinkingFor(model);
   try {
@@ -145,15 +157,14 @@ export async function callAnthropic(
         ...(thinking ? { thinking } : {}),
         ...(effort ? { output_config: { effort } } : {}),
       },
-      { timeout: timeoutMs },
+      { timeout: timeoutMs, ...(maxRetries !== undefined ? { maxRetries } : {}) },
     );
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
       throw new AnthropicCallError(`Anthropic rejected the key (${err.message})`, 'auth', err.status);
     }
     if (err instanceof Anthropic.APIError) {
-      // An empty account answers 400 "Your credit balance is too low ...".
-      const kind = /credit balance/i.test(err.message) ? 'credits' : 'other';
+      const kind = apiErrorKind(err.message);
       throw new AnthropicCallError(`Anthropic API error ${err.status ?? ''}: ${err.message}`.trim(), kind, err.status);
     }
     throw new AnthropicCallError(`Anthropic request failed: ${(err as Error).message}`, 'other');

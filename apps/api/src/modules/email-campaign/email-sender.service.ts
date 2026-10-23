@@ -9,6 +9,7 @@ export interface SendEmailOptions {
   subject: string;
   html: string;
   text?: string;
+  headers?: Record<string, string>;
 }
 
 export interface SendResult {
@@ -56,6 +57,7 @@ export class EmailSenderService {
         subject: options.subject,
         html: options.html,
         text: options.text,
+        headers: options.headers,
       });
 
       return {
@@ -71,14 +73,14 @@ export class EmailSenderService {
     }
   }
 
-  async testConnection(config: TenantEmailConfig): Promise<boolean> {
+  async testConnection(config: TenantEmailConfig): Promise<{ success: boolean; error?: string }> {
     try {
       const transporter = this.createTransporter(config, null);
       await transporter.verify();
-      return true;
+      return { success: true };
     } catch (error) {
-      this.logger.error('Email connection test failed:', error);
-      return false;
+      this.logger.warn(`Email connection test failed: ${error instanceof Error ? error.message : String(error)}`);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 

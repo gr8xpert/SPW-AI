@@ -83,6 +83,11 @@ function hasAudio(messages: Array<ChatMessage | MultimodalMessage>): boolean {
   return messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'input_audio'));
 }
 
+// Anthropic keys must be created inside a workspace; one made outside any
+// workspace is refused on every call.
+const WORKSPACE_FIX =
+  'In the Anthropic Console (console.anthropic.com → Settings → API keys), create a key inside a workspace and use that one.';
+
 const KEY_SELECT: Array<keyof Tenant> = ['id', 'settings', 'openrouterApiKey', 'anthropicApiKey'];
 
 export interface ToolCall {
@@ -300,7 +305,7 @@ export class AiService {
       const usage = (err as { usage?: { inputTokens: number; outputTokens: number } }).usage;
       if (usage) await this.anthropicBudget?.record(resolved.model, usage);
       const kind = err instanceof AnthropicCallError ? err.kind : 'other';
-      if (kind === 'credits' || kind === 'auth') await this.anthropicBudget?.pause(kind);
+      if (kind === 'credits' || kind === 'auth' || kind === 'workspace') await this.anthropicBudget?.pause(kind);
       this.logger.error(`Anthropic platform call failed (${kind}, tenant=${tenantId}): ${(err as Error).message}`);
       if (process.env.OPENROUTER_API_KEY) {
         this.logger.warn(`Retrying tenant=${tenantId} on the OpenRouter platform key`);
@@ -311,7 +316,9 @@ export class AiService {
           ? 'The platform Anthropic key (ANTHROPIC_API_KEY) has no credit left, and no OpenRouter platform key is set.'
           : kind === 'auth'
             ? 'The platform Anthropic key (ANTHROPIC_API_KEY) was rejected, and no OpenRouter platform key is set.'
-            : `AI request failed: ${(err as Error).message}`,
+            : kind === 'workspace'
+              ? `The platform Anthropic key (ANTHROPIC_API_KEY) isn't linked to a workspace, and no OpenRouter platform key is set. ${WORKSPACE_FIX}`
+              : `AI request failed: ${(err as Error).message}`,
       );
     }
   }
@@ -331,7 +338,7 @@ export class AiService {
     } catch (err) {
       this.logger.error(`Anthropic API error (client key, tenant=${tenantId}): ${(err as Error).message}`);
       const kind = err instanceof AnthropicCallError ? err.kind : 'other';
-      if (source === 'client-first' && (kind === 'credits' || kind === 'auth') && this.hasPlatformKey()) {
+      if (source === 'client-first' && kind !== 'other' && this.hasPlatformKey()) {
         this.logger.warn(`Client Anthropic key of tenant=${tenantId} failed (${kind}); retrying on the platform key`);
         return this.chatCompletion(tenantId, messages, { ...options, keySource: 'platform' });
       }
@@ -343,6 +350,9 @@ export class AiService {
     const kind = err instanceof AnthropicCallError ? err.kind : 'other';
     if (kind === 'auth') return new BadRequestException('Your Anthropic API key (Settings → AI) was rejected by Anthropic.');
     if (kind === 'credits') return new BadRequestException('Your Anthropic API key (Settings → AI) has no credit left.');
+    if (kind === 'workspace') {
+      return new BadRequestException(`This Anthropic key isn't linked to a workspace. ${WORKSPACE_FIX}`);
+    }
     return new BadRequestException(`AI request failed: ${(err as Error).message}`);
   }
 
@@ -350,14 +360,15 @@ export class AiService {
     tenantId: number,
     messages: ChatMessage[],
     tools?: ToolDefinition[],
-    options?: { model?: string; temperature?: number; maxTokens?: number },
+    options?: { model?: string; temperature?: number; maxTokens?: number; timeoutMs?: number; maxRetries?: number },
   ): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     // The website chatbot: always the client's own key.
     const resolved = await this.resolveKeyAndModel(tenantId, options?.model, 'client');
     const { apiKey, model } = resolved;
     if (resolved.provider === 'anthropic') {
       try {
-        return await anthropicCompleteWithTools(apiKey, model, messages, tools, options?.maxTokens ?? 4096);
+        const call = { timeoutMs: options?.timeoutMs, maxRetries: options?.maxRetries };
+        return await anthropicCompleteWithTools(apiKey, model, messages, tools, options?.maxTokens ?? 4096, call);
       } catch (err) {
         this.logger.error(`Anthropic API error (chatbot, tenant=${tenantId}): ${(err as Error).message}`);
         throw this.clientAnthropicError(err);
@@ -383,7 +394,7 @@ export class AiService {
           'HTTP-Referer': 'https://spm.app',
           'X-Title': 'SPM Property Manager',
         },
-        timeout: 120_000,
+        timeout: options?.timeoutMs ?? 120_000,
       });
 
       const choice = response.data?.choices?.[0];
@@ -415,6 +426,16 @@ export class AiService {
   async hasClientKey(tenantId: number): Promise<boolean> {
     const row = await this.tenantRepository.findOne({ where: { id: tenantId }, select: KEY_SELECT });
     return !!clientKeyOf(row, false);
+  }
+
+  /** Which provider and model the client's own key would use (null = no key). */
+  async clientModel(tenantId: number): Promise<{ provider: 'openrouter' | 'anthropic'; model: string } | null> {
+    try {
+      const r = await this.resolveKeyAndModel(tenantId, undefined, 'client');
+      return { provider: r.provider === 'anthropic' ? 'anthropic' : 'openrouter', model: r.model };
+    } catch {
+      return null;
+    }
   }
 
   /** Whether the client's keys can send audio (voice search, voice notes). */

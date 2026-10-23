@@ -1,6 +1,7 @@
 import { render, type ComponentType } from 'preact';
 import { resolveSiteAlias, type ScanEntry } from './dom-scanner';
 import { getComponent, getTemplate } from '@/registry/component-registry';
+import { gated, needsGate } from './feature-gate';
 
 interface MountedRoot {
   element: HTMLElement;
@@ -59,6 +60,8 @@ async function mountEntry(entry: ScanEntry): Promise<void> {
     console.warn(`[SPM] No component registered for "${name}"`);
     return;
   }
+  // Map blocks need their add-on switched on (see feature-gate.tsx).
+  if (name && needsGate(name)) Component = gated(name, Component);
 
   // `ref` and `key` mean something to Preact itself: passing data-spm-ref
   // straight through made it try to write `.current` on the string and the

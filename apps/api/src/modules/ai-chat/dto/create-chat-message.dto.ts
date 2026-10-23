@@ -65,6 +65,12 @@ export class CreateChatMessageDto {
   @IsNumber()
   conversationId?: number;
 
+  // The secret the 'conversation' event handed out; without it a new chat starts.
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  conversationToken?: string;
+
   @IsString()
   @MaxLength(2000)
   message: string;

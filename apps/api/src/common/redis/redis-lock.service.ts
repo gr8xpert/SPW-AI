@@ -20,6 +20,8 @@ const RELEASE_LUA = `
 export interface LockOutcome<T> {
   acquired: boolean;
   result?: T;
+  /** True when Redis could not be asked (not the same as the lock being held). */
+  error?: boolean;
 }
 
 @Injectable()
@@ -49,7 +51,7 @@ export class RedisLockService implements OnModuleDestroy {
       this.logger.error(
         `lock acquire failed for ${key}: ${(err as Error).message}`,
       );
-      return { acquired: false };
+      return { acquired: false, error: true };
     }
     if (!acquired) {
       return { acquired: false };

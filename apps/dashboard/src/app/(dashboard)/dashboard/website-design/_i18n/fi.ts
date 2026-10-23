@@ -23,6 +23,7 @@ export const fi: WebsiteDesignText = {
   wpDefault: 'WordPress: SPM-lisäosan luomat sivut seuraavat valintaasi automaattisesti.',
   otherSitesBefore: 'Muut verkkosivut: liitä',
   otherSitesAfter: 'kohtaan, jossa sen pitää näkyä.',
+  mapOff: 'Karttahaku ei ole käytössä tililläsi, joten karttalohkot eivät näy verkkosivustollasi. Ota meihin yhteyttä sen lisäämiseksi.',
   kinds: {
     search: { tab: 'Hakukenttä', intro: 'Hakulomake kohdetulosten yläpuolella ja etusivullasi.' },
     listing: { tab: 'Kohdetulokset', intro: 'Miltä kukin kohdekortti näyttää hakutuloksissasi.' },

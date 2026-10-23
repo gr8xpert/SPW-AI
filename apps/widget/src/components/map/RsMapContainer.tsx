@@ -476,9 +476,12 @@ export default function RsMapContainer({
               {areaCount} {t('zones', 'areas')} &middot; {points.length} {t('properties', 'properties')}
             </span>
           </div>
-          <a href={config.resultsPage || '#'} class="rs-map-explore-stats__btn">
-            {t('view_all', 'View all properties')}
-          </a>
+          {/* Only where the site has a results page to go to (the WP plugin sends it). */}
+          {config.resultsPage && (
+            <a href={config.resultsPage} class="rs-map-explore-stats__btn">
+              {t('view_all', 'View all properties')}
+            </a>
+          )}
         </div>
       )}
     </div>

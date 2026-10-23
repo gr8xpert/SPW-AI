@@ -4,6 +4,7 @@ export const de: AddToWebsiteText = {
   title: 'Zu Ihrer Website hinzufügen',
   description: 'Wählen Sie, was angezeigt werden soll, legen Sie die Filter fest und kopieren Sie den Code. Funktioniert mit WordPress, Wix, Squarespace, Webflow, Next.js und jeder anderen Website.',
 
+  mapOff: 'Die Kartensuche ist für Ihr Konto nicht aktiviert, daher werden Kartenblöcke auf Ihrer Website nicht angezeigt. Kontaktieren Sie uns, um sie hinzuzufügen.',
   blocks: {
     search: 'Suchformular',
     listing: 'Immobilienergebnisse',

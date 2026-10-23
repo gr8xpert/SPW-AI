@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, HttpException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, LessThan, Repository } from 'typeorm';
+import { randomUUID, timingSafeEqual } from 'crypto';
 import { ChatConversation, ChatMessage as ChatMessageEntity, Tenant } from '../../database/entities';
 import { AiService, ChatMessage, ToolCall } from '../ai/ai.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -13,6 +14,23 @@ import { TenantSettings } from '@spm/shared';
 
 const MAX_TOOL_ITERATIONS = 3;
 const MAX_CONTEXT_MESSAGES = 20;
+const DEFAULT_TTL_DAYS = 7;
+const FALLBACK_REPLY = 'I apologize, but I was unable to complete your request. Please try rephrasing your question.';
+
+// The conversation's secret: only the visitor who started a chat can read
+// it, continue it or email it (conversation ids are guessable).
+function sameToken(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+function parseArgs(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
 
 @Injectable()
 export class AiChatService {
@@ -34,7 +52,6 @@ export class AiChatService {
 
   async *processMessage(
     tenantId: number,
-    sessionId: string,
     dto: CreateChatMessageDto,
   ): AsyncGenerator<SSEEvent> {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
@@ -48,24 +65,25 @@ export class AiChatService {
 
     const maxMessages = settings.aiChatMaxMessagesPerConversation || 50;
 
-    let conversation: ChatConversation;
-    if (dto.conversationId) {
+    // A chat continues only with its token; anything else starts a new one.
+    let conversation: ChatConversation | null = null;
+    if (dto.conversationId && dto.conversationToken) {
       const existing = await this.conversationRepo.findOne({
         where: { id: dto.conversationId, tenantId },
       });
-      if (!existing || existing.status === 'closed') {
-        conversation = await this.createConversation(tenantId, sessionId, dto.context);
-      } else if (existing.messageCount >= maxMessages) {
-        yield { type: 'error', data: { message: 'Conversation limit reached. Please start a new chat.' } };
-        return;
-      } else {
+      if (existing && existing.status !== 'closed' && sameToken(existing.sessionId, dto.conversationToken)) {
+        if (existing.messageCount >= maxMessages) {
+          yield { type: 'error', data: { code: 'LIMIT', message: 'Conversation limit reached. Please start a new chat.' } };
+          return;
+        }
         conversation = existing;
       }
-    } else {
-      conversation = await this.createConversation(tenantId, sessionId, dto.context);
+    }
+    if (!conversation) {
+      conversation = await this.createConversation(tenantId, dto.context);
     }
 
-    yield { type: 'conversation', data: { conversationId: conversation.id } };
+    yield { type: 'conversation', data: { conversationId: conversation.id, token: conversation.sessionId } };
 
     await this.saveMessage(conversation.id, 'user', dto.message);
 
@@ -85,16 +103,30 @@ export class AiChatService {
     let totalTokens = 0;
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      const response = await this.aiService.chatCompletionWithTools(
-        tenantId,
-        messages,
-        tools.length ? tools : undefined,
-        { temperature: 0.4, maxTokens: 2048 },
-      );
+      const last = iteration === MAX_TOOL_ITERATIONS - 1;
+      let response: Awaited<ReturnType<AiService['chatCompletionWithTools']>>;
+      try {
+        response = await this.aiService.chatCompletionWithTools(
+          tenantId,
+          messages,
+          // The tools go on every round: Anthropic refuses a history holding
+          // tool calls/results when the request has no tools.
+          tools.length ? tools : undefined,
+          { temperature: 0.4, maxTokens: 2048 },
+        );
+      } catch (err) {
+        // The visitor sees a plain message; the reason (no key, credits,
+        // provider down) goes to the log for the agency.
+        const reason = err instanceof HttpException ? JSON.stringify(err.getResponse()) : (err as Error).message;
+        this.logger.warn(`AI chat failed (tenant=${tenantId}, conversation=${conversation.id}): ${reason}`);
+        yield { type: 'error', data: { code: 'AI_UNAVAILABLE', message: 'The assistant is not available right now. Please try again later.' } };
+        return;
+      }
 
       totalTokens += response.usage.totalTokens;
 
-      if (response.toolCalls.length > 0) {
+      // Tool calls on the last round are not run: the reply is what it has.
+      if (response.toolCalls.length > 0 && !last) {
         messages.push({
           role: 'assistant',
           content: null,
@@ -106,7 +138,7 @@ export class AiChatService {
             type: 'tool_call',
             data: {
               tool: toolCall.function.name,
-              args: JSON.parse(toolCall.function.arguments),
+              args: parseArgs(toolCall.function.arguments),
             },
           };
 
@@ -140,6 +172,9 @@ export class AiChatService {
         continue;
       }
 
+      // Still asking for tools with no text: end with the fallback below.
+      if (response.toolCalls.length > 0 && !response.content) break;
+
       if (response.content) {
         yield { type: 'delta', data: { content: response.content } };
 
@@ -164,16 +199,59 @@ export class AiChatService {
       return;
     }
 
-    yield {
-      type: 'delta',
-      data: { content: 'I apologize, but I was unable to complete your request. Please try rephrasing your question.' },
-    };
-    await this.saveMessage(
-      conversation.id,
-      'assistant',
-      'I apologize, but I was unable to complete your request. Please try rephrasing your question.',
-    );
+    yield { type: 'delta', data: { content: FALLBACK_REPLY } };
+    await this.saveMessage(conversation.id, 'assistant', FALLBACK_REPLY);
+    conversation.messageCount += 2;
+    conversation.lastMessageAt = new Date();
+    await this.conversationRepo.save(conversation);
     yield { type: 'done', data: { tokenCount: totalTokens } };
+  }
+
+  // The visitor's own conversation (the token proves it is theirs).
+  async getVisitorConversation(tenantId: number, conversationId: number, token: string | undefined) {
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId, tenantId } });
+    if (!conversation || !sameToken(conversation.sessionId, token)) throw new NotFoundException('Conversation not found');
+    const conv = await this.getConversation(tenantId, conversationId);
+    // Visitors get the chat itself, not the tool results or our bookkeeping.
+    return {
+      id: conv.id,
+      status: conv.status,
+      createdAt: conv.createdAt,
+      messages: conv.messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })),
+    };
+  }
+
+  async emailVisitorTranscript(tenantId: number, conversationId: number, token: string | undefined, email: string): Promise<void> {
+    await this.getVisitorConversation(tenantId, conversationId, token);
+    await this.emailTranscript(tenantId, conversationId, email);
+  }
+
+  // Closes chats nobody wrote in for the tenant's expiry days (Settings ->
+  // AI Chat); a returning visitor then starts a new one.
+  async closeExpired(now: Date = new Date()): Promise<number> {
+    const rows: { tenantId: number }[] = await this.conversationRepo
+      .createQueryBuilder('c')
+      .select('DISTINCT c.tenantId', 'tenantId')
+      .where('c.status = :active', { active: 'active' })
+      .getRawMany();
+    let closed = 0;
+    for (const { tenantId } of rows) {
+      const tenant = await this.tenantRepo.findOne({ where: { id: Number(tenantId) }, select: ['id', 'settings'] });
+      const days = Number((tenant?.settings as TenantSettings | null)?.aiChatConversationTTLDays) || DEFAULT_TTL_DAYS;
+      const cutoff = new Date(now.getTime() - Math.min(Math.max(days, 1), 365) * 86_400_000);
+      const res = await this.conversationRepo.update(
+        { tenantId: Number(tenantId), status: 'active', lastMessageAt: LessThan(cutoff) },
+        { status: 'closed' },
+      );
+      const never = await this.conversationRepo.update(
+        { tenantId: Number(tenantId), status: 'active', lastMessageAt: IsNull(), createdAt: LessThan(cutoff) },
+        { status: 'closed' },
+      );
+      closed += (res.affected ?? 0) + (never.affected ?? 0);
+    }
+    return closed;
   }
 
   async getConversation(tenantId: number, conversationId: number) {
@@ -184,7 +262,7 @@ export class AiChatService {
 
     const messages = await this.messageRepo.find({
       where: { conversationId },
-      order: { createdAt: 'ASC' },
+      order: { id: 'ASC' },
     });
 
     return {
@@ -285,12 +363,11 @@ export class AiChatService {
 
   private async createConversation(
     tenantId: number,
-    sessionId: string,
     context?: CreateChatMessageDto['context'],
   ): Promise<ChatConversation> {
     const conversation = this.conversationRepo.create({
       tenantId,
-      sessionId,
+      sessionId: randomUUID(),
       propertyReference: context?.propertyReference || null,
       language: context?.language || null,
       metadata: context ? { favorites: context.favorites, recentlyViewed: context.recentlyViewed } : null,
@@ -324,23 +401,22 @@ export class AiChatService {
     if (settings.aiChatConversational === false) {
       const lastMsg = await this.messageRepo.findOne({
         where: { conversationId, role: 'user' as any },
-        order: { createdAt: 'DESC' },
+        order: { id: 'DESC' },
       });
       return lastMsg ? [{ role: 'user', content: lastMsg.content }] : [];
     }
 
     const messages = await this.messageRepo.find({
       where: { conversationId },
-      order: { createdAt: 'ASC' },
+      order: { id: 'ASC' },
     });
 
-    const filtered = messages.filter((m) => m.role !== 'system');
-    const recent = filtered.slice(-MAX_CONTEXT_MESSAGES);
+    // Only the visible chat is replayed: stored tool results have no
+    // matching assistant tool call, and both providers reject those.
+    const visible = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
+    const recent = visible.slice(-MAX_CONTEXT_MESSAGES);
+    while (recent.length && recent[0].role !== 'user') recent.shift();
 
-    return recent.map((m) => {
-      const msg: ChatMessage = { role: m.role as any, content: m.content };
-      if (m.toolCallId) msg.tool_call_id = m.toolCallId;
-      return msg;
-    });
+    return recent.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
   }
 }

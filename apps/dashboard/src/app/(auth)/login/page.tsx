@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -53,6 +53,20 @@ function LoginForm() {
   // Two-factor step: the password was right, now the code from the app.
   const [needCode, setNeedCode] = useState(false);
   const [code, setCode] = useState('');
+  // Until React runs, a click would submit the plain HTML form: keep Sign in off till then.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  // Old bookmarks / history from the pre-hydration GET bug may carry credentials
+  // in the address: drop them from the URL at once, never use them.
+  useEffect(() => {
+    if (!searchParams.has('password') && !searchParams.has('email')) return;
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete('password');
+    rest.delete('email');
+    const qs = rest.toString();
+    router.replace(qs ? `/login?${qs}` : '/login');
+  }, [searchParams, router]);
 
   const {
     register,
@@ -133,7 +147,8 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* method="post" + action="#": even a submit before hydration can never put the password in a URL. */}
+          <form method="post" action="#" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">Email</Label>
               <Input
@@ -186,7 +201,7 @@ function LoginForm() {
               </div>
             ) : null}
             <div>
-              <Button type="submit" className="w-full shadow-sm" loading={isLoading} disabled={needCode && code.trim().length < 6}>
+              <Button type="submit" className="w-full shadow-sm" loading={isLoading} disabled={!mounted || (needCode && code.trim().length < 6)}>
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </div>

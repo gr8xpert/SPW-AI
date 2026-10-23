@@ -7,9 +7,11 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { EmailCampaignService } from './email-campaign.service';
+import { CampaignContentService } from './campaign-content.service';
 import {
   CreateEmailConfigDto,
   UpdateEmailConfigDto,
@@ -17,6 +19,11 @@ import {
   UpdateTemplateDto,
   CreateCampaignDto,
   UpdateCampaignDto,
+  ScheduleCampaignDto,
+  TestCampaignDto,
+  CampaignRecipientsQueryDto,
+  RecipientCountDto,
+  RenderPreviewDto,
 } from './dto';
 import { CurrentTenant, RequiresAddon } from '../../common/decorators';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
@@ -50,7 +57,15 @@ export class EmailConfigController {
 @UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
 @RequiresAddon('emailCampaign')
 export class EmailTemplateController {
-  constructor(private readonly service: EmailCampaignService) {}
+  constructor(
+    private readonly service: EmailCampaignService,
+    private readonly content: CampaignContentService,
+  ) {}
+
+  @Post('render-preview')
+  renderPreview(@CurrentTenant() tenantId: number, @Body() dto: RenderPreviewDto) {
+    return this.content.previewSample(tenantId, { subject: dto.subject ?? '', bodyHtml: dto.bodyHtml });
+  }
 
   @Post()
   create(
@@ -94,9 +109,8 @@ export class EmailTemplateController {
   preview(
     @CurrentTenant() tenantId: number,
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: Record<string, any>,
   ) {
-    return this.service.previewTemplate(tenantId, id, data);
+    return this.service.previewTemplate(tenantId, id);
   }
 }
 
@@ -119,12 +133,78 @@ export class CampaignController {
     return this.service.findAllCampaigns(tenantId);
   }
 
+  // The subscriber tags, for picking a campaign's audience.
+  @Get('tags')
+  tags(@CurrentTenant() tenantId: number) {
+    return this.service.listTags(tenantId);
+  }
+
+  // How many subscribed contacts a recipient filter reaches.
+  @Post('recipient-count')
+  recipientCount(
+    @CurrentTenant() tenantId: number,
+    @Body() dto: RecipientCountDto,
+  ) {
+    return this.service.countForFilter(tenantId, dto.recipientFilter);
+  }
+
   @Get(':id')
   findOne(
     @CurrentTenant() tenantId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.service.findCampaign(tenantId, id);
+    return this.service.getCampaignDetail(tenantId, id);
+  }
+
+  @Delete(':id')
+  remove(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.deleteCampaign(tenantId, id);
+  }
+
+  @Post(':id/duplicate')
+  duplicate(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.duplicateCampaign(tenantId, id);
+  }
+
+  @Post(':id/schedule')
+  schedule(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ScheduleCampaignDto,
+  ) {
+    return this.service.scheduleCampaign(tenantId, id, dto.scheduledAt);
+  }
+
+  @Post(':id/test')
+  test(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TestCampaignDto,
+  ) {
+    return this.service.sendTest(tenantId, id, dto.email);
+  }
+
+  @Get(':id/preview')
+  preview(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.previewCampaign(tenantId, id);
+  }
+
+  @Get(':id/recipients')
+  recipients(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: CampaignRecipientsQueryDto,
+  ) {
+    return this.service.listRecipients(tenantId, id, query.page ?? 1, query.limit ?? 25, query.status);
   }
 
   @Put(':id')

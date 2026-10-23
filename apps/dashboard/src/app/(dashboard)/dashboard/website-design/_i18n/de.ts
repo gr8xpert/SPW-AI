@@ -23,6 +23,7 @@ export const de: WebsiteDesignText = {
   wpDefault: 'WordPress: Die vom SPM-Plugin erstellten Seiten folgen Ihrer Wahl automatisch.',
   otherSitesBefore: 'Andere Websites: Fügen Sie',
   otherSitesAfter: 'dort ein, wo es erscheinen soll.',
+  mapOff: 'Die Kartensuche ist für Ihr Konto nicht aktiviert, daher werden Kartenblöcke auf Ihrer Website nicht angezeigt. Kontaktieren Sie uns, um sie hinzuzufügen.',
   kinds: {
     search: { tab: 'Suchfeld', intro: 'Das Suchformular über Ihren Objektergebnissen und auf Ihrer Startseite.' },
     listing: { tab: 'Objektergebnisse', intro: 'Wie jede Objektkarte in Ihren Suchergebnissen aussieht.' },

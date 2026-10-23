@@ -3,6 +3,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useConfig } from '@/hooks/useConfig';
 import { useFilters } from '@/hooks/useFilters';
 import { useSelector } from '@/hooks/useStore';
+import { useFacets } from '@/hooks/useFacets';
 import { selectors } from '@/core/selectors';
 import { toCoord } from '@/core/map-support';
 import type { Location } from '@/types';
@@ -46,6 +47,10 @@ export default function RsMapRadiusSearch() {
   const config = useConfig();
   const { filters, setFilter } = useFilters();
   const locations = useSelector(selectors.getLocations);
+  // Live counts per place (the list's own propertyCount is a stored tally
+  // that drifts — feed imports never touch it).
+  const facets = useFacets({ ignoreArea: true });
+  const countOf = useCallback((loc: Location) => facets?.locations[loc.id] ?? 0, [facets]);
 
   const radiusOptions = config.radiusOptions ?? DEFAULT_RADIUS_OPTIONS;
 
@@ -75,7 +80,7 @@ export default function RsMapRadiusSearch() {
       if (name.startsWith(q)) starts.push(loc);
       else if (name.includes(q)) contains.push(loc);
     }
-    const byCount = (a: Location, b: Location) => (b.propertyCount ?? 0) - (a.propertyCount ?? 0);
+    const byCount = (a: Location, b: Location) => countOf(b) - countOf(a);
     // A municipality and its main town often share a name: list it once,
     // preferring the entry that has map coordinates.
     const seen = new Map<string, Location>();
@@ -86,7 +91,7 @@ export default function RsMapRadiusSearch() {
       else if (toCoord(prev.lat) == null && toCoord(loc.lat) != null) seen.set(key, loc);
     }
     return [...seen.values()].slice(0, MAX_SUGGESTIONS);
-  }, [address, locations]);
+  }, [address, locations, countOf]);
 
   const applyCentre = useCallback(
     (lat: number, lng: number) => {
@@ -221,7 +226,7 @@ export default function RsMapRadiusSearch() {
                 }}
               >
                 <span>{loc.name}</span>
-                {!!loc.propertyCount && <span class="rs-map-radius__suggestion-count">{loc.propertyCount}</span>}
+                {countOf(loc) > 0 && <span class="rs-map-radius__suggestion-count">{countOf(loc)}</span>}
               </li>
             ))}
           </ul>

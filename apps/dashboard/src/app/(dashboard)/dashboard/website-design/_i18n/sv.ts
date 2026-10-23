@@ -23,6 +23,7 @@ export const sv: WebsiteDesignText = {
   wpDefault: 'WordPress: sidorna som SPM-tillägget skapar följer ditt val automatiskt.',
   otherSitesBefore: 'Andra webbplatser: klistra in',
   otherSitesAfter: 'där det ska visas.',
+  mapOff: 'Kartsökning är inte aktiverad för ditt konto, så kartblock visas inte på din webbplats. Kontakta oss för att lägga till den.',
   kinds: {
     search: { tab: 'Sökruta', intro: 'Sökformuläret ovanför dina objektresultat och på din startsida.' },
     listing: { tab: 'Objektresultat', intro: 'Hur varje objektkort ser ut i dina sökresultat.' },

@@ -23,10 +23,10 @@ type Kind = 'search' | 'listing' | 'detail' | 'map' | 'wishlist' | 'carousel';
 // Carousel) are t.carouselDesigns; sort and listing-type labels are
 // t.sorts[value || 'default'] and t.listingTypes[value || 'any'].
 const BLOCKS: Array<{ kind: Kind; block: string; shortcode: string; filters: boolean; templates: number }> = [
-  { kind: 'search', block: 'site-search', shortcode: '[spm_search]', filters: false, templates: 6 },
+  { kind: 'search', block: 'site-search', shortcode: '[spm_search]', filters: false, templates: 7 },
   { kind: 'listing', block: 'site-listing', shortcode: '[spm_listing]', filters: true, templates: 17 },
   { kind: 'map', block: 'site-map', shortcode: '[spm_map]', filters: true, templates: 3 },
-  { kind: 'detail', block: 'site-detail', shortcode: '[spm_detail]', filters: false, templates: 1 },
+  { kind: 'detail', block: 'site-detail', shortcode: '[spm_detail]', filters: false, templates: 2 },
   { kind: 'wishlist', block: 'wishlist_grid', shortcode: '[spm_wishlist]', filters: false, templates: 0 },
   { kind: 'carousel', block: 'site-carousel', shortcode: '[spm_carousel]', filters: true, templates: 6 },
 ];
@@ -55,6 +55,8 @@ export default function AddToWebsitePage() {
   const [features, setFeatures] = useState<Named[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState('');
+  // Super Admin add-on: off = map blocks don't show on the website.
+  const [mapSearch, setMapSearch] = useState(true);
   const [f, setF] = useState({ location: '', type: '', for: '', beds: '', baths: '', under: '', over: '', features: [] as number[], sort: '', limit: '', refs: '', fixed: false, own: false, autoplay: false });
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function AddToWebsitePage() {
     list<Named>('/api/dashboard/property-types').then(setTypes);
     list<Named>('/api/dashboard/features').then(setFeatures);
     apiPost<{ data: { token: string } }>('/api/dashboard/tenant/preview-token').then((r) => setToken(r.data?.token ?? null)).catch(() => {});
+    apiGet<{ data: { mapSearch?: boolean } }>('/api/dashboard/tenant').then((r) => setMapSearch(r.data?.mapSearch !== false)).catch(() => {});
   }, [session?.accessToken]);
 
   const current = BLOCKS.find((b) => b.kind === kind)!;
@@ -90,7 +93,8 @@ export default function AddToWebsitePage() {
         if (f.autoplay) out.autoplay = 'yes';
       } else {
         if (f.fixed) out.fixed = 'yes';
-        if (f.own) out.standalone = 'yes';
+        // A map always draws the page's search; it has no search of its own.
+        if (f.own && kind !== 'map') out.standalone = 'yes';
       }
     }
     return out;
@@ -161,6 +165,11 @@ export default function AddToWebsitePage() {
                   </Button>
                 ))}
               </div>
+              {kind === 'map' && !mapSearch && (
+                <p data-testid="map-off" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                  {t.mapOff}
+                </p>
+              )}
               {current.templates > 1 && (
                 <div className="space-y-1">
                   <Label>{t.design}</Label>
@@ -244,10 +253,12 @@ export default function AddToWebsitePage() {
                       <Switch checked={f.fixed} onCheckedChange={(v) => setF({ ...f, fixed: v })} />
                       {t.fixed}
                     </label>
-                    <label className="flex items-center gap-3 text-sm">
-                      <Switch checked={f.own} onCheckedChange={(v) => setF({ ...f, own: v })} />
-                      {t.standalone}
-                    </label>
+                    {kind !== 'map' && (
+                      <label className="flex items-center gap-3 text-sm">
+                        <Switch checked={f.own} onCheckedChange={(v) => setF({ ...f, own: v })} />
+                        {t.standalone}
+                      </label>
+                    )}
                   </div>
                 )}
               </CardContent>

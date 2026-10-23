@@ -13,6 +13,7 @@ import { AiChatToolsService } from './ai-chat-tools.service';
 import { AiChatPromptService } from './ai-chat-prompt.service';
 import { AiChatAnalyticsController } from './ai-chat-analytics.controller';
 import { AiChatAnalyticsService } from './ai-chat-analytics.service';
+import { AiChatExpiryService } from './ai-chat-expiry.service';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
@@ -32,6 +33,7 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
     AiChatToolsService,
     AiChatPromptService,
     AiChatAnalyticsService,
+    AiChatExpiryService,
     ApiKeyThrottlerGuard,
     DashboardAddonGuard,
   ],

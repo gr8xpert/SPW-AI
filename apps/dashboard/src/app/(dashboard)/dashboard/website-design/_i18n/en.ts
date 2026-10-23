@@ -23,6 +23,7 @@ export const en = {
   wpDefault: 'WordPress: the pages created by the SPM plugin follow your choice automatically.',
   otherSitesBefore: 'Other websites: paste',
   otherSitesAfter: 'where it should appear.',
+  mapOff: 'Map search is not switched on for your account, so map blocks don’t show on your website. Contact us to add it.',
   kinds: {
     search: { tab: 'Search box', intro: 'The search form above your property results and on your homepage.' },
     listing: { tab: 'Property results', intro: 'How each property card looks in your search results.' },

@@ -34,14 +34,21 @@ function facetsFor(key: string): Promise<Facets | null> {
 // with no counts and no request, because the visitor isn't searching.
 export const FacetsEnabled = createContext(true);
 
-export function useFacets(): Facets | null {
+// ignoreArea: counts for the search without its map area (box or radius) —
+// the map's place finder lists other towns, which the area would zero out.
+export function useFacets({ ignoreArea = false }: { ignoreArea?: boolean } = {}): Facets | null {
   const enabled = useContext(FacetsEnabled);
   const filters = useSelector(selectors.getEffectiveFilters);
-  const [facets, setFacets] = useState<Facets | null>(lastFacets);
+  const [facets, setFacets] = useState<Facets | null>(ignoreArea ? null : lastFacets);
   const latest = useRef(0);
 
   const { page, limit, sortBy, bounds, ...rest } = filters as SearchFilters;
   void page; void limit; void sortBy; void bounds;
+  if (ignoreArea) {
+    delete rest.lat;
+    delete rest.lng;
+    delete rest.radius;
+  }
   const key = JSON.stringify(rest);
 
   useEffect(() => {
@@ -51,12 +58,12 @@ export function useFacets(): Facets | null {
       // A slower earlier answer must not overwrite a newer one.
       facetsFor(key).then((res) => {
         if (run !== latest.current || !res) return;
-        lastFacets = res;
+        if (!ignoreArea) lastFacets = res;
         setFacets(res);
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [key, enabled]);
+  }, [key, enabled, ignoreArea]);
 
   return enabled ? facets : null;
 }

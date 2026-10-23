@@ -4,6 +4,7 @@ export const fr: AddToWebsiteText = {
   title: 'Ajouter à votre site',
   description: 'Choisissez quoi afficher, réglez les filtres, puis copiez le code. Fonctionne sur WordPress, Wix, Squarespace, Webflow, Next.js ou tout autre site.',
 
+  mapOff: 'La recherche sur carte n’est pas activée pour votre compte : les blocs carte ne s’affichent pas sur votre site. Contactez-nous pour l’ajouter.',
   blocks: {
     search: 'Formulaire de recherche',
     listing: 'Résultats de biens',

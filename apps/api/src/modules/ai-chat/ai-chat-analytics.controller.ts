@@ -17,6 +17,13 @@ export class AiChatAnalyticsController {
     private readonly chatService: AiChatService,
   ) {}
 
+  // Whether the chat shows on the website: the Super Admin flag and the
+  // client's own switch (Settings -> AI Chat).
+  @Get('status')
+  async status(@CurrentTenant('id') tenantId: number) {
+    return this.analyticsService.status(tenantId);
+  }
+
   @Get('stats')
   async getStats(
     @CurrentTenant('id') tenantId: number,
@@ -43,6 +50,7 @@ export class AiChatAnalyticsController {
     @CurrentTenant('id') tenantId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.chatService.getConversation(tenantId, id);
+    const { sessionId: _secret, ...conversation } = await this.chatService.getConversation(tenantId, id);
+    return conversation;
   }
 }

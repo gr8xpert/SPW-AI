@@ -1,4 +1,4 @@
-import { elementAttributes } from './attribute-parser';
+import { elementAttributes, isMapBlock } from './attribute-parser';
 
 // What a block on the page is for. Two kinds show properties:
 //
@@ -25,8 +25,9 @@ export const RESULT_COMPONENTS = new Set([
 ]);
 const RESULT_BLOCK_RE = /^(site-listing|site-map|listing-template-\d+|map-template-\d+)$/;
 
-// Blocks that need no property search at all (forms, the buyer's own page).
-export const FORM_COMPONENTS = new Set(['wishlist-form', 'buyer-page']);
+// Blocks that need no property search at all (forms, the buyer's own page,
+// the AI chat).
+export const FORM_COMPONENTS = new Set(['wishlist-form', 'buyer-page', 'chat_bubble', 'chat_panel']);
 
 /** True when every block on the page is a form: nothing to search for. */
 export function onlyFormBlocks(names: string[]): boolean {
@@ -43,6 +44,8 @@ export function onlyFormBlocks(names: string[]): boolean {
 const CURATED_ATTRS = new Set(['limit', 'reference', 'ref', 'references', 'refs']);
 
 export function isCurated(el: HTMLElement): boolean {
+  // A map always shows the page's search (see isMapBlock).
+  if (isMapBlock(el)) return false;
   if (el.hasAttribute('data-spm-standalone') || el.closest('[data-spm-standalone]')) return true;
   const attrs = Object.keys(elementAttributes(el));
   // fixed / lock-* says "this whole page is Marbella villas", not "here is a

@@ -457,8 +457,15 @@ export class TenantService {
     // existing tenants don't suddenly lose features after this rolls out.
     if (f.mortgageCalculator !== false) config.enableMortgageCalculator = true;
     if (f.currencyConverter !== false) config.enableCurrencyConverter = true;
-    if (f.mapSearch !== false) config.mapSearchEnabled = true;
-    if (f.aiChatbot === true) config.enableAiChat = true;
+    // Maps are sent both ways: the widget hides the map designs (Map Search) and
+    // the explore map + the Map choice on results (Map View) only on an explicit false.
+    config.mapSearchEnabled = f.mapSearch !== false;
+    config.enableMapView = f.mapView !== false && s.enableMapView !== false;
+    // The chat bubble needs the super-admin flag AND the client switching it on (Settings -> AI Chat).
+    if (f.aiChatbot === true && s.aiChatEnabled === true) config.enableAiChat = true;
+    if (config.enableAiChat && typeof s.aiChatWelcomeMessage === 'string' && s.aiChatWelcomeMessage.trim()) {
+      config.aiChatWelcome = s.aiChatWelcomeMessage.trim().slice(0, 500);
+    }
     // The widget only shows the AI button when the feature is on AND the
     // client has their own OpenRouter key — it spends their credit, so
     // without a key there is nothing to spend. /api/v1/ai-search/status
@@ -654,6 +661,8 @@ export class TenantService {
       anthropicApiKeyConfigured: !!tenant.anthropicApiKey,
       inquiryWebhookUrlConfigured: !!tenant.inquiryWebhookUrl,
       ownEmailDomain: tenant.featureFlags?.ownEmailDomain === true,
+      mapSearch: tenant.featureFlags?.mapSearch !== false,
+      mapView: tenant.featureFlags?.mapView !== false,
     };
   }
 }

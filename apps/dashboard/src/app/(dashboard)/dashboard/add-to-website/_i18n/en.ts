@@ -5,6 +5,7 @@ export const en = {
   title: 'Add to your website',
   description: 'Choose what to show, set the filters, then copy the code. Works on WordPress, Wix, Squarespace, Webflow, Next.js or any website.',
 
+  mapOff: 'Map search is not switched on for your account, so map blocks don’t show on your website. Contact us to add it.',
   blocks: {
     search: 'Search form',
     listing: 'Property results',

@@ -7,9 +7,9 @@ import {
   Headers,
   Res,
   UnauthorizedException,
-  BadRequestException,
   UseGuards,
   ParseIntPipe,
+  Logger,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -19,7 +19,7 @@ import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guar
 import { TenantService } from '../tenant/tenant.service';
 import { AiChatService } from './ai-chat.service';
 import { CreateChatMessageDto } from './dto/create-chat-message.dto';
-import { IsEmail, IsString } from 'class-validator';
+import { IsEmail } from 'class-validator';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -32,6 +32,8 @@ class EmailTranscriptDto {
 @UseGuards(ApiKeyThrottlerGuard)
 @SkipThrottle({ default: true, short: true, medium: true, long: true })
 export class AiChatController {
+  private readonly logger = new Logger(AiChatController.name);
+
   constructor(
     private readonly chatService: AiChatService,
     private readonly tenantService: TenantService,
@@ -44,16 +46,18 @@ export class AiChatController {
     return tenant.id;
   }
 
+  // Besides the site's API-key budget, each visitor (IP) gets its own cap:
+  // every message costs the agency an AI call.
   @Public()
   @Post()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @SkipThrottle({ default: false })
+  @Throttle({ default: { limit: 12, ttl: 60_000 } })
   async chat(
     @Headers('x-api-key') apiKey: string,
     @Body() dto: CreateChatMessageDto,
     @Res() res: Response,
   ) {
     const tenantId = await this.getTenantId(apiKey);
-    const sessionId = (apiKey || '').slice(-8) + '-' + Date.now().toString(36);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -62,36 +66,42 @@ export class AiChatController {
     res.flushHeaders();
 
     try {
-      for await (const event of this.chatService.processMessage(tenantId, sessionId, dto)) {
+      for await (const event of this.chatService.processMessage(tenantId, dto)) {
         res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`);
       }
     } catch (err) {
-      res.write(`event: error\ndata: ${JSON.stringify({ message: (err as Error).message })}\n\n`);
+      this.logger.error(`Chat failed (tenant=${tenantId}): ${(err as Error).message}`);
+      res.write(`event: error\ndata: ${JSON.stringify({ code: 'FAILED', message: 'Sorry, something went wrong. Please try again.' })}\n\n`);
     }
 
     res.end();
   }
 
+  // The visitor's own chat, for restoring it after a page change. The
+  // X-Chat-Token header is the token of the 'conversation' event.
   @Public()
   @Get(':id')
   async getConversation(
     @Headers('x-api-key') apiKey: string,
+    @Headers('x-chat-token') token: string,
     @Param('id', ParseIntPipe) id: number,
   ) {
     const tenantId = await this.getTenantId(apiKey);
-    return this.chatService.getConversation(tenantId, id);
+    return this.chatService.getVisitorConversation(tenantId, id, token);
   }
 
   @Public()
   @Post(':id/email')
+  @SkipThrottle({ default: false })
   @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
   async emailTranscript(
     @Headers('x-api-key') apiKey: string,
+    @Headers('x-chat-token') token: string,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: EmailTranscriptDto,
   ) {
     const tenantId = await this.getTenantId(apiKey);
-    await this.chatService.emailTranscript(tenantId, id, dto.email);
+    await this.chatService.emailVisitorTranscript(tenantId, id, token, dto.email);
     return { sent: true };
   }
 }
