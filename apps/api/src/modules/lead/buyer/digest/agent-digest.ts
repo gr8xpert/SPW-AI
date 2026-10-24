@@ -13,6 +13,11 @@ export interface AgentDigestData {
   waiting: { buyer: string; buyerId: number; since: string | null }[];
   hot: { buyer: string; buyerId: number; score: number }[];
   alertsToApprove: number;
+  // Lead Report: own leads not contacted within overdueHours; for managers
+  // also the team's count per agent.
+  overdueHours?: number;
+  notContacted?: { buyer: string; buyerId: number; since: string }[];
+  team?: { agent: string; overdue: number }[];
 }
 
 // Waiting for a reply: the newest contact came from the buyer and nobody
@@ -31,14 +36,22 @@ export function waitingForReply(args: {
 }
 
 export function hasContent(d: AgentDigestData): boolean {
-  return d.overdueTasks.length + d.todayTasks.length + d.viewings.length + d.waiting.length + d.hot.length + d.alertsToApprove > 0;
+  return (
+    d.overdueTasks.length + d.todayTasks.length + d.viewings.length + d.waiting.length + d.hot.length + d.alertsToApprove +
+      (d.notContacted?.length ?? 0) + (d.team?.length ?? 0) > 0
+  );
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function buildAgentDigest(from: FormSender, d: AgentDigestData): { subject: string; html: string; text: string } {
   const tasks = d.overdueTasks.length + d.todayTasks.length;
+  const notContacted = d.notContacted ?? [];
+  const team = d.team ?? [];
+  const reportUrl = `${d.dashboardUrl}/dashboard/buyers/lead-report?status=overdue`;
+  const notContactedTitle = `Not contacted after ${d.overdueHours ?? 24} hours`;
   const parts = [
+    notContacted.length ? `${plural(notContacted.length, 'lead', 'leads')} not contacted` : '',
     tasks ? plural(tasks, 'task', 'tasks') : '',
     d.viewings.length ? plural(d.viewings.length, 'viewing', 'viewings') : '',
     d.waiting.length ? `${d.waiting.length} waiting for a reply` : '',
@@ -53,6 +66,9 @@ export function buildAgentDigest(from: FormSender, d: AgentDigestData): { subjec
     from,
     'Your day',
     `<p>${escapeHtml(d.agentName ? `Good morning ${d.agentName},` : 'Good morning,')}</p>
+    ${section(notContactedTitle, notContacted.map((n) => `${link(n.buyerId, n.buyer)} <span style="color:#b91c1c;">(since ${escapeHtml(n.since)})</span>`))}
+    ${section('Team: leads not contacted yet', team.map((m) => `${escapeHtml(m.agent)}: <strong style="color:#b91c1c;">${m.overdue}</strong>`))}
+    ${notContacted.length || team.length ? `<p style="margin:6px 0 0;"><a href="${escapeHtml(reportUrl)}" style="color:${from.color};">Open the Lead Report</a></p>` : ''}
     ${section('Overdue tasks', d.overdueTasks.map((t) => `${escapeHtml(t.title)} · ${link(t.buyerId, t.buyer)} <span style="color:#b91c1c;">(${escapeHtml(t.dueAt)})</span>`))}
     ${section('Tasks today', d.todayTasks.map((t) => `${escapeHtml(t.title)} · ${link(t.buyerId, t.buyer)} (${escapeHtml(t.dueAt)})`))}
     ${section('Viewings today', d.viewings.map((v) => `<strong>${escapeHtml(v.time)}</strong> ${escapeHtml(v.property)} with ${link(v.buyerId, v.buyer)}${v.meetingPoint ? ` · ${escapeHtml(v.meetingPoint)}` : ''}`))}
@@ -65,6 +81,9 @@ export function buildAgentDigest(from: FormSender, d: AgentDigestData): { subjec
   const lines = (title: string, rows: string[]) => (rows.length ? ['', title, ...rows.map((r) => `- ${r}`)] : []);
   const text = [
     d.agentName ? `Good morning ${d.agentName},` : 'Good morning,',
+    ...lines(notContactedTitle, notContacted.map((n) => `${n.buyer} (since ${n.since})`)),
+    ...lines('Team: leads not contacted yet', team.map((m) => `${m.agent}: ${m.overdue}`)),
+    ...(notContacted.length || team.length ? [reportUrl] : []),
     ...lines('Overdue tasks', d.overdueTasks.map((t) => `${t.title} · ${t.buyer} (${t.dueAt})`)),
     ...lines('Tasks today', d.todayTasks.map((t) => `${t.title} · ${t.buyer} (${t.dueAt})`)),
     ...lines('Viewings today', d.viewings.map((v) => `${v.time} ${v.property} with ${v.buyer}${v.meetingPoint ? ` · ${v.meetingPoint}` : ''}`)),

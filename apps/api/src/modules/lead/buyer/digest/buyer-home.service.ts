@@ -7,6 +7,7 @@ import { BuyerHotService } from '../buyer-hot.service';
 import { localDayTime } from '../alerts/alert-rules';
 import { BuyerViewingService, type ViewingItem } from '../viewings/buyer-viewing.service';
 import { waitingForReply } from './agent-digest';
+import { attemptSql } from '../lead-report/lead-report';
 
 export interface HomeData {
   agentId: number;
@@ -18,6 +19,9 @@ export interface HomeData {
   waiting: { buyerId: number; buyer: string; since: string | null }[];
   hot: { buyerId: number; buyer: string; score: number }[];
   alertsToApprove: number;
+  // Lead Report: their leads (New Leads too) nobody reached out to within
+  // firstContactHours, oldest first.
+  notContacted: { buyerId: number; buyer: string; since: string; isNewLead: boolean }[];
 }
 
 export interface HomeTask {
@@ -112,6 +116,16 @@ export class BuyerHomeService {
       mineArgs,
     );
 
+    const overdue: { id: number; firstName: string | null; lastName: string | null; email: string | null; createdAt: Date; isNewLead: number }[] = await this.db.query(
+      `SELECT l.id, l.firstName, l.lastName, c.email, l.createdAt, l.isNewLead FROM leads l
+         LEFT JOIN contacts c ON c.id = l.contactId LEFT JOIN buyer_stages s ON s.id = l.stageId
+       WHERE l.tenantId = ? AND l.assignedTo = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL
+         AND (s.kind IS NULL OR s.kind = 'open') AND l.createdAt <= ?
+         AND NOT EXISTS (SELECT 1 FROM lead_activities a WHERE a.leadId = l.id AND ${attemptSql('a')})
+       ORDER BY l.createdAt LIMIT 50`,
+      [tenantId, agentId, new Date(now.getTime() - bm.firstContactHours * 3_600_000)],
+    );
+
     return {
       agentId,
       today,
@@ -127,6 +141,7 @@ export class BuyerHomeService {
       waiting,
       hot,
       alertsToApprove: Number(alerts[0]?.n ?? 0),
+      notContacted: overdue.map((o) => ({ buyerId: o.id, buyer: name(o), since: localDayTime(new Date(o.createdAt), tz).day, isNewLead: !!Number(o.isNewLead) })),
     };
   }
 }

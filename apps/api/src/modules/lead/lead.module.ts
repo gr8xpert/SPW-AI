@@ -44,6 +44,8 @@ import { BuyerViewingMailService } from './buyer/viewings/buyer-viewing-mail.ser
 import { BuyerHotService } from './buyer/buyer-hot.service';
 import { BuyerHomeService } from './buyer/digest/buyer-home.service';
 import { BuyerReportsService } from './buyer/reports/buyer-reports.service';
+import { LeadReportService } from './buyer/lead-report/lead-report.service';
+import { LeadReportController } from './buyer/lead-report/lead-report.controller';
 import { BuyerHousekeepingService } from './buyer/housekeeping/buyer-housekeeping.service';
 import { BuyerGdprService } from './buyer/housekeeping/buyer-gdpr.service';
 import { BuyerHousekeepingController } from './buyer/housekeeping/buyer-housekeeping.controller';
@@ -95,7 +97,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
   // first: their static routes (import/…, board, tasks/…, suggestions/…)
   // must win over BuyerController's /:id.
   controllers: [
-    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, MetaLeadController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, NewLeadController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
+    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, LeadReportController, MetaLeadController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, NewLeadController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
     PublicBuyerQuestionsController, PublicBuyerWishlistController, BuyerTrackingController,
     PublicBuyerPageController, BuyerPageFallbackController,
   ],
@@ -131,6 +133,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
     BuyerHotService,
     BuyerHomeService,
     BuyerReportsService,
+    LeadReportService,
     BuyerHousekeepingService,
     BuyerGdprService,
     MetaLeadService,

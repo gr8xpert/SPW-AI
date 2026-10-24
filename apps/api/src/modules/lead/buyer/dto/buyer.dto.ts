@@ -22,8 +22,10 @@ import { Transform, Type } from 'class-transformer';
 import { BUYER_ID_TYPES, BUYER_ROLES, BUYER_SUB_STATUSES, PREFERRED_CONTACTS } from '@spm/shared';
 import type { BuyerIdType, BuyerRole, BuyerSubStatus, PreferredContact } from '@spm/shared';
 
-const LEAD_SOURCES = ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram'] as const;
+export const LEAD_SOURCES = ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram'] as const;
 export const MANUAL_ACTIVITY_TYPES = ['note', 'call', 'email', 'sms', 'viewing', 'meeting', 'offer'] as const;
+export const CALL_OUTCOMES = ['answered', 'no_answer', 'wrong_number', 'call_back'] as const;
+export type CallOutcome = (typeof CALL_OUTCOMES)[number];
 const BUYER_SORTS = ['lastActivity', 'created', 'name', 'priority'] as const;
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -246,10 +248,18 @@ export class BuyerActivityDto {
   @IsIn(MANUAL_ACTIVITY_TYPES)
   type: (typeof MANUAL_ACTIVITY_TYPES)[number];
 
+  // A call logged with its outcome may come without a note.
+  @ValidateIf((o: BuyerActivityDto) => !(o.type === 'call' && o.outcome) || !!o.description)
   @Transform(trim)
   @IsString()
   @Length(1, 5000)
-  description: string;
+  description?: string;
+
+  // How a call went (Lead Report); only with type 'call'.
+  @IsOptional()
+  @ValidateIf((o: BuyerActivityDto) => o.type === 'call')
+  @IsIn(CALL_OUTCOMES)
+  outcome?: CallOutcome;
 
   // A note written from a voice recording (Phase 3).
   @IsOptional()
@@ -346,6 +356,9 @@ export class BuyerSettingsDto {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50)
   hotScore?: number;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(720)
+  firstContactHours?: number;
 }
 
 // New Leads: the role that moves a website lead into Contacts.

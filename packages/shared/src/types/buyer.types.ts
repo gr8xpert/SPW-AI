@@ -121,6 +121,9 @@ export interface BuyerMatchSettings {
   viewingReminderMinutes: number;
   agentDigestTime: string;
   hotScore: number;
+  // Lead Report: a lead nobody tried to reach this many hours after it came
+  // in is overdue (red, and on the agent's daily email).
+  firstContactHours: number;
 }
 
 export const DEFAULT_BUYER_MATCH_SETTINGS: BuyerMatchSettings = {
@@ -137,6 +140,7 @@ export const DEFAULT_BUYER_MATCH_SETTINGS: BuyerMatchSettings = {
   viewingReminderMinutes: 60,
   agentDigestTime: '07:30',
   hotScore: 6,
+  firstContactHours: 24,
 };
 
 // Phase 3 (milestone L): rules read from the buyer's Internal Notes ("does

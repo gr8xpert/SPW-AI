@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { BarChart3, Bell, BookOpen, CalendarCheck, Kanban, Settings, Sun, Upload, Users } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, CalendarCheck, ClipboardList, Kanban, Settings, Sun, Upload, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
 import { useBuyerAlerts } from '../use-buyer-match';
+import { useLeadReportText } from '../lead-report/_i18n';
 
 // The Buyers section's own tabs (one sidebar item, five pages; Import is
 // for managers only).
@@ -14,6 +15,7 @@ const MANAGER_ROLES = new Set(['admin', 'webmaster', 'super_admin']);
 
 export function BuyersNav() {
   const t = useBuyerText();
+  const lr = useLeadReportText();
   const pathname = usePathname();
   const { data: session } = useSession();
   const manager = MANAGER_ROLES.has(String(session?.user?.role ?? ''));
@@ -24,6 +26,7 @@ export function BuyersNav() {
     { href: '/dashboard/buyers/board', label: t.nav.board, icon: Kanban },
     { href: '/dashboard/buyers/today', label: t.nav.today, icon: CalendarCheck },
     { href: '/dashboard/buyers/alerts', label: t.nav.alerts, icon: Bell, count: pending },
+    { href: '/dashboard/buyers/lead-report', label: lr.nav, icon: ClipboardList },
     ...(manager ? [{ href: '/dashboard/buyers/reports', label: t.nav.reports, icon: BarChart3 }] : []),
     { href: '/dashboard/buyers/settings', label: t.nav.settings, icon: Settings },
     ...(manager ? [{ href: '/dashboard/buyers/import', label: t.nav.import, icon: Upload }] : []),

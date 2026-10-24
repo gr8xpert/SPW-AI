@@ -12,10 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { useBuyerAgents, useBuyerSettings, useUpdateBuyerSettings, type BuyerMatchSettings } from '../../use-buyers';
 import { FilterSelect } from '../../_components/filter-select';
+import { useLeadReportText } from '../../lead-report/_i18n';
 
 export function GeneralSettings({ canEdit }: { canEdit: boolean }) {
   const t = useBuyerText();
   const s = t.settingsPage;
+  const lr = useLeadReportText();
   const { toast } = useToast();
   const settings = useBuyerSettings();
   const agents = useBuyerAgents();
@@ -158,6 +160,17 @@ export function GeneralSettings({ canEdit }: { canEdit: boolean }) {
               <Input id="bm-hot" type="number" min={1} max={50} className="w-28" value={draft.hotScore}
                 onChange={(e) => set({ hotScore: Math.max(1, Math.min(50, Math.round(Number(e.target.value) || 1))) })} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="lead-report-settings">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{lr.settingsTitle}</CardTitle>
+            <CardDescription>{lr.settingsHours}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input id="bm-first-contact" type="number" min={1} max={720} className="w-28" value={draft.firstContactHours}
+              onChange={(e) => set({ firstContactHours: Math.max(1, Math.min(720, Math.round(Number(e.target.value) || 1))) })} />
           </CardContent>
         </Card>
       </fieldset>

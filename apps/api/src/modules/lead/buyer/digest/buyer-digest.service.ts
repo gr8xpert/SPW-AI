@@ -10,6 +10,7 @@ import { normalizeBuyerSettings } from '../buyer-settings.service';
 import { digestDue, localDayTime } from '../alerts/alert-rules';
 import { buildAgentDigest, hasContent, type AgentDigestData } from './agent-digest';
 import { BuyerHomeService } from './buyer-home.service';
+import { attemptSql } from '../lead-report/lead-report';
 
 // The agent's daily email, once per agent per day at the agency's
 // agentDigestTime (its time zone). Claimed per agent and day in
@@ -81,6 +82,9 @@ export class BuyerDigestService {
         waiting: data.waiting.slice(0, 20),
         hot: data.hot.slice(0, 10),
         alertsToApprove: data.alertsToApprove,
+        overdueHours: bm.firstContactHours,
+        notContacted: data.notContacted.slice(0, 20),
+        team: agent.role === 'admin' ? await this.teamOverdue(tenantId, bm.firstContactHours, now) : [],
       };
       if (!hasContent(mail)) {
         skipped++;
@@ -98,5 +102,18 @@ export class BuyerDigestService {
       else this.logger.warn(`Agent digest to ${to} failed: ${res.error}`);
     }
     return { due, sent, skipped };
+  }
+
+  // Managers: per main agent, the open leads nobody reached out to in time.
+  private async teamOverdue(tenantId: number, hours: number, now: Date): Promise<{ agent: string; overdue: number }[]> {
+    const rows: { name: string | null; email: string | null; n: string }[] = await this.tenants.manager.query(
+      `SELECT u.name, u.email, COUNT(*) AS n FROM leads l
+         LEFT JOIN users u ON u.id = l.assignedTo LEFT JOIN buyer_stages s ON s.id = l.stageId
+       WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL AND (s.kind IS NULL OR s.kind = 'open') AND l.createdAt <= ?
+         AND NOT EXISTS (SELECT 1 FROM lead_activities a WHERE a.leadId = l.id AND ${attemptSql('a')})
+       GROUP BY l.assignedTo, u.name, u.email ORDER BY n DESC`,
+      [tenantId, new Date(now.getTime() - hours * 3_600_000)],
+    );
+    return rows.map((r) => ({ agent: r.name || r.email || 'Nobody (unassigned)', overdue: Number(r.n) }));
   }
 }

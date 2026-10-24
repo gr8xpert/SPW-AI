@@ -416,7 +416,9 @@ export class BuyerService {
 
   async addActivity(tenantId: number, viewer: BuyerViewer, id: number, dto: BuyerActivityDto): Promise<LeadActivity> {
     const lead = await this.get(tenantId, viewer, id);
-    return this.log(lead.id, viewer.id, dto.type, dto.description, dto.via ? { via: dto.via } : null, CONTACT_TYPES.includes(dto.type));
+    assertNotErased(lead);
+    const metadata = { ...(dto.via ? { via: dto.via } : {}), ...(dto.type === 'call' && dto.outcome ? { outcome: dto.outcome } : {}) };
+    return this.log(lead.id, viewer.id, dto.type, dto.description || null, Object.keys(metadata).length ? metadata : null, CONTACT_TYPES.includes(dto.type));
   }
 
   // Writes an activity and marks the buyer as touched. userId null = the

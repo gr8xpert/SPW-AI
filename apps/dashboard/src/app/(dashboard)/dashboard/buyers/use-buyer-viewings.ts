@@ -61,6 +61,7 @@ export interface HomeData {
   waiting: { buyerId: number; buyer: string; since: string | null }[];
   hot: { buyerId: number; buyer: string; score: number }[];
   alertsToApprove: number;
+  notContacted?: { buyerId: number; buyer: string; since: string; isNewLead: boolean }[];
 }
 
 export function useBuyerTrips(id: number) {

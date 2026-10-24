@@ -153,6 +153,7 @@ export interface BuyerMatchSettings {
   viewingReminderMinutes: number;
   agentDigestTime: string;
   hotScore: number;
+  firstContactHours: number;
 }
 
 export interface BuyerListParams {

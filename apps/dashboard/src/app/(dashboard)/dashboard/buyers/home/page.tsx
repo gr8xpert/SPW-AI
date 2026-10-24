@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { AlertTriangle, Bell, CalendarClock, Flame, Loader2, MessageCircleReply, CheckSquare } from 'lucide-react';
+import { AlertTriangle, Bell, CalendarClock, Flame, Loader2, MessageCircleReply, CheckSquare, PhoneMissed } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { LockedRouteGuard } from '@/components/locked-route-guard';
@@ -11,10 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../_i18n/use-buyer-text';
 import { BuyersNav } from '../_components/buyers-nav';
 import { FilterSelect } from '../_components/filter-select';
-import { useBuyerAgents } from '../use-buyers';
+import { useBuyerAgents, useBuyerSettings } from '../use-buyers';
 import { nameOf } from '../use-buyer-match';
 import { useBuyerHome, useMyDigest, useSetMyDigest } from '../use-buyer-viewings';
 import { dashboardLocale } from '@/i18n/i18n-provider';
+import { useLeadReportText } from '../lead-report/_i18n';
 
 const MANAGERS = new Set(['admin', 'webmaster', 'super_admin']);
 
@@ -42,6 +43,8 @@ function Section({ title, icon: Icon, count, children, testid }: { title: string
 function HomeInner() {
   const t = useBuyerText();
   const h = t.home;
+  const lr = useLeadReportText();
+  const overdueHours = useBuyerSettings().data?.firstContactHours ?? 24;
   const { toast } = useToast();
   const { data: session } = useSession();
   const manager = MANAGERS.has(String(session?.user?.role ?? ''));
@@ -118,6 +121,15 @@ function HomeInner() {
               <Bell className="h-4 w-4" />
               {h.alerts(d.alertsToApprove)}
             </Link>
+          ) : null}
+
+          {d.notContacted?.length ? (
+            <Section title={lr.homeTitle(overdueHours)} icon={PhoneMissed} count={d.notContacted.length} testid="home-not-contacted">
+              <ul className="flex flex-wrap gap-x-4 gap-y-1.5">{d.notContacted.map((n) => (
+                <li key={n.buyerId}>{buyerLink(n.buyerId, n.buyer)}<span className="ml-1.5 text-xs text-red-600">{h.since(n.since)}</span></li>
+              ))}</ul>
+              <Link href={`/dashboard/buyers/lead-report?status=overdue${agentId ? `&agentId=${agentId}` : ''}`} className="mt-3 inline-block text-xs font-medium text-primary hover:underline">{lr.homeOpen}</Link>
+            </Section>
           ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">

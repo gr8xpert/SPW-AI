@@ -20,6 +20,7 @@ import { AiButton } from './ai/ai-gate';
 import { PasteDialog } from './ai/paste-dialog';
 import { VoiceNoteDialog } from './ai/voice-note-dialog';
 import { FilterSelect } from '../../_components/filter-select';
+import { useLeadReportText } from '../../lead-report/_i18n';
 
 const ICONS: Record<string, LucideIcon> = {
   note: FileText, call: Phone, email: Mail, sms: MessageSquare, viewing: Calendar, meeting: Users,
@@ -36,6 +37,7 @@ const FROM_BUYER = new Set(['enquiry', 'wishlist_form', 'viewing_request', 'buye
 export function ActivityTab({ buyerId }: { buyerId: number }) {
   const t = useBuyerText();
   const a = t.record.activity;
+  const outcomes = useLeadReportText().outcomes;
   const { toast } = useToast();
   const activities = useBuyerActivities(buyerId);
   const stages = useBuyerStages();
@@ -128,6 +130,9 @@ export function ActivityTab({ buyerId }: { buyerId: number }) {
                       <span className="font-medium">{(item.type === 'suggestion_sent' && viaWhatsApp(item) ? a.types.suggestion_sent_whatsapp : a.types[item.type]) ?? item.type}</span>
                       <span className="text-muted-foreground">· {who}</span>
                       {item.fromLeadId ? <Badge variant="outline" className="text-[10px]">{a.fromEarlier}</Badge> : null}
+                      {item.type === 'call' && typeof item.metadata?.outcome === 'string' ? (
+                        <Badge variant="outline" className="text-[10px]" data-testid="call-outcome">{outcomes[item.metadata.outcome] ?? item.metadata.outcome}</Badge>
+                      ) : null}
                       {item.metadata?.via === 'voice' ? <Badge variant="secondary" className="gap-1 text-[10px]"><Mic className="h-3 w-3" />{t.ai.voice.badge}</Badge> : null}
                       <span className="ml-auto text-xs text-muted-foreground">
                         {formatDate(item.createdAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

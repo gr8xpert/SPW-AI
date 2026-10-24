@@ -146,6 +146,7 @@ export function normalizeBuyerSettings(raw: Partial<BuyerMatchSettings> | undefi
     viewingReminderMinutes: clamp(r.viewingReminderMinutes, 0, 1440, d.viewingReminderMinutes),
     agentDigestTime: typeof r.agentDigestTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.agentDigestTime) ? r.agentDigestTime : d.agentDigestTime,
     hotScore: clamp(r.hotScore, 1, 50, d.hotScore),
+    firstContactHours: clamp(r.firstContactHours, 1, 720, d.firstContactHours),
     nearMiss: {
       enabled: nm.enabled === undefined ? d.nearMiss.enabled : !!nm.enabled,
       budgetPercent: clamp(nm.budgetPercent, 0, 50, d.nearMiss.budgetPercent),

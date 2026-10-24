@@ -49,6 +49,22 @@ describe('buildAgentDigest', () => {
     expect(mail.html).not.toContain('alerts waiting');
   });
 
+  it('lists leads not contacted in time and, for managers, the team', () => {
+    const mail = buildAgentDigest(from, {
+      ...data,
+      overdueHours: 24,
+      notContacted: [{ buyer: 'Bjorn <N>', buyerId: 9, since: '2026-10-23' }],
+      team: [{ agent: 'Alex', overdue: 4 }],
+    });
+    expect(mail.subject).toBe('Your day: 1 lead not contacted, 1 task, 1 viewing, 1 waiting for a reply, 1 hot buyer');
+    expect(mail.html).toContain('Not contacted after 24 hours');
+    expect(mail.html).toContain('Bjorn &lt;N&gt;');
+    expect(mail.html).toContain('Alex: <strong');
+    expect(mail.html).toContain('dashboard/buyers/lead-report?status=overdue');
+    expect(mail.text).toContain('Team: leads not contacted yet');
+    expect(hasContent({ ...data, overdueTasks: [], todayTasks: [], viewings: [], waiting: [], hot: [], alertsToApprove: 0, team: [{ agent: 'A', overdue: 1 }] })).toBe(true);
+  });
+
   it('knows when there is nothing to send', () => {
     expect(hasContent({ ...data, overdueTasks: [], todayTasks: [], viewings: [], waiting: [], hot: [], alertsToApprove: 0 })).toBe(false);
     expect(hasContent(data)).toBe(true);
