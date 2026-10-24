@@ -175,6 +175,7 @@ export function TasksTab({ buyer }: { buyer: Buyer }) {
                       <TaskRow
                         key={task.id}
                         task={task}
+                        buyer={buyer}
                         onEdit={() => setEditing(task.id)}
                         onDelete={() => remove.mutate(task.id, { onError: fail })}
                       />

@@ -19,7 +19,9 @@ export const es: AddToWebsiteText = {
     newest: 'Más recientes primero',
     price_desc: 'Precio: de mayor a menor',
     price_asc: 'Precio: de menor a mayor',
-    featured: 'Destacadas primero',
+    oldest: 'Más antiguas primero',
+    updated: 'Actualizadas recientemente',
+    ref: 'Referencia',
   },
   listingTypes: {
     any: 'Cualquiera',

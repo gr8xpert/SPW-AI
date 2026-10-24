@@ -21,6 +21,10 @@ export class BuyerSend {
   @Column({ type: 'enum', enum: ['selection', 'alert'], default: 'selection' })
   kind: 'selection' | 'alert';
 
+  // How it went out; a tracked click is credited to it.
+  @Column({ type: 'enum', enum: ['email', 'whatsapp'], default: 'email' })
+  channel: 'email' | 'whatsapp';
+
   @Column({ type: 'json' })
   propertyIds: number[];
 

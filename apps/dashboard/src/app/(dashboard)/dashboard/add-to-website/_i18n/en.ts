@@ -20,7 +20,9 @@ export const en = {
     newest: 'Newest first',
     price_desc: 'Price: high to low',
     price_asc: 'Price: low to high',
-    featured: 'Featured first',
+    oldest: 'Oldest first',
+    updated: 'Most up to date',
+    ref: 'Reference',
   } as Record<string, string>,
   listingTypes: {
     any: 'Any',

@@ -23,6 +23,7 @@ export const es: LabelsText = {
     buyer: 'Emails y PDF para compradores',
     wishlist_form: 'Formulario de lista de deseos',
     buyer_page: 'Página del comprador',
+    buyer_whatsapp: 'Mensajes de WhatsApp al comprador',
     general: 'General',
   },
 

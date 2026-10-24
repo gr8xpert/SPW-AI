@@ -19,7 +19,9 @@ export const nl: AddToWebsiteText = {
     newest: 'Nieuwste eerst',
     price_desc: 'Prijs: hoog naar laag',
     price_asc: 'Prijs: laag naar hoog',
-    featured: 'Uitgelicht eerst',
+    oldest: 'Oudste eerst',
+    updated: 'Laatst bijgewerkt',
+    ref: 'Referentie',
   },
   listingTypes: {
     any: 'Alle',

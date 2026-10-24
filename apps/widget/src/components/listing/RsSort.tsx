@@ -5,15 +5,16 @@ import { useConfig } from '@/hooks/useConfig';
 import RsCustomSelect from '@/components/search/RsCustomSelect';
 import type { SortOption } from '@/types';
 
+// The same choices as Resales' "Sort By" (agency and commission sorts left out).
 const ALL_SORT_OPTIONS: { value: SortOption; labelKey: string; fallback: string }[] = [
-  { value: 'create_date_desc', labelKey: 'sort_newest', fallback: 'Newest Listings' },
-  { value: 'create_date', labelKey: 'sort_oldest', fallback: 'Oldest Listings' },
-  { value: 'write_date_desc', labelKey: 'sort_recently_updated', fallback: 'Recently Updated' },
-  { value: 'write_date', labelKey: 'sort_oldest_updated', fallback: 'Oldest Updated' },
+  { value: 'create_date_desc', labelKey: 'sort_newest', fallback: 'Most Recently Listed' },
+  { value: 'create_date', labelKey: 'sort_oldest', fallback: 'Least Recently Listed' },
+  { value: 'write_date_desc', labelKey: 'sort_recently_updated', fallback: 'Most Up To Date' },
+  { value: 'write_date', labelKey: 'sort_oldest_updated', fallback: 'Least Up To Date' },
   { value: 'list_price', labelKey: 'sort_price_asc', fallback: 'Price: Low to High' },
   { value: 'list_price_desc', labelKey: 'sort_price_desc', fallback: 'Price: High to Low' },
-  { value: 'is_featured_desc', labelKey: 'sort_featured', fallback: 'Featured First' },
-  { value: 'location_id', labelKey: 'sort_location', fallback: 'By Location' },
+  { value: 'ref_desc', labelKey: 'sort_ref_desc', fallback: 'Ref (Desc)' },
+  { value: 'ref_asc', labelKey: 'sort_ref_asc', fallback: 'Ref (Asc)' },
 ];
 
 export default function RsSort() {

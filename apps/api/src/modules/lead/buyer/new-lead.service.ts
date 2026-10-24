@@ -106,10 +106,20 @@ export class NewLeadService {
     return { data, total, page, limit };
   }
 
-  private async findNew(tenantId: number, viewer: BuyerViewer, id: number): Promise<Lead> {
+  async findNew(tenantId: number, viewer: BuyerViewer, id: number): Promise<Lead> {
     const lead = await (await this.base(tenantId, viewer)).andWhere('lead.id = :id', { id }).getOne();
     if (!lead) throw new NotFoundException('This lead was already sorted or removed');
     return lead;
+  }
+
+  // The newest website form of this lead (what a reply answers).
+  async latestForm(leadId: number): Promise<NewLeadItem['forms'][number] | null> {
+    const f = await this.activities.findOne({
+      where: { leadId, type: In(FORM_TYPES) },
+      order: { createdAt: 'DESC', id: 'DESC' },
+      select: ['id', 'type', 'description', 'metadata', 'createdAt'],
+    });
+    return f ? { type: f.type, message: f.description, metadata: f.metadata, createdAt: f.createdAt } : null;
   }
 
   // The role decides what the person is; from here on they are a contact.

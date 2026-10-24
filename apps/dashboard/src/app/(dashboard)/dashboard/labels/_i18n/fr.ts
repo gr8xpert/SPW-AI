@@ -23,6 +23,7 @@ export const fr: LabelsText = {
     buyer: 'E-mails et PDF acheteurs',
     wishlist_form: 'Formulaire de liste de souhaits',
     buyer_page: 'Page acheteur',
+    buyer_whatsapp: 'Messages WhatsApp acheteur',
     general: 'Général',
   },
 

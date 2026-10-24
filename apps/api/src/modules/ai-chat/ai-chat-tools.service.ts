@@ -30,7 +30,7 @@ const SEARCH_PROPERTIES_TOOL: ToolDefinition = {
         maxPlotSize: { type: 'number', description: 'Maximum plot size in m²' },
         features: { type: 'array', items: { type: 'number' }, description: 'Array of feature IDs to require' },
         isFeatured: { type: 'boolean', description: 'Only show featured properties' },
-        sortBy: { type: 'string', enum: ['create_date_desc', 'create_date', 'write_date_desc', 'write_date', 'list_price', 'list_price_desc', 'is_featured_desc', 'location_id'] },
+        sortBy: { type: 'string', enum: ['create_date_desc', 'create_date', 'write_date_desc', 'write_date', 'list_price', 'list_price_desc', 'ref_desc', 'ref_asc'] },
         page: { type: 'number', description: 'Page number (default 1)' },
         limit: { type: 'number', description: 'Results per page (default 10, max 20)' },
       },

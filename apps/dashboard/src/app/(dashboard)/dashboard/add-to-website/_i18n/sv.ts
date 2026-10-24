@@ -19,7 +19,9 @@ export const sv: AddToWebsiteText = {
     newest: 'Nyaste först',
     price_desc: 'Pris: högst först',
     price_asc: 'Pris: lägst först',
-    featured: 'Utvalda först',
+    oldest: 'Äldsta först',
+    updated: 'Senast uppdaterade',
+    ref: 'Referens',
   },
   listingTypes: {
     any: 'Alla',

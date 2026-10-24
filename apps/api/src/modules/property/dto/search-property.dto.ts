@@ -237,7 +237,10 @@ export class SearchPropertyDto {
   // is the source of truth — keep this list in sync with the switch cases there.
   // Unknown values would otherwise be silently rejected (forbidNonWhitelisted)
   // and the search would 400 from the widget's perspective.
+  // Featured-first and by-location were removed 10-24: an old link or cached
+  // widget that still asks for them gets the default order, not an error.
   @IsOptional()
+  @Transform(({ value }) => (value === 'is_featured_desc' || value === 'location_id' ? undefined : value))
   @IsIn([
     'create_date_desc',
     'create_date',
@@ -245,9 +248,9 @@ export class SearchPropertyDto {
     'write_date',
     'list_price',
     'list_price_desc',
-    'is_featured_desc',
+    'ref_asc',
+    'ref_desc',
     'own_first',
-    'location_id',
   ])
   sortBy?: string;
 

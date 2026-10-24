@@ -180,8 +180,8 @@ export const de: SettingsText = {
       write_date: 'Am längsten nicht aktualisiert',
       list_price: 'Preis: aufsteigend',
       list_price_desc: 'Preis: absteigend',
-      is_featured_desc: 'Hervorgehobene zuerst',
-      location_id: 'Nach Standort',
+      ref_desc: 'Referenz (absteigend)',
+      ref_asc: 'Referenz (aufsteigend)',
     },
   },
 

@@ -51,7 +51,7 @@ export function groupByDay(viewings: ItineraryViewing[], timeZone: string, lang:
 // English dates in the British order (3 November): the buyers are mostly in Europe.
 const locale = (lang: string) => (lang === 'en' ? 'en-GB' : lang);
 
-function dayLabel(day: string, lang: string): string {
+export function dayLabel(day: string, lang: string): string {
   const at = new Date(`${day}T12:00:00Z`);
   try {
     return new Intl.DateTimeFormat(locale(lang), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(at);

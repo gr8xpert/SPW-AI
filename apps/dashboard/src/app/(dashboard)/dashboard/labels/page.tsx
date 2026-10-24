@@ -78,6 +78,7 @@ const labelCategories = [
   { id: 'buyer' },
   { id: 'wishlist_form' },
   { id: 'buyer_page' },
+  { id: 'buyer_whatsapp' },
   { id: 'general' },
 ];
 
@@ -94,6 +95,7 @@ const CATEGORY_PREFIXES: Record<string, string[]> = {
   mortgage: ['mortgage_'],
   calculator: ['calc_'],
   buyer_page: ['buyer_page_'],
+  buyer_whatsapp: ['buyer_wa_'],
   buyer: ['buyer_'],
   wishlist_form: ['wishlist_form_'],
   general: ['loading', 'error', 'close', 'currency_', 'language_', 'featured', 'cancel', 'clear', 'copy', 'copied', 'save', 'edit', 'share', 'send_email', 'send_to', 'sending', 'email', 'email_error', 'email_sent', 'download_pdf', 'qr_code', 'read_less', 'read_more', 'view_all', 'view_details', 'properties', 'property_singular', 'type', 'reference', 'feature', 'no_results', 'beds', 'baths', 'bedrooms', 'bathrooms', 'location', 'price', 'wishlist', 'yes'],
@@ -103,7 +105,7 @@ function labelMatchesCategory(key: string, categoryId: string): boolean {
   // wishlist_form_* has its own tab, not the Wishlist one.
   if (categoryId === 'wishlist' && key.startsWith('wishlist_form_')) return false;
   // buyer_page_* likewise has its own tab, not Buyer Emails & PDF.
-  if (categoryId === 'buyer' && key.startsWith('buyer_page_')) return false;
+  if (categoryId === 'buyer' && (key.startsWith('buyer_page_') || key.startsWith('buyer_wa_'))) return false;
   const prefixes = CATEGORY_PREFIXES[categoryId];
   if (!prefixes) return false;
   return prefixes.some(p => key.startsWith(p));

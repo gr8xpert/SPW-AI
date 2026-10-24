@@ -23,6 +23,7 @@ export const sv: LabelsText = {
     buyer: 'Köparmejl & PDF',
     wishlist_form: 'Önskelisteformulär',
     buyer_page: 'Köparsida',
+    buyer_whatsapp: 'WhatsApp-meddelanden till köpare',
     general: 'Allmänt',
   },
 

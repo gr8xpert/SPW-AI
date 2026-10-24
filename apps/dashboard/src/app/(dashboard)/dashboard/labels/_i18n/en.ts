@@ -27,6 +27,7 @@ export const en = {
     buyer: 'Buyer Emails & PDF',
     wishlist_form: 'Wishlist Form',
     buyer_page: 'Buyer Page',
+    buyer_whatsapp: 'Buyer WhatsApp Messages',
     general: 'General',
   },
 

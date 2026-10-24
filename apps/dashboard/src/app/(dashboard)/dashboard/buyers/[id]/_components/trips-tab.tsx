@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { useBuyerAgents, type Buyer } from '../../use-buyers';
+import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
+import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { nameOf, useBuyerSuggestions } from '../../use-buyer-match';
 import {
   VIEWING_STATUSES,
@@ -128,7 +130,7 @@ export function TripsTab({ buyer }: { buyer: Buyer }) {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">{t.loose}</CardTitle></CardHeader>
               <CardContent className="divide-y p-0">
-                {data.data.loose.map((v) => <ViewingRow key={v.id} v={v} />)}
+                {data.data.loose.map((v) => <ViewingRow key={v.id} v={v} buyer={buyer} />)}
               </CardContent>
             </Card>
           ) : null}
@@ -194,7 +196,7 @@ function TripCard({ buyer, trip }: { buyer: Buyer; trip: Trip }) {
       <CardContent className="space-y-3 p-0">
         {adding ? <ViewingForm buyer={buyer} tripId={trip.id} onDone={() => setAdding(false)} defaultDay={trip.startDate} /> : null}
         {trip.viewings.length ? (
-          <div className="divide-y border-t">{trip.viewings.map((v) => <ViewingRow key={v.id} v={v} />)}</div>
+          <div className="divide-y border-t">{trip.viewings.map((v) => <ViewingRow key={v.id} v={v} buyer={buyer} />)}</div>
         ) : !adding ? (
           <p className="border-t px-6 py-4 text-sm text-muted-foreground">{t.noViewings}</p>
         ) : null}
@@ -282,7 +284,7 @@ function ViewingForm({ buyer, tripId, onDone, defaultDay }: { buyer: Buyer; trip
   );
 }
 
-function ViewingRow({ v }: { v: Viewing }) {
+function ViewingRow({ v, buyer }: { v: Viewing; buyer: Buyer }) {
   const t = useBuyerText().trips;
   const { toast } = useToast();
   const update = useUpdateViewing();
@@ -308,6 +310,18 @@ function ViewingRow({ v }: { v: Viewing }) {
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_CLASS[v.status])} data-status={v.status}>{t.statuses[v.status]}</span>
         {v.interest ? <Badge variant="outline" className="text-[10px]">{'★'.repeat(v.interest)}</Badge> : null}
+        {v.status === 'planned' ? (
+          <WhatsAppButton
+            base={buyerWhatsAppBase(buyer.id)}
+            kind="viewing"
+            viewingId={v.id}
+            hasPhone={hasPhoneNumber(buyer)}
+            iconOnly
+            variant="ghost"
+            className="h-7 px-2"
+            testId="viewing-whatsapp"
+          />
+        ) : null}
         <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setOpen((o) => !o)} data-testid="viewing-open">…</Button>
       </div>
       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">

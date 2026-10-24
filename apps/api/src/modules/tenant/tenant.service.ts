@@ -24,7 +24,9 @@ export interface CacheClearResult {
   clearedAt: string; // ISO string
 }
 
-// The website's "Sort by" choices (widget RsSort; property search applySorting).
+// The website's "Sort by" choices (widget RsSort; property search applySorting),
+// matched to Resales' dropdown. Featured-first and by-location were dropped
+// 10-24; a saved list or default naming them is filtered out on read.
 const SORT_VALUES = [
   'create_date_desc',
   'create_date',
@@ -32,8 +34,8 @@ const SORT_VALUES = [
   'write_date',
   'list_price',
   'list_price_desc',
-  'is_featured_desc',
-  'location_id',
+  'ref_desc',
+  'ref_asc',
 ];
 
 // Badges a site can switch off (widget core/property-display BadgeKey).
@@ -428,7 +430,8 @@ export class TenantService {
     if (s.hideEmptySearchOptions === false) config.hideEmptySearchOptions = false;
     if (s.cardShareIcon === true) config.cardShareIcon = true;
     if (Array.isArray(s.hiddenBadges) && s.hiddenBadges.length) config.hiddenBadges = s.hiddenBadges;
-    if (Array.isArray(s.sortOptions) && s.sortOptions.length) config.enabledSortOptions = s.sortOptions;
+    const sortOptions = Array.isArray(s.sortOptions) ? s.sortOptions.filter((v) => SORT_VALUES.includes(v)) : [];
+    if (sortOptions.length) config.enabledSortOptions = sortOptions;
     if (typeof s.defaultSort === 'string' && SORT_VALUES.includes(s.defaultSort)) config.defaultSort = s.defaultSort;
     const purchaseCosts = publicPurchaseCosts(s.purchaseCosts);
     if (purchaseCosts) config.purchaseCosts = purchaseCosts;

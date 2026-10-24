@@ -180,8 +180,8 @@ export const nl: SettingsText = {
       write_date: 'Langst niet bijgewerkt',
       list_price: 'Prijs: laag naar hoog',
       list_price_desc: 'Prijs: hoog naar laag',
-      is_featured_desc: 'Uitgelicht eerst',
-      location_id: 'Op locatie',
+      ref_desc: 'Referentie (aflopend)',
+      ref_asc: 'Referentie (oplopend)',
     },
   },
 

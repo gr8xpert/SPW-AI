@@ -23,6 +23,7 @@ export const nl: LabelsText = {
     buyer: 'Koperse-mails & pdf',
     wishlist_form: 'Wensenlijstformulier',
     buyer_page: 'Koperspagina',
+    buyer_whatsapp: 'WhatsApp-berichten aan kopers',
     general: 'Algemeen',
   },
 

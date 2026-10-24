@@ -13,7 +13,9 @@ import type { Location, PropertyType, Feature, SearchFilters } from '@/types';
 // an ambiguous or unknown name is ignored, with a console message naming the
 // ids to choose from (the WordPress plugin shows the same note to editors).
 
-export const SORT_VALUES = ['create_date_desc', 'create_date', 'write_date_desc', 'write_date', 'list_price', 'list_price_desc', 'is_featured_desc', 'own_first', 'location_id'] as const;
+// Featured-first and by-location were removed 10-24: sort="featured" / "location" on an
+// older block is ignored, so the site's default sort applies.
+export const SORT_VALUES = ['create_date_desc', 'create_date', 'write_date_desc', 'write_date', 'list_price', 'list_price_desc', 'ref_desc', 'ref_asc', 'own_first'] as const;
 
 const SORT_ALIASES: Record<string, string> = {
   newest: 'create_date_desc',
@@ -30,10 +32,11 @@ const SORT_ALIASES: Record<string, string> = {
   cheapest: 'list_price',
   price_desc: 'list_price_desc',
   price_high: 'list_price_desc',
-  featured: 'is_featured_desc',
   own: 'own_first',
   ours: 'own_first',
-  location: 'location_id',
+  ref: 'ref_desc',
+  reference: 'ref_desc',
+  ref_asc: 'ref_asc',
 };
 
 const LISTING_TYPES: Record<string, string> = {

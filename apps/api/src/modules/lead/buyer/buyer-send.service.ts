@@ -176,18 +176,25 @@ export class BuyerSendService {
     return { pdf, filename: `Selection-${slug}-${date.toISOString().slice(0, 10)}.pdf` };
   }
 
-  private async prepare(tenantId: number, viewer: BuyerViewer, id: number, dto: SendPropertiesDto, strict: boolean) {
-    const lead = await this.buyers.get(tenantId, viewer, id);
-    assertNotErased(lead);
-    const tenant = await this.tenant(tenantId);
-    const wanted = [...new Set(dto.propertyIds)];
+  // The live listings to send, in the order picked. Already sent or
+  // rejected ones are left out (listed in skipped) unless allowResend; when
+  // that leaves nothing, strict refuses and a preview shows them all.
+  // Shared by email and WhatsApp.
+  async pickProperties(
+    tenantId: number,
+    leadId: number,
+    propertyIds: number[],
+    allowResend: boolean | undefined,
+    strict: boolean,
+  ): Promise<{ properties: BuyerPropertyCard[]; skipped: SkippedProperty[]; allSkipped: boolean }> {
+    const wanted = [...new Set(propertyIds)];
     const live = await this.suggestions.liveListings(tenantId, wanted);
     const cards = await this.matchService.cards(tenantId, live.map((p) => p.id));
     const all = wanted.map((pid) => cards.get(pid)).filter((c): c is BuyerPropertyCard => !!c);
     if (!all.length) throw new BadRequestException({ code: 'NO_PROPERTIES', message: 'None of these properties is on the website' });
 
     // Never send twice, unless the agent says so.
-    const hidden = dto.allowResend ? new Map<number, HiddenReason>() : await this.suggestions.hiddenIds(tenantId, lead.id);
+    const hidden = allowResend ? new Map<number, HiddenReason>() : await this.suggestions.hiddenIds(tenantId, leadId);
     const skipped: SkippedProperty[] = all
       .filter((p) => hidden.has(p.id))
       .map((p) => ({ propertyId: p.id, reference: p.reference, reason: hidden.get(p.id)! }));
@@ -203,6 +210,14 @@ export class BuyerSendService {
       }
       properties = all;
     }
+    return { properties, skipped, allSkipped };
+  }
+
+  private async prepare(tenantId: number, viewer: BuyerViewer, id: number, dto: SendPropertiesDto, strict: boolean) {
+    const lead = await this.buyers.get(tenantId, viewer, id);
+    assertNotErased(lead);
+    const tenant = await this.tenant(tenantId);
+    const { properties, skipped, allSkipped } = await this.pickProperties(tenantId, lead.id, dto.propertyIds, dto.allowResend, strict);
 
     const recipients: BuyerMailRecipient[] = [];
     for (const kind of [...new Set(dto.recipients)]) {
@@ -232,7 +247,7 @@ export class BuyerSendService {
     return { lead, args, recipients, skipped, allSkipped };
   }
 
-  private langOf(lead: Lead, tenant: Tenant, asked?: string): string {
+  langOf(lead: Pick<Lead, 'language'>, tenant: Tenant, asked?: string): string {
     const settings = (tenant.settings || {}) as TenantSettings;
     const lang = asked || lead.language?.slice(0, 2).toLowerCase() || settings.defaultLanguage || 'en';
     return /^[a-z]{2}$/.test(lang) ? lang : 'en';
@@ -245,7 +260,7 @@ export class BuyerSendService {
   }
 }
 
-function buyerName(lead: Pick<Lead, 'firstName' | 'lastName'>): string | null {
+export function buyerName(lead: Pick<Lead, 'firstName' | 'lastName'>): string | null {
   return [lead.firstName, lead.lastName].filter(Boolean).join(' ') || null;
 }
 

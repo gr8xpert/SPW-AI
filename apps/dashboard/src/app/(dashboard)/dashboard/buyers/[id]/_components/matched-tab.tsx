@@ -15,6 +15,8 @@ import { useBuyerText } from '../../_i18n/use-buyer-text';
 import type { Buyer } from '../../use-buyers';
 import { nameOf, useAddSuggestions, useBuyerMatches, useMatchOptions, type MatchItem } from '../../use-buyer-match';
 import { SendDialog } from './send-dialog';
+import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
+import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { useReasonText } from '../../_components/reason-text';
 import { RuleLines } from './ai/rule-lines';
 
@@ -121,6 +123,16 @@ export function MatchedTab({ buyer }: { buyer: Buyer }) {
                 <Send className="mr-2 h-4 w-4" />
                 {t.send}
               </Button>
+              <WhatsAppButton
+                base={buyerWhatsAppBase(buyer.id)}
+                kind="properties"
+                propertyIds={Array.from(selected)}
+                aiBuyerId={buyer.id}
+                hasPhone={hasPhoneNumber(buyer)}
+                disabled={!selected.size}
+                onDone={() => setSelected(new Set())}
+                testId="matched-whatsapp"
+              />
               <Button size="sm" variant="outline" disabled={!selected.size || add.isPending} onClick={addSelected} data-testid="matched-add">
                 {add.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
                 {t.addToSuggested}

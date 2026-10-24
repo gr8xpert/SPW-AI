@@ -140,7 +140,7 @@ export function useRefreshSummary(id: number) {
 }
 
 export function useEmailIntro(id: number) {
-  return useAiCall(async (api, body: { propertyIds: number[]; lang?: string }) =>
+  return useAiCall(async (api, body: { propertyIds: number[]; lang?: string; channel?: 'email' | 'whatsapp' }) =>
     one<{ text: string }>(await api.post(`/api/dashboard/buyers/${id}/ai/email-intro`, body)),
   );
 }

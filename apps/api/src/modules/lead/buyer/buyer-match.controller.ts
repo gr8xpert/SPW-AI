@@ -36,6 +36,8 @@ import { BuyerTrackingService } from './tracking/buyer-tracking.service';
 import { BuyerChangeLogService } from './buyer-change-log.service';
 import { BuyerNearMissService } from './buyer-near-miss.service';
 import { BuyerReverseService } from './buyer-reverse.service';
+import { BuyerWhatsAppService } from './whatsapp/buyer-whatsapp.service';
+import { WhatsAppDto } from './dto/buyer-whatsapp.dto';
 
 // Wishlist, Matched and Suggested tabs, and sending. Registered before
 // BuyerController so buyers/suggestions/:sid isn't taken for buyers/:id.
@@ -52,6 +54,7 @@ export class BuyerMatchController {
     private readonly changeLog: BuyerChangeLogService,
     private readonly nearMiss: BuyerNearMissService,
     private readonly reverse: BuyerReverseService,
+    private readonly whatsapp: BuyerWhatsAppService,
   ) {}
 
   // Reverse match: the buyers whose wishlist this property meets.
@@ -215,5 +218,29 @@ export class BuyerMatchController {
     @Body() dto: SendPropertiesDto,
   ) {
     return this.sender.send(tenantId, viewerOf(user), id, dto);
+  }
+
+  // WhatsApp click-to-chat: the text as it will read, then (open) the
+  // wa.me link, recorded as sent.
+  @Post(':id/whatsapp/preview')
+  @HttpCode(HttpStatus.OK)
+  whatsappPreview(
+    @CurrentTenant() tenantId: number,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: WhatsAppDto,
+  ) {
+    return this.whatsapp.preview(tenantId, viewerOf(user), id, dto, 'buyer');
+  }
+
+  @Post(':id/whatsapp/open')
+  @HttpCode(HttpStatus.OK)
+  whatsappOpen(
+    @CurrentTenant() tenantId: number,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: WhatsAppDto,
+  ) {
+    return this.whatsapp.open(tenantId, viewerOf(user), id, dto, 'buyer');
   }
 }

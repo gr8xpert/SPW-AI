@@ -19,6 +19,13 @@ describe('introPrompt', () => {
     expect(p).toContain('"text"');
   });
 
+  it('asks for a short chat-style opening for WhatsApp', () => {
+    const p = introPrompt('nl', 'whatsapp');
+    expect(p).toContain('WhatsApp message');
+    expect(p).toMatch(/50 words/);
+    expect(p).not.toMatch(/90 words/);
+  });
+
   it('a bad language code falls back to English', () => {
     expect(introPrompt('../x')).toContain('LANGUAGE: en');
   });

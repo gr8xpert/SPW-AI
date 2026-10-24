@@ -1073,6 +1073,8 @@ export class FeedService {
       if (Object.keys(updateData).length === 0) return 'skipped';
 
       updateData.importedAt = new Date();
+      // The feed changed the listing itself: "Most Up To Date" on the website.
+      if (dataChanged || imagesChanged) updateData.listingUpdatedAt = updateData.importedAt;
       await this.propertyRepository.update(existing.id, updateData);
       return 'updated';
     } else {

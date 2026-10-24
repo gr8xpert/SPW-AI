@@ -70,6 +70,7 @@ export class BuyerTrackingService {
     leadId: number;
     recipient: 'buyer' | 'agent';
     kind?: 'selection' | 'alert';
+    channel?: 'email' | 'whatsapp';
     propertyIds: number[];
     lang: string;
     userId: number | null;
@@ -80,6 +81,7 @@ export class BuyerTrackingService {
         leadId: args.leadId,
         recipient: args.recipient,
         kind: args.kind ?? 'selection',
+        channel: args.channel ?? 'email',
         propertyIds: args.propertyIds,
         lang: args.lang,
         createdBy: args.userId,
@@ -198,7 +200,8 @@ export class BuyerTrackingService {
       try {
         const now = new Date();
         await this.sendRepository.update({ id: send.id }, { clickedAt: send.clickedAt ?? now, openedAt: send.openedAt ?? now });
-        await this.record({ tenantId: send.tenantId, leadId: send.leadId, propertyIds: [t.propertyId], event: 'clicked', source: 'email', sendId: send.id, at: now });
+        const source = send.channel === 'whatsapp' ? 'whatsapp' : 'email';
+        await this.record({ tenantId: send.tenantId, leadId: send.leadId, propertyIds: [t.propertyId], event: 'clicked', source, sendId: send.id, at: now });
       } catch (err) {
         this.logger.warn(`Click tracking failed: ${(err as Error).message}`);
       }

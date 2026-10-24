@@ -24,6 +24,7 @@ import { BuyerMatchService } from './buyer/buyer-match.service';
 import { BuyerSuggestionService } from './buyer/buyer-suggestion.service';
 import { BuyerMailService } from './buyer/buyer-mail.service';
 import { BuyerSendService } from './buyer/buyer-send.service';
+import { BuyerWhatsAppService } from './buyer/whatsapp/buyer-whatsapp.service';
 import { BuyerIntakeService } from './buyer/buyer-intake.service';
 import { BuyerFormMailService } from './buyer/buyer-form-mail.service';
 import { BuyerImportController } from './buyer/odoo/buyer-import.controller';
@@ -113,6 +114,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
     BuyerSuggestionService,
     BuyerMailService,
     BuyerSendService,
+    BuyerWhatsAppService,
     BuyerIntakeService,
     BuyerFormMailService,
     BuyerImportService,

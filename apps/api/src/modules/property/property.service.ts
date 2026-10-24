@@ -270,6 +270,7 @@ export class PropertyService {
     }
 
     Object.assign(property, updateData);
+    if (Object.keys(updateData).length > 0) property.listingUpdatedAt = new Date();
 
     if (userId) {
       property.lastUpdatedById = userId;

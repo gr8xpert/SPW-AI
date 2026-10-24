@@ -230,7 +230,7 @@ class SPM_Shortcode_Reference {
             'data-spm-featured="yes"'       => 'Only listings marked Featured in the dashboard — all of them, with page numbers. Add <code>limit</code> (or use <code>[spm_short_list]</code>) for just a few. Mark some first, or the block will be empty.',
             'data-spm-own="yes"'            => 'Only your own listings, not the ones shared from a feed.',
             'data-spm-own-first="yes"'      => 'Everything, with your own listings at the top.',
-            'data-spm-sort="newest"'        => 'newest, oldest, price_asc, price_desc, featured or updated',
+            'data-spm-sort="newest"'        => 'newest, oldest, updated, price_asc, price_desc or ref',
             'data-spm-limit="6"'            => 'Show only this many, as a short list (no page numbers or sort)',
             'data-spm-ref="R1234,R2345"'  => 'Only these properties, in this order (reference numbers, comma separated, up to 50). One reference shows just that property.',
             'data-spm-template="3"'         => 'Pin one design instead of the dashboard one',

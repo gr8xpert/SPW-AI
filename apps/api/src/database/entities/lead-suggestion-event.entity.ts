@@ -3,7 +3,7 @@ import { User } from './user.entity';
 
 export const SUGGESTION_EVENTS = ['sent', 'opened', 'clicked', 'liked', 'rejected', 'cleared', 'viewing', 'offer'] as const;
 export type SuggestionEventType = (typeof SUGGESTION_EVENTS)[number];
-export type SuggestionEventSource = 'email' | 'page' | 'agent' | 'alert';
+export type SuggestionEventSource = 'email' | 'page' | 'agent' | 'alert' | 'whatsapp';
 
 // Every step of a property's timeline for one buyer, in order (by id).
 @Entity('lead_suggestion_events')
@@ -28,7 +28,7 @@ export class LeadSuggestionEvent {
   @Column({ type: 'enum', enum: SUGGESTION_EVENTS })
   event: SuggestionEventType;
 
-  @Column({ type: 'enum', enum: ['email', 'page', 'agent', 'alert'] })
+  @Column({ type: 'enum', enum: ['email', 'page', 'agent', 'alert', 'whatsapp'] })
   source: SuggestionEventSource;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

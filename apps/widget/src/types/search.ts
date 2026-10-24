@@ -42,9 +42,9 @@ export type SortOption =
   | 'write_date'
   | 'list_price'
   | 'list_price_desc'
-  | 'is_featured_desc'
-  | 'own_first'
-  | 'location_id';
+  | 'ref_asc'
+  | 'ref_desc'
+  | 'own_first';
 
 export interface LockedFilters {
   locationId?: number;

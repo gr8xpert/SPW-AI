@@ -180,8 +180,8 @@ export const sv: SettingsText = {
       write_date: 'Längst sedan uppdatering',
       list_price: 'Pris: lägst först',
       list_price_desc: 'Pris: högst först',
-      is_featured_desc: 'Utvalda först',
-      location_id: 'Efter plats',
+      ref_desc: 'Referens (fallande)',
+      ref_asc: 'Referens (stigande)',
     },
   },
 

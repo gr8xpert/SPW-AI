@@ -75,6 +75,11 @@ export class AiEmailIntroDto {
   @IsOptional()
   @Matches(/^[a-z]{2}$/)
   lang?: string;
+
+  // WhatsApp gets a shorter, chattier opening.
+  @IsOptional()
+  @IsIn(['email', 'whatsapp'])
+  channel?: 'email' | 'whatsapp';
 }
 
 export class AiSummaryDto {

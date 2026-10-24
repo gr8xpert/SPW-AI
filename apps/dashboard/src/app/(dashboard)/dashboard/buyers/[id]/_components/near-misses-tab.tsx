@@ -13,6 +13,8 @@ import type { Buyer } from '../../use-buyers';
 import { useAddSuggestions, useBuyerNearMisses, type NearMissItem } from '../../use-buyer-match';
 import { useReasonText } from '../../_components/reason-text';
 import { SendDialog } from './send-dialog';
+import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
+import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { RuleLines } from './ai/rule-lines';
 
 // Listings that only just miss one must-have, with the reason.
@@ -78,6 +80,16 @@ export function NearMissesTab({ buyer }: { buyer: Buyer }) {
                 <Send className="mr-2 h-4 w-4" />
                 {m.send}
               </Button>
+              <WhatsAppButton
+                base={buyerWhatsAppBase(buyer.id)}
+                kind="properties"
+                propertyIds={Array.from(selected)}
+                aiBuyerId={buyer.id}
+                hasPhone={hasPhoneNumber(buyer)}
+                disabled={!selected.size}
+                onDone={() => setSelected(new Set())}
+                testId="near-miss-whatsapp"
+              />
               <Button size="sm" variant="outline" disabled={!selected.size || add.isPending} onClick={addSelected}>
                 {add.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Star className="mr-2 h-4 w-4" />}
                 {m.addToSuggested}

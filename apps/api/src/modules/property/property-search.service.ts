@@ -517,27 +517,37 @@ export class PropertySearchService {
     return { data };
   }
 
+  // Matches Resales' "Sort By" where it makes sense on a website. Listed order
+  // is the day the row arrived, then the reference number: Resales numbers
+  // listings as they are created (R5524117 is newer than R5520016), and our
+  // createdAt within one import is just the order rows were written. Every
+  // sort ends on id so pages never overlap or skip a listing.
+  // TypeORM's third-arg `NULLS LAST` is Postgres-only and produces invalid
+  // MySQL SQL. MySQL sorts NULLs last for DESC and first for ASC by default.
   private applySorting(query: SelectQueryBuilder<Property>, sortBy?: string): void {
+    const newest = () => {
+      query.addOrderBy('p.listedDay', 'DESC');
+      query.addOrderBy('p.refNumber', 'DESC');
+    };
+    let dir: 'ASC' | 'DESC' = 'DESC';
     switch (sortBy) {
-      case 'create_date_desc': query.addOrderBy('p.createdAt', 'DESC'); break;
-      case 'create_date': query.addOrderBy('p.createdAt', 'ASC'); break;
-      case 'write_date_desc': query.addOrderBy('p.updatedAt', 'DESC'); break;
-      case 'write_date': query.addOrderBy('p.updatedAt', 'ASC'); break;
-      // TypeORM's third-arg `NULLS LAST` is Postgres-only and produces invalid
-      // MySQL SQL. MySQL sorts NULLs last for DESC and first for ASC by default;
-      // acceptable for a price sort.
-      case 'list_price': query.addOrderBy('p.price', 'ASC'); break;
-      case 'list_price_desc': query.addOrderBy('p.price', 'DESC'); break;
-      case 'is_featured_desc': query.addOrderBy('p.isFeatured', 'DESC'); break;
+      case 'create_date':
+        query.addOrderBy('p.listedDay', 'ASC');
+        query.addOrderBy('p.refNumber', 'ASC');
+        dir = 'ASC';
+        break;
+      case 'write_date_desc': query.addOrderBy('p.listingUpdatedAt', 'DESC'); newest(); break;
+      case 'write_date': query.addOrderBy('p.listingUpdatedAt', 'ASC'); dir = 'ASC'; break;
+      case 'list_price': query.addOrderBy('p.price', 'ASC'); newest(); break;
+      case 'list_price_desc': query.addOrderBy('p.price', 'DESC'); newest(); break;
+      case 'ref_asc': query.addOrderBy('p.refNumber', 'ASC'); query.addOrderBy('p.reference', 'ASC'); dir = 'ASC'; break;
+      case 'ref_desc': query.addOrderBy('p.refNumber', 'DESC'); query.addOrderBy('p.reference', 'DESC'); break;
       // The agency's own listings first, then everything else newest-first, so
       // the tail of the list is still in a sensible order.
-      case 'own_first':
-        query.addOrderBy('p.isOwnProperty', 'DESC');
-        query.addOrderBy('p.createdAt', 'DESC');
-        break;
-      case 'location_id': query.addOrderBy('p.locationId', 'ASC'); break;
-      default: query.addOrderBy('p.createdAt', 'DESC');
+      case 'own_first': query.addOrderBy('p.isOwnProperty', 'DESC'); newest(); break;
+      default: newest();
     }
+    query.addOrderBy('p.id', dir);
   }
 }
 

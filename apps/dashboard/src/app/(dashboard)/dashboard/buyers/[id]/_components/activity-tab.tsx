@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRightLeft, Bell, Calendar, CalendarCheck, FileText, Globe, Handshake, Loader2, Mail, MessageSquare, Mic, Phone, Send, ThumbsUp, UserCog, Users,
+  ArrowRightLeft, Bell, Calendar, CalendarCheck, FileText, Globe, Handshake, Loader2, Mail, MessageCircle, MessageSquare, Mic, Phone, Send, ThumbsUp, UserCog, Users,
   type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +24,11 @@ import { FilterSelect } from '../../_components/filter-select';
 const ICONS: Record<string, LucideIcon> = {
   note: FileText, call: Phone, email: Mail, sms: MessageSquare, viewing: Calendar, meeting: Users,
   offer: Handshake, status_change: ArrowRightLeft, assignment: UserCog, enquiry: Globe, wishlist_form: Globe,
-  suggestion_sent: Send, buyer_feedback: ThumbsUp, viewing_request: CalendarCheck, alert_sent: Bell,
+  suggestion_sent: Send, buyer_feedback: ThumbsUp, viewing_request: CalendarCheck, alert_sent: Bell, whatsapp: MessageCircle,
 };
+// Sent on WhatsApp (click-to-chat) rather than by email.
+const viaWhatsApp = (item: { type: string; metadata?: Record<string, unknown> | null }) =>
+  item.type === 'whatsapp' || (item.type === 'suggestion_sent' && item.metadata?.channel === 'whatsapp');
 const MANUAL = ['note', 'call', 'email', 'sms', 'viewing', 'meeting', 'offer'] as const;
 // What the buyer wrote (website forms, buyer page): can be read into the wishlist.
 const FROM_BUYER = new Set(['enquiry', 'wishlist_form', 'viewing_request', 'buyer_feedback']);
@@ -113,7 +116,7 @@ export function ActivityTab({ buyerId }: { buyerId: number }) {
           ) : (
             <ol className="relative space-y-5 border-l pl-6">
               {activities.data.map((item) => {
-                const Icon = ICONS[item.type] ?? FileText;
+                const Icon = viaWhatsApp(item) ? MessageCircle : ICONS[item.type] ?? FileText;
                 const who = item.user?.name || (item.type === 'enquiry' || item.type === 'wishlist_form' ? a.website : item.type === 'buyer_feedback' || item.type === 'viewing_request' ? a.buyerPage : a.system);
                 const text2 = describe(item);
                 return (
@@ -122,7 +125,7 @@ export function ActivityTab({ buyerId }: { buyerId: number }) {
                       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                     </span>
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-medium">{a.types[item.type] ?? item.type}</span>
+                      <span className="font-medium">{(item.type === 'suggestion_sent' && viaWhatsApp(item) ? a.types.suggestion_sent_whatsapp : a.types[item.type]) ?? item.type}</span>
                       <span className="text-muted-foreground">· {who}</span>
                       {item.fromLeadId ? <Badge variant="outline" className="text-[10px]">{a.fromEarlier}</Badge> : null}
                       {item.metadata?.via === 'voice' ? <Badge variant="secondary" className="gap-1 text-[10px]"><Mic className="h-3 w-3" />{t.ai.voice.badge}</Badge> : null}

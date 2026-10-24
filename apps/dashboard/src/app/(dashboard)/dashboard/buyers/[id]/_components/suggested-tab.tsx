@@ -24,6 +24,8 @@ import {
   type Suggestion,
 } from '../../use-buyer-match';
 import { SendDialog } from './send-dialog';
+import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
+import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { TimelineChips } from './timeline-chips';
 import { useCommonText } from '@/i18n/common';
 
@@ -112,6 +114,16 @@ export function SuggestedTab({ buyer }: { buyer: Buyer }) {
               <Send className="mr-2 h-4 w-4" />
               {chosen.length ? t.send : t.sendAll}
             </Button>
+            <WhatsAppButton
+              base={buyerWhatsAppBase(buyer.id)}
+              kind="properties"
+              propertyIds={chosen.length ? chosen : live.map((s) => s.propertyId)}
+              aiBuyerId={buyer.id}
+              hasPhone={hasPhoneNumber(buyer)}
+              disabled={!live.length}
+              onDone={() => setSelected(new Set())}
+              testId="suggested-whatsapp"
+            />
             <Button size="sm" variant="outline" disabled={!live.length || pdf.isPending} onClick={() => download(chosen.length ? chosen : undefined)} data-testid="suggested-pdf">
               {pdf.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
               {chosen.length ? t.pdfSelected : t.pdf}

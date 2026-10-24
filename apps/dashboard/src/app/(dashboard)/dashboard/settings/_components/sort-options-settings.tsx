@@ -8,7 +8,8 @@ import { useSettingsText } from '../_i18n';
 // results start in. The widget reads them from the public config
 // (enabledSortOptions / defaultSort); the API keeps defaultSort among them.
 
-// Labels: settingsText sort.choices[value].
+// Labels: settingsText sort.choices[value]. Same choices as Resales' "Sort By"
+// (agency and commission sorts left out); keep in step with the API's SORT_VALUES.
 export const SORT_CHOICES = [
   { value: 'create_date_desc' },
   { value: 'create_date' },
@@ -16,8 +17,8 @@ export const SORT_CHOICES = [
   { value: 'write_date' },
   { value: 'list_price' },
   { value: 'list_price_desc' },
-  { value: 'is_featured_desc' },
-  { value: 'location_id' },
+  { value: 'ref_desc' },
+  { value: 'ref_asc' },
 ] as const;
 
 type SortValue = (typeof SORT_CHOICES)[number]['value'];

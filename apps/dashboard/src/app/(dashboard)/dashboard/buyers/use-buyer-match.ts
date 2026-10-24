@@ -140,7 +140,7 @@ export type AgentMark = 'liked' | 'rejected' | 'cleared' | 'viewing' | 'offer';
 export interface TimelineEntry {
   id: number;
   event: TimelineEventType;
-  source: 'email' | 'page' | 'agent' | 'alert';
+  source: 'email' | 'page' | 'agent' | 'alert' | 'whatsapp';
   note: string | null;
   createdAt: string;
   user: { id: number; name: string | null } | null;

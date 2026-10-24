@@ -180,8 +180,8 @@ export const es: SettingsText = {
       write_date: 'Actualizados hace más tiempo',
       list_price: 'Precio: de menor a mayor',
       list_price_desc: 'Precio: de mayor a menor',
-      is_featured_desc: 'Destacados primero',
-      location_id: 'Por ubicación',
+      ref_desc: 'Referencia (desc.)',
+      ref_asc: 'Referencia (asc.)',
     },
   },
 

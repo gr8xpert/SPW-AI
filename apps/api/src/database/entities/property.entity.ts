@@ -422,6 +422,19 @@ export class Property {
   @Column({ type: 'timestamp', nullable: true })
   lastUpdatedResales: Date | null;
 
+  // When the listing itself last changed (feed data/images or an edit); the
+  // website's "Most Up To Date" sort. updatedAt moves on internal touches too.
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  listingUpdatedAt: Date;
+
+  // Sort keys the database computes (migration PropertySortKeys): the digits
+  // of the reference, and the day the row arrived. Never written by us.
+  @Column({ type: 'bigint', unsigned: true, nullable: true, insert: false, update: false })
+  refNumber: string | null;
+
+  @Column({ type: 'date', nullable: true, insert: false, update: false })
+  listedDay: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

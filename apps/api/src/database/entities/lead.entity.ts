@@ -317,6 +317,8 @@ export const LEAD_ACTIVITY_TYPES = [
   'viewing_planned', 'viewing_done',
   // Milestone J (migration 1777300000000)
   'erase', 'unsubscribe',
+  // WhatsApp send (migration 1777440000000)
+  'whatsapp',
 ] as const;
 export type LeadActivityType = (typeof LEAD_ACTIVITY_TYPES)[number];
 

@@ -180,8 +180,8 @@ export const fi: SettingsText = {
       write_date: 'Pisimpään päivittämättä',
       list_price: 'Hinta: halvin ensin',
       list_price_desc: 'Hinta: kallein ensin',
-      is_featured_desc: 'Nostetut ensin',
-      location_id: 'Sijainnin mukaan',
+      ref_desc: 'Viite (laskeva)',
+      ref_asc: 'Viite (nouseva)',
     },
   },
 

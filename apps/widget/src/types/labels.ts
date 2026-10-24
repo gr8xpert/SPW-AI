@@ -36,7 +36,6 @@ export interface Labels {
   results_no_results: string;
   results_no_results_message: string;
   sort_label: string;
-  sort_featured: string;
   sort_price_asc: string;
   sort_price_desc: string;
   sort_date_asc: string;

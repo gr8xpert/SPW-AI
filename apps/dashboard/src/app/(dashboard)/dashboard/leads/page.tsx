@@ -20,6 +20,8 @@ import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { useBuyerText } from '../buyers/_i18n/use-buyer-text';
 import { BUYER_ROLES, type BuyerRole } from '../buyers/use-buyers';
 import { FilterSelect } from '../buyers/_components/filter-select';
+import { WhatsAppButton, hasPhoneNumber } from '../buyers/_components/whatsapp-button';
+import { newLeadWhatsAppBase } from '../buyers/use-whatsapp';
 import { useLanguage } from '@/i18n/i18n-provider';
 import { useNewLeadText } from './_i18n';
 import type { NewLeadText } from './_i18n/en';
@@ -183,6 +185,15 @@ function LeadCard({
                 {text.reply}
               </a>
             </Button>
+          )}
+          {hasPhoneNumber(lead) && (
+            <WhatsAppButton
+              base={newLeadWhatsAppBase(lead.id)}
+              kind="enquiry"
+              hasPhone
+              handledOption={inbox && view === 'waiting'}
+              testId="new-lead-whatsapp"
+            />
           )}
           {inbox && view === 'waiting' && (
             <Button size="sm" variant="outline" onClick={() => setHandled(true)} disabled={handled.isPending} data-testid="new-lead-handled">

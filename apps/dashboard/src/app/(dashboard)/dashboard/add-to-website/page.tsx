@@ -31,7 +31,7 @@ const BLOCKS: Array<{ kind: Kind; block: string; shortcode: string; filters: boo
   { kind: 'carousel', block: 'site-carousel', shortcode: '[spm_carousel]', filters: true, templates: 6 },
 ];
 
-const SORTS = ['', 'newest', 'price_desc', 'price_asc', 'featured'];
+const SORTS = ['', 'newest', 'oldest', 'updated', 'price_desc', 'price_asc', 'ref'];
 const LISTING_TYPES = ['', 'sale', 'rent', 'holiday', 'new-development'];
 
 // Dashboard endpoints return names as they are stored: a plain string, or one

@@ -23,6 +23,7 @@ export const fi: LabelsText = {
     buyer: 'Ostajan sähköpostit ja PDF',
     wishlist_form: 'Toivelistalomake',
     buyer_page: 'Ostajan sivu',
+    buyer_whatsapp: 'WhatsApp-viestit ostajille',
     general: 'Yleiset',
   },
 

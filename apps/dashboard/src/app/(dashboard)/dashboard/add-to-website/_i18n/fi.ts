@@ -19,7 +19,9 @@ export const fi: AddToWebsiteText = {
     newest: 'Uusimmat ensin',
     price_desc: 'Hinta: korkeimmasta alkaen',
     price_asc: 'Hinta: edullisimmasta alkaen',
-    featured: 'Nostetut ensin',
+    oldest: 'Vanhimmat ensin',
+    updated: 'Viimeksi päivitetyt',
+    ref: 'Viite',
   },
   listingTypes: {
     any: 'Kaikki',

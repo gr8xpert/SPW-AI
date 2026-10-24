@@ -62,7 +62,7 @@ export class BuyerAiController {
   @Post(':id/ai/email-intro')
   @HttpCode(HttpStatus.OK)
   emailIntro(@CurrentTenant() tenantId: number, @CurrentUser() user: JwtPayload, @Param('id', ParseIntPipe) id: number, @Body() dto: AiEmailIntroDto) {
-    return this.buyerAi.emailIntro(tenantId, viewerOf(user), id, dto.propertyIds, dto.lang);
+    return this.buyerAi.emailIntro(tenantId, viewerOf(user), id, dto.propertyIds, dto.lang, dto.channel);
   }
 
   // The record's summary: cached until the buyer changes.

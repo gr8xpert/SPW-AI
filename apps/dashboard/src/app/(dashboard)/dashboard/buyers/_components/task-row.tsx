@@ -7,7 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { cn, formatDate } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName } from '../use-buyers';
+import { buyerName, type Buyer } from '../use-buyers';
+import { buyerWhatsAppBase } from '../use-whatsapp';
+import { WhatsAppButton, hasPhoneNumber } from './whatsapp-button';
 import { useUpdateTask, type BuyerTask } from '../use-buyer-follow-up';
 
 export function formatDue(iso: string): string {
@@ -15,15 +17,18 @@ export function formatDue(iso: string): string {
 }
 
 // One task: tick to finish, deadline (red when overdue), who, and the buyer
-// when listed outside the buyer's record.
+// when listed outside the buyer's record. With `buyer`, an open task offers a
+// WhatsApp follow-up (which can tick it off).
 export function TaskRow({
   task,
   showBuyer,
+  buyer,
   onEdit,
   onDelete,
 }: {
   task: BuyerTask;
   showBuyer?: boolean;
+  buyer?: Buyer;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -68,6 +73,18 @@ export function TaskRow({
           ) : null}
         </div>
       </div>
+      {buyer && !done ? (
+        <WhatsAppButton
+          base={buyerWhatsAppBase(buyer.id)}
+          kind="follow_up"
+          taskId={task.id}
+          hasPhone={hasPhoneNumber(buyer)}
+          iconOnly
+          variant="ghost"
+          className="h-7 w-7 px-0"
+          testId="task-whatsapp"
+        />
+      ) : null}
       {onEdit ? (
         <Button variant="ghost" size="icon" className="h-7 w-7" title={t.tasks.edit} onClick={onEdit}>
           <Pencil className="h-3.5 w-3.5" />

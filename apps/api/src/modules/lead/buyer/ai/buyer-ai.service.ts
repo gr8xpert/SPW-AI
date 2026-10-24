@@ -221,7 +221,7 @@ export class BuyerAiService {
 
   // Personal email text: a short opening for a selection email, in the
   // email's language. The agent edits it in the send dialog.
-  async emailIntro(tenantId: number, viewer: BuyerViewer, id: number, propertyIds: number[], lang?: string): Promise<{ text: string }> {
+  async emailIntro(tenantId: number, viewer: BuyerViewer, id: number, propertyIds: number[], lang?: string, channel: 'email' | 'whatsapp' = 'email'): Promise<{ text: string }> {
     const lead = await this.buyers.get(tenantId, viewer, id);
     assertNotErased(lead);
     await this.requireKey(tenantId);
@@ -260,7 +260,7 @@ export class BuyerAiService {
       tenantId,
       'intro',
       [
-        { role: 'system', content: introPrompt(language) },
+        { role: 'system', content: introPrompt(language, channel) },
         {
           role: 'user',
           content: introMessage({
