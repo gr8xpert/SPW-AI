@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import type { BuyerMatchSettings } from '@spm/shared';
-import { Lead } from '../../../../database/entities';
+import { CalendlyConnection, Lead } from '../../../../database/entities';
 import { applyVisibility, seesAllBuyers, type BuyerViewer } from '../buyer-access';
+import { BuyerQuestionService } from '../buyer-question.service';
 import { BuyerSettingsService } from '../buyer-settings.service';
 import { toCsv } from '../housekeeping/csv';
 import type { LeadReportQueryDto } from '../dto/lead-report.dto';
@@ -30,6 +31,11 @@ export interface LeadReportRow {
   agent: { id: number; name: string | null } | null;
   budgetMin: number | null;
   budgetMax: number | null;
+  // Buyer question answers ({ qkey: optionKeys }), the wishlist's property
+  // types, and the appointment: the next planned viewing, else the latest one.
+  answers: Record<string, string[]>;
+  propertyTypes: Record<string, string>[];
+  appointment: { at: Date; status: string; upcoming: boolean } | null;
   followUp: FollowUp;
 }
 
@@ -59,8 +65,10 @@ const fullName = (l: { firstName: string | null; lastName: string | null; contac
 export class LeadReportService {
   constructor(
     @InjectRepository(Lead) private readonly leads: Repository<Lead>,
+    @InjectRepository(CalendlyConnection) private readonly calendly: Repository<CalendlyConnection>,
     @InjectDataSource() private readonly db: DataSource,
     private readonly settingsService: BuyerSettingsService,
+    private readonly questionService: BuyerQuestionService,
   ) {}
 
   // The rows the report covers; `withStatus` false for the summary (it
@@ -103,7 +111,7 @@ export class LeadReportService {
       .leftJoin('lead.assignedToUser', 'agent')
       .select([
         'lead.id', 'lead.firstName', 'lead.lastName', 'lead.phone', 'lead.mobile', 'lead.source', 'lead.role', 'lead.isNewLead',
-        'lead.createdAt', 'lead.assignedTo', 'lead.stageId', 'lead.budgetMin', 'lead.budgetMax', 'lead.wishlist',
+        'lead.createdAt', 'lead.assignedTo', 'lead.stageId', 'lead.budgetMin', 'lead.budgetMax', 'lead.wishlist', 'lead.answers',
         'contact.id', 'contact.email', 'stage.id', 'stage.name', 'stage.color', 'stage.kind', 'agent.id', 'agent.name', 'agent.email',
       ]);
   }
@@ -125,8 +133,41 @@ export class LeadReportService {
     return out;
   }
 
-  private async rows(leads: Lead[], settings: BuyerMatchSettings, now: Date): Promise<LeadReportRow[]> {
-    const acts = await this.activities(leads.map((l) => l.id));
+  // Per lead: the first planned viewing from now on, else the latest one that
+  // wasn't cancelled.
+  private async appointments(leadIds: number[], now: Date): Promise<Map<number, LeadReportRow['appointment']>> {
+    const out = new Map<number, LeadReportRow['appointment']>();
+    for (let i = 0; i < leadIds.length; i += CHUNK) {
+      const rows: { leadId: number; startsAt: Date; status: string }[] = await this.db.query(
+        "SELECT leadId, startsAt, status FROM buyer_viewings WHERE leadId IN (?) AND status <> 'cancelled' ORDER BY startsAt",
+        [leadIds.slice(i, i + CHUNK)],
+      );
+      for (const r of rows) {
+        const at = new Date(r.startsAt);
+        const upcoming = r.status === 'planned' && +at >= +now;
+        const had = out.get(r.leadId);
+        if (had?.upcoming) continue; // the earliest upcoming one is kept
+        out.set(r.leadId, { at, status: r.status, upcoming });
+      }
+    }
+    return out;
+  }
+
+  private async typeNames(tenantId: number, leads: Lead[]): Promise<Map<number, Record<string, string>>> {
+    const ids = [...new Set(leads.flatMap((l) => l.wishlist?.propertyTypeIds ?? []).filter((id) => Number.isInteger(id) && id > 0))];
+    const out = new Map<number, Record<string, string>>();
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const rows: { id: number; name: unknown }[] = await this.db.query('SELECT id, name FROM property_types WHERE tenantId = ? AND id IN (?)', [tenantId, ids.slice(i, i + CHUNK)]);
+      for (const r of rows) out.set(r.id, json<Record<string, string>>(r.name) ?? {});
+    }
+    return out;
+  }
+
+  private async rows(tenantId: number, leads: Lead[], settings: BuyerMatchSettings, now: Date): Promise<LeadReportRow[]> {
+    const ids = leads.map((l) => l.id);
+    const [acts, visits, types] = ids.length
+      ? await Promise.all([this.activities(ids), this.appointments(ids, now), this.typeNames(tenantId, leads)])
+      : [new Map<number, ReportActivity[]>(), new Map<number, LeadReportRow['appointment']>(), new Map<number, Record<string, string>>()];
     return leads.map((l) => ({
       id: l.id,
       name: fullName(l),
@@ -141,6 +182,9 @@ export class LeadReportService {
       agent: l.assignedToUser ? { id: l.assignedToUser.id, name: l.assignedToUser.name || l.assignedToUser.email } : null,
       budgetMin: l.wishlist?.budgetMin ?? (l.budgetMin !== null ? Number(l.budgetMin) : null),
       budgetMax: l.wishlist?.budgetMax ?? (l.budgetMax !== null ? Number(l.budgetMax) : null),
+      answers: json<Record<string, string[]>>(l.answers) ?? {},
+      propertyTypes: (l.wishlist?.propertyTypeIds ?? []).map((id) => types.get(id)).filter((n): n is Record<string, string> => !!n),
+      appointment: visits.get(l.id) ?? null,
       followUp: followUp(l, acts.get(l.id) ?? [], now, settings.firstContactHours),
     }));
   }
@@ -155,17 +199,26 @@ export class LeadReportService {
       .skip((page - 1) * limit)
       .take(limit);
     const [leads, total] = await qb.getManyAndCount();
-    return { data: await this.rows(leads, settings, now), total, page, limit, overdueHours: settings.firstContactHours };
+    return {
+      data: await this.rows(tenantId, leads, settings, now),
+      total,
+      page,
+      limit,
+      overdueHours: settings.firstContactHours,
+      // Calendly connected: rows offer the booking link.
+      booking: await this.calendly.exists({ where: { tenantId } }),
+    };
   }
 
   async summary(tenantId: number, viewer: BuyerViewer, dto: LeadReportQueryDto, now = new Date()): Promise<LeadReportSummary> {
     const settings = await this.settingsService.get(tenantId);
-    const raw: { agentId: number | null; createdAt: Date; kind: string | null; firstContactAt: Date | null; reached: string | number }[] = await (
+    const raw: { agentId: number | null; createdAt: Date; kind: string | null; firstContactAt: Date | null; reached: string | number; value: string | null }[] = await (
       await this.base(tenantId, viewer, dto, settings, now, false)
     )
       .select('lead.assignedTo', 'agentId')
       .addSelect('lead.createdAt', 'createdAt')
       .addSelect('stage.kind', 'kind')
+      .addSelect('COALESCE(lead.wonAmount, lead.dealValue)', 'value')
       .addSelect(`(SELECT MIN(fa.createdAt) FROM lead_activities fa WHERE fa.leadId = lead.id AND ${attemptSql('fa')})`, 'firstContactAt')
       .addSelect(REACHED_EXISTS, 'reached')
       .getRawMany();
@@ -192,6 +245,8 @@ export class LeadReportService {
       firstContactAt: r.firstContactAt,
       reached: Number(r.reached) === 1,
       won: r.kind === 'won',
+      lost: r.kind === 'lost',
+      wonValue: r.kind === 'won' ? Number(r.value ?? 0) : 0,
     }));
     const acts = actions.map((a) => ({ userId: Number(a.userId), calls: Number(a.calls), whatsapps: Number(a.whatsapps), emails: Number(a.emails), viewings: Number(a.viewings) }));
     let agents = agentSummaries(leads, acts, now, settings.firstContactHours);
@@ -209,7 +264,7 @@ export class LeadReportService {
     const users: { id: number; name: string | null; email: string }[] = userIds.length
       ? await this.db.query('SELECT id, name, email FROM users WHERE tenantId = ? AND id IN (?)', [tenantId, userIds])
       : [];
-    const empty: AgentSummary = { agentId: null, leads: 0, notContacted: 0, overdue: 0, contacted: 0, reached: 0, won: 0, medianFirstContactHours: null, calls: 0, whatsapps: 0, emails: 0, viewings: 0 };
+    const empty: AgentSummary = { agentId: null, leads: 0, notContacted: 0, overdue: 0, contacted: 0, reached: 0, won: 0, lost: 0, wonValue: 0, conversion: null, medianFirstContactHours: null, calls: 0, whatsapps: 0, emails: 0, viewings: 0 };
     return {
       overdueHours: settings.firstContactHours,
       totals: totals ?? empty,
@@ -230,22 +285,29 @@ export class LeadReportService {
       .addOrderBy('lead.id', 'DESC')
       .take(EXPORT_LIMIT)
       .getMany();
-    const rows = await this.rows(leads, settings, now);
+    const rows = await this.rows(tenantId, leads, settings, now);
     const en = (n: Record<string, string> | undefined) => (n ? n.en || Object.values(n).find(Boolean) || '' : '');
     const STATUS: Record<string, string> = {
       overdue: 'Not contacted (overdue)', not_contacted: 'Not contacted', tried: 'Tried, not reached',
       call_back: 'Call back', wrong_number: 'Wrong number', reached: 'Reached',
     };
     const time = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 16).replace('T', ' ') : '');
+    const all = await this.questionService.list(tenantId);
+    const questions = settings.reportQuestions.map((k) => all.find((q) => q.qkey === k)).filter((q): q is (typeof all)[number] => !!q);
+    const answerText = (q: (typeof all)[number], r: LeadReportRow) =>
+      (r.answers[q.qkey] ?? []).map((k) => en(q.options.find((o) => o.key === k)?.label) || k).join(', ');
     const header = [
       'ID', 'Name', 'Phone', 'Email', 'Agent', 'Stage', 'Follow-up', 'Calls', 'WhatsApps', 'Emails', 'Last call', 'Latest note',
       'Enquiry', 'Budget from', 'Budget to', 'Source', 'In New Leads', 'Created (UTC)', 'First contact (UTC)', 'Hours to first contact', 'Last contact (UTC)',
+      'Appointment (UTC)', 'Property type', ...questions.map((q) => en(q.label)),
     ];
     const csvRows = rows.map((r) => [
       r.id, r.name, r.mobile || r.phone, r.email, r.agent?.name ?? '', r.stage ? en(r.stage.name) : '',
       STATUS[r.followUp.status], r.followUp.calls, r.followUp.whatsapps, r.followUp.emails, r.followUp.lastOutcome?.replace('_', ' ') ?? '',
       r.followUp.lastNote?.text ?? '', r.followUp.enquiry ?? '', r.budgetMin ?? '', r.budgetMax ?? '', r.source, r.isNewLead ? 'yes' : '',
       time(r.createdAt), time(r.followUp.firstContactAt), r.followUp.firstContactHours ?? '', time(r.followUp.lastContactAt),
+      r.appointment ? `${time(r.appointment.at)}${r.appointment.status === 'planned' ? '' : ` (${r.appointment.status.replace('_', ' ')})`}` : '',
+      r.propertyTypes.map((n) => en(n)).join(', '), ...questions.map((q) => answerText(q, r)),
     ]);
     return { filename: `lead-report-${now.toISOString().slice(0, 10)}.csv`, csv: toCsv(header, csvRows) };
   }

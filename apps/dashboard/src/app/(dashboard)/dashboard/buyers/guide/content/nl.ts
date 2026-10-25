@@ -244,9 +244,9 @@ export const nl: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Rapporten',
+    title: 'Pijplijn & omzet',
     summary: 'Hoe het kantoor ervoor staat, in cijfers en grafieken.',
-    linkLabel: 'Open Rapporten',
+    linkLabel: 'Open Pijplijn & omzet',
     blocks: [
       terms(
         ['Nieuwe kopers', 'Hoeveel er binnenkwamen, per maand en per bron (website, telefoon, Facebook…).'],
@@ -254,7 +254,7 @@ export const nl: GuideTranslation = {
         ['Open pipelinewaarde', 'De totale dealwaarde van kopers die nog lopen.'],
         ['Verwachte omzet', 'Dealwaarden maal de kans van elke fase. Een redelijke schatting van wat er aankomt.'],
         ['Pipeline-trechter', 'Hoeveel nieuwe kopers elke fase bereikten.'],
-        ['Makelaars', 'Kopers, gewonnen deals, conversie en hoe snel elke makelaar een nieuwe koper antwoordt.'],
+        ['Per makelaar', 'Leads, opvolging, gewonnen deals, gewonnen waarde en conversie per makelaar staan in het Leadrapport.'],
       ),
     ],
   },
@@ -298,7 +298,7 @@ export const nl: GuideTranslation = {
       terms(
         ['Toestemming vastleggen', 'Noteer dat de koper akkoord ging met contact, en hoe (website, telefoon, persoonlijk…).'],
         ['Afmelden voor woningmails', 'De koper krijgt geen woningmails of meldingen meer. Zijn makelaar wel. De koper kan dit ook zelf doen via de link in elke e-mail.'],
-        ['Persoonsgegevens wissen', 'Voor managers. Haalt de naam, e-mail, telefoons, adres, identiteit, notities, bestanden en antwoorden voorgoed weg, en de koper verdwijnt uit je lijsten. Alleen anonieme cijfers blijven voor Rapporten.'],
+        ['Persoonsgegevens wissen', 'Voor managers. Haalt de naam, e-mail, telefoons, adres, identiteit, notities, bestanden en antwoorden voorgoed weg, en de koper verdwijnt uit je lijsten. Alleen anonieme cijfers blijven voor Pijplijn & omzet.'],
       ),
       steps(
         'Open de koper en druk op "Privacy".',
@@ -314,7 +314,7 @@ export const nl: GuideTranslation = {
     blocks: [
       terms(
         ['Makelaars', 'Zien hun eigen kopers (of iedereen, als de manager dat toestaat). Kunnen kopers toevoegen, wensenlijsten invullen, e-mails versturen, meldingen goedkeuren en taken toevoegen.'],
-        ['Managers en eigenaren', 'Zien elke koper, en hebben ook Rapporten, Importeren, CSV exporteren, samenvoegen, wissen en de Instellingen.'],
+        ['Managers en eigenaren', 'Zien elke koper, en hebben ook Pijplijn & omzet, Importeren, CSV exporteren, samenvoegen, wissen en de Instellingen.'],
       ),
       p('Mensen die alleen op de website of in Buyer Match staan, zonder login, beheer je onder Makelaars (linkermenu).'),
     ],

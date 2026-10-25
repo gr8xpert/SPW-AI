@@ -15,6 +15,7 @@ import { useTenantLanguages } from '../use-buyers';
 import { useEmailIntro } from '../use-buyer-ai';
 import { useWhatsAppOpen, useWhatsAppPreview, type WhatsAppBody, type WhatsAppKind } from '../use-whatsapp';
 import { FilterSelect } from './filter-select';
+import { useCalendarText } from '../_i18n/calendar';
 import { AiButton, useAiFailure } from '../[id]/_components/ai/ai-gate';
 
 const LANG_NAMES: Record<string, string> = {
@@ -54,6 +55,7 @@ export function WhatsAppDialog({
 }) {
   const all = useBuyerText();
   const t = all.whatsapp;
+  const cal = useCalendarText();
   const { toast } = useToast();
   const langs = useTenantLanguages();
   const preview = useWhatsAppPreview(base);
@@ -70,6 +72,8 @@ export function WhatsAppDialog({
   const [allowResend, setAllowResend] = useState(false);
   const [markTaskDone, setMarkTaskDone] = useState(true);
   const [markHandled, setMarkHandled] = useState(true);
+  // On by default: the API adds the line only when Calendly has a booking page.
+  const [withBooking, setWithBooking] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +86,7 @@ export function WhatsAppDialog({
     setAllowResend(false);
     setMarkTaskDone(true);
     setMarkHandled(true);
+    setWithBooking(true);
   }, [open]);
 
   const body: WhatsAppBody = {
@@ -92,6 +97,7 @@ export function WhatsAppDialog({
     ...(lang ? { lang } : {}),
     ...(touched && shownMessage ? { message: shownMessage } : {}),
     allowResend,
+    ...(kind === 'enquiry' || kind === 'follow_up' ? { withBooking } : {}),
   };
   const previewKey = JSON.stringify(body);
   useEffect(() => {
@@ -304,6 +310,12 @@ export function WhatsAppDialog({
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={markTaskDone} onCheckedChange={(v) => setMarkTaskDone(!!v)} aria-label={t.markTaskDone} />
             {t.markTaskDone}
+          </label>
+        ) : null}
+        {data?.bookingAvailable ? (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={withBooking} onCheckedChange={(v) => setWithBooking(!!v)} aria-label={cal.withBooking} data-testid="whatsapp-booking" />
+            {cal.withBooking}
           </label>
         ) : null}
         {handledOption ? (

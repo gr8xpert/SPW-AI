@@ -124,6 +124,8 @@ export interface BuyerMatchSettings {
   // Lead Report: a lead nobody tried to reach this many hours after it came
   // in is overdue (red, and on the agent's daily email).
   firstContactHours: number;
+  // Buyer questions (qkeys) shown as columns of the Lead Report, in order.
+  reportQuestions: string[];
 }
 
 export const DEFAULT_BUYER_MATCH_SETTINGS: BuyerMatchSettings = {
@@ -141,6 +143,7 @@ export const DEFAULT_BUYER_MATCH_SETTINGS: BuyerMatchSettings = {
   agentDigestTime: '07:30',
   hotScore: 6,
   firstContactHours: 24,
+  reportQuestions: ['timeframe'],
 };
 
 // Phase 3 (milestone L): rules read from the buyer's Internal Notes ("does

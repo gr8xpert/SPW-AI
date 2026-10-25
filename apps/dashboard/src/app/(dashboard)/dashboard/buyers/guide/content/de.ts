@@ -244,9 +244,9 @@ export const de: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Berichte',
+    title: 'Pipeline & Umsatz',
     summary: 'Wie es der Agentur geht, in Zahlen und Diagrammen.',
-    linkLabel: 'Berichte öffnen',
+    linkLabel: 'Pipeline & Umsatz öffnen',
     blocks: [
       terms(
         ['Neue Käufer', 'Wie viele hereinkamen, pro Monat und pro Quelle (Website, Telefon, Facebook…).'],
@@ -254,7 +254,7 @@ export const de: GuideTranslation = {
         ['Wert der offenen Pipeline', 'Der gesamte Geschäftswert der Käufer, die noch laufen.'],
         ['Erwarteter Umsatz', 'Geschäftswerte mal die Chance jeder Phase. Eine faire Schätzung dessen, was kommt.'],
         ['Pipeline-Trichter', 'Wie viele neue Käufer jede Phase erreicht haben.'],
-        ['Makler', 'Käufer, Abschlüsse, Abschlussquote und wie schnell jeder Makler einem neuen Käufer antwortet.'],
+        ['Pro Makler', 'Leads, Nachverfolgung, Abschlüsse, gewonnener Wert und Konversion pro Makler stehen im Lead-Bericht.'],
       ),
     ],
   },
@@ -298,7 +298,7 @@ export const de: GuideTranslation = {
       terms(
         ['Einwilligung erfassen', 'Halten Sie fest, dass der Käufer einer Kontaktaufnahme zugestimmt hat, und wie (Website, Telefon, persönlich…).'],
         ['Von Immobilien-E-Mails abmelden', 'Der Käufer bekommt keine Immobilien-E-Mails und Benachrichtigungen mehr. Sein Makler kann ihm weiterhin schreiben. Der Käufer kann das auch selbst über den Link in jeder E-Mail tun.'],
-        ['Personenbezogene Daten löschen', 'Für Manager. Entfernt Name, E-Mail, Telefonnummern, Adresse, Ausweis, Notizen, Dateien und Antworten endgültig, und der Käufer verschwindet aus Ihren Listen. Nur anonyme Zahlen bleiben für die Berichte.'],
+        ['Personenbezogene Daten löschen', 'Für Manager. Entfernt Name, E-Mail, Telefonnummern, Adresse, Ausweis, Notizen, Dateien und Antworten endgültig, und der Käufer verschwindet aus Ihren Listen. Nur anonyme Zahlen bleiben für Pipeline & Umsatz.'],
       ),
       steps(
         'Öffnen Sie den Käufer und drücken Sie „Datenschutz“.',
@@ -314,7 +314,7 @@ export const de: GuideTranslation = {
     blocks: [
       terms(
         ['Makler', 'Sehen ihre eigenen Käufer (oder alle, wenn der Manager es erlaubt). Können Käufer anlegen, Suchprofile ausfüllen, E-Mails senden, Benachrichtigungen genehmigen und Aufgaben anlegen.'],
-        ['Manager und Inhaber', 'Sehen jeden Käufer und haben außerdem Berichte, Import, CSV-Export, Zusammenführen, Löschen und die Einstellungen.'],
+        ['Manager und Inhaber', 'Sehen jeden Käufer und haben außerdem Pipeline & Umsatz, Import, CSV-Export, Zusammenführen, Löschen und die Einstellungen.'],
       ),
       p('Personen, die nur auf der Website oder in Buyer Match erscheinen und keinen Login haben, verwalten Sie unter Makler (linkes Menü).'),
     ],

@@ -16,10 +16,13 @@ import { BuyerMatchService } from '../buyer-match.service';
 import { fill } from '../buyer-mail';
 import { localDayTime } from '../alerts/alert-rules';
 import { BuyerViewingService } from './buyer-viewing.service';
+import { buildIcs } from '../calendar/ics';
 import { groupByDay, itineraryHtml, mapLink, type ItineraryViewing } from './itinerary';
 
 // The buyer's itinerary PDF (and the email that carries it), and the agent's
 // reminder before a viewing.
+
+const t0 = (labels: Record<string, string>, key: string, fallback: string) => labels[key] || fallback;
 @Injectable()
 export class BuyerViewingMailService {
   private readonly logger = new Logger(BuyerViewingMailService.name);
@@ -40,7 +43,7 @@ export class BuyerViewingMailService {
     private readonly config: ConfigService,
   ) {}
 
-  async itinerary(tenantId: number, viewer: BuyerViewer, tripId: number, langParam?: string): Promise<{ pdf: Buffer; filename: string; lang: string; lead: Lead }> {
+  async itinerary(tenantId: number, viewer: BuyerViewer, tripId: number, langParam?: string): Promise<{ pdf: Buffer; filename: string; lang: string; lead: Lead; ics: string }> {
     const trip = await this.viewingService.trip(tenantId, viewer, tripId);
     const lead = await this.buyers.get(tenantId, viewer, trip.leadId);
     const tenant = await this.tenants.findOne({ where: { id: tenantId } });
@@ -82,13 +85,26 @@ export class BuyerViewingMailService {
       days: groupByDay(items, settings.timezone || 'UTC', lang),
     });
     const pdf = await this.brochures.renderHtml(html);
+    // The same viewings as a calendar file, so the buyer can add them in one tap.
+    const ics = buildIcs({
+      name: t0(labels, 'buyer_trip_title_anon', 'Your viewing itinerary'),
+      events: live.map((r, i) => ({
+        uid: `viewing-${r.id}@spm`,
+        start: new Date(r.startsAt),
+        durationMin: r.durationMin,
+        title: `${from.name}: ${items[i].title || t0(labels, 'buyer_trip_title_anon', 'Viewing')}`,
+        location: r.meetingPoint || items[i].place || null,
+        description: [items[i].reference ? `Ref. ${items[i].reference}` : '', items[i].mapUrl ?? ''].filter(Boolean).join('\n') || null,
+        updatedAt: r.updatedAt,
+      })),
+    });
     const slug = (lead.firstName || 'buyer').normalize('NFD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'buyer';
-    return { pdf, filename: `Itinerary-${slug}-${String(trip.startDate).slice(0, 10)}.pdf`, lang, lead };
+    return { pdf, filename: `Itinerary-${slug}-${String(trip.startDate).slice(0, 10)}.pdf`, lang, lead, ics };
   }
 
   // Emails the itinerary PDF to the buyer, in their language.
   async sendItinerary(tenantId: number, viewer: BuyerViewer, tripId: number, langParam?: string): Promise<{ to: string }> {
-    const { pdf, filename, lang, lead } = await this.itinerary(tenantId, viewer, tripId, langParam);
+    const { pdf, filename, lang, lead, ics } = await this.itinerary(tenantId, viewer, tripId, langParam);
     const to = validEmail(lead.contact?.email);
     if (!to || /@no-email\.invalid$/i.test(to)) throw new BadRequestException({ code: 'NO_RECIPIENT', message: 'The buyer has no email address' });
     const tenant = (await this.tenants.findOne({ where: { id: tenantId } }))!;
@@ -109,7 +125,10 @@ export class BuyerViewingMailService {
       replyTo: agentEmail || from.replyTo,
       fromName: from.name,
       fromEmail: from.fromEmail,
-      attachments: [{ filename, content: pdf, contentType: 'application/pdf' }],
+      attachments: [
+        { filename, content: pdf, contentType: 'application/pdf' },
+        { filename: 'viewings.ics', content: Buffer.from(ics, 'utf8'), contentType: 'text/calendar; charset=utf-8; method=PUBLISH' },
+      ],
     });
     if (!res.delivered && res.skippedReason !== 'no-transport') throw new BadRequestException({ code: 'EMAIL_FAILED', message: 'The email could not be sent' });
     await this.buyers.log(lead.id, viewer.id, 'email', `Itinerary sent (${filename})`, { kind: 'itinerary', tripId }, true);

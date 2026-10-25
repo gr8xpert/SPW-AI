@@ -50,6 +50,7 @@ describe('cleanEnquiry', () => {
   it('drops the Facebook campaign lines', () => {
     expect(cleanEnquiry('Campaign: Spring\nAd: Villa\nBudget: €400.000 – €500.000\nTimetable: Zo snel mogelijk')).toBe('Budget: €400.000 – €500.000\nTimetable: Zo snel mogelijk');
     expect(cleanEnquiry('Campaign: Spring')).toBe('Campaign: Spring');
+    expect(cleanEnquiry('Facebook lead form: Spain leads\nCampaign: Spring\nPrijsindicatie: €300.000')).toBe('Prijsindicatie: €300.000');
   });
 });
 
@@ -65,17 +66,18 @@ describe('agentSummaries', () => {
   it('counts leads per main agent and actions per doer', () => {
     const rows = agentSummaries(
       [
-        { agentId: 1, createdAt: hoursAgo(50), firstContactAt: hoursAgo(48), reached: true, won: false },
-        { agentId: 1, createdAt: hoursAgo(50), firstContactAt: hoursAgo(46), reached: false, won: false },
-        { agentId: 1, createdAt: hoursAgo(30), firstContactAt: null, reached: false, won: false },
-        { agentId: 1, createdAt: hoursAgo(1), firstContactAt: null, reached: false, won: false },
-        { agentId: null, createdAt: hoursAgo(5), firstContactAt: null, reached: false, won: false },
+        { agentId: 1, createdAt: hoursAgo(50), firstContactAt: hoursAgo(48), reached: true, won: true, lost: false, wonValue: 250000.4 },
+        { agentId: 1, createdAt: hoursAgo(50), firstContactAt: hoursAgo(46), reached: false, won: false, lost: true, wonValue: 0 },
+        { agentId: 1, createdAt: hoursAgo(30), firstContactAt: null, reached: false, won: false, lost: false, wonValue: 0 },
+        { agentId: 1, createdAt: hoursAgo(1), firstContactAt: null, reached: false, won: false, lost: false, wonValue: 0 },
+        { agentId: null, createdAt: hoursAgo(5), firstContactAt: null, reached: false, won: false, lost: false, wonValue: 0 },
       ],
       [{ userId: 1, calls: 3, whatsapps: 1, emails: 0, viewings: 1 }, { userId: 2, calls: 1, whatsapps: 0, emails: 0, viewings: 0 }],
       now,
       24,
     );
-    expect(rows[0]).toMatchObject({ agentId: 1, leads: 4, contacted: 2, notContacted: 2, overdue: 1, reached: 1, calls: 3, medianFirstContactHours: 3 });
+    expect(rows[0]).toMatchObject({ agentId: 1, leads: 4, contacted: 2, notContacted: 2, overdue: 1, reached: 1, calls: 3, medianFirstContactHours: 3, won: 1, lost: 1, wonValue: 250000, conversion: 50 });
+    expect(rows.find((r) => r.agentId === null)?.conversion).toBeNull();
     expect(rows.find((r) => r.agentId === null)).toMatchObject({ leads: 1, notContacted: 1, overdue: 0 });
     expect(rows.find((r) => r.agentId === 2)).toMatchObject({ leads: 0, calls: 1 });
   });

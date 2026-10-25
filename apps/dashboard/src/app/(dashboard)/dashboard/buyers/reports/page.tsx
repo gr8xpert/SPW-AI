@@ -19,7 +19,6 @@ interface Report {
   sources: string[];
   series: Record<string, string | number>[];
   funnel: { stages: { stageId: number; name: string; count: number }[]; won: number; lost: number };
-  agents: { agentId: number | null; name: string | null; buyers: number; won: number; lost: number; wonValue: number; conversion: number | null; medianResponseHours: number | null }[];
   expectedRevenue: number;
   openValue: number;
   probabilities: { stageId: number; name: string; probability: number }[];
@@ -210,40 +209,6 @@ function ReportsInner() {
             </Card>
           </div>
 
-          <Card data-testid="report-agents">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{r.agents}</CardTitle>
-              <CardDescription>{r.agentsHint}</CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{r.agent}</TableHead>
-                    <TableHead className="text-right">{r.buyers}</TableHead>
-                    <TableHead className="text-right">{r.wonCol}</TableHead>
-                    <TableHead className="text-right">{r.lostCol}</TableHead>
-                    <TableHead className="text-right">{r.wonValue}</TableHead>
-                    <TableHead className="text-right">{r.conversion}</TableHead>
-                    <TableHead className="text-right">{r.response}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {d.agents.map((a) => (
-                    <TableRow key={a.agentId ?? 'none'}>
-                      <TableCell>{a.name ?? t.unassigned}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.buyers}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.won}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.lost}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.wonValue ? money(a.wonValue) : '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.conversion === null ? '—' : `${a.conversion}%`}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.medianResponseHours === null ? '—' : r.hours(a.medianResponseHours)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>

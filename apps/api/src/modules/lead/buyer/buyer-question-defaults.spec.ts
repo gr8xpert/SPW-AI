@@ -1,4 +1,4 @@
-import { DEFAULT_QUESTIONS, cleanAnswers, questionKey } from './buyer-question-defaults';
+import { DEFAULT_QUESTIONS, answersFromForm, cleanAnswers, questionKey } from './buyer-question-defaults';
 
 const Q = [
   { qkey: 'purpose', multiple: false, options: [{ key: 'investment' }, { key: 'holiday_home' }] },
@@ -38,5 +38,54 @@ describe('buyer question defaults', () => {
     expect(cleanAnswers(Q, { purpose: [], location_setting: ['coast', 'coast'] })).toEqual({ location_setting: ['coast'] });
     expect(cleanAnswers(Q, { purpose: 'investment' as never })).toEqual({ purpose: ['investment'] });
     expect(cleanAnswers(Q, null)).toEqual({});
+  });
+});
+
+describe('answersFromForm', () => {
+  type Q = Parameters<typeof answersFromForm>[0][number];
+  const QS: Q[] = [
+    {
+      qkey: 'timeframe',
+      multiple: false,
+      label: { en: 'When do you want to buy?', nl: 'Wanneer wil je kopen?' },
+      options: [
+        { key: 'now', label: { en: 'As soon as possible', nl: 'Zo snel mogelijk' } },
+        { key: '3_months', label: { en: 'Within 3 months', nl: 'Binnen 3 maanden' } },
+      ],
+    },
+    {
+      qkey: 'hoe_ver_ben_jij',
+      multiple: false,
+      label: { nl: 'Hoe ver ben jij al in je zoektocht' },
+      options: [{ key: 'orienteren', label: { nl: 'Ik ben me aan het oriënteren' } }],
+    },
+    {
+      qkey: 'location_setting',
+      multiple: true,
+      label: { en: 'Location setting' },
+      options: [{ key: 'coast', label: { en: 'Coast' } }, { key: 'village', label: { en: 'Village' } }],
+    },
+    { qkey: 'off', multiple: false, isActive: false, label: { en: 'Off' }, options: [{ key: 'x', label: { en: 'X' } }] },
+  ];
+
+  it('matches questions and options by label in any language, as Facebook writes them', () => {
+    expect(
+      answersFromForm(
+        QS,
+        [
+          { question: 'Wanneer wil je kopen?', answer: 'binnen_3_maanden' },
+          { question: 'Hoe ver ben jij al in je zoektocht naar een extra woning in Spanje?', answer: 'Ik ben me aan het oriënteren' },
+          { question: 'Location setting', answer: 'coast, village, moon' },
+          { question: 'Budget', answer: '300k' },
+          { question: 'Off', answer: 'X' },
+        ],
+        null,
+      ),
+    ).toEqual({ timeframe: ['3_months'], hoe_ver_ben_jij: ['orienteren'], location_setting: ['coast', 'village'] });
+  });
+
+  it("never overwrites an answer the buyer already has, and skips answers that aren't an option", () => {
+    expect(answersFromForm(QS, [{ question: 'When do you want to buy?', answer: 'As soon as possible' }], { timeframe: ['3_months'] })).toEqual({});
+    expect(answersFromForm(QS, [{ question: 'When do you want to buy?', answer: 'next summer' }], null)).toEqual({});
   });
 });

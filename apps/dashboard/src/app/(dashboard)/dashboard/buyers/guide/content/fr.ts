@@ -244,9 +244,9 @@ export const fr: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Rapports',
+    title: 'Pipeline et chiffre d’affaires',
     summary: 'Comment va l’agence, en chiffres et en graphiques.',
-    linkLabel: 'Ouvrir Rapports',
+    linkLabel: 'Ouvrir Pipeline et chiffre d’affaires',
     blocks: [
       terms(
         ['Nouveaux acheteurs', 'Combien sont arrivés, par mois et par source (site, téléphone, Facebook…).'],
@@ -254,7 +254,7 @@ export const fr: GuideTranslation = {
         ['Valeur du pipeline en cours', 'La valeur totale des affaires des acheteurs encore en cours.'],
         ['Chiffre d’affaires attendu', 'Les valeurs des affaires multipliées par la chance de chaque étape. Une estimation honnête de ce qui arrive.'],
         ['Entonnoir du pipeline', 'Combien de nouveaux acheteurs ont atteint chaque étape.'],
-        ['Agents', 'Acheteurs, ventes gagnées, conversion et rapidité de chaque agent à répondre à un nouvel acheteur.'],
+        ['Par agent', 'Leads, suivi, ventes, valeur gagnée et conversion par agent sont dans le Rapport des leads.'],
       ),
     ],
   },
@@ -298,7 +298,7 @@ export const fr: GuideTranslation = {
       terms(
         ['Enregistrer le consentement', 'Notez que l’acheteur a accepté d’être contacté, et comment (site, téléphone, en personne…).'],
         ['Désabonner des e-mails de biens', 'L’acheteur ne reçoit plus d’e-mails de biens ni d’alertes. Son agent peut toujours lui écrire. L’acheteur peut aussi le faire avec le lien présent dans chaque e-mail.'],
-        ['Effacer les données personnelles', 'Pour les responsables. Supprime définitivement le nom, l’e-mail, les téléphones, l’adresse, la pièce d’identité, les notes, les fichiers et les réponses, et l’acheteur disparaît de vos listes. Seuls des chiffres anonymes restent pour les Rapports.'],
+        ['Effacer les données personnelles', 'Pour les responsables. Supprime définitivement le nom, l’e-mail, les téléphones, l’adresse, la pièce d’identité, les notes, les fichiers et les réponses, et l’acheteur disparaît de vos listes. Seuls des chiffres anonymes restent pour Pipeline et chiffre d’affaires.'],
       ),
       steps(
         'Ouvrez l’acheteur et cliquez sur « Confidentialité ».',
@@ -314,7 +314,7 @@ export const fr: GuideTranslation = {
     blocks: [
       terms(
         ['Agents', 'Voient leurs propres acheteurs (ou tout le monde, si le responsable l’autorise). Peuvent ajouter des acheteurs, remplir les souhaits, envoyer des e-mails, approuver des alertes et ajouter des tâches.'],
-        ['Responsables et propriétaires', 'Voient tous les acheteurs, et ont aussi les Rapports, Importer, Exporter en CSV, la fusion, l’effacement et les Paramètres.'],
+        ['Responsables et propriétaires', 'Voient tous les acheteurs, et ont aussi Pipeline et chiffre d’affaires, Importer, Exporter en CSV, la fusion, l’effacement et les Paramètres.'],
       ),
       p('Les personnes qui apparaissent seulement sur le site ou dans Buyer Match, sans identifiant de connexion, se gèrent dans Agents (menu de gauche).'),
     ],

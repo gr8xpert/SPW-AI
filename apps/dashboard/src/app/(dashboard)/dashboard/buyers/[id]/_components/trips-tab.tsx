@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
-import { useBuyerAgents, type Buyer } from '../../use-buyers';
+import { buyerName, useBuyerAgents, type Buyer } from '../../use-buyers';
 import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
 import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { nameOf, useBuyerSuggestions } from '../../use-buyer-match';
@@ -30,6 +30,8 @@ import {
   type ViewingStatus,
 } from '../../use-buyer-viewings';
 import { FilterSelect } from '../../_components/filter-select';
+import { AddToCalendar } from './add-to-calendar';
+import { useCalendarText } from '../../_i18n/calendar';
 import { dashboardLocale } from '@/i18n/i18n-provider';
 
 const STATUS_CLASS: Record<ViewingStatus, string> = {
@@ -286,6 +288,7 @@ function ViewingForm({ buyer, tripId, onDone, defaultDay }: { buyer: Buyer; trip
 
 function ViewingRow({ v, buyer }: { v: Viewing; buyer: Buyer }) {
   const t = useBuyerText().trips;
+  const cal = useCalendarText();
   const { toast } = useToast();
   const update = useUpdateViewing();
   const remove = useDeleteViewing();
@@ -320,6 +323,13 @@ function ViewingRow({ v, buyer }: { v: Viewing; buyer: Buyer }) {
             variant="ghost"
             className="h-7 px-2"
             testId="viewing-whatsapp"
+          />
+        ) : null}
+        {v.status !== 'cancelled' ? (
+          <AddToCalendar
+            viewing={v}
+            title={`${cal.viewingWith(buyerName(buyer))}${label && label !== '—' ? ` · ${label}` : ''}`}
+            details={[buyer.mobile || buyer.phone, buyer.contact?.email].filter(Boolean).join('\n') || null}
           />
         ) : null}
         <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setOpen((o) => !o)} data-testid="viewing-open">…</Button>

@@ -2,29 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { TenantSettings } from '@spm/shared';
-import { conversion, expectedRevenue, funnel, median, monthKeys, sourceSeries, stageProbabilities, type ReportStage } from './reports';
+import { expectedRevenue, funnel, monthKeys, sourceSeries, stageProbabilities, type ReportStage } from './reports';
 
-// The agency dashboard (milestone J, managers): new buyers per source per
-// month, the funnel, results per agent and expected revenue.
-
-// Activities that count as the agent answering a buyer.
-const RESPONSES = ['call', 'email', 'sms', 'meeting', 'note', 'suggestion_sent', 'viewing_planned'];
+// Pipeline & Revenue (milestone J, managers): new buyers per source per
+// month, the funnel and expected revenue. Results per agent are on the
+// Lead Report.
 
 export interface BuyerReport {
   months: string[];
   sources: string[];
   series: Record<string, string | number>[];
   funnel: { stages: { stageId: number; name: string; count: number }[]; won: number; lost: number };
-  agents: {
-    agentId: number | null;
-    name: string | null;
-    buyers: number;
-    won: number;
-    lost: number;
-    wonValue: number;
-    conversion: number | null;
-    medianResponseHours: number | null;
-  }[];
   expectedRevenue: number;
   openValue: number;
   probabilities: { stageId: number; name: string; probability: number }[];
@@ -71,13 +59,12 @@ export class BuyerReportsService {
       Object.values(names as Record<string, string>).forEach((n) => n && anyName.set(String(n).toLowerCase(), nameEn(s.name)));
     });
 
-    const buyers: { id: number; source: string; createdAt: Date; stageId: number | null; assignedTo: number | null; dealValue: string | null; wonAmount: string | null; firstResponse: Date | null }[] =
+    const buyers: { id: number; source: string; createdAt: Date; stageId: number | null }[] =
       await this.db.query(
-        `SELECT l.id, l.source, l.createdAt, l.stageId, l.assignedTo, l.dealValue, l.wonAmount,
-           (SELECT MIN(a.createdAt) FROM lead_activities a WHERE a.leadId = l.id AND a.userId IS NOT NULL AND a.type IN (?)) AS firstResponse
+        `SELECT l.id, l.source, l.createdAt, l.stageId
          FROM leads l
          WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.contactId IS NOT NULL AND l.createdAt >= ?`,
-        [RESPONSES, tenantId, since],
+        [tenantId, since],
       );
     const inWindow = buyers.filter((b) => keys.includes(monthOf(new Date(b.createdAt))));
 
@@ -105,33 +92,6 @@ export class BuyerReportsService {
     }
     const f = funnel(stages, inWindow.map((b) => ({ stageId: b.stageId, history: history.get(b.id) ?? [] })));
 
-    const kindOf = new Map(stages.map((s) => [s.id, s.kind]));
-    const byAgent = new Map<number | null, typeof inWindow>();
-    inWindow.forEach((b) => byAgent.set(b.assignedTo, [...(byAgent.get(b.assignedTo) ?? []), b]));
-    const agentIds = [...byAgent.keys()].filter((id): id is number => !!id);
-    const names: { id: number; name: string | null; email: string }[] = agentIds.length
-      ? await this.db.query('SELECT id, name, email FROM users WHERE id IN (?)', [agentIds])
-      : [];
-    const agents = [...byAgent.entries()]
-      .map(([agentId, list]) => {
-        const won = list.filter((b) => b.stageId && kindOf.get(b.stageId) === 'won');
-        const lost = list.filter((b) => b.stageId && kindOf.get(b.stageId) === 'lost').length;
-        const u = names.find((n) => n.id === agentId);
-        const hours = list.filter((b) => b.firstResponse).map((b) => (+new Date(b.firstResponse!) - +new Date(b.createdAt)) / 3_600_000);
-        const med = median(hours.map((h) => Math.max(0, h)));
-        return {
-          agentId,
-          name: u ? u.name || u.email : null,
-          buyers: list.length,
-          won: won.length,
-          lost,
-          wonValue: Math.round(won.reduce((s, b) => s + Number(b.wonAmount ?? b.dealValue ?? 0), 0)),
-          conversion: conversion(won.length, lost),
-          medianResponseHours: med === null ? null : Math.round(med * 10) / 10,
-        };
-      })
-      .sort((a, b) => b.buyers - a.buyers);
-
     // Expected revenue: every open buyer, not only this window's.
     const open: { stageId: number; dealValue: string }[] = await this.db.query(
       `SELECT l.stageId, l.dealValue FROM leads l JOIN buyer_stages s ON s.id = l.stageId
@@ -144,7 +104,6 @@ export class BuyerReportsService {
       sources,
       series,
       funnel: f,
-      agents,
       expectedRevenue: expectedRevenue(open.map((o) => ({ stageId: o.stageId, dealValue: Number(o.dealValue) })), probabilities),
       openValue: Math.round(open.reduce((s, o) => s + Number(o.dealValue), 0)),
       probabilities: stages.map((s) => ({ stageId: s.id, name: s.name, probability: probabilities.get(s.id)! })),

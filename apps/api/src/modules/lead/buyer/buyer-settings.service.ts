@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { DEFAULT_BUYER_MATCH_SETTINGS } from '@spm/shared';
 import type { BuyerAlertSettings, BuyerMatchSettings, BuyerMatchWeights, BuyerNearMissSettings, TenantSettings } from '@spm/shared';
 import { Tenant } from '../../../database/entities';
+import { ANSWER_KEY_RE } from './buyer-question-defaults';
+
+export const MAX_REPORT_QUESTIONS = 8;
 
 // What a settings PUT may carry: every field optional, weights partly.
 export type BuyerSettingsPatch = Partial<Omit<BuyerMatchSettings, 'weights' | 'nearMiss' | 'alerts'>> & {
@@ -147,6 +150,9 @@ export function normalizeBuyerSettings(raw: Partial<BuyerMatchSettings> | undefi
     agentDigestTime: typeof r.agentDigestTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.agentDigestTime) ? r.agentDigestTime : d.agentDigestTime,
     hotScore: clamp(r.hotScore, 1, 50, d.hotScore),
     firstContactHours: clamp(r.firstContactHours, 1, 720, d.firstContactHours),
+    reportQuestions: Array.isArray(r.reportQuestions)
+      ? [...new Set(r.reportQuestions.filter((k): k is string => typeof k === 'string' && ANSWER_KEY_RE.test(k)))].slice(0, MAX_REPORT_QUESTIONS)
+      : d.reportQuestions,
     nearMiss: {
       enabled: nm.enabled === undefined ? d.nearMiss.enabled : !!nm.enabled,
       budgetPercent: clamp(nm.budgetPercent, 0, 50, d.nearMiss.budgetPercent),

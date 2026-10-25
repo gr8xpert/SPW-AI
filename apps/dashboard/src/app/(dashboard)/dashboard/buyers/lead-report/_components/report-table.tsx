@@ -8,15 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { dashboardLocale } from '@/i18n/i18n-provider';
+import { dashboardLanguage, dashboardLocale } from '@/i18n/i18n-provider';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import { stageName, type BuyerAgent, type BuyerStage } from '../../use-buyers';
+import { textOf, type BuyerQuestion } from '../../use-buyer-follow-up';
 import { buyerWhatsAppBase, newLeadWhatsAppBase } from '../../use-whatsapp';
 import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
 import { useLeadReportText } from '../_i18n';
+import { useLeadReportColumnsText } from '../_i18n/columns';
 import { duration, useSetAgent, useSetStage, type FollowUpStatus, type LeadReportRow } from '../use-lead-report';
 import { LogDialog } from './log-dialog';
+import { CopyBookingLink } from './copy-booking-link';
+import { AnswerCell, AppointmentCell, DateCell, PropertyTypeCell } from './sheet-cells';
 
 const STATUS_STYLE: Record<FollowUpStatus, string> = {
   overdue: 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300',
@@ -37,7 +41,6 @@ function budget(r: LeadReportRow): string {
   return '';
 }
 const day = (iso: string) => new Date(iso).toLocaleDateString(dashboardLocale(), { day: 'numeric', month: 'short' });
-const dayTime = (iso: string) => new Date(iso).toLocaleString(dashboardLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 // Text that can be long (notes, form answers): a few lines, the rest on click.
 function Clamp({ text, lines = 2 }: { text: string; lines?: 2 | 3 }) {
@@ -54,7 +57,9 @@ function Clamp({ text, lines = 2 }: { text: string; lines?: 2 | 3 }) {
   );
 }
 
-function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerStage[]; agents: BuyerAgent[]; manager: boolean }) {
+type RowProps = { r: LeadReportRow; stages: BuyerStage[]; agents: BuyerAgent[]; questions: BuyerQuestion[]; manager: boolean; booking: boolean };
+
+function Row({ r, stages, agents, questions, manager, booking }: RowProps) {
   const t = useLeadReportText();
   const bt = useBuyerText();
   const { toast } = useToast();
@@ -73,11 +78,11 @@ function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerSt
       <TableCell className="min-w-[180px] align-top">
         <Link href={`/dashboard/buyers/${r.id}`} className="font-medium hover:text-primary hover:underline">{name}</Link>
         <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
-          <span>{dayTime(r.createdAt)}</span>
-          <span>· {bt.sources[r.source as keyof typeof bt.sources] ?? r.source}</span>
+          <span>{bt.sources[r.source as keyof typeof bt.sources] ?? r.source}</span>
           {r.isNewLead ? <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{t.newLead}</Badge> : null}
         </div>
       </TableCell>
+      <DateCell iso={r.createdAt} />
       <TableCell className="align-top text-xs">
         {phone ? <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="block whitespace-nowrap hover:text-primary hover:underline">{phone}</a> : null}
         {r.email ? <a href={`mailto:${r.email}`} className="block max-w-[200px] truncate text-muted-foreground hover:text-primary hover:underline" title={r.email}>{r.email}</a> : null}
@@ -123,6 +128,8 @@ function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerSt
           ) : f.firstContactHours !== null ? <p>{t.firstAfter(duration(f.firstContactHours))}</p> : null}
         </div>
       </TableCell>
+      <DateCell iso={f.firstContactAt} />
+      <AppointmentCell r={r} />
       <TableCell className="align-top">
         {f.lastNote ? (
           <>
@@ -133,6 +140,8 @@ function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerSt
       </TableCell>
       <TableCell className="align-top">{f.enquiry ? <Clamp text={f.enquiry} lines={3} /> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
       <TableCell className="whitespace-nowrap align-top text-xs">{budget(r) || <span className="text-muted-foreground">—</span>}</TableCell>
+      <PropertyTypeCell r={r} />
+      {questions.map((q) => <AnswerCell key={q.qkey} r={r} q={q} />)}
       <TableCell className="align-top">
         <div className="flex items-center gap-1">
           <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setLog('call')} title={t.logCall} data-testid="row-log-call">
@@ -141,6 +150,7 @@ function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerSt
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setLog('note')} title={t.note} aria-label={t.note} data-testid="row-note">
             <FileText className="h-4 w-4" />
           </Button>
+          {booking ? <CopyBookingLink leadId={r.id} /> : null}
           {hasPhoneNumber(r) ? (
             <WhatsAppButton
               base={r.isNewLead ? newLeadWhatsAppBase(r.id) : buyerWhatsAppBase(r.id)}
@@ -159,27 +169,34 @@ function Row({ r, stages, agents, manager }: { r: LeadReportRow; stages: BuyerSt
   );
 }
 
-export function ReportTable({ rows, stages, agents, manager }: { rows: LeadReportRow[]; stages: BuyerStage[]; agents: BuyerAgent[]; manager: boolean }) {
+export function ReportTable({ rows, ...rest }: Omit<RowProps, 'r'> & { rows: LeadReportRow[] }) {
   const t = useLeadReportText();
+  const x = useLeadReportColumnsText();
   const c = t.columns;
+  const lang = dashboardLanguage();
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>{c.lead}</TableHead>
+            <TableHead>{x.cameIn}</TableHead>
             <TableHead>{c.contact}</TableHead>
             <TableHead>{c.agent}</TableHead>
             <TableHead>{c.stage}</TableHead>
             <TableHead>{c.followUp}</TableHead>
+            <TableHead>{x.firstContact}</TableHead>
+            <TableHead>{x.appointment}</TableHead>
             <TableHead>{c.notes}</TableHead>
             <TableHead>{c.enquiry}</TableHead>
             <TableHead>{c.budget}</TableHead>
+            <TableHead>{x.propertyType}</TableHead>
+            {rest.questions.map((q) => <TableHead key={q.qkey} className="min-w-[150px]">{textOf(q.label, lang)}</TableHead>)}
             <TableHead>{c.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => <Row key={r.id} r={r} stages={stages} agents={agents} manager={manager} />)}
+          {rows.map((r) => <Row key={r.id} r={r} {...rest} />)}
         </TableBody>
       </Table>
     </div>

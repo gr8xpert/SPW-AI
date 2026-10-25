@@ -244,9 +244,9 @@ export const es: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Informes',
+    title: 'Embudo e ingresos',
     summary: 'Cómo va la agencia, en números y gráficos.',
-    linkLabel: 'Abrir Informes',
+    linkLabel: 'Abrir Embudo e ingresos',
     blocks: [
       terms(
         ['Nuevos compradores', 'Cuántos llegaron, por mes y por origen (web, teléfono, Facebook…).'],
@@ -254,7 +254,7 @@ export const es: GuideTranslation = {
         ['Valor abierto del embudo', 'El valor total de las operaciones de los compradores que siguen en curso.'],
         ['Ingresos previstos', 'Los valores de las operaciones multiplicados por la probabilidad de cada etapa. Una estimación razonable de lo que viene.'],
         ['Embudo por etapas', 'Cuántos compradores nuevos llegaron a cada etapa.'],
-        ['Agentes', 'Compradores, ventas ganadas, conversión y lo rápido que cada agente responde a un comprador nuevo.'],
+        ['Por agente', 'Leads, seguimiento, ventas, valor ganado y conversión por agente están en el Informe de leads.'],
       ),
     ],
   },
@@ -298,7 +298,7 @@ export const es: GuideTranslation = {
       terms(
         ['Registrar consentimiento', 'Apunta que el comprador aceptó que le contacten, y cómo (web, teléfono, en persona…).'],
         ['Darse de baja de los emails de propiedades', 'El comprador ya no recibe emails de propiedades ni alertas. Su agente sí puede seguir escribiéndole. El comprador también puede hacerlo desde el enlace de cualquier email.'],
-        ['Borrar datos personales', 'Para responsables. Elimina para siempre el nombre, el email, los teléfonos, la dirección, el documento, las notas, los archivos y las respuestas, y el comprador desaparece de tus listas. Solo quedan números anónimos para los Informes.'],
+        ['Borrar datos personales', 'Para responsables. Elimina para siempre el nombre, el email, los teléfonos, la dirección, el documento, las notas, los archivos y las respuestas, y el comprador desaparece de tus listas. Solo quedan números anónimos para Embudo e ingresos.'],
       ),
       steps(
         'Abre el comprador y pulsa "Privacidad".',
@@ -314,7 +314,7 @@ export const es: GuideTranslation = {
     blocks: [
       terms(
         ['Agentes', 'Ven sus propios compradores (o a todos, si el responsable lo permite). Pueden añadir compradores, rellenar listas de deseos, enviar emails, aprobar alertas y añadir tareas.'],
-        ['Responsables y dueños', 'Ven a todos los compradores y además tienen Informes, Importar, Exportar CSV, fusionar, borrar y los Ajustes.'],
+        ['Responsables y dueños', 'Ven a todos los compradores y además tienen Embudo e ingresos, Importar, Exportar CSV, fusionar, borrar y los Ajustes.'],
       ),
       p('Las personas que solo aparecen en la web o en Buyer Match, sin acceso al panel, se gestionan en Agentes (menú de la izquierda).'),
     ],

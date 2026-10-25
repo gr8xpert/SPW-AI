@@ -137,3 +137,36 @@ export function cleanAnswers(
   }
   return out;
 }
+
+// Lead form answers (Facebook: "question → answer") → Buyer question
+// answers. A question matches by its key or a label in any language, an
+// answer by an option's key or label (a form's multi-choice answer is
+// "a, b"). A form may cut a long question short (or the client's label is
+// the start of it): a shared start of 12+ characters also counts. Only questions the buyer has no answer to yet are filled, so an
+// agent's answer is never overwritten. Unmatched answers stay in the enquiry.
+export function answersFromForm(
+  questions: { qkey: string; multiple: boolean; isActive?: boolean; label: Record<string, string>; options: { key: string; label: Record<string, string> }[] }[],
+  form: { question: string; answer: string }[],
+  current: Record<string, string[]> | null | undefined,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  const names = (key: string, label: Record<string, string>) => new Set([key, ...Object.values(label).map(questionKey)].filter(Boolean));
+  for (const f of form) {
+    const asked = questionKey(f.question);
+    if (!asked) continue;
+    const active = questions.filter((x) => x.isActive !== false);
+    const prefix = (a: string, b: string) => Math.min(a.length, b.length) >= 12 && (a.startsWith(b) || b.startsWith(a));
+    const q =
+      active.find((x) => names(x.qkey, x.label).has(asked)) ??
+      active.find((x) => [...names(x.qkey, x.label)].some((n) => prefix(n, asked)));
+    if (!q || current?.[q.qkey]?.length || out[q.qkey]) continue;
+    const parts = q.multiple ? f.answer.split(/\s*[,;]\s*/) : [f.answer];
+    const picked = parts
+      .map((p) => questionKey(p))
+      .map((p) => q.options.find((o) => p && names(o.key, o.label).has(p))?.key)
+      .filter((k): k is string => !!k);
+    const keep = [...new Set(picked)];
+    if (keep.length) out[q.qkey] = q.multiple ? keep : keep.slice(0, 1);
+  }
+  return out;
+}

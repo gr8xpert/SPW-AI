@@ -245,9 +245,9 @@ export const fi: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Raportit',
+    title: 'Myyntiputki ja tulot',
     summary: 'Miten toimistolla menee, lukuina ja kaavioina.',
-    linkLabel: 'Avaa Raportit',
+    linkLabel: 'Avaa Myyntiputki ja tulot',
     blocks: [
       terms(
         ['Uudet ostajat', 'Kuinka monta tuli, kuukausittain ja lähteittäin (verkkosivu, puhelin, Facebook…).'],
@@ -255,7 +255,7 @@ export const fi: GuideTranslation = {
         ['Avoimen myyntiputken arvo', 'Vielä kesken olevien ostajien kauppojen yhteisarvo.'],
         ['Odotetut tulot', 'Kauppojen arvot kerrottuna kunkin vaiheen todennäköisyydellä. Hyvä arvio siitä, mitä on tulossa.'],
         ['Myyntisuppilo', 'Kuinka moni uusi ostaja pääsi kuhunkin vaiheeseen.'],
-        ['Välittäjät', 'Ostajat, voitetut kaupat, konversio ja kuinka nopeasti kukin välittäjä vastaa uudelle ostajalle.'],
+        ['Välittäjittäin', 'Liidit, seuranta, kaupat, voitettu arvo ja konversio välittäjittäin ovat liidiraportissa.'],
       ),
     ],
   },
@@ -299,7 +299,7 @@ export const fi: GuideTranslation = {
       terms(
         ['Kirjaa suostumus', 'Kirjaa, että ostaja suostui yhteydenottoihin, ja miten (verkkosivu, puhelin, henkilökohtaisesti…).'],
         ['Peru kohdesähköpostien tilaus', 'Ostaja ei saa enää kohdesähköposteja eikä hälytyksiä. Hänen välittäjänsä voi silti ottaa yhteyttä. Ostaja voi tehdä tämän myös minkä tahansa sähköpostin linkistä.'],
-        ['Poista henkilötiedot', 'Esihenkilöille. Poistaa nimen, sähköpostin, puhelimet, osoitteen, henkilöllisyystiedot, muistiinpanot, tiedostot ja vastaukset pysyvästi, ja ostaja katoaa listoiltasi. Vain anonyymit luvut jäävät Raportteja varten.'],
+        ['Poista henkilötiedot', 'Esihenkilöille. Poistaa nimen, sähköpostin, puhelimet, osoitteen, henkilöllisyystiedot, muistiinpanot, tiedostot ja vastaukset pysyvästi, ja ostaja katoaa listoiltasi. Vain anonyymit luvut jäävät Myyntiputki ja tulot -sivua varten.'],
       ),
       steps(
         'Avaa ostaja ja paina ”Tietosuoja”.',
@@ -315,7 +315,7 @@ export const fi: GuideTranslation = {
     blocks: [
       terms(
         ['Välittäjät', 'Näkevät omat ostajansa (tai kaikki, jos esihenkilö sallii). Voivat lisätä ostajia, täyttää toivelistoja, lähettää sähköposteja, hyväksyä hälytyksiä ja lisätä tehtäviä.'],
-        ['Esihenkilöt ja omistajat', 'Näkevät kaikki ostajat ja saavat lisäksi Raportit, Tuonnin, CSV-viennin, yhdistämisen, poistamisen ja Asetukset.'],
+        ['Esihenkilöt ja omistajat', 'Näkevät kaikki ostajat ja saavat lisäksi Myyntiputki ja tulot -sivun, Tuonnin, CSV-viennin, yhdistämisen, poistamisen ja Asetukset.'],
       ),
       p('Ihmisiä, jotka näkyvät vain verkkosivulla tai Buyer Matchissa ilman kirjautumista, hallitaan kohdassa Välittäjät (vasen valikko).'),
     ],

@@ -11,6 +11,7 @@ import { BuyerStageService } from './buyer-stage.service';
 import { BuyerSettingsService } from './buyer-settings.service';
 import { BuyerQuestionService } from './buyer-question.service';
 import { splitName } from './buyer-defaults';
+import { answersFromForm } from './buyer-question-defaults';
 import { cleanWishlist, isEmptyWishlist } from './buyer-match';
 import { guessWishlist, mergeGuess, pickRotationAgent, townOf, type PlaceRow } from './buyer-intake';
 
@@ -39,6 +40,8 @@ export interface WebsiteEnquiry {
   kind: 'enquiry' | 'favorites';
   pageUrl?: string;
   recipient?: string;
+  // A lead form's answers (Facebook): fill the Buyer questions they match.
+  formAnswers?: { question: string; answer: string }[];
 }
 
 export interface WishlistFormInput {
@@ -124,8 +127,25 @@ export class BuyerIntakeService {
           };
     if (guessed) metadata.guessedWishlist = true;
     await this.log(lead.id, 'enquiry', input.message?.trim() || null, metadata);
+    if (input.formAnswers?.length) await this.fillAnswers(tenantId, lead.id, input.formAnswers);
     if (created) await this.autoAssign(tenantId, lead.id);
     return { lead, created };
+  }
+
+  // Form answers onto the Buyer questions the buyer hasn't answered yet.
+  // Never fails the intake: the answers are in the enquiry either way.
+  private async fillAnswers(tenantId: number, leadId: number, form: { question: string; answer: string }[]): Promise<void> {
+    try {
+      const fresh = await this.leads.findOne({ where: { id: leadId }, select: ['id', 'answers'] });
+      const current = fresh?.answers ?? {};
+      const found = answersFromForm(await this.questionService.list(tenantId), form, current);
+      if (!Object.keys(found).length) return;
+      const answers = { ...current, ...found };
+      await this.leads.update(leadId, { answers });
+      await this.changeLog.record(tenantId, leadId, null, 'website', answerChanges(current, answers));
+    } catch (err) {
+      this.logger.warn(`Form answers for lead ${leadId} not matched: ${(err as Error).message}`);
+    }
   }
 
   // The visitor's own wishlist: it replaces whatever the buyer had, along

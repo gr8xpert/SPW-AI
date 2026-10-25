@@ -26,6 +26,9 @@ export interface LeadReportRow {
   agent: { id: number; name: string | null } | null;
   budgetMin: number | null;
   budgetMax: number | null;
+  answers: Record<string, string[]>;
+  propertyTypes: Record<string, string>[];
+  appointment: { at: string; status: 'planned' | 'done' | 'no_show'; upcoming: boolean } | null;
   followUp: {
     status: FollowUpStatus;
     calls: number;
@@ -49,6 +52,9 @@ export interface AgentLine {
   contacted: number;
   reached: number;
   won: number;
+  lost: number;
+  wonValue: number;
+  conversion: number | null;
   medianFirstContactHours: number | null;
   calls: number;
   whatsapps: number;
@@ -85,8 +91,9 @@ export function useLeadReport(params: LeadReportParams) {
         data: LeadReportRow[];
         total: number;
         overdueHours: number;
+        booking?: boolean;
       };
-      return { data: res?.data ?? [], total: res?.total ?? 0, overdueHours: res?.overdueHours ?? 24 };
+      return { data: res?.data ?? [], total: res?.total ?? 0, overdueHours: res?.overdueHours ?? 24, booking: !!res?.booking };
     },
     enabled: ready && api.isReady,
     placeholderData: keepPreviousData,
@@ -129,6 +136,22 @@ export function useSetAgent() {
   const queryClient = useQueryClient();
   return useMutation<unknown, ApiError, { id: number; assignedTo: number | null }>({
     mutationFn: async ({ id, assignedTo }) => api.put(`/api/dashboard/buyers/${id}`, { assignedTo }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: buyerKeys.all }),
+  });
+}
+
+// One Buyer question's answer from the report row; the other answers are
+// sent along (the endpoint replaces them all).
+export function useSetRowAnswer() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiError, { row: Pick<LeadReportRow, 'id' | 'answers'>; qkey: string; values: string[] }>({
+    mutationFn: async ({ row, qkey, values }) => {
+      const answers = { ...row.answers };
+      if (values.length) answers[qkey] = values;
+      else delete answers[qkey];
+      return api.put(`/api/dashboard/buyers/${row.id}/answers`, { answers });
+    },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: buyerKeys.all }),
   });
 }

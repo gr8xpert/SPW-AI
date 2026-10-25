@@ -1,6 +1,7 @@
 // Lead Report (pure): how far the agency got with each lead — like the
 // Google Sheet clients kept by hand (called once, no answer, notes …), but
 // read from the activity timeline. The service runs the SQL.
+import { conversion } from '../reports/reports';
 
 export type CallOutcome = 'answered' | 'no_answer' | 'wrong_number' | 'call_back';
 
@@ -92,11 +93,11 @@ export function followUp(lead: { createdAt: Date }, activities: ReportActivity[]
   };
 }
 
-// Facebook forms start with "Campaign: …" / "Ad: …" lines; the answers are
-// what an agent wants to read.
+// Facebook forms start with "Facebook lead form: …", "Campaign: …" and "Ad: …"
+// lines; the answers are what an agent wants to read.
 export function cleanEnquiry(text: string): string {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const answers = lines.filter((l) => !/^(Campaign|Ad|Form|Platform):/i.test(l));
+  const answers = lines.filter((l) => !/^(Campaign|Ad|Form|Platform):/i.test(l) && !/^(Facebook|Instagram) lead form\b/i.test(l));
   return (answers.length ? answers : lines).join('\n').slice(0, 1000);
 }
 
@@ -106,6 +107,9 @@ export interface AgentSummaryInput {
   firstContactAt: Date | null;
   reached: boolean;
   won: boolean;
+  lost: boolean;
+  // Won amount (else deal value) of a won lead.
+  wonValue: number;
 }
 
 export interface AgentSummary {
@@ -116,6 +120,10 @@ export interface AgentSummary {
   contacted: number;
   reached: number;
   won: number;
+  lost: number;
+  wonValue: number;
+  // Won of the leads that ended (won + lost), in %.
+  conversion: number | null;
   // Median hours to the first attempt, of the leads that had one.
   medianFirstContactHours: number | null;
   calls: number;
@@ -142,7 +150,7 @@ export function agentSummaries(
   const row = (agentId: number | null) => {
     let r = by.get(agentId);
     if (!r) {
-      r = { agentId, leads: 0, notContacted: 0, overdue: 0, contacted: 0, reached: 0, won: 0, medianFirstContactHours: null, calls: 0, whatsapps: 0, emails: 0, viewings: 0 };
+      r = { agentId, leads: 0, notContacted: 0, overdue: 0, contacted: 0, reached: 0, won: 0, lost: 0, wonValue: 0, conversion: null, medianFirstContactHours: null, calls: 0, whatsapps: 0, emails: 0, viewings: 0 };
       by.set(agentId, r);
     }
     return r;
@@ -159,7 +167,11 @@ export function agentSummaries(
       if (+now - +new Date(l.createdAt) >= overdueHours * 3_600_000) r.overdue++;
     }
     if (l.reached) r.reached++;
-    if (l.won) r.won++;
+    if (l.won) {
+      r.won++;
+      r.wonValue += l.wonValue;
+    }
+    if (l.lost) r.lost++;
   }
   for (const a of actions) {
     const r = row(a.userId);
@@ -171,6 +183,10 @@ export function agentSummaries(
   for (const [id, h] of hours) {
     const m = median(h);
     row(id).medianFirstContactHours = m === null ? null : Math.round(m * 10) / 10;
+  }
+  for (const r of by.values()) {
+    r.wonValue = Math.round(r.wonValue);
+    r.conversion = conversion(r.won, r.lost);
   }
   return [...by.values()].sort((a, b) => b.leads - a.leads || (a.agentId ?? 0) - (b.agentId ?? 0));
 }

@@ -21,6 +21,7 @@ import { dayLabel, mapLink } from '../viewings/itinerary';
 import { localDayTime } from '../alerts/alert-rules';
 import type { BuyerPropertyCard } from '../buyer-property-card';
 import type { WhatsAppDto } from '../dto/buyer-whatsapp.dto';
+import { CalendlyService } from '../calendar/calendly.service';
 import { buildWhatsAppText, cleanPhone, phonesOf, waUrl, type WhatsAppPhone, type WhatsAppPropertyLine } from './whatsapp-text';
 
 // Where the lead is opened from: a contact in Buyer Match (add-on), or the
@@ -37,6 +38,8 @@ export interface WhatsAppPreview {
   skipped: SkippedProperty[];
   allSkipped: boolean;
   unsubscribed: boolean;
+  // Calendly is connected and this agent has a booking page.
+  bookingAvailable: boolean;
 }
 
 const TEMPLATE_KEYS = {
@@ -65,6 +68,7 @@ export class BuyerWhatsAppService {
     private readonly pages: BuyerPageService,
     private readonly viewings: BuyerViewingService,
     private readonly tasks: BuyerTaskService,
+    private readonly calendly: CalendlyService,
   ) {}
 
   async preview(tenantId: number, viewer: BuyerViewer, leadId: number, dto: WhatsAppDto, scope: WhatsAppScope): Promise<WhatsAppPreview> {
@@ -79,6 +83,7 @@ export class BuyerWhatsAppService {
       skipped: ctx.skipped,
       allSkipped: ctx.allSkipped,
       unsubscribed: !!ctx.lead.unsubscribedAt,
+      bookingAvailable: !!ctx.booking,
     };
   }
 
@@ -168,6 +173,10 @@ export class BuyerWhatsAppService {
       }
     }
 
+    // The agent's Calendly page, prefilled for this buyer.
+    const booking = dto.kind === 'enquiry' || dto.kind === 'follow_up' ? await this.calendly.linkForLead(tenantId, lead, viewer.id) : null;
+    if (booking && dto.withBooking) extra.push(fill(labels.buyer_wa_booking_line || 'Pick a time that suits you: {link}', { link: booking.url }));
+
     const template = labels[TEMPLATE_KEYS[dto.kind]] || '';
     const message = dto.message?.trim() || greet(template, firstName, vars);
     const agent = lead.assignedToUser?.name?.trim() || null;
@@ -182,6 +191,7 @@ export class BuyerWhatsAppService {
       skipped,
       allSkipped,
       extra,
+      booking,
       signature: [agent, company].filter(Boolean).join(' · '),
       phones: phonesOf({ mobile: lead.mobile, phone: lead.phone || lead.contact?.phone }),
     };

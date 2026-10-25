@@ -45,6 +45,7 @@ export * from './lead-change.entity';
 export * from './buyer-alert.entity';
 export * from './buyer-viewing.entity';
 export * from './meta-lead.entity';
+export * from './calendar.entity';
 
 // Analytics entities
 export * from './analytics.entity';

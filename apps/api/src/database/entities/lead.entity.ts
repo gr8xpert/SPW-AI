@@ -17,7 +17,7 @@ import { BuyerStage } from './buyer-stage.entity';
 import { LeadAgent } from './lead-agent.entity';
 import type { BuyerRole, BuyerWishlist, NoteRule, PreferredContact, RelatedContact } from '@spm/shared';
 
-export type LeadSource = 'widget_inquiry' | 'phone' | 'email' | 'walkin' | 'referral' | 'website' | 'other' | 'facebook' | 'instagram';
+export type LeadSource = 'widget_inquiry' | 'phone' | 'email' | 'walkin' | 'referral' | 'website' | 'other' | 'facebook' | 'instagram' | 'calendly';
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'viewing_scheduled' | 'offer_made' | 'negotiating' | 'won' | 'lost';
 
 @Entity('leads')
@@ -53,7 +53,7 @@ export class Lead {
 
   @Column({
     type: 'enum',
-    enum: ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram'],
+    enum: ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram', 'calendly'],
     default: 'widget_inquiry',
   })
   source: LeadSource;

@@ -183,6 +183,7 @@ export class MetaLeadService {
             propertyIds: [],
             source: lead.source,
             kind: 'enquiry',
+            formAnswers: lead.answers,
           });
           // Meta lead forms always carry the advertiser's privacy policy.
           await this.db.query("UPDATE leads SET consentAt = COALESCE(consentAt, ?), consentSource = COALESCE(consentSource, 'form') WHERE id = ?", [lead.createdAt ?? now, buyer.id]);

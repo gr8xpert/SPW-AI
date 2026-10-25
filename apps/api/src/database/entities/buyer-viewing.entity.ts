@@ -47,6 +47,7 @@ export type ViewingStatus = (typeof VIEWING_STATUSES)[number];
 @Entity('buyer_viewings')
 @Index(['tenantId', 'startsAt'])
 @Index(['leadId', 'startsAt'])
+@Index('idx_buyer_viewings_external', ['tenantId', 'externalRef'])
 export class BuyerViewing {
   @PrimaryGeneratedColumn()
   id: number;
@@ -98,6 +99,11 @@ export class BuyerViewing {
 
   @Column({ type: 'datetime', nullable: true })
   reminderSentAt: Date | null;
+
+  // A viewing booked in Calendly: its invitee URI (migration 1777460000000),
+  // so a cancel or reschedule finds it.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  externalRef: string | null;
 
   @Column({ type: 'int', nullable: true })
   createdBy: number | null;

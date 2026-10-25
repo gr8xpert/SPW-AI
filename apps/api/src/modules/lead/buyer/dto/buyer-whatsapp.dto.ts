@@ -39,4 +39,8 @@ export class WhatsAppDto {
 
   @IsOptional() @IsBoolean()
   markHandled?: boolean;
+
+  // Add the agent's Calendly booking link (enquiry and follow-up messages).
+  @IsOptional() @IsBoolean()
+  withBooking?: boolean;
 }

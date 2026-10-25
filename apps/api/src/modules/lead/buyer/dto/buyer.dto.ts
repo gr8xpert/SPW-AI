@@ -22,7 +22,7 @@ import { Transform, Type } from 'class-transformer';
 import { BUYER_ID_TYPES, BUYER_ROLES, BUYER_SUB_STATUSES, PREFERRED_CONTACTS } from '@spm/shared';
 import type { BuyerIdType, BuyerRole, BuyerSubStatus, PreferredContact } from '@spm/shared';
 
-export const LEAD_SOURCES = ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram'] as const;
+export const LEAD_SOURCES = ['widget_inquiry', 'phone', 'email', 'walkin', 'referral', 'website', 'other', 'facebook', 'instagram', 'calendly'] as const;
 export const MANUAL_ACTIVITY_TYPES = ['note', 'call', 'email', 'sms', 'viewing', 'meeting', 'offer'] as const;
 export const CALL_OUTCOMES = ['answered', 'no_answer', 'wrong_number', 'call_back'] as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
@@ -359,6 +359,10 @@ export class BuyerSettingsDto {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(720)
   firstContactHours?: number;
+
+  // Buyer question keys shown as Lead Report columns (keys of deleted questions are ignored).
+  @IsOptional() @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) @Matches(/^[a-z0-9_]{1,60}$/, { each: true })
+  reportQuestions?: string[];
 }
 
 // New Leads: the role that moves a website lead into Contacts.

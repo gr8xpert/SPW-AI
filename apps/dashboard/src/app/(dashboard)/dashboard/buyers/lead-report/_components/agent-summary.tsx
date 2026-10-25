@@ -3,7 +3,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { dashboardLocale } from '@/i18n/i18n-provider';
 import { useLeadReportText } from '../_i18n';
+import { useLeadReportColumnsText } from '../_i18n/columns';
 import { duration, type AgentLine } from '../use-lead-report';
 
 // One line per agent (managers see everyone plus a total; an agent sees
@@ -23,6 +25,8 @@ export function AgentSummary({
 }) {
   const t = useLeadReportText();
   const s = t.summary;
+  const x = useLeadReportColumnsText();
+  const money = (n: number) => new Intl.NumberFormat(dashboardLocale(), { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 }).format(n);
   const lines = manager && totals && agents.length > 1 ? [...agents, { ...totals, agentId: -1 as number | null }] : agents;
   const pct = (a: AgentLine) => (a.leads ? `${Math.round((a.contacted / a.leads) * 100)}%` : '—');
 
@@ -47,7 +51,10 @@ export function AgentSummary({
               <TableHead className="text-right">{s.whatsapps}</TableHead>
               <TableHead className="text-right">{s.emails}</TableHead>
               <TableHead className="text-right">{s.viewings}</TableHead>
-              <TableHead className="pr-6 text-right">{s.won}</TableHead>
+              <TableHead className="text-right">{s.won}</TableHead>
+              <TableHead className="text-right">{x.lost}</TableHead>
+              <TableHead className="text-right">{x.wonValue}</TableHead>
+              <TableHead className="pr-6 text-right" title={x.conversionHint}>{x.conversion}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -78,7 +85,10 @@ export function AgentSummary({
                   <TableCell className="text-right tabular-nums">{a.whatsapps}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.emails}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.viewings}</TableCell>
-                  <TableCell className="pr-6 text-right tabular-nums">{a.won}</TableCell>
+                  <TableCell className="text-right tabular-nums">{a.won}</TableCell>
+                  <TableCell className="text-right tabular-nums">{a.lost}</TableCell>
+                  <TableCell className="text-right tabular-nums">{a.wonValue ? money(a.wonValue) : '—'}</TableCell>
+                  <TableCell className="pr-6 text-right tabular-nums">{a.conversion === null ? '—' : `${a.conversion}%`}</TableCell>
                 </TableRow>
               );
             })}

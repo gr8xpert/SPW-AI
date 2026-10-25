@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
-  BuyerAlert, BuyerQuestion, BuyerSend, BuyerStage, BuyerTrip, BuyerViewing, MetaLeadSource, MetaLead, BuyerTask, Contact, Feature, Lead, LeadActivity, LeadAgent, LeadChange, LeadFile, LeadSuggestion, LeadSuggestionEvent, Location, Property, PropertyType, SiteCheckin, Tenant, User,
+  BuyerAlert, BuyerQuestion, BuyerSend, BuyerStage, BuyerTrip, BuyerViewing, MetaLeadSource, MetaLead, CalendlyConnection, CalendarFeed, BuyerTask, Contact, Feature, Lead, LeadActivity, LeadAgent, LeadChange, LeadFile, LeadSuggestion, LeadSuggestionEvent, Location, Property, PropertyType, SiteCheckin, Tenant, User,
 } from '../../database/entities';
 import { LeadService } from './lead.service';
 import { LeadScoringService } from './lead-scoring.service';
@@ -51,6 +51,9 @@ import { BuyerGdprService } from './buyer/housekeeping/buyer-gdpr.service';
 import { BuyerHousekeepingController } from './buyer/housekeeping/buyer-housekeeping.controller';
 import { MetaLeadService } from './meta/meta-lead.service';
 import { MetaLeadController } from './meta/meta-lead.controller';
+import { BuyerCalendarController, CalendarFeedController, CalendlyController, CalendlyWebhookController } from './buyer/calendar/calendar.controller';
+import { CalendlyService } from './buyer/calendar/calendly.service';
+import { CalendarFeedService } from './buyer/calendar/calendar-feed.service';
 import { BuyerDigestService } from './buyer/digest/buyer-digest.service';
 import { BuyerPageMailService } from './buyer/page/buyer-page-mail.service';
 import { BuyerMatchProcessor } from './buyer/buyer-match.processor';
@@ -76,7 +79,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Lead, LeadActivity, LeadAgent, LeadChange, BuyerSend, LeadSuggestionEvent, BuyerAlert, BuyerTrip, BuyerViewing, MetaLeadSource, MetaLead, BuyerStage, BuyerTask, LeadFile, LeadSuggestion, BuyerQuestion, Contact, Feature, Location, Property, PropertyType, SiteCheckin, Tenant, User,
+      Lead, LeadActivity, LeadAgent, LeadChange, BuyerSend, LeadSuggestionEvent, BuyerAlert, BuyerTrip, BuyerViewing, MetaLeadSource, MetaLead, CalendlyConnection, CalendarFeed, BuyerStage, BuyerTask, LeadFile, LeadSuggestion, BuyerQuestion, Contact, Feature, Location, Property, PropertyType, SiteCheckin, Tenant, User,
     ]),
     BullModule.registerQueue({
       name: BUYER_MATCH_QUEUE,
@@ -97,7 +100,7 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
   // first: their static routes (import/…, board, tasks/…, suggestions/…)
   // must win over BuyerController's /:id.
   controllers: [
-    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, LeadReportController, MetaLeadController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, NewLeadController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
+    BuyerAiController, BuyerImportController, BuyerAlertController, BuyerViewingController, BuyerHousekeepingController, LeadReportController, MetaLeadController, CalendlyController, BuyerCalendarController, CalendlyWebhookController, CalendarFeedController, BuyerFollowUpController, BuyerMatchController, BuyerPageController, BuyerController, NewLeadController, LeadStatsController, InquiryController, ShareFavoritesController, VisitorCountryController,
     PublicBuyerQuestionsController, PublicBuyerWishlistController, BuyerTrackingController,
     PublicBuyerPageController, BuyerPageFallbackController,
   ],
@@ -137,6 +140,8 @@ import { BuyerAiInsightService } from './buyer/ai/buyer-ai-insight.service';
     BuyerHousekeepingService,
     BuyerGdprService,
     MetaLeadService,
+    CalendlyService,
+    CalendarFeedService,
     BuyerDigestService,
     BuyerMatchProcessor,
     BuyerAiService,

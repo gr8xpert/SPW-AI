@@ -31,15 +31,28 @@ function setup(lead: Record<string, unknown> = {}) {
     pages: { linkFor: jest.fn().mockResolvedValue('https://site.test/me/abc') },
     viewings: { items: jest.fn() },
     tasks: { listForBuyer: jest.fn().mockResolvedValue([{ id: 3 }]), update: jest.fn() },
+    calendly: { linkForLead: jest.fn().mockResolvedValue({ url: 'https://calendly.com/sam/viewing?utm_content=spm5x0123456789', agent: 'Sam' }) },
   };
   const svc = new BuyerWhatsAppService(
     deps.tenantRepository as never, deps.buyers as never, deps.newLeads as never, deps.sender as never, deps.suggestions as never,
     deps.mail as never, deps.formMail as never, deps.tracking as never, deps.pages as never, deps.viewings as never, deps.tasks as never,
+    deps.calendly as never,
   );
   return { svc, deps };
 }
 
 describe('BuyerWhatsAppService', () => {
+  it('adds the Calendly booking line only when asked, and says when one is available', async () => {
+    const { svc } = setup();
+    const without = await svc.preview(1, viewer, 5, { kind: 'follow_up' }, 'buyer');
+    expect(without.bookingAvailable).toBe(true);
+    expect(without.text).not.toContain('calendly.com');
+    const withIt = await svc.preview(1, viewer, 5, { kind: 'follow_up', withBooking: true }, 'buyer');
+    expect(withIt.text).toContain('Pick a time that suits you: https://calendly.com/sam/viewing');
+    const props = await svc.preview(1, viewer, 5, { kind: 'properties', propertyIds: [11], withBooking: true }, 'buyer');
+    expect(props.bookingAvailable).toBe(false);
+  });
+
   it('previews with website links and records nothing', async () => {
     const { svc, deps } = setup();
     const out = await svc.preview(1, viewer, 5, { kind: 'properties', propertyIds: [11, 12] }, 'buyer');

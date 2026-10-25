@@ -16,8 +16,8 @@ export type BuyerRole =
 export const BUYER_ROLES: BuyerRole[] = [
   'buyer', 'registered', 'seller', 'professional', 'estate_agent', 'developer', 'landlord', 'tenant',
 ];
-export type LeadSource = 'widget_inquiry' | 'phone' | 'email' | 'walkin' | 'referral' | 'website' | 'other' | 'facebook' | 'instagram';
-export const LEAD_SOURCES: LeadSource[] = ['widget_inquiry', 'website', 'phone', 'email', 'walkin', 'referral', 'facebook', 'instagram', 'other'];
+export type LeadSource = 'widget_inquiry' | 'phone' | 'email' | 'walkin' | 'referral' | 'website' | 'other' | 'facebook' | 'instagram' | 'calendly';
+export const LEAD_SOURCES: LeadSource[] = ['widget_inquiry', 'website', 'phone', 'email', 'walkin', 'referral', 'facebook', 'instagram', 'calendly', 'other'];
 export type PreferredContact = 'call' | 'email' | 'whatsapp';
 
 export interface BuyerStage {
@@ -154,6 +154,7 @@ export interface BuyerMatchSettings {
   agentDigestTime: string;
   hotScore: number;
   firstContactHours: number;
+  reportQuestions: string[];
 }
 
 export interface BuyerListParams {

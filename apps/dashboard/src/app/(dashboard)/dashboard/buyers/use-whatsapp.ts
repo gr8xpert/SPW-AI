@@ -21,6 +21,7 @@ export interface WhatsAppBody {
   phone?: string;
   markTaskDone?: boolean;
   markHandled?: boolean;
+  withBooking?: boolean;
 }
 
 export interface WhatsAppPhone {
@@ -38,6 +39,7 @@ export interface WhatsAppPreview {
   skipped: SkippedProperty[];
   allSkipped: boolean;
   unsubscribed: boolean;
+  bookingAvailable: boolean;
 }
 
 export function buyerWhatsAppBase(id: number): string {

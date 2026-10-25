@@ -14,9 +14,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../_i18n/use-buyer-text';
 import { BuyersNav } from '../_components/buyers-nav';
 import { FilterSelect } from '../_components/filter-select';
-import { LEAD_SOURCES, stageName, useBuyerAgents, useBuyerStages } from '../use-buyers';
+import { LEAD_SOURCES, stageName, useBuyerAgents, useBuyerSettings, useBuyerStages } from '../use-buyers';
+import { useBuyerQuestions } from '../use-buyer-follow-up';
 import { useLeadReportText } from './_i18n';
 import { AgentSummary } from './_components/agent-summary';
+import { ColumnPicker } from './_components/column-picker';
 import { ReportTable } from './_components/report-table';
 import { reportQuery, useLeadReport, useLeadReportSummary, type LeadReportParams } from './use-lead-report';
 
@@ -89,6 +91,14 @@ function LeadReportInner() {
   const summary = useLeadReportSummary(params);
   const stages = useBuyerStages();
   const agents = useBuyerAgents();
+  const settings = useBuyerSettings();
+  const questions = useBuyerQuestions();
+  const picked = useMemo(() => settings.data?.reportQuestions ?? [], [settings.data]);
+  // The picked Buyer questions that still exist, in the settings' order.
+  const reportQuestions = useMemo(
+    () => picked.map((k) => (questions.data ?? []).find((q) => q.qkey === k)).filter((q): q is NonNullable<typeof q> => !!q),
+    [picked, questions.data],
+  );
   const rows = report.data?.data ?? [];
   const total = report.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -123,10 +133,13 @@ function LeadReportInner() {
           <p className="page-description mt-1">{manager ? t.description : t.descriptionAgent}</p>
         </div>
         {manager ? (
-          <Button variant="outline" onClick={exportCsv} disabled={exporting} data-testid="lead-report-export">
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            {t.export}
-          </Button>
+          <div className="flex items-center gap-2">
+            <ColumnPicker questions={questions.data ?? []} picked={picked} />
+            <Button variant="outline" onClick={exportCsv} disabled={exporting} data-testid="lead-report-export">
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {t.export}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -210,7 +223,7 @@ function LeadReportInner() {
         <>
           <p className="text-sm text-muted-foreground" data-testid="lead-report-total">{t.total(total)}</p>
           <div className={report.isFetching ? 'opacity-70' : undefined}>
-            <ReportTable rows={rows} stages={stages.data ?? []} agents={agents.data ?? []} manager={manager} />
+            <ReportTable rows={rows} stages={stages.data ?? []} agents={agents.data ?? []} questions={reportQuestions} manager={manager} booking={!!report.data?.booking} />
           </div>
           {pages > 1 ? <PageNumbers page={page} pages={pages} onChange={(p) => setQuery({ page: p })} /> : null}
         </>

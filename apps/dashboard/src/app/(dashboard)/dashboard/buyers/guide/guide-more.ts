@@ -82,11 +82,11 @@ export const MORE: GuideSection[] = [
   {
     id: 'reports',
     group: 'managers',
-    title: 'Reports',
+    title: 'Pipeline & Revenue',
     icon: BarChart3,
     summary: 'How the agency is doing, in numbers and charts.',
     managersOnly: true,
-    link: { href: '/dashboard/buyers/reports', label: 'Open Reports' },
+    link: { href: '/dashboard/buyers/reports', label: 'Open Pipeline & Revenue' },
     blocks: [
       terms(
         ['New buyers', 'How many came in, per month and per source (website, phone, Facebook…).'],
@@ -94,7 +94,7 @@ export const MORE: GuideSection[] = [
         ['Open pipeline value', 'The total deal value of buyers still in progress.'],
         ['Expected revenue', 'Deal values multiplied by the chance of each stage. A fair guess of what is coming.'],
         ['Pipeline funnel', 'How many new buyers reached each stage.'],
-        ['Agents', 'Buyers, wins, conversion and how fast each agent answers a new buyer.'],
+        ['Per agent', 'Leads, follow-up, wins, won value and conversion per agent are on the Lead Report.'],
       ),
     ],
   },
@@ -149,7 +149,7 @@ export const MORE: GuideSection[] = [
       terms(
         ['Record consent', 'Write down that the buyer agreed to be contacted, and how (website, phone, in person…).'],
         ['Unsubscribe from property emails', 'The buyer gets no more property emails or alerts. Their agent still can. The buyer can also do this from the link in any email.'],
-        ['Erase personal data', 'For managers. Removes the name, email, phones, address, ID, notes, files and answers for good, and the buyer disappears from your lists. Only anonymous numbers stay for Reports.'],
+        ['Erase personal data', 'For managers. Removes the name, email, phones, address, ID, notes, files and answers for good, and the buyer disappears from your lists. Only anonymous numbers stay for Pipeline & Revenue.'],
       ),
       steps(
         'Open the buyer and press "Privacy".',
@@ -168,7 +168,7 @@ export const MORE: GuideSection[] = [
     blocks: [
       terms(
         ['Agents', 'See their own buyers (or everyone, if the manager allows it). Can add buyers, fill wishlists, send emails, approve alerts and add tasks.'],
-        ['Managers and owners', 'See every buyer, and also get Reports, Import, Export CSV, merging, erasing and the Settings.'],
+        ['Managers and owners', 'See every buyer, and also get Pipeline & Revenue, the Lead Report summary, Import, Export CSV, merging, erasing and the Settings.'],
       ),
       p('People who only appear on the website or in Buyer Match, without a login, are managed in Team → Agents.'),
     ],

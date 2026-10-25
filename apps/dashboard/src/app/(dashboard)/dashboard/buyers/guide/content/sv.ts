@@ -245,9 +245,9 @@ export const sv: GuideTranslation = {
     ],
   },
   reports: {
-    title: 'Rapporter',
+    title: 'Pipeline & intäkter',
     summary: 'Hur det går för byrån, i siffror och diagram.',
-    linkLabel: 'Öppna Rapporter',
+    linkLabel: 'Öppna Pipeline & intäkter',
     blocks: [
       terms(
         ['Nya köpare', 'Hur många som kom in, per månad och per källa (webbplats, telefon, Facebook…).'],
@@ -255,7 +255,7 @@ export const sv: GuideTranslation = {
         ['Värde i öppen pipeline', 'Det totala affärsvärdet för köpare som fortfarande pågår.'],
         ['Väntade intäkter', 'Affärsvärdena gånger chansen för varje steg. En rimlig gissning av vad som är på väg.'],
         ['Säljtratt', 'Hur många nya köpare som nådde varje steg.'],
-        ['Mäklare', 'Köpare, vunna affärer, konvertering och hur snabbt varje mäklare svarar en ny köpare.'],
+        ['Per mäklare', 'Leads, uppföljning, affärer, vunnet värde och konvertering per mäklare finns i Leadrapporten.'],
       ),
     ],
   },
@@ -299,7 +299,7 @@ export const sv: GuideTranslation = {
       terms(
         ['Registrera samtycke', 'Skriv ner att köparen gick med på att bli kontaktad, och hur (webbplats, telefon, personligen…).'],
         ['Avregistrera från objektmejl', 'Köparen får inga fler objektmejl eller bevakningar. Deras mäklare kan fortfarande höra av sig. Köparen kan också göra det själv via länken i vilket mejl som helst.'],
-        ['Radera personuppgifter', 'För chefer. Tar bort namn, e-post, telefoner, adress, ID, anteckningar, filer och svar för gott, och köparen försvinner från dina listor. Bara anonyma siffror finns kvar för Rapporter.'],
+        ['Radera personuppgifter', 'För chefer. Tar bort namn, e-post, telefoner, adress, ID, anteckningar, filer och svar för gott, och köparen försvinner från dina listor. Bara anonyma siffror finns kvar för Pipeline & intäkter.'],
       ),
       steps(
         'Öppna köparen och tryck på ”Integritet”.',
@@ -315,7 +315,7 @@ export const sv: GuideTranslation = {
     blocks: [
       terms(
         ['Mäklare', 'Ser sina egna köpare (eller alla, om chefen tillåter det). Kan lägga till köpare, fylla i önskelistor, skicka mejl, godkänna bevakningar och lägga till uppgifter.'],
-        ['Chefer och ägare', 'Ser alla köpare och får dessutom Rapporter, Import, Exportera CSV, sammanslagning, radering och Inställningar.'],
+        ['Chefer och ägare', 'Ser alla köpare och får dessutom Pipeline & intäkter, Import, Exportera CSV, sammanslagning, radering och Inställningar.'],
       ),
       p('Personer som bara visas på webbplatsen eller i Buyer Match, utan inloggning, hanteras under Mäklare (vänstermenyn).'),
     ],
