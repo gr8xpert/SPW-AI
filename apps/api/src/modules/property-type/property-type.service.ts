@@ -13,10 +13,11 @@ export class PropertyTypeService {
     private propertyTypeRepository: Repository<PropertyType>,
   ) {}
 
-  async findAll(tenantId: number): Promise<Array<PropertyType & { propertyCount: number }>> {
+  // includeInactive: the dashboard Property Types page must list hidden types too, or they can't be switched back on.
+  async findAll(tenantId: number, includeInactive = false): Promise<Array<PropertyType & { propertyCount: number }>> {
     const types = (
       await this.propertyTypeRepository.find({
-        where: { tenantId, isActive: true },
+        where: includeInactive ? { tenantId } : { tenantId, isActive: true },
         order: { sortOrder: 'ASC', id: 'ASC' },
       })
       // Alphabetical within each sortOrder group — see bySortOrderThenName.

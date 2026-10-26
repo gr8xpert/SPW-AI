@@ -20,7 +20,7 @@ type GuideChrome = {
 };
 
 const en: GuideChrome = {
-  title: 'Buyer Match guide',
+  title: 'Contacts guide',
   description: 'Everything about Contacts, explained in plain words.',
   introTitle: 'New here? Start with the quick start.',
   introText: (n) => `${n} short topics. Five minutes is enough to send your first email.`,
@@ -35,7 +35,7 @@ const en: GuideChrome = {
   backToTop: 'Back to top',
   groups: {
     start: 'Getting started',
-    buyers: 'Your buyers',
+    buyers: 'Your contacts and leads',
     one: 'One buyer',
     day: 'Your working day',
     managers: 'For managers',
@@ -44,7 +44,7 @@ const en: GuideChrome = {
 };
 
 const nl: GuideChrome = {
-  title: 'Handleiding Buyer Match',
+  title: 'Handleiding Contacten',
   description: 'Alles over Contacten, in gewone woorden uitgelegd.',
   introTitle: 'Nieuw hier? Begin met de snelstart.',
   introText: (n) => `${n} korte onderwerpen. Vijf minuten is genoeg om je eerste e-mail te versturen.`,
@@ -59,7 +59,7 @@ const nl: GuideChrome = {
   backToTop: 'Terug naar boven',
   groups: {
     start: 'Aan de slag',
-    buyers: 'Je kopers',
+    buyers: 'Je contacten en leads',
     one: 'Eén koper',
     day: 'Je werkdag',
     managers: 'Voor managers',
@@ -68,7 +68,7 @@ const nl: GuideChrome = {
 };
 
 const es: GuideChrome = {
-  title: 'Guía de Buyer Match',
+  title: 'Guía de Contactos',
   description: 'Todo sobre Contactos, explicado con palabras sencillas.',
   introTitle: '¿Eres nuevo? Empieza por el inicio rápido.',
   introText: (n) => `${n} temas cortos. Con cinco minutos te basta para enviar tu primer email.`,
@@ -83,7 +83,7 @@ const es: GuideChrome = {
   backToTop: 'Volver arriba',
   groups: {
     start: 'Primeros pasos',
-    buyers: 'Tus compradores',
+    buyers: 'Tus contactos y leads',
     one: 'Un comprador',
     day: 'Tu día de trabajo',
     managers: 'Para responsables',
@@ -92,7 +92,7 @@ const es: GuideChrome = {
 };
 
 const fr: GuideChrome = {
-  title: 'Guide Buyer Match',
+  title: 'Guide des Contacts',
   description: 'Tout sur Contacts, expliqué avec des mots simples.',
   introTitle: 'Nouveau ici ? Commencez par le démarrage rapide.',
   introText: (n) => `${n} sujets courts. Cinq minutes suffisent pour envoyer votre premier e-mail.`,
@@ -107,7 +107,7 @@ const fr: GuideChrome = {
   backToTop: 'Retour en haut',
   groups: {
     start: 'Pour commencer',
-    buyers: 'Vos acheteurs',
+    buyers: 'Vos contacts et leads',
     one: 'Un acheteur',
     day: 'Votre journée de travail',
     managers: 'Pour les responsables',
@@ -116,7 +116,7 @@ const fr: GuideChrome = {
 };
 
 const de: GuideChrome = {
-  title: 'Buyer Match-Anleitung',
+  title: 'Kontakte-Anleitung',
   description: 'Alles über Kontakte, in einfachen Worten erklärt.',
   introTitle: 'Neu hier? Beginnen Sie mit dem Schnellstart.',
   introText: (n) => `${n} kurze Themen. Fünf Minuten reichen für Ihre erste E-Mail.`,
@@ -131,7 +131,7 @@ const de: GuideChrome = {
   backToTop: 'Nach oben',
   groups: {
     start: 'Erste Schritte',
-    buyers: 'Ihre Käufer',
+    buyers: 'Ihre Kontakte und Leads',
     one: 'Ein Käufer',
     day: 'Ihr Arbeitstag',
     managers: 'Für Manager',
@@ -140,7 +140,7 @@ const de: GuideChrome = {
 };
 
 const fi: GuideChrome = {
-  title: 'Buyer Match -opas',
+  title: 'Yhteystiedot-opas',
   description: 'Kaikki Yhteystiedoista selkein sanoin.',
   introTitle: 'Uusi täällä? Aloita pikaoppaasta.',
   introText: (n) => `${n} lyhyttä aihetta. Viisi minuuttia riittää ensimmäisen sähköpostin lähettämiseen.`,
@@ -155,7 +155,7 @@ const fi: GuideChrome = {
   backToTop: 'Takaisin ylös',
   groups: {
     start: 'Aloitus',
-    buyers: 'Ostajasi',
+    buyers: 'Yhteystietosi ja liidisi',
     one: 'Yksi ostaja',
     day: 'Työpäiväsi',
     managers: 'Esihenkilöille',
@@ -164,7 +164,7 @@ const fi: GuideChrome = {
 };
 
 const sv: GuideChrome = {
-  title: 'Guide till Buyer Match',
+  title: 'Guide till Kontakter',
   description: 'Allt om Kontakter, förklarat med enkla ord.',
   introTitle: 'Ny här? Börja med snabbstarten.',
   introText: (n) => `${n} korta avsnitt. Fem minuter räcker för att skicka ditt första mejl.`,
@@ -179,7 +179,7 @@ const sv: GuideChrome = {
   backToTop: 'Till toppen',
   groups: {
     start: 'Kom igång',
-    buyers: 'Dina köpare',
+    buyers: 'Dina kontakter och leads',
     one: 'En köpare',
     day: 'Din arbetsdag',
     managers: 'För chefer',

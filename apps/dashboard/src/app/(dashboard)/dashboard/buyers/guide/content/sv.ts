@@ -5,13 +5,14 @@ import { p, steps, terms, tip, warn, type GuideTranslation } from '../guide-type
 // match buyers/_i18n/sv.ts.
 export const sv: GuideTranslation = {
   what: {
-    title: 'Vad är Buyer Match?',
-    summary: 'En smart anteckningsbok för dina köpare som hittar rätt bostäder åt dem.',
+    title: 'Vad är Kontakter?',
+    summary: 'En smart anteckningsbok för dina köpare och leads som hittar rätt bostäder åt dem.',
     blocks: [
-      p('Se Buyer Match som en anteckningsbok för alla som vill köpa (eller hyra) ett objekt av dig. För varje person skriver du ner vem de är och vad de letar efter.'),
+      p('Kontakter (tillägget Buyer Match) är en anteckningsbok för alla som vill köpa (eller hyra) ett objekt av dig, och för säljare, hyresvärdar och andra som du jobbar med. För varje person skriver du ner vem de är och vad de letar efter.'),
       p('Sedan gör datorn det tråkiga jobbet. Den går igenom alla objekt på din webbplats och visar vilka som passar varje köpare. Du väljer de bästa och skickar dem med mejl med ett klick.'),
       p('Köparen får en privat webbsida med de objekten. Där kan de trycka ”gilla”, ”inte för mig” eller ”jag vill se det”. Du ser varje klick, så du vet vem som verkligen är intresserad.'),
-      tip('Personer som fyller i ett formulär på din webbplats hamnar under Nya leads (vänstermenyn). Ge var och en en roll där, så kommer de med i dina Kontakter. Du behöver inte skriva in dem själv.'),
+      p('Den håller också ditt team uppdaterat om varje lead: vem som ringde vem, vem som fortfarande väntar på ett samtal och vilka visningar som är bokade. Leadrapporten visar allt i en tabell, som det kalkylark många byråer förr förde för hand.'),
+      tip('Personer som fyller i ett formulär på din webbplats eller ett leadformulär på Facebook, eller bokar i Calendly, hamnar under Nya leads (vänstermenyn). Ge var och en en roll där, så kommer de med i dina Kontakter. Du behöver inte skriva in dem själv.'),
     ],
   },
   'quick-start': {
@@ -33,7 +34,10 @@ export const sv: GuideTranslation = {
     summary: 'En liten ordlista över orden i Buyer Match.',
     blocks: [
       terms(
-        ['Köpare', 'Vem som helst i din lista. Det kan också vara en säljare, hyresvärd, hyresgäst eller en annan mäklare: ”Kontakttyp” visar vilket.'],
+        ['Kontakt', 'Vem som helst i din lista: en köpare, säljare, hyresvärd, hyresgäst eller en annan mäklare. ”Kontakttyp” visar vilket. I den här guiden betyder ”köpare” vilken kontakt som helst.'],
+        ['Lead', 'En ny kontakt som ännu inte har blivit uppringd. Leadrapporten följer dem tills någon når dem.'],
+        ['Uppföljning', 'Hur långt teamet har kommit med en lead: inte kontaktad, inget svar än, ring tillbaka, fel nummer eller nådd.'],
+        ['Försenad', 'En lead som ingen kontaktade i tid (24 timmar, om inte din chef har ändrat det). Den blir röd.'],
         ['Mäklare', 'Personen i ditt team som tar hand om köparen. ”Andra mäklare” är kollegor som hjälper till.'],
         ['Steg', 'Hur långt köparen har kommit, till exempel ”Ny”, ”Visning” eller ”Vunnen”. Stegen är kolumnerna på Tavla.'],
         ['Önskelista', 'Det köparen letar efter.'],
@@ -65,16 +69,35 @@ export const sv: GuideTranslation = {
     ],
   },
   'new-buyer': {
-    title: 'Lägga till en köpare',
-    summary: 'För hand, från din webbplats, från Facebook-annonser eller från en Odoo-fil.',
+    title: 'Lägga till en kontakt',
+    summary: 'För hand, från din webbplats, från Facebook-annonser, från Calendly eller från en Odoo-fil.',
     blocks: [
       terms(
         ['För hand', 'Tryck på ”Ny kontakt”, skriv namn och e-post, välj kontakttyp och mäklare. En e-postadress = en köpare, så du kan inte lägga till samma person två gånger.'],
-        ['Från din webbplats', 'Förfrågningar, önskelisteformuläret och ”mejla mina favoriter” skapar eller uppdaterar en köpare av sig själva.'],
-        ['Från Facebook- och Instagram-annonser', 'Leadformulär från dina annonser kommer in var 15:e minut när en chef har kopplat dem i Inställningar.'],
+        ['Från din webbplats', 'Förfrågningar, önskelisteformuläret och ”mejla mina favoriter” skapar eller uppdaterar en köpare av sig själva. Nya personer väntar under Nya leads.'],
+        ['Från Facebook- och Instagram-annonser', 'Leadformulär från dina annonser kommer in var 15:e minut när en chef har kopplat dem i Inställningar. Svar som passar en av dina köparfrågor fylls i åt dig.'],
+        ['Från Calendly', 'När någon bokar i en mäklares Calendly kommer de in som en ny lead med visningen redan planerad (se ”Kalender och Calendly”).'],
         ['Från Odoo', 'Chefer kan flytta över alla gamla köpare med fliken Import.'],
       ),
       p('Nya köpare från webbplatsen går till en mäklare, eller turas om mellan mäklarna (”round-robin”). En chef väljer det i Inställningar → Allmänt.'),
+    ],
+  },
+  'new-leads': {
+    title: 'Nya leads',
+    summary: 'Alla som har hört av sig själva väntar här tills du ger dem en roll.',
+    linkLabel: 'Öppna Nya leads',
+    blocks: [
+      p('Nya leads (vänstermenyn) är inkorgen för personer som hörde av sig själva: ett formulär på webbplatsen, ett leadformulär på Facebook eller Instagram, eller en bokning i Calendly. Den röda siffran visar hur många som väntar.'),
+      steps(
+        'Öppna Nya leads. Varje rad visar personen, formuläret de fyllde i och deras meddelande.',
+        'Svara dem först om du vill: ”Svara” för ett mejl, eller WhatsApp-knappen.',
+        'Välj en roll (köpare, säljare, hyresgäst…) och tryck på ”Lägg till i Kontakter”. De flyttas till din lista Kontakter med allt de skickade.',
+      ),
+      terms(
+        ['Ta bort', 'Bara för skräp eller tester. Leaden och dess meddelanden försvinner för gott.'],
+        ['Markera som hanterad', 'Byråer utan tillägget Buyer Match använder Nya leads som en enkel inkorg: svara, och markera den sedan som hanterad.'],
+      ),
+      tip('Nya leads syns också direkt i Leadrapporten, så en lead som ingen ringer blir röd där.'),
     ],
   },
   record: {
@@ -87,7 +110,7 @@ export const sv: GuideTranslation = {
         ['Steg', 'Var köparen är i din process. Ändra det här eller dra kortet på Tavla.'],
         ['Prioritetsstjärnor', 'Ge 1 till 3 stjärnor till de köpare som är viktigast. Klicka på den sista tända stjärnan igen för att ta bort en stjärna.'],
         ['Mäklare och andra mäklare', 'Vem som tar hand om köparen, och vem mer som hjälper till.'],
-        ['WhatsApp', 'Öppnar en WhatsApp-chatt med köparens telefonnummer.'],
+        ['WhatsApp', 'Skriver ett WhatsApp-meddelande åt dig och öppnar din egen WhatsApp (se ”WhatsApp-meddelanden”).'],
         ['Integritet', 'Samtycke, avregistrering och radering. Se ”Integritet och radera en köpare” längre ner.'],
         ['Sammanfattning', 'Med AI påslaget: tre korta rader som berättar vem köparen är och vad de vill ha.'],
       ),
@@ -170,6 +193,22 @@ export const sv: GuideTranslation = {
       warn('”Öppnat” stämmer inte alltid: vissa e-postprogram öppnar bilder av sig själva. Ett klick eller en gillning är ett mycket bättre tecken.'),
     ],
   },
+  whatsapp: {
+    title: 'WhatsApp-meddelanden',
+    summary: 'Ett färdigt meddelande på köparens språk, skickat från din egen WhatsApp.',
+    blocks: [
+      p('Den gröna WhatsApp-knappen (på en köpare, under Nya leads, på en visning, en uppgift och i Leadrapporten) skriver meddelandet åt dig på köparens språk. Kolla det, tryck på ”Öppna WhatsApp” och skicka det från din egen WhatsApp i mobilen eller datorn.'),
+      terms(
+        ['Objekt', 'Från Matchade eller Föreslagna: objekten med länkar till din webbplats och köparsidan. Klick spåras precis som i ett mejl.'],
+        ['Svar på en förfrågan', 'Från Nya leads: ett vänligt svar om objektet de frågade om.'],
+        ['Visning', 'Från en planerad visning: dag, tid, objekt och mötesplats med en kartlänk.'],
+        ['Uppföljning', 'Från en köpare eller en uppgift: ett kort ”hur går det?”-meddelande.'],
+        ['Lägg till min bokningslänk', 'När din byrå använder Calendly lägger det här till din bokningssida, så att köparen själv väljer en tid.'],
+      ),
+      p('Varje meddelande du öppnar räknas som kontakt med köparen: det syns under Aktivitet och i Leadrapporten.'),
+      warn('Telefonnumret behöver landskoden (+34…, +31…). Utan den hittar WhatsApp inte personen; fönstret varnar dig.'),
+    ],
+  },
   ai: {
     title: 'AI-hjälp',
     summary: 'Låt AI läsa meddelanden, skriva anteckningar och hitta mönster. Du kollar alltid först.',
@@ -193,10 +232,10 @@ export const sv: GuideTranslation = {
       terms(
         ['Kontakter', 'Andra inblandade personer: en partner, en familjemedlem eller en assistent, med telefon och e-post.'],
         ['Interna anteckningar', 'Fria anteckningar som bara ditt team ser. AI kan läsa dem för att skapa regler.'],
-        ['Resor och visningar', 'Lägg till en resa när köparen besöker området och lägg sedan till visningar i den. Köparen kan få ett resschema med mejl eller som PDF, och mäklaren får en påminnelse före varje visning.'],
+        ['Resor och visningar', 'Lägg till en resa när köparen besöker området och lägg sedan till visningar i den. Köparen kan få ett resschema med mejl (med en kalenderfil) eller som PDF, och mäklaren får en påminnelse före varje visning. Kalenderknappen på en visning lägger till den i Google Kalender eller laddar ner den för Outlook och iPhone.'],
         ['Uppgifter', 'Saker att göra, som ”Ring tillbaka på fredag”, med en deadline och en person. Försenade uppgifter visas i rött.'],
         ['Filer', 'Bilder och PDF:er på upp till 20 MB, som en passkopia eller ett påskrivet bud.'],
-        ['Aktivitet', 'En dagbok: samtal, mejl, visningar, besök på webbplatsen och bevakningar. Använd ”Logga aktivitet” för att lägga till ett samtal eller möte.'],
+        ['Aktivitet', 'En dagbok: samtal (och hur de gick), WhatsApp-meddelanden, mejl, visningar, besök på webbplatsen och bevakningar. Använd ”Logga aktivitet” för att lägga till ett samtal eller möte.'],
         ['Historik', 'Varje ändring på köparen: vem som ändrade vad, och när. Inget är ett mysterium.'],
       ),
       tip('Efter en visning: markera den som ”Klar” och skriv köparens feedback. Det hjälper nästa mäklare och AI:n.'),
@@ -207,9 +246,26 @@ export const sv: GuideTranslation = {
     summary: 'Öppna de här först varje morgon.',
     linkLabel: 'Öppna Min dag',
     blocks: [
-      p('”Min dag” är din morgonsida. Den visar din pipeline, försenade uppgifter, dagens uppgifter, visningar de närmaste 7 dagarna, köpare du väntar på, dina heta köpare och bevakningar att godkänna.'),
+      p('”Min dag” är din morgonsida. Den visar din pipeline, leads som ingen ringde i tid, försenade uppgifter, dagens uppgifter, visningar de närmaste 7 dagarna, köpare du väntar på, dina heta köpare och bevakningar att godkänna.'),
       p('”Att göra i dag” visar alla uppgifter som ska vara klara i dag (försenade först) och köpare som ingen har pratat med på ett tag.'),
-      tip('Slå på ”Dagligt mejl med den här sammanfattningen” på Min dag, så kommer samma lista till din inkorg varje morgon.'),
+      tip('Slå på ”Dagligt mejl med den här sammanfattningen” på Min dag, så kommer samma lista till din inkorg varje morgon, även de leads du inte har ringt än.'),
+    ],
+  },
+  'lead-report': {
+    title: 'Leadrapport',
+    summary: 'Varje lead, vem som ringde dem och hur det gick. Den fyller i sig själv.',
+    linkLabel: 'Öppna leadrapporten',
+    blocks: [
+      p('Leadrapporten ersätter kalkylarket där mäklarna skrev ”ringt en gång, inget svar”. Varje lead är en rad, och uppföljningen räknas ut från vad teamet faktiskt gjorde: samtal, WhatsApp-meddelanden, mejl och visningar.'),
+      terms(
+        ['Uppföljning', 'Inte kontaktad (röd när den är försenad), inget svar än, ring tillbaka, fel nummer eller nådd. Under den: hur många samtal, WhatsApp-meddelanden och mejl, och hur lång tid den första kontakten tog.'],
+        ['Logga samtal', 'Efter ett samtal trycker du på ”Logga samtal” och väljer hur det gick: svarade, inget svar, ring senare eller fel nummer. Lägg till en anteckning om du vill.'],
+        ['Kolumner', 'Inkom, telefon och e-post, mäklare, steg, första kontakt, möte (nästa visning), senaste anteckning, vad de frågade, budget och bostadstyp. Steg och mäklare kan ändras direkt i raden.'],
+        ['Köparfrågor', 'Chefer trycker på ”Kolumner” för att visa några av dina köparfrågor (som ”När vill du köpa?”) som kolumner. Mäklarna fyller i dem direkt i raden; svar från Facebook-formulär fylls i åt dig.'],
+        ['Per mäklare', 'Högst upp en rad per mäklare: leads, inte kontaktade, försenade, kontaktade, nådda, tid till första kontakt, samtal, WhatsApp, mejl, visningar, vunna, förlorade, vunnet värde och konvertering. Klicka på ett namn eller en röd siffra för att filtrera tabellen.'],
+        ['Exportera CSV', 'Chefer kan ladda ner hela tabellen och öppna den i Excel.'],
+      ),
+      tip('Mäklare ser bara sina egna leads och sin egen rad. En lead som ingen kontaktar i tid hamnar också på Min dag och i mäklarens dagliga mejl.'),
     ],
   },
   board: {
@@ -233,6 +289,23 @@ export const sv: GuideTranslation = {
         'Godkända bevakningar skickas, antingen direkt eller i ett dagligt mejl per köpare (din chef bestämmer).',
       ),
       warn('Inget skickas utan ditt OK. Om du aldrig godkänner får köparna aldrig några bevakningar.'),
+    ],
+  },
+  calendar: {
+    title: 'Kalender och Calendly',
+    summary: 'Dina visningar i Google Kalender, och köpare som själva bokar en tid.',
+    linkLabel: 'Öppna kalenderinställningarna',
+    blocks: [
+      p('Under Inställningar → Kalender har varje användare en privat kalenderlänk. Lägg till den en gång i Google Kalender (Andra kalendrar → + → Från webbadress), Outlook eller din iPhone, så syns dina visningar där. En mäklares länk har deras egna visningar; en chefs länk har hela teamets, med mäklarens namn i varje rubrik.'),
+      warn('Google bestämmer när den läser länken igen: oftast inom några timmar, ibland ett dygn. Behöver du en visning direkt? Använd kalenderknappen på visningen i stället.'),
+      p('Calendly är en bokningssida där köparen väljer en ledig tid i mäklarens kalender. En chef kopplar ert Calendly-konto en gång under Inställningar → Kalender.'),
+      terms(
+        ['En köpare bokar', 'En visning dyker upp på rätt kontakt med mäklare och tid, och leaden räknas som nådd i Leadrapporten.'],
+        ['Någon ny bokar', 'De hamnar under Nya leads, redan tilldelade den mäklare de bokade hos. Deras svar i Calendly fyller i dina köparfrågor.'],
+        ['Ombokning eller avbokning', 'Visningen flyttas till den nya tiden, eller markeras som inställd med orsaken.'],
+        ['Skicka länken', 'Bocka i ”Lägg till min bokningslänk” i ett WhatsApp-meddelande, eller kopiera den med kalenderknappen i Leadrapporten. Köparens namn och e-post är redan ifyllda.'],
+      ),
+      tip('Bokningar kommer in av sig själva bara med en betald Calendly-plan (Standard eller högre). På gratisplanen fungerar bokningslänkarna ändå, men du lägger till visningen själv. Mäklare matchas via e-post, så använd samma e-postadress i Calendly och här.'),
     ],
   },
   reverse: {
@@ -266,13 +339,14 @@ export const sv: GuideTranslation = {
     blocks: [
       p('Bara byråns ägare eller en chef kan ändra de här. Mäklare kan titta.'),
       terms(
-        ['Allmänt', 'Kan mäklarna se varandras köpare? Vem får nya köpare från webbplatsen? Efter hur många dagar är en köpare ”bortglömd”? Påminnelser om visningar, tiden för det dagliga mejlet, het-poängen, adressen för objektlänkar och adressen till köparsidan.'],
+        ['Allmänt', 'Kan mäklarna se varandras köpare? Vem får nya köpare från webbplatsen? Efter hur många dagar är en köpare ”bortglömd”? Påminnelser om visningar, tiden för det dagliga mejlet, het-poängen, efter hur många timmar en lead som ingen ringt blir röd, adressen för objektlänkar och adressen till köparsidan.'],
         ['Steg', 'Kolumnerna på din Tavla. Lägg till, byt namn, välj färg, ändra ordning och sätt chansen i % för varje steg. När du tar bort ett steg får du frågan vart köparna i det ska flyttas.'],
-        ['Frågor', 'Dina egna frågor om köpare. Du kan också visa dem på önskelisteformuläret på webbplatsen och översätta dem.'],
+        ['Frågor', 'Dina egna frågor om köpare. Du kan visa dem på önskelisteformuläret på webbplatsen och som kolumner i Leadrapporten, och översätta dem. Formulera alternativen som i ditt Facebook-formulär, så fylls dess svar i av sig själva.'],
         ['Matchningsvikter', 'Hur mycket varje önskemål räknas i poängen, från 0 (inte alls) till 10 (mycket). Du kan ge en egenskap, som havsutsikt, en egen vikt.'],
         ['Bevakningar och nästan-träffar', 'Slå på bevakningar, välj ”direkt” eller ”dagligt sammandrag” och hur stor en prissänkning måste vara. Bestäm hur mycket en nästan-träff får ligga över budgeten eller hur långt bort.'],
         ['Underhåll', 'Hitta möjliga dubbletter (samma telefon eller namn) och slå ihop dem. Sammanslagning behåller allt; inget går förlorat.'],
-        ['Facebook och Instagram', 'Koppla dina leadformulär från annonser så att nya leads blir köpare var 15:e minut.'],
+        ['Facebook och Instagram', 'Koppla dina leadformulär från annonser så att nya leads kommer in var 15:e minut.'],
+        ['Kalender', 'Allas egen kalenderlänk, och (för chefer) kopplingen till Calendly.'],
       ),
       warn('Fyll i ”Objektlänkar i mejl” först. Utan det kan mejlen inte länka till dina objektsidor.'),
     ],
@@ -332,6 +406,9 @@ export const sv: GuideTranslation = {
         ['Jag har lagt till samma person två gånger.', 'Använd Inställningar → Underhåll → Möjliga dubbletter och slå ihop dem.'],
         ['Hur tar jag bort en köpare?', 'Integritet → Radera personuppgifter (chefer). Köparen försvinner från dina listor för gott.'],
         ['En köpare säger att de får för många mejl.', 'Integritet → Avregistrera från objektmejl.'],
+        ['Min kalenderlänk visar inga visningar.', 'En mäklares länk har bara visningar där hen är mäklare (se ”Mäklare:” under visningen). Det kan ta Google upp till ett dygn att läsa länken igen.'],
+        ['En bokning i Calendly kom inte in.', 'Under Inställningar → Kalender måste det stå ”Bokningar kommer in av sig själva” (en betald Calendly-plan), och mäklarens e-postadress i Calendly måste vara samma som här.'],
+        ['Varför är en lead röd i Leadrapporten?', 'Ingen ringde, skickade WhatsApp eller mejlade dem i tid. Logga ett samtal (även ”inget svar”) så ändras det.'],
       ),
       tip('Fortfarande fast? Öppna ett ärende under Supportärenden och ange köparens nummer från webbadressen.'),
     ],

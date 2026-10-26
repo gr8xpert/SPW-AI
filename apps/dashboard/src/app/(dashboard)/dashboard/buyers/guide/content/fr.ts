@@ -4,13 +4,14 @@ import { p, steps, terms, tip, warn, type GuideTranslation } from '../guide-type
 // English source (guide-basics.ts + guide-more.ts); labels match buyers/_i18n/fr.ts.
 export const fr: GuideTranslation = {
   what: {
-    title: 'Qu’est-ce que Buyer Match ?',
-    summary: 'Un carnet intelligent pour vos acheteurs, qui trouve les bons biens pour eux.',
+    title: 'Qu’est-ce que Contacts ?',
+    summary: 'Un carnet intelligent pour vos acheteurs et vos leads, qui trouve les bons biens pour eux.',
     blocks: [
-      p('Voyez Buyer Match comme un carnet pour chaque personne qui veut acheter (ou louer) un bien chez vous. Pour chacune, vous notez qui elle est et ce qu’elle cherche.'),
+      p('Contacts (le module Buyer Match) est un carnet pour chaque personne qui veut acheter (ou louer) un bien chez vous, et pour les vendeurs, propriétaires bailleurs et autres personnes avec qui vous travaillez. Pour chacune, vous notez qui elle est et ce qu’elle cherche.'),
       p('Ensuite, l’ordinateur fait la partie ennuyeuse. Il regarde chaque bien de votre site et vous montre ceux qui conviennent à chaque acheteur. Vous choisissez les meilleurs et vous les envoyez par e-mail en un clic.'),
       p('L’acheteur reçoit une page web privée avec ces biens. Il peut cliquer sur « j’aime », « pas pour moi » ou « je veux le visiter ». Vous voyez chaque clic, donc vous savez qui est vraiment intéressé.'),
-      tip('Les personnes qui remplissent un formulaire sur votre site arrivent dans Nouveaux leads (menu de gauche). Donnez-leur un rôle et elles rejoignent vos Contacts. Inutile de les saisir vous-même.'),
+      p('Il aide aussi votre équipe à suivre chaque lead : qui a appelé qui, qui attend encore un appel et quelles visites sont réservées. Le Rapport des leads montre tout dans un seul tableau, comme le tableur que beaucoup d’agences tenaient à la main.'),
+      tip('Les personnes qui remplissent un formulaire sur votre site ou un formulaire de leads Facebook, ou qui réservent dans Calendly, arrivent dans Nouveaux leads (menu de gauche). Donnez-leur un rôle et elles rejoignent vos Contacts. Inutile de les saisir vous-même.'),
     ],
   },
   'quick-start': {
@@ -32,7 +33,10 @@ export const fr: GuideTranslation = {
     summary: 'Un petit dictionnaire des mots utilisés dans Buyer Match.',
     blocks: [
       terms(
-        ['Acheteur', 'Toute personne de votre liste. Ce peut aussi être un vendeur, un propriétaire bailleur, un locataire ou un autre agent : le « Type de contact » le précise.'],
+        ['Contact', 'Toute personne de votre liste : un acheteur, un vendeur, un propriétaire bailleur, un locataire ou un autre agent. Le « Type de contact » le précise. Dans ce guide, « acheteur » veut dire n’importe quel contact.'],
+        ['Lead', 'Un nouveau contact qu’il faut encore appeler. Le Rapport des leads le suit jusqu’à ce que quelqu’un le joigne.'],
+        ['Suivi', 'Où en est l’équipe avec un lead : pas contacté, pas encore de réponse, à rappeler, mauvais numéro ou joint.'],
+        ['En retard', 'Un lead que personne n’a contacté à temps (24 heures, sauf si votre responsable l’a changé). Il passe en rouge.'],
         ['Agent', 'La personne de votre équipe qui s’occupe de cet acheteur. Les « Agents associés » sont des collègues qui aident.'],
         ['Étape', 'Où en est l’acheteur, par exemple « Nouveau », « Visite » ou « Gagné ». Les étapes sont les colonnes du Tableau.'],
         ['Souhaits', 'Ce que l’acheteur recherche.'],
@@ -64,16 +68,35 @@ export const fr: GuideTranslation = {
     ],
   },
   'new-buyer': {
-    title: 'Ajouter un acheteur',
-    summary: 'À la main, depuis votre site, depuis les publicités Facebook ou depuis un fichier Odoo.',
+    title: 'Ajouter un contact',
+    summary: 'À la main, depuis votre site, depuis les publicités Facebook, depuis Calendly ou depuis un fichier Odoo.',
     blocks: [
       terms(
         ['À la main', 'Cliquez sur « Nouveau contact », saisissez le nom et l’e-mail, choisissez le type de contact et l’agent. Une adresse e-mail = un acheteur, vous ne pouvez donc pas ajouter deux fois la même personne.'],
-        ['Depuis votre site', 'Les demandes d’information, le formulaire de souhaits et « m’envoyer mes favoris par e-mail » créent ou mettent à jour un acheteur tout seuls.'],
-        ['Depuis les publicités Facebook et Instagram', 'Les formulaires de leads de vos publicités arrivent toutes les 15 minutes, une fois qu’un responsable les a connectés dans les Paramètres.'],
+        ['Depuis votre site', 'Les demandes d’information, le formulaire de souhaits et « m’envoyer mes favoris par e-mail » créent ou mettent à jour un acheteur tout seuls. Les nouvelles personnes attendent dans Nouveaux leads.'],
+        ['Depuis les publicités Facebook et Instagram', 'Les formulaires de leads de vos publicités arrivent toutes les 15 minutes, une fois qu’un responsable les a connectés dans les Paramètres. Les réponses qui correspondent à l’une de vos questions acheteur sont remplies pour vous.'],
+        ['Depuis Calendly', 'Quand quelqu’un réserve dans le Calendly d’un agent, il arrive comme nouveau lead avec la visite déjà prévue (voir « Agenda et Calendly »).'],
         ['Depuis Odoo', 'Les responsables peuvent reprendre tous leurs anciens acheteurs avec l’onglet Importer.'],
       ),
       p('Les nouveaux acheteurs venus du site vont à un seul agent, ou à tour de rôle entre plusieurs agents (« round-robin »). Un responsable le choisit dans Paramètres → Général.'),
+    ],
+  },
+  'new-leads': {
+    title: 'Nouveaux leads',
+    summary: 'Tous ceux qui sont venus d’eux-mêmes attendent ici jusqu’à ce que vous leur donniez un rôle.',
+    linkLabel: 'Ouvrir Nouveaux leads',
+    blocks: [
+      p('Nouveaux leads (menu de gauche) est la boîte de réception des personnes qui vous ont contacté d’elles-mêmes : un formulaire du site, un formulaire de leads Facebook ou Instagram, ou une réservation Calendly. Le nombre en rouge indique combien attendent.'),
+      steps(
+        'Ouvrez Nouveaux leads. Chaque ligne montre la personne, le formulaire qu’elle a rempli et son message.',
+        'Répondez-lui d’abord si vous voulez : « Répondre » pour un e-mail, ou le bouton WhatsApp.',
+        'Choisissez un rôle (acheteur, vendeur, locataire…) et cliquez sur « Ajouter aux Contacts ». La personne passe dans votre liste Contacts avec tout ce qu’elle a envoyé.',
+      ),
+      terms(
+        ['Supprimer', 'Seulement pour le spam ou les tests. Le lead et ses messages disparaissent définitivement.'],
+        ['Marquer comme traitée', 'Les agences sans le module Buyer Match utilisent Nouveaux leads comme une simple boîte de réception : répondez, puis marquez la demande comme traitée.'],
+      ),
+      tip('Les nouveaux leads apparaissent aussi tout de suite dans le Rapport des leads : un lead que personne n’appelle y passe en rouge.'),
     ],
   },
   record: {
@@ -86,7 +109,7 @@ export const fr: GuideTranslation = {
         ['Étape', 'Où en est l’acheteur dans votre processus. Changez-la ici ou faites glisser la carte sur le Tableau.'],
         ['Étoiles de priorité', 'Donnez 1 à 3 étoiles aux acheteurs les plus importants. Cliquez à nouveau sur la dernière étoile allumée pour en retirer une.'],
         ['Agent et agents associés', 'Qui s’occupe de cet acheteur, et qui d’autre aide.'],
-        ['WhatsApp', 'Ouvre une conversation WhatsApp avec le numéro de l’acheteur.'],
+        ['WhatsApp', 'Écrit un message WhatsApp pour vous et ouvre votre propre WhatsApp (voir « Messages WhatsApp »).'],
         ['Confidentialité', 'Consentement, désabonnement et effacement. Voir « Confidentialité et suppression d’un acheteur » plus bas.'],
         ['Résumé', 'Si l’IA est activée, trois lignes courtes qui vous disent qui est cet acheteur et ce qu’il veut.'],
       ),
@@ -169,6 +192,22 @@ export const fr: GuideTranslation = {
       warn('« Ouvert » n’est pas toujours vrai : certaines messageries ouvrent les images toutes seules. Un clic ou un « j’aime » est un bien meilleur signe.'),
     ],
   },
+  whatsapp: {
+    title: 'Messages WhatsApp',
+    summary: 'Un message tout prêt dans la langue de l’acheteur, envoyé depuis votre propre WhatsApp.',
+    blocks: [
+      p('Le bouton vert WhatsApp (sur un acheteur, dans Nouveaux leads, sur une visite, sur une tâche, dans le Rapport des leads) écrit le message pour vous dans la langue de l’acheteur. Vérifiez-le, cliquez sur « Ouvrir WhatsApp » et envoyez-le depuis votre propre WhatsApp, sur votre téléphone ou votre ordinateur.'),
+      terms(
+        ['Biens', 'Depuis Correspondances ou Suggérés : les biens avec des liens vers votre site et vers la page acheteur. Les clics sont suivis comme dans un e-mail.'],
+        ['Répondre à une demande', 'Depuis Nouveaux leads : une réponse aimable sur le bien qui l’intéresse.'],
+        ['Visite', 'Depuis une visite prévue : le jour, l’heure, le bien et le lieu de rendez-vous avec un lien vers la carte.'],
+        ['Relance', 'Depuis un acheteur ou une tâche : un court message pour prendre des nouvelles.'],
+        ['Ajouter mon lien de réservation', 'Si votre agence utilise Calendly, ajoute votre page de réservation pour que l’acheteur choisisse lui-même un créneau.'],
+      ),
+      p('Chaque message que vous ouvrez compte comme un contact avec l’acheteur : il apparaît dans Activité et dans le Rapport des leads.'),
+      warn('Le numéro doit avoir l’indicatif pays (+34…, +31…). Sans lui, WhatsApp ne trouve pas la personne ; la fenêtre vous prévient.'),
+    ],
+  },
   ai: {
     title: 'Les aides IA',
     summary: 'Laissez l’IA lire les messages, écrire des notes et repérer des tendances. Vous vérifiez toujours d’abord.',
@@ -192,10 +231,10 @@ export const fr: GuideTranslation = {
       terms(
         ['Contacts', 'Les autres personnes concernées : conjoint, membre de la famille ou assistant, avec leur téléphone et leur e-mail.'],
         ['Notes internes', 'Des notes libres que seule votre équipe voit. L’IA peut les lire pour créer des règles.'],
-        ['Séjours et visites', 'Ajoutez un séjour quand l’acheteur vient dans la région, puis ajoutez-y des visites. L’acheteur peut recevoir un programme par e-mail ou en PDF, et l’agent reçoit un rappel avant chaque visite.'],
+        ['Séjours et visites', 'Ajoutez un séjour quand l’acheteur vient dans la région, puis ajoutez-y des visites. L’acheteur peut recevoir un programme par e-mail (avec un fichier d’agenda) ou en PDF, et l’agent reçoit un rappel avant chaque visite. Le bouton agenda d’une visite l’ajoute à Google Agenda ou la télécharge pour Outlook et l’iPhone.'],
         ['Tâches', 'Les choses à faire, comme « Rappeler vendredi », avec une échéance et une personne. Les tâches en retard s’affichent en rouge.'],
         ['Fichiers', 'Images et PDF jusqu’à 20 Mo, comme une copie de passeport ou une offre signée.'],
-        ['Activité', 'Un journal : appels, e-mails, visites, passages sur le site et alertes. Utilisez « Noter une activité » pour ajouter un appel ou un rendez-vous.'],
+        ['Activité', 'Un journal : appels (avec leur résultat), WhatsApp, e-mails, visites, passages sur le site et alertes. Utilisez « Noter une activité » pour ajouter un appel ou un rendez-vous.'],
         ['Historique', 'Chaque modification de l’acheteur : qui a changé quoi, et quand. Aucun mystère.'],
       ),
       tip('Après une visite, marquez-la comme « Effectuée » et notez l’avis de l’acheteur. Cela aide le prochain agent et l’IA.'),
@@ -206,9 +245,26 @@ export const fr: GuideTranslation = {
     summary: 'À ouvrir en premier chaque matin.',
     linkLabel: 'Ouvrir Ma journée',
     blocks: [
-      p('« Ma journée » est votre page du matin. Elle montre votre pipeline, les tâches en retard, les tâches du jour, les visites des 7 prochains jours, les acheteurs dont vous attendez une réponse, vos acheteurs chauds et les alertes à approuver.'),
+      p('« Ma journée » est votre page du matin. Elle montre votre pipeline, les leads que personne n’a appelés à temps, les tâches en retard, les tâches du jour, les visites des 7 prochains jours, les acheteurs dont vous attendez une réponse, vos acheteurs chauds et les alertes à approuver.'),
       p('« À faire aujourd’hui » liste toutes les tâches du jour (les retards d’abord) et les acheteurs à qui personne n’a parlé depuis un moment.'),
-      tip('Activez « E-mail quotidien avec ce résumé » dans Ma journée et la même liste arrive dans votre boîte chaque matin.'),
+      tip('Activez « E-mail quotidien avec ce résumé » dans Ma journée et la même liste arrive dans votre boîte chaque matin, avec les leads que vous n’avez pas encore appelés.'),
+    ],
+  },
+  'lead-report': {
+    title: 'Rapport des leads',
+    summary: 'Chaque lead, qui l’a appelé et comment ça s’est passé. Il se remplit tout seul.',
+    linkLabel: 'Ouvrir le Rapport des leads',
+    blocks: [
+      p('Le Rapport des leads remplace le tableur où les agents notaient « appelé une fois, pas de réponse ». Chaque lead est une ligne, et le suivi est calculé à partir de ce que l’équipe a vraiment fait : appels, WhatsApp, e-mails et visites.'),
+      terms(
+        ['Suivi', 'Pas contacté (en rouge s’il est en retard), pas encore de réponse, à rappeler, mauvais numéro ou joint. En dessous : le nombre d’appels, de WhatsApp et d’e-mails, et le délai du premier contact.'],
+        ['Noter un appel', 'Après un appel, cliquez sur « Noter un appel » et choisissez comment ça s’est passé : a répondu, pas de réponse, rappeler plus tard ou mauvais numéro. Ajoutez une note si vous voulez.'],
+        ['Colonnes', 'Arrivé le, téléphone et e-mail, agent, étape, premier contact, rendez-vous (la prochaine visite), dernière note, leur demande, budget et type de bien. L’étape et l’agent se changent directement dans la ligne.'],
+        ['Questions acheteur', 'Les responsables cliquent sur « Colonnes » pour afficher certaines de vos questions acheteur (comme « Quand voulez-vous acheter ? ») en colonnes. Les agents les remplissent directement dans la ligne ; les réponses des formulaires Facebook sont remplies pour vous.'],
+        ['Par agent', 'En haut, une ligne par agent : leads, pas contactés, en retard, contactés, joints, délai du premier contact, appels, WhatsApp, e-mails, visites, gagnés, perdus, valeur gagnée et conversion. Cliquez sur un nom ou un chiffre rouge pour filtrer le tableau.'],
+        ['Exporter en CSV', 'Les responsables peuvent télécharger tout le tableau pour l’ouvrir dans Excel.'],
+      ),
+      tip('Les agents ne voient que leurs propres leads et leur propre ligne. Un lead que personne ne contacte à temps apparaît aussi dans Ma journée et dans l’e-mail quotidien de l’agent.'),
     ],
   },
   board: {
@@ -232,6 +288,23 @@ export const fr: GuideTranslation = {
         'Les alertes approuvées sont envoyées, soit tout de suite, soit dans un e-mail quotidien par acheteur (votre responsable choisit).',
       ),
       warn('Rien n’est envoyé sans votre accord. Si vous n’approuvez jamais, les acheteurs ne reçoivent jamais d’alertes.'),
+    ],
+  },
+  calendar: {
+    title: 'Agenda et Calendly',
+    summary: 'Vos visites dans Google Agenda, et des acheteurs qui réservent eux-mêmes un créneau.',
+    linkLabel: 'Ouvrir les paramètres Agenda',
+    blocks: [
+      p('Dans Paramètres → Agenda, chaque utilisateur a un lien d’agenda privé. Ajoutez-le une fois à Google Agenda (Autres agendas → + → À partir de l’URL), à Outlook ou à votre iPhone, et vos visites y apparaissent. Le lien d’un agent contient ses propres visites ; celui d’un responsable contient celles de toute l’équipe, avec le nom de l’agent dans chaque titre.'),
+      warn('C’est Google qui décide quand il relit le lien : en général en quelques heures, parfois en un jour. Besoin d’une visite tout de suite ? Utilisez plutôt le bouton agenda de la visite.'),
+      p('Calendly est une page de réservation où l’acheteur choisit un créneau libre dans l’agenda de l’agent. Un responsable connecte votre compte Calendly une seule fois dans Paramètres → Agenda.'),
+      terms(
+        ['Un acheteur réserve', 'Une visite apparaît sur le bon contact avec l’agent et l’heure, et le lead compte comme joint dans le Rapport des leads.'],
+        ['Une nouvelle personne réserve', 'Elle arrive dans Nouveaux leads, déjà attribuée à l’agent chez qui elle a réservé. Ses réponses Calendly remplissent vos questions acheteur.'],
+        ['Report ou annulation', 'La visite passe au nouvel horaire, ou est marquée annulée avec la raison.'],
+        ['Envoyer le lien', 'Cochez « Ajouter mon lien de réservation » dans un message WhatsApp, ou copiez-le avec le bouton agenda du Rapport des leads. Le nom et l’e-mail de l’acheteur sont déjà remplis.'],
+      ),
+      tip('Les réservations n’arrivent toutes seules qu’avec un abonnement Calendly payant (Standard ou plus). Avec l’offre gratuite, les liens de réservation marchent toujours, mais vous ajoutez la visite vous-même. Les agents sont associés par e-mail : utilisez le même e-mail dans Calendly et ici.'),
     ],
   },
   reverse: {
@@ -265,13 +338,14 @@ export const fr: GuideTranslation = {
     blocks: [
       p('Seul le propriétaire de l’agence ou un responsable peut les modifier. Les agents peuvent les consulter.'),
       terms(
-        ['Général', 'Les agents voient-ils les acheteurs des autres ? Qui reçoit les nouveaux acheteurs du site ? Après combien de jours un acheteur est-il « oublié » ? Rappels de visite, heure de l’e-mail quotidien, score « chaud », adresse des liens vers les biens et adresse de la page acheteur.'],
+        ['Général', 'Les agents voient-ils les acheteurs des autres ? Qui reçoit les nouveaux acheteurs du site ? Après combien de jours un acheteur est-il « oublié » ? Rappels de visite, heure de l’e-mail quotidien, score « chaud », nombre d’heures après lequel un lead non appelé passe en rouge, adresse des liens vers les biens et adresse de la page acheteur.'],
         ['Étapes', 'Les colonnes de votre Tableau. Ajoutez, renommez, colorez, réordonnez et fixez la chance en % de chacune. Supprimer une étape demande où envoyer ses acheteurs.'],
-        ['Questions', 'Vos propres questions sur les acheteurs. Vous pouvez aussi les afficher sur le formulaire de souhaits du site, et les traduire.'],
+        ['Questions', 'Vos propres questions sur les acheteurs. Vous pouvez les afficher sur le formulaire de souhaits du site et en colonnes dans le Rapport des leads, et les traduire. Formulez les options comme dans votre formulaire Facebook pour que ses réponses se remplissent toutes seules.'],
         ['Pondérations', 'Le poids de chaque souhait dans le score, de 0 (pas du tout) à 10 (beaucoup). Vous pouvez donner un poids propre à une caractéristique, comme la vue mer.'],
         ['Alertes et quasi-correspondances', 'Activez les alertes, choisissez « tout de suite » ou « résumé quotidien », et la taille minimale d’une baisse de prix. Réglez de combien un bien « presque » peut dépasser le budget ou être éloigné.'],
         ['Entretien', 'Trouvez les doublons possibles (même téléphone ou même nom) et fusionnez-les. La fusion garde tout ; rien n’est perdu.'],
-        ['Facebook et Instagram', 'Connectez les formulaires de leads de vos publicités pour que les nouveaux leads deviennent des acheteurs toutes les 15 minutes.'],
+        ['Facebook et Instagram', 'Connectez les formulaires de leads de vos publicités pour que les nouveaux leads arrivent toutes les 15 minutes.'],
+        ['Agenda', 'Le lien d’agenda de chacun et (responsables) la connexion Calendly.'],
       ),
       warn('Remplissez d’abord « Liens vers les biens dans les e-mails ». Sans cela, les e-mails ne peuvent pas renvoyer vers les pages de vos biens.'),
     ],
@@ -331,6 +405,9 @@ export const fr: GuideTranslation = {
         ['J’ai ajouté la même personne deux fois.', 'Utilisez Paramètres → Entretien → Doublons possibles et fusionnez-les.'],
         ['Comment supprimer un acheteur ?', 'Confidentialité → Effacer les données personnelles (responsables). L’acheteur quitte vos listes pour de bon.'],
         ['Un acheteur dit qu’il reçoit trop d’e-mails.', 'Confidentialité → Désabonner des e-mails de biens.'],
+        ['Mon lien d’agenda ne montre aucune visite.', 'Le lien d’un agent ne contient que les visites dont il est l’agent (voir « Agent : » sous la visite). Google peut mettre jusqu’à un jour pour relire le lien.'],
+        ['Une réservation Calendly n’est pas arrivée.', 'Paramètres → Agenda doit indiquer « Les réservations arrivent toutes seules » (un abonnement Calendly payant), et l’e-mail Calendly de l’agent doit être son e-mail ici.'],
+        ['Pourquoi un lead est-il en rouge dans le Rapport des leads ?', 'Personne ne l’a appelé, ni contacté par WhatsApp ou par e-mail à temps. Notez un appel (même « Pas de réponse ») et cela change.'],
       ),
       tip('Toujours bloqué ? Ouvrez un ticket depuis Tickets de support et donnez-nous le numéro de l’acheteur qui figure dans l’adresse web.'),
     ],

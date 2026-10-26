@@ -10,8 +10,9 @@ export type GuideBlock =
 
 // Every section of the guide, in reading order. Each language must have all.
 export const SECTION_IDS = [
-  'what', 'quick-start', 'words', 'list', 'new-buyer', 'record', 'details', 'wishlist', 'matched', 'suggested', 'sending', 'ai',
-  'more-tabs', 'my-day', 'board', 'alerts', 'reverse', 'reports', 'settings', 'import', 'privacy', 'who-sees', 'faq',
+  'what', 'quick-start', 'words', 'list', 'new-buyer', 'new-leads', 'record', 'details', 'wishlist', 'matched', 'suggested', 'sending',
+  'whatsapp', 'ai', 'more-tabs', 'my-day', 'lead-report', 'board', 'alerts', 'calendar', 'reverse', 'reports', 'settings', 'import',
+  'privacy', 'who-sees', 'faq',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 

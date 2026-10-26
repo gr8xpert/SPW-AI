@@ -115,8 +115,12 @@ export class CalendarFeedService {
     if (!/^[0-9a-f]{48}$/.test(token)) return null;
     const feed = await this.feeds.findOne({ where: { token } });
     if (!feed) return null;
-    const [user] = (await this.db.query('SELECT id, role FROM users WHERE id = ?', [feed.userId])) as { id: number; role: string }[];
-    if (!user) return null;
+    const [user] = (await this.db.query('SELECT id, role, tenantId, isActive FROM users WHERE id = ?', [feed.userId])) as {
+      id: number; role: string; tenantId: number; isActive: number | boolean;
+    }[];
+    // A deactivated user, or one now in another agency, loses the link (a
+    // Super Admin's link stays with the agency it was made in).
+    if (!user || !Number(user.isActive) || (user.role !== 'super_admin' && user.tenantId !== feed.tenantId)) return null;
     const team = seesAllBuyers({ id: user.id, role: user.role }, false);
     const range = [new Date(now.getTime() - PAST_DAYS * 86_400_000), new Date(now.getTime() + AHEAD_DAYS * 86_400_000)];
     const rows = await this.rows(

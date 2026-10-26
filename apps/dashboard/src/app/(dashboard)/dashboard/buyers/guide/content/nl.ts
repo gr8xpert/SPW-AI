@@ -4,13 +4,14 @@ import { p, steps, terms, tip, warn, type GuideTranslation } from '../guide-type
 // buyers/_i18n/nl.ts and i18n/common/nl.ts.
 export const nl: GuideTranslation = {
   what: {
-    title: 'Wat is Buyer Match?',
-    summary: 'Een slim notitieboek voor je kopers dat de juiste woningen voor ze vindt.',
+    title: 'Wat is Contacten?',
+    summary: 'Een slim notitieboek voor je kopers en leads dat de juiste woningen voor ze vindt.',
     blocks: [
-      p('Zie Buyer Match als een notitieboek voor iedereen die bij jou een woning wil kopen (of huren). Voor elke persoon schrijf je op wie het is en wat hij of zij zoekt.'),
+      p('Contacten (de add-on Buyer Match) is een notitieboek voor iedereen die bij jou een woning wil kopen (of huren), en voor verkopers, verhuurders en andere mensen met wie je werkt. Voor elke persoon schrijf je op wie het is en wat hij of zij zoekt.'),
       p('Daarna doet de computer het saaie werk. Hij bekijkt elke woning op je website en laat je zien welke bij elke koper passen. Jij kiest de beste en verstuurt ze met één klik per e-mail.'),
       p('De koper krijgt een eigen webpagina met die woningen. Daar kan hij op "leuk", "niets voor mij" of "ik wil het zien" drukken. Jij ziet elke klik, dus je weet wie echt interesse heeft.'),
-      tip('Mensen die een formulier op je website invullen, komen binnen bij Nieuwe leads (linkermenu). Geef ze daar een rol en ze komen in je Contacten. Je hoeft ze niet zelf in te typen.'),
+      p('Het houdt ook je team bij elke lead scherp: wie wie heeft gebeld, wie nog op een telefoontje wacht en welke bezichtigingen gepland zijn. Het Leadrapport toont het allemaal in één tabel, zoals de spreadsheet die veel kantoren vroeger met de hand bijhielden.'),
+      tip('Mensen die een formulier op je website of een leadformulier van Facebook invullen, of in Calendly boeken, komen binnen bij Nieuwe leads (linkermenu). Geef ze daar een rol en ze komen in je Contacten. Je hoeft ze niet zelf in te typen.'),
     ],
   },
   'quick-start': {
@@ -32,7 +33,10 @@ export const nl: GuideTranslation = {
     summary: 'Een klein woordenboek van de woorden in Buyer Match.',
     blocks: [
       terms(
-        ['Koper', 'Iedereen in je lijst. Het kan ook een verkoper, verhuurder, huurder of andere makelaar zijn: de "Soort contact" zegt welke.'],
+        ['Contact', 'Iedereen in je lijst: een koper, verkoper, verhuurder, huurder of andere makelaar. De "Soort contact" zegt welke. In deze handleiding betekent "koper" elk contact.'],
+        ['Lead', 'Een nieuw contact dat nog gebeld moet worden. Het Leadrapport volgt hem tot iemand hem bereikt.'],
+        ['Opvolging', 'Hoe ver het team met een lead is: niet benaderd, nog geen gehoor, terugbellen, verkeerd nummer of bereikt.'],
+        ['Te laat', 'Een lead die niemand op tijd benaderde (24 uur, tenzij je manager dat wijzigde). Hij wordt rood.'],
         ['Makelaar', 'De persoon in je team die voor deze koper zorgt. "Betrokken makelaars" zijn collega\'s die helpen.'],
         ['Fase', 'Hoe ver de koper is, zoals "Nieuw", "Bezichtiging" of "Gewonnen". De fasen zijn de kolommen van het Bord.'],
         ['Wensenlijst', 'Wat de koper zoekt.'],
@@ -64,16 +68,35 @@ export const nl: GuideTranslation = {
     ],
   },
   'new-buyer': {
-    title: 'Een koper toevoegen',
-    summary: 'Met de hand, via je website, via Facebook-advertenties of uit een Odoo-bestand.',
+    title: 'Een contact toevoegen',
+    summary: 'Met de hand, via je website, via Facebook-advertenties, via Calendly of uit een Odoo-bestand.',
     blocks: [
       terms(
         ['Met de hand', 'Druk op "Nieuw contact", typ de naam en het e-mailadres en kies de soort contact en de makelaar. Eén e-mailadres = één koper, dus je kunt dezelfde persoon niet twee keer toevoegen.'],
-        ['Via je website', 'Vragen, het wensenlijstformulier en "mail mijn favorieten" maken vanzelf een koper aan of werken die bij.'],
-        ['Via Facebook- en Instagram-advertenties', 'Leadformulieren van je advertenties komen elke 15 minuten binnen zodra een manager ze koppelt in Instellingen.'],
+        ['Via je website', 'Vragen, het wensenlijstformulier en "mail mijn favorieten" maken vanzelf een koper aan of werken die bij. Nieuwe mensen wachten bij Nieuwe leads.'],
+        ['Via Facebook- en Instagram-advertenties', 'Leadformulieren van je advertenties komen elke 15 minuten binnen zodra een manager ze koppelt in Instellingen. Antwoorden die passen bij een van je Kopersvragen worden voor je ingevuld.'],
+        ['Via Calendly', 'Boekt iemand in de Calendly van een makelaar, dan komt hij binnen als nieuwe lead met de bezichtiging al gepland (zie "Agenda en Calendly").'],
         ['Uit Odoo', 'Managers kunnen al hun oude kopers overzetten met het tabblad Importeren.'],
       ),
       p('Nieuwe kopers van de website gaan naar één makelaar, of om de beurt naar verschillende makelaars ("round-robin"). Een manager kiest dit in Instellingen → Algemeen.'),
+    ],
+  },
+  'new-leads': {
+    title: 'Nieuwe leads',
+    summary: 'Iedereen die zelf binnenkwam, wacht hier tot je hem een rol geeft.',
+    linkLabel: 'Open Nieuwe leads',
+    blocks: [
+      p('Nieuwe leads (linkermenu) is de inbox voor mensen die jou zelf vonden: een formulier op de website, een leadformulier van Facebook of Instagram, of een boeking in Calendly. Het rode getal laat zien hoeveel er wachten.'),
+      steps(
+        'Open Nieuwe leads. Op elke regel zie je de persoon, het formulier dat hij invulde en zijn bericht.',
+        'Antwoord hem eerst als je wilt: "Beantwoorden" voor een e-mail, of de WhatsApp-knop.',
+        'Kies een rol (koper, verkoper, huurder…) en druk op "Toevoegen aan Contacten". Hij gaat naar je lijst Contacten met alles wat hij stuurde.',
+      ),
+      terms(
+        ['Verwijderen', 'Alleen voor spam of tests. De lead en zijn berichten zijn voorgoed weg.'],
+        ['Markeren als afgehandeld', 'Kantoren zonder de add-on Buyer Match gebruiken Nieuwe leads als simpele inbox: beantwoorden en dan als afgehandeld markeren.'],
+      ),
+      tip('Nieuwe leads staan ook meteen in het Leadrapport, dus een lead die niemand belt wordt daar rood.'),
     ],
   },
   record: {
@@ -86,7 +109,7 @@ export const nl: GuideTranslation = {
         ['Fase', 'Waar de koper in je proces staat. Wijzig het hier of sleep de kaart op het Bord.'],
         ['Prioriteitssterren', 'Geef 1 tot 3 sterren aan de kopers die het meest tellen. Klik nog eens op de laatste gele ster om er één af te halen.'],
         ['Makelaar en betrokken makelaars', 'Wie voor deze koper zorgt, en wie er nog meer helpt.'],
-        ['WhatsApp', 'Opent een WhatsApp-chat met het telefoonnummer van de koper.'],
+        ['WhatsApp', 'Schrijft een WhatsApp-bericht voor je en opent je eigen WhatsApp (zie "WhatsApp-berichten").'],
         ['Privacy', 'Toestemming, afmelden en wissen. Zie "Privacy en een koper verwijderen" hieronder.'],
         ['Samenvatting', 'Met AI aan: drie korte regels over wie deze koper is en wat hij wil.'],
       ),
@@ -169,6 +192,22 @@ export const nl: GuideTranslation = {
       warn('"Geopend" klopt niet altijd: sommige mailprogramma\'s openen de plaatjes vanzelf. Een klik of een "leuk" zegt veel meer.'),
     ],
   },
+  whatsapp: {
+    title: 'WhatsApp-berichten',
+    summary: 'Een kant-en-klaar bericht in de taal van de koper, verstuurd vanuit je eigen WhatsApp.',
+    blocks: [
+      p('De groene WhatsApp-knop (bij een koper, in Nieuwe leads, bij een bezichtiging, bij een taak, in het Leadrapport) schrijft het bericht voor je in de taal van de koper. Controleer het, druk op "WhatsApp openen" en verstuur het vanuit je eigen WhatsApp op je telefoon of computer.'),
+      terms(
+        ['Woningen', 'Vanuit Matches of Voorgesteld: de woningen met links naar je website en de koperspagina. Klikken worden gevolgd, net als in een e-mail.'],
+        ['Antwoord op een aanvraag', 'Vanuit Nieuwe leads: een vriendelijk antwoord over de woning waar hij naar vroeg.'],
+        ['Bezichtiging', 'Vanuit een geplande bezichtiging: de dag, de tijd, de woning en het ontmoetingspunt met een link naar de kaart.'],
+        ['Opvolgen', 'Vanuit een koper of een taak: een kort "hoe gaat het ermee?"-bericht.'],
+        ['Mijn boekingslink toevoegen', 'Gebruikt je kantoor Calendly, dan zet dit je boekingspagina erbij, zodat de koper zelf een tijd kiest.'],
+      ),
+      p('Elk bericht dat je opent telt als contact met de koper: het staat in Activiteit en in het Leadrapport.'),
+      warn('Het telefoonnummer moet de landcode hebben (+34…, +31…). Zonder landcode vindt WhatsApp de persoon niet; het venster waarschuwt je.'),
+    ],
+  },
   ai: {
     title: 'AI-hulpjes',
     summary: 'Laat AI berichten lezen, notities schrijven en patronen zien. Jij controleert altijd eerst.',
@@ -192,10 +231,10 @@ export const nl: GuideTranslation = {
       terms(
         ['Contacten', 'Andere betrokkenen: een partner, familielid of assistent, met hun telefoon en e-mail.'],
         ['Interne notities', 'Vrije notities die alleen je team ziet. AI kan ze lezen om regels te maken.'],
-        ['Reizen & bezichtigingen', 'Voeg een reis toe als de koper naar de streek komt en voeg daar bezichtigingen aan toe. De koper kan een reisschema per e-mail of als pdf krijgen, en de makelaar krijgt vóór elke bezichtiging een herinnering.'],
+        ['Reizen & bezichtigingen', 'Voeg een reis toe als de koper naar de streek komt en voeg daar bezichtigingen aan toe. De koper kan een reisschema per e-mail (met een agendabestand) of als pdf krijgen, en de makelaar krijgt vóór elke bezichtiging een herinnering. De agendaknop bij een bezichtiging zet hem in Google Agenda of downloadt hem voor Outlook en iPhone.'],
         ['Taken', 'Dingen om te doen, zoals "Vrijdag terugbellen", met een deadline en een persoon. Te late taken staan in het rood.'],
         ['Bestanden', 'Foto\'s en pdf\'s tot 20 MB, zoals een kopie van een paspoort of een getekend bod.'],
-        ['Activiteit', 'Een dagboek: gesprekken, e-mails, bezichtigingen, websitebezoeken en meldingen. Met "Activiteit vastleggen" voeg je een gesprek of afspraak toe.'],
+        ['Activiteit', 'Een dagboek: gesprekken (met hoe ze gingen), WhatsApps, e-mails, bezichtigingen, websitebezoeken en meldingen. Met "Activiteit vastleggen" voeg je een gesprek of afspraak toe.'],
         ['Geschiedenis', 'Elke wijziging aan de koper: wie wat wijzigde, en wanneer. Niets blijft een raadsel.'],
       ),
       tip('Zet een bezichtiging na afloop op "Gedaan" en schrijf de feedback van de koper op. Dat helpt de volgende makelaar en de AI.'),
@@ -206,9 +245,26 @@ export const nl: GuideTranslation = {
     summary: 'Open deze elke ochtend als eerste.',
     linkLabel: 'Open Mijn dag',
     blocks: [
-      p('"Mijn dag" is je ochtendpagina. Je ziet je pipeline, te late taken, taken voor vandaag, bezichtigingen in de komende 7 dagen, kopers op wie je wacht, je hete kopers en meldingen om goed te keuren.'),
+      p('"Mijn dag" is je ochtendpagina. Je ziet je pipeline, leads die niemand op tijd belde, te late taken, taken voor vandaag, bezichtigingen in de komende 7 dagen, kopers op wie je wacht, je hete kopers en meldingen om goed te keuren.'),
       p('"Vandaag te doen" toont elke taak voor vandaag (te late eerst) en kopers met wie al een tijd niemand contact had.'),
-      tip('Zet "Dagelijkse e-mail met dit overzicht" aan op Mijn dag en je krijgt dezelfde lijst elke ochtend in je inbox.'),
+      tip('Zet "Dagelijkse e-mail met dit overzicht" aan op Mijn dag en je krijgt dezelfde lijst elke ochtend in je inbox, ook de leads die je nog niet hebt gebeld.'),
+    ],
+  },
+  'lead-report': {
+    title: 'Leadrapport',
+    summary: 'Elke lead, wie hem belde en hoe het ging. Het vult zichzelf.',
+    linkLabel: 'Open het Leadrapport',
+    blocks: [
+      p('Het Leadrapport vervangt de spreadsheet waarin makelaars "één keer gebeld, geen gehoor" schreven. Elke lead is een regel, en de opvolging komt uit wat het team echt deed: gesprekken, WhatsApps, e-mails en bezichtigingen.'),
+      terms(
+        ['Opvolging', 'Niet benaderd (rood als het te laat is), nog geen gehoor, terugbellen, verkeerd nummer of bereikt. Daaronder: hoeveel gesprekken, WhatsApps en e-mails, en hoe lang het duurde tot het eerste contact.'],
+        ['Gesprek loggen', 'Druk na een gesprek op "Gesprek loggen" en kies hoe het ging: opgenomen, geen gehoor, later terugbellen of verkeerd nummer. Voeg als je wilt een notitie toe.'],
+        ['Kolommen', 'Binnengekomen, telefoon en e-mail, makelaar, fase, eerste contact, afspraak (de volgende bezichtiging), laatste notitie, wat ze vroegen, budget en type woning. Fase en makelaar wijzig je direct in de regel.'],
+        ['Kopersvragen', 'Managers drukken op "Kolommen" om een paar van je Kopersvragen (zoals "Wanneer wil je kopen?") als kolom te tonen. Makelaars vullen ze direct in de regel in; antwoorden uit Facebook-formulieren worden voor je ingevuld.'],
+        ['Per makelaar', 'Bovenaan één regel per makelaar: leads, niet benaderd, te laat, benaderd, bereikt, tijd tot het eerste contact, gesprekken, WhatsApps, e-mails, bezichtigingen, gewonnen, verloren, gewonnen waarde en conversie. Klik op een naam of een rood getal om de tabel te filteren.'],
+        ['CSV exporteren', 'Managers kunnen de hele tabel downloaden en in Excel openen.'],
+      ),
+      tip('Makelaars zien alleen hun eigen leads en hun eigen regel. Een lead die niemand op tijd benadert, staat ook op Mijn dag en in de dagelijkse e-mail van de makelaar.'),
     ],
   },
   board: {
@@ -232,6 +288,23 @@ export const nl: GuideTranslation = {
         'Goedgekeurde meldingen worden verstuurd, meteen of in één dagelijkse e-mail per koper (dat kiest je manager).',
       ),
       warn('Niets wordt verstuurd zonder jouw OK. Keur je nooit iets goed, dan krijgen kopers nooit meldingen.'),
+    ],
+  },
+  calendar: {
+    title: 'Agenda en Calendly',
+    summary: 'Je bezichtigingen in Google Agenda, en kopers die zelf een tijd boeken.',
+    linkLabel: 'Open de agenda-instellingen',
+    blocks: [
+      p('Onder Instellingen → Agenda heeft elke gebruiker een eigen agendalink. Voeg hem één keer toe aan Google Agenda (Andere agenda\'s → + → Via URL), Outlook of je iPhone, en je bezichtigingen verschijnen daar. In de link van een makelaar staan zijn eigen bezichtigingen; in de link van een manager die van het hele team, met de naam van de makelaar in elke titel.'),
+      warn('Google bepaalt wanneer het de link opnieuw leest: meestal binnen een paar uur, soms pas na een dag. Heb je één bezichtiging nu meteen nodig? Gebruik dan de agendaknop bij de bezichtiging.'),
+      p('Calendly is een boekingspagina waar de koper een vrij moment kiest in de agenda van de makelaar. Een manager koppelt je Calendly-account één keer onder Instellingen → Agenda.'),
+      terms(
+        ['Een koper boekt', 'Er verschijnt een bezichtiging bij het juiste contact, met de makelaar en de tijd, en de lead telt in het Leadrapport als bereikt.'],
+        ['Iemand nieuw boekt', 'Hij komt binnen bij Nieuwe leads, al toegewezen aan de makelaar bij wie hij boekte. Zijn antwoorden in Calendly vullen je Kopersvragen in.'],
+        ['Verzetten of annuleren', 'De bezichtiging gaat mee naar de nieuwe tijd, of wordt als geannuleerd gemarkeerd, met de reden.'],
+        ['De link sturen', 'Vink "Mijn boekingslink toevoegen" aan in een WhatsApp-bericht, of kopieer hem met de agendaknop in het Leadrapport. De naam en het e-mailadres van de koper staan al ingevuld.'],
+      ),
+      tip('Boekingen komen alleen vanzelf binnen met een betaald Calendly-abonnement (Standard of hoger). Op het gratis abonnement werken de boekingslinks wel, maar zet je de bezichtiging zelf erin. Makelaars worden op e-mail gekoppeld, dus gebruik in Calendly hetzelfde e-mailadres als hier.'),
     ],
   },
   reverse: {
@@ -265,13 +338,14 @@ export const nl: GuideTranslation = {
     blocks: [
       p('Alleen de eigenaar van het kantoor of een manager kan dit wijzigen. Makelaars kunnen meekijken.'),
       terms(
-        ['Algemeen', 'Zien makelaars elkaars kopers? Wie krijgt nieuwe kopers van de website? Na hoeveel dagen is een koper "vergeten"? Herinneringen voor bezichtigingen, de tijd van de dagelijkse e-mail, de hete score, het adres voor woninglinks en het adres van de koperspagina.'],
+        ['Algemeen', 'Zien makelaars elkaars kopers? Wie krijgt nieuwe kopers van de website? Na hoeveel dagen is een koper "vergeten"? Herinneringen voor bezichtigingen, de tijd van de dagelijkse e-mail, de hete score, na hoeveel uur een niet-gebelde lead rood wordt, het adres voor woninglinks en het adres van de koperspagina.'],
         ['Fasen', 'De kolommen van je Bord. Toevoegen, hernoemen, een kleur geven, de volgorde wijzigen en de kans in % van elke fase instellen. Verwijder je een fase, dan wordt gevraagd waar de kopers heen moeten.'],
-        ['Vragen', 'Je eigen vragen over kopers. Je kunt ze ook op het wensenlijstformulier van de website tonen, en ze vertalen.'],
+        ['Vragen', 'Je eigen vragen over kopers. Je kunt ze op het wensenlijstformulier van de website en als kolommen in het Leadrapport tonen, en ze vertalen. Formuleer de opties zoals in je Facebook-formulier, dan worden de antwoorden vanzelf ingevuld.'],
         ['Matchgewichten', 'Hoeveel elke wens meetelt in de score, van 0 (helemaal niet) tot 10 (heel veel). Je kunt één kenmerk, zoals zeezicht, een eigen gewicht geven.'],
         ['Meldingen & bijna-matches', 'Zet meldingen aan, kies "meteen" of "dagelijks overzicht" en hoe groot een prijsdaling moet zijn. Stel in hoeveel een bijna-match boven het budget of hoe ver weg mag zijn.'],
         ['Onderhoud', 'Vind mogelijke dubbele kopers (zelfde telefoon of naam) en voeg ze samen. Samenvoegen bewaart alles; er gaat niets verloren.'],
-        ['Facebook & Instagram', 'Koppel de leadformulieren van je advertenties zodat nieuwe leads elke 15 minuten kopers worden.'],
+        ['Facebook & Instagram', 'Koppel de leadformulieren van je advertenties zodat nieuwe leads elke 15 minuten binnenkomen.'],
+        ['Agenda', 'Ieders eigen agendalink, en (voor managers) de koppeling met Calendly.'],
       ),
       warn('Vul eerst "Woninglinks in e-mails" in. Zonder dat kunnen e-mails niet naar je woningpagina\'s linken.'),
     ],
@@ -331,6 +405,9 @@ export const nl: GuideTranslation = {
         ['Ik heb dezelfde persoon twee keer toegevoegd.', 'Gebruik Instellingen → Onderhoud → Mogelijke dubbele en voeg ze samen.'],
         ['Hoe verwijder ik een koper?', 'Privacy → Persoonsgegevens wissen (managers). De koper verdwijnt voorgoed uit je lijsten.'],
         ['Een koper zegt dat hij te veel e-mails krijgt.', 'Privacy → Afmelden voor woningmails.'],
+        ['Mijn agendalink toont geen bezichtigingen.', 'In de link van een makelaar staan alleen bezichtigingen waarbij hij de makelaar is (zie "Makelaar:" onder de bezichtiging). Google kan er tot een dag over doen om de link opnieuw te lezen.'],
+        ['Een boeking in Calendly kwam niet binnen.', 'Bij Instellingen → Agenda moet "Boekingen komen vanzelf binnen" staan (een betaald Calendly-abonnement), en het Calendly-e-mailadres van de makelaar moet zijn e-mailadres hier zijn.'],
+        ['Waarom is een lead rood in het Leadrapport?', 'Niemand belde, appte of mailde hem op tijd. Log een gesprek (ook "geen gehoor") en het verandert.'],
       ),
       tip('Kom je er niet uit? Open een ticket bij Supporttickets en geef ons het nummer van de koper uit het webadres.'),
     ],

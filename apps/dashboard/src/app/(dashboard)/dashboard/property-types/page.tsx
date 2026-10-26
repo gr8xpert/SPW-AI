@@ -177,7 +177,7 @@ export default function PropertyTypesPage() {
 
   const fetchTypes = async (retriesLeft = 1) => {
     try {
-      const res = await api.get('/api/dashboard/property-types');
+      const res = await api.get('/api/dashboard/property-types?includeInactive=1');
       setTypes(res?.data || []);
     } catch {
       if (retriesLeft > 0) {

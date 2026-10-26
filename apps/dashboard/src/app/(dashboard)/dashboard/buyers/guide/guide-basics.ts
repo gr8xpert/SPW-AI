@@ -1,22 +1,24 @@
 import {
-  Contact, FileText, Heart, Info, ListChecks, Mail, Rocket, Search, Sparkles, Star, Target, Users,
+  Contact, FileText, Heart, Inbox, Info, ListChecks, Mail, MessageCircle, Rocket, Search, Sparkles, Star, Target, Users,
 } from 'lucide-react';
 import { p, steps, terms, tip, warn, type GuideSection } from './guide-types';
 
-// Part 1 of the Buyer Match guide: the idea, the list and one buyer's record.
+// Part 1 of the Contacts guide (the Buyer Match add-on): the idea, the list,
+// New Leads and one contact's record.
 // Written for anyone: short sentences, everyday words.
 export const BASICS: GuideSection[] = [
   {
     id: 'what',
     group: 'start',
-    title: 'What is Buyer Match?',
+    title: 'What is Contacts?',
     icon: Info,
-    summary: 'A smart notebook for your buyers that finds the right homes for them.',
+    summary: 'A smart notebook for your buyers and leads that finds the right homes for them.',
     blocks: [
-      p('Think of Buyer Match as a notebook for every person who wants to buy (or rent) a property from you. For each person you write down who they are and what they are looking for.'),
+      p('Contacts (the Buyer Match add-on) is a notebook for every person who wants to buy (or rent) a property from you, and for sellers, landlords and other people you work with. For each person you write down who they are and what they are looking for.'),
       p('Then the computer does the boring part. It looks at every property on your website and shows you the ones that fit each buyer. You pick the best ones and send them by email in one click.'),
       p('The buyer gets a private web page with those properties. They can press "like", "not for me" or "I want to see it". You see every click, so you know who is really interested.'),
-      tip('People who fill in a form on your website arrive on New Leads (left menu). Give each one a role there and they join your Contacts. You do not have to type them in.'),
+      p('It also keeps your team on top of every lead: who called whom, who is still waiting for a call, and which viewings are booked. The Lead Report shows it all in one table, like the spreadsheet many agencies used to keep by hand.'),
+      tip('People who fill in a form on your website or a Facebook lead form, or book in Calendly, arrive on New Leads (left menu). Give each one a role there and they join your Contacts. You do not have to type them in.'),
     ],
   },
   {
@@ -44,7 +46,10 @@ export const BASICS: GuideSection[] = [
     summary: 'A tiny dictionary of the words used in Buyer Match.',
     blocks: [
       terms(
-        ['Buyer', 'Any person in your list. It can also be a seller, landlord, tenant or another agent: the "Contact type" says which.'],
+        ['Contact', 'Any person in your list: a buyer, seller, landlord, tenant or another agent. The "Contact type" says which. In this guide "buyer" means any contact.'],
+        ['Lead', 'A new contact who still has to be called. The Lead Report follows them until somebody reaches them.'],
+        ['Follow-up', 'How far the team got with a lead: not contacted, no answer yet, call back, wrong number or reached.'],
+        ['Overdue', 'A lead nobody contacted in time (24 hours unless your manager changed it). It turns red.'],
         ['Agent', 'The person in your team who looks after this buyer. "Related agents" are colleagues who help.'],
         ['Stage', 'How far the buyer is, like "New", "Viewing" or "Won". Stages are the columns of the Board.'],
         ['Wishlist', 'What the buyer is looking for.'],
@@ -81,17 +86,39 @@ export const BASICS: GuideSection[] = [
   {
     id: 'new-buyer',
     group: 'buyers',
-    title: 'Adding a buyer',
+    title: 'Adding a contact',
     icon: Contact,
-    summary: 'By hand, from your website, from Facebook ads or from an Odoo file.',
+    summary: 'By hand, from your website, from Facebook ads, from Calendly or from an Odoo file.',
     blocks: [
       terms(
         ['By hand', 'Press "New contact", type the name and email, choose the contact type and agent. One email address = one buyer, so you cannot add the same person twice.'],
-        ['From your website', 'Enquiries, the wishlist form and "email my favourites" create or update a buyer by themselves.'],
-        ['From Facebook and Instagram ads', 'Lead forms from your ads come in every 15 minutes once a manager connects them in Settings.'],
+        ['From your website', 'Enquiries, the wishlist form and "email my favourites" create or update a buyer by themselves. New people wait on New Leads.'],
+        ['From Facebook and Instagram ads', 'Lead forms from your ads come in every 15 minutes once a manager connects them in Settings. Answers that match one of your Buyer questions are filled in for you.'],
+        ['From Calendly', 'When someone books in an agent\'s Calendly, they arrive as a New Lead with the viewing already planned (see "Calendar and Calendly").'],
         ['From Odoo', 'Managers can bring all their old buyers across with the Import tab.'],
       ),
       p('New buyers from the website go to one agent, or take turns between agents ("round-robin"). A manager chooses this in Settings → General.'),
+    ],
+  },
+  {
+    id: 'new-leads',
+    group: 'buyers',
+    title: 'New Leads',
+    icon: Inbox,
+    summary: 'Everyone who came in by themselves waits here until you give them a role.',
+    link: { href: '/dashboard/leads', label: 'Open New Leads' },
+    blocks: [
+      p('New Leads (left menu) is the inbox for people who reached you by themselves: a website form, a Facebook or Instagram lead form, or a Calendly booking. The red number shows how many are waiting.'),
+      steps(
+        'Open New Leads. Each line shows the person, the form they filled in and their message.',
+        'Answer them first if you like: "Reply" for an email, or the WhatsApp button.',
+        'Choose a role (buyer, seller, tenant…) and press "Add to Contacts". They move to your Contacts list with everything they sent.',
+      ),
+      terms(
+        ['Delete', 'For spam or tests only. The lead and its messages are gone for good.'],
+        ['Mark as handled', 'Agencies without the Buyer Match add-on use New Leads as a simple inbox: reply, then mark it handled.'],
+      ),
+      tip('New leads also show on the Lead Report straight away, so a lead nobody calls turns red there.'),
     ],
   },
   {
@@ -107,7 +134,7 @@ export const BASICS: GuideSection[] = [
         ['Stage', 'Where the buyer is in your process. Change it here or drag the card on the Board.'],
         ['Priority stars', 'Give 1 to 3 stars to the buyers who matter most. Click the last lit star again to take one star away.'],
         ['Agent and related agents', 'Who looks after this buyer, and who else helps.'],
-        ['WhatsApp', 'Opens a WhatsApp chat with the buyer\'s phone number.'],
+        ['WhatsApp', 'Writes a WhatsApp message for you and opens your own WhatsApp (see "WhatsApp messages").'],
         ['Privacy', 'Consent, unsubscribe and erase. See "Privacy and deleting a buyer" below.'],
         ['Summary', 'With AI switched on, three short lines that tell you who this buyer is and what they want.'],
       ),
@@ -203,6 +230,25 @@ export const BASICS: GuideSection[] = [
       p('Every email has a link to the buyer\'s private page. On that page they can like a property, say "not for me" (with a reason) or ask to view it. You get an email when they do.'),
       p('You can turn the page off, make a new link (the old one stops working), or copy the link from the "Buyer page" card.'),
       warn('"Opened" is not always true: some email apps open pictures by themselves. A click or a like is a much better sign.'),
+    ],
+  },
+  {
+    id: 'whatsapp',
+    group: 'one',
+    title: 'WhatsApp messages',
+    icon: MessageCircle,
+    summary: 'A ready-made message in the buyer\'s language, sent from your own WhatsApp.',
+    blocks: [
+      p('The green WhatsApp button (on a buyer, New Leads, a viewing, a task, the Lead Report) writes the message for you in the buyer\'s language. Check it, press "Open WhatsApp" and send it from your own WhatsApp on your phone or computer.'),
+      terms(
+        ['Properties', 'From Matched or Suggested: the properties with links to your website and the buyer\'s page. Clicks are tracked like in an email.'],
+        ['Reply to an enquiry', 'From New Leads: a friendly answer about the property they asked about.'],
+        ['Viewing', 'From a planned viewing: the day, time, property and meeting point with a map link.'],
+        ['Follow-up', 'From a buyer or a task: a short "how are you getting on" message.'],
+        ['Add my booking link', 'When your agency uses Calendly, this adds your booking page so the buyer picks a time themselves.'],
+      ),
+      p('Every message you open counts as contact with the buyer: it shows in Activity and on the Lead Report.'),
+      warn('The phone number needs the country code (+34…, +31…). Without it WhatsApp cannot find the person; the window warns you.'),
     ],
   },
   {

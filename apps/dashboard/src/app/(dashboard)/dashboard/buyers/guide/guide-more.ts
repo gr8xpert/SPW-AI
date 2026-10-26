@@ -1,10 +1,10 @@
 import {
-  BarChart3, Bell, Building2, CalendarCheck, CircleHelp, ClipboardList, Kanban, Settings, ShieldCheck, Sun, Upload, UserCog,
+  BarChart3, Bell, Building2, CalendarCheck, CalendarDays, CircleHelp, ClipboardList, Kanban, ListTodo, Settings, ShieldCheck, Sun, Upload, UserCog,
 } from 'lucide-react';
 import { p, steps, terms, tip, warn, type GuideSection } from './guide-types';
 
-// Part 2 of the Buyer Match guide: the rest of a record, the daily screens,
-// settings, privacy and common questions.
+// Part 2 of the Contacts guide: the rest of a record, the daily screens
+// (Lead Report, calendar), settings, privacy and common questions.
 export const MORE: GuideSection[] = [
   {
     id: 'more-tabs',
@@ -16,10 +16,10 @@ export const MORE: GuideSection[] = [
       terms(
         ['Contacts', 'Other people involved: a partner, family member or assistant, with their phone and email.'],
         ['Internal notes', 'Free notes only your team sees. AI can read them to make rules.'],
-        ['Trips & viewings', 'Add a trip when the buyer visits the area, then add viewings to it. The buyer can get an itinerary by email or PDF, and the agent gets a reminder before each viewing.'],
+        ['Trips & viewings', 'Add a trip when the buyer visits the area, then add viewings to it. The buyer can get an itinerary by email (with a calendar file) or PDF, and the agent gets a reminder before each viewing. The calendar button on a viewing adds it to Google Calendar or downloads it for Outlook and iPhone.'],
         ['Tasks', 'Things to do, like "Call back on Friday", with a deadline and a person. Overdue tasks show in red.'],
         ['Files', 'Pictures and PDFs up to 20 MB, like a passport copy or a signed offer.'],
-        ['Activity', 'A diary: calls, emails, viewings, website visits and alerts. Use "Log activity" to add a call or meeting.'],
+        ['Activity', 'A diary: calls (with how they went), WhatsApps, emails, viewings, website visits and alerts. Use "Log activity" to add a call or meeting.'],
         ['History', 'Every change to the buyer: who changed what, and when. Nothing is a mystery.'],
       ),
       tip('After a viewing, mark it "Done" and write the buyer\'s feedback. It helps the next agent and the AI.'),
@@ -33,9 +33,29 @@ export const MORE: GuideSection[] = [
     summary: 'Open these first every morning.',
     link: { href: '/dashboard/buyers/home', label: 'Open My day' },
     blocks: [
-      p('"My day" is your morning page. It shows your pipeline, overdue tasks, tasks for today, viewings in the next 7 days, buyers you are waiting on, your hot buyers and alerts to approve.'),
+      p('"My day" is your morning page. It shows your pipeline, leads nobody called in time, overdue tasks, tasks for today, viewings in the next 7 days, buyers you are waiting on, your hot buyers and alerts to approve.'),
       p('"To do today" lists every task due today (overdue first) and buyers nobody has talked to for a while.'),
-      tip('Switch on "Daily email with this summary" on My day and the same list lands in your inbox every morning.'),
+      tip('Switch on "Daily email with this summary" on My day and the same list lands in your inbox every morning, including the leads you have not called yet.'),
+    ],
+  },
+  {
+    id: 'lead-report',
+    group: 'day',
+    title: 'Lead Report',
+    icon: ListTodo,
+    summary: 'Every lead, who called them and how it went. It fills itself.',
+    link: { href: '/dashboard/buyers/lead-report', label: 'Open the Lead Report' },
+    blocks: [
+      p('The Lead Report replaces the spreadsheet where agents wrote "called once, no answer". Every lead is a line, and the follow-up is worked out from what the team really did: calls, WhatsApps, emails and viewings.'),
+      terms(
+        ['Follow-up', 'Not contacted (red when overdue), no answer yet, call back, wrong number or reached. Below it: how many calls, WhatsApps and emails, and how long the first contact took.'],
+        ['Log call', 'After a call, press "Log call" and choose how it went: answered, no answer, call back later or wrong number. Add a note if you like.'],
+        ['Columns', 'Came in, phone and email, agent, stage, first contact, appointment (the next viewing), latest note, what they asked, budget and property type. Stage and agent can be changed right in the row.'],
+        ['Buyer questions', 'Managers press "Columns" to show some of your Buyer questions (like "When do you want to buy?") as columns. Agents fill them in right in the row; answers from Facebook forms are filled in for you.'],
+        ['Per agent', 'At the top, one line per agent: leads, not contacted, overdue, contacted, reached, time to first contact, calls, WhatsApps, emails, viewings, won, lost, won value and conversion. Click a name or a red number to filter the table.'],
+        ['Export CSV', 'Managers can download the whole table to open in Excel.'],
+      ),
+      tip('Agents see only their own leads and their own line. A lead nobody contacts in time also lands on My day and in the agent\'s daily email.'),
     ],
   },
   {
@@ -65,6 +85,26 @@ export const MORE: GuideSection[] = [
         'Approved alerts are sent, either at once or in one daily email per buyer (your manager chooses).',
       ),
       warn('Nothing is sent without your OK. If you never approve, buyers never get alerts.'),
+    ],
+  },
+  {
+    id: 'calendar',
+    group: 'day',
+    title: 'Calendar and Calendly',
+    icon: CalendarDays,
+    summary: 'Your viewings in Google Calendar, and buyers who book a time themselves.',
+    link: { href: '/dashboard/buyers/settings?tab=calendar', label: 'Open the Calendar settings' },
+    blocks: [
+      p('Under Settings → Calendar every user has a private calendar link. Add it once to Google Calendar (Other calendars → + → From URL), Outlook or your iPhone, and your viewings show up there. An agent\'s link has their own viewings; a manager\'s link has the whole team\'s, with the agent\'s name in each title.'),
+      warn('Google decides when it reads the link again: usually within a few hours, sometimes a day. Need one viewing right now? Use the calendar button on the viewing instead.'),
+      p('Calendly is a booking page where the buyer picks a free time in the agent\'s agenda. A manager connects your Calendly account once under Settings → Calendar.'),
+      terms(
+        ['A buyer books', 'A viewing appears on the right contact with the agent and time, and the lead counts as reached on the Lead Report.'],
+        ['Someone new books', 'They arrive on New Leads, already given to the agent they booked with. Their Calendly answers fill your Buyer questions.'],
+        ['Reschedule or cancel', 'The viewing moves to the new time, or is marked cancelled with the reason.'],
+        ['Sending the link', 'Tick "Add my booking link" in a WhatsApp message, or copy it with the calendar button on the Lead Report. The buyer\'s name and email are already filled in.'],
+      ),
+      tip('Bookings come in by themselves only on a paid Calendly plan (Standard or higher). On the free plan the booking links still work, but you add the viewing yourself. Agents are matched by email, so use the same email in Calendly and here.'),
     ],
   },
   {
@@ -109,13 +149,14 @@ export const MORE: GuideSection[] = [
     blocks: [
       p('Only the agency owner or a manager can change these. Agents can look.'),
       terms(
-        ['General', 'Can agents see each other\'s buyers? Who gets new website buyers? After how many days is a buyer "forgotten"? Viewing reminders, the daily email time, the hot score, the property link address and the buyer page address.'],
+        ['General', 'Can agents see each other\'s buyers? Who gets new website buyers? After how many days is a buyer "forgotten"? Viewing reminders, the daily email time, the hot score, after how many hours an uncalled lead turns red, the property link address and the buyer page address.'],
         ['Stages', 'The columns of your Board. Add, rename, colour, reorder and set the chance % of each one. Deleting a stage asks where its buyers should go.'],
-        ['Questions', 'Your own questions about buyers. You can show them on the website wishlist form too, and translate them.'],
+        ['Questions', 'Your own questions about buyers. You can show them on the website wishlist form and as Lead Report columns, and translate them. Word the options like your Facebook form so its answers fill in by themselves.'],
         ['Match weights', 'How much each wish counts in the score, from 0 (not at all) to 10 (a lot). You can give one feature, like sea views, its own weight.'],
         ['Alerts & near misses', 'Switch alerts on, choose "at once" or "daily digest", and how big a price drop must be. Set how far a near miss may be over budget or away.'],
         ['Housekeeping', 'Find possible duplicates (same phone or name) and merge them. Merging keeps everything; nothing is lost.'],
-        ['Facebook & Instagram', 'Connect your ad lead forms so new leads become buyers every 15 minutes.'],
+        ['Facebook & Instagram', 'Connect your ad lead forms so new leads come in every 15 minutes.'],
+        ['Calendar', 'Everyone\'s own calendar link, and (managers) the Calendly connection.'],
       ),
       warn('Fill in "Property links in emails" first. Without it, emails cannot link to your property pages.'),
     ],
@@ -188,6 +229,9 @@ export const MORE: GuideSection[] = [
         ['I added the same person twice.', 'Use Settings → Housekeeping → Possible duplicates and merge them.'],
         ['How do I remove a buyer?', 'Privacy → Erase personal data (managers). The buyer leaves your lists for good.'],
         ['A buyer says they get too many emails.', 'Privacy → Unsubscribe from property emails.'],
+        ['My calendar link shows no viewings.', 'An agent\'s link only has viewings where they are the agent (see "Agent:" under the viewing). Google can take up to a day to read the link again.'],
+        ['A Calendly booking did not come in.', 'Settings → Calendar must say "Bookings come in by themselves" (a paid Calendly plan), and the agent\'s Calendly email must be their email here.'],
+        ['Why is a lead red on the Lead Report?', 'Nobody called, WhatsApped or emailed them in time. Log a call (even "no answer") and it changes.'],
       ),
       tip('Still stuck? Open a ticket from Support and tell us the buyer\'s number from the web address.'),
     ],

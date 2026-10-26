@@ -4,13 +4,14 @@ import { p, steps, terms, tip, warn, type GuideTranslation } from '../guide-type
 // English source (guide-basics.ts, guide-more.ts); labels match buyers/_i18n/de.ts.
 export const de: GuideTranslation = {
   what: {
-    title: 'Was ist Buyer Match?',
-    summary: 'Ein kluges Notizbuch für Ihre Käufer, das die passenden Immobilien für sie findet.',
+    title: 'Was ist Kontakte?',
+    summary: 'Ein kluges Notizbuch für Ihre Käufer und Leads, das die passenden Immobilien für sie findet.',
     blocks: [
-      p('Stellen Sie sich Buyer Match als Notizbuch vor, für jede Person, die bei Ihnen eine Immobilie kaufen (oder mieten) möchte. Für jede Person notieren Sie, wer sie ist und was sie sucht.'),
+      p('Kontakte (das Add-on Buyer Match) ist ein Notizbuch für jede Person, die bei Ihnen eine Immobilie kaufen (oder mieten) möchte, und für Verkäufer, Vermieter und andere Menschen, mit denen Sie arbeiten. Für jede Person notieren Sie, wer sie ist und was sie sucht.'),
       p('Den langweiligen Teil erledigt dann der Computer. Er prüft jede Immobilie auf Ihrer Website und zeigt Ihnen die, die zu jedem Käufer passen. Sie wählen die besten aus und senden sie mit einem Klick per E-Mail.'),
       p('Der Käufer bekommt eine private Webseite mit diesen Immobilien. Dort kann er „Gefällt“, „Nichts für mich“ oder „Ich möchte sie besichtigen“ drücken. Sie sehen jeden Klick und wissen so, wer wirklich Interesse hat.'),
-      tip('Wer auf Ihrer Website ein Formular ausfüllt, landet unter Neue Leads (linkes Menü). Geben Sie dort jeder Person eine Rolle, dann kommt sie zu Ihren Kontakten. Sie müssen nichts abtippen.'),
+      p('Außerdem behält Ihr Team jeden Lead im Blick: wer wen angerufen hat, wer noch auf einen Anruf wartet und welche Besichtigungen gebucht sind. Der Lead-Bericht zeigt alles in einer Tabelle, wie die Tabelle, die viele Agenturen früher von Hand geführt haben.'),
+      tip('Wer auf Ihrer Website oder in einem Facebook-Lead-Formular ein Formular ausfüllt oder in Calendly bucht, landet unter Neue Leads (linkes Menü). Geben Sie dort jeder Person eine Rolle, dann kommt sie zu Ihren Kontakten. Sie müssen nichts abtippen.'),
     ],
   },
   'quick-start': {
@@ -32,7 +33,10 @@ export const de: GuideTranslation = {
     summary: 'Ein kleines Wörterbuch der Begriffe in Buyer Match.',
     blocks: [
       terms(
-        ['Käufer', 'Jede Person in Ihrer Liste. Das kann auch ein Verkäufer, Vermieter, Mieter oder ein anderer Makler sein: Die „Kontaktart“ sagt, was zutrifft.'],
+        ['Kontakt', 'Jede Person in Ihrer Liste: ein Käufer, Verkäufer, Vermieter, Mieter oder ein anderer Makler. Die „Kontaktart“ sagt, was zutrifft. In dieser Anleitung meint „Käufer“ jeden Kontakt.'],
+        ['Lead', 'Ein neuer Kontakt, der noch angerufen werden muss. Der Lead-Bericht verfolgt ihn, bis ihn jemand erreicht.'],
+        ['Nachverfolgung', 'Wie weit das Team mit einem Lead ist: nicht kontaktiert, noch nicht erreicht, zurückrufen, falsche Nummer oder erreicht.'],
+        ['Überfällig', 'Ein Lead, den niemand rechtzeitig kontaktiert hat (24 Stunden, sofern Ihr Manager das nicht geändert hat). Er wird rot.'],
         ['Makler', 'Die Person in Ihrem Team, die sich um diesen Käufer kümmert. „Weitere Makler“ sind Kollegen, die mithelfen.'],
         ['Phase', 'Wie weit der Käufer ist, etwa „Neu“, „Besichtigung“ oder „Gewonnen“. Die Phasen sind die Spalten des Boards.'],
         ['Suchprofil', 'Was der Käufer sucht.'],
@@ -64,16 +68,35 @@ export const de: GuideTranslation = {
     ],
   },
   'new-buyer': {
-    title: 'Einen Käufer hinzufügen',
-    summary: 'Von Hand, über Ihre Website, aus Facebook-Werbung oder aus einer Odoo-Datei.',
+    title: 'Einen Kontakt hinzufügen',
+    summary: 'Von Hand, über Ihre Website, aus Facebook-Werbung, über Calendly oder aus einer Odoo-Datei.',
     blocks: [
       terms(
         ['Von Hand', 'Drücken Sie „Neuer Kontakt“, geben Sie Name und E-Mail ein und wählen Sie Kontaktart und Makler. Eine E-Mail-Adresse = ein Käufer. So können Sie dieselbe Person nicht zweimal anlegen.'],
-        ['Über Ihre Website', 'Anfragen, das Suchprofil-Formular und „Meine Favoriten mailen“ legen einen Käufer von selbst an oder aktualisieren ihn.'],
-        ['Aus Facebook- und Instagram-Werbung', 'Lead-Formulare Ihrer Werbung kommen alle 15 Minuten herein, sobald ein Manager sie in den Einstellungen verbunden hat.'],
+        ['Über Ihre Website', 'Anfragen, das Suchprofil-Formular und „Meine Favoriten mailen“ legen einen Käufer von selbst an oder aktualisieren ihn. Neue Personen warten unter Neue Leads.'],
+        ['Aus Facebook- und Instagram-Werbung', 'Lead-Formulare Ihrer Werbung kommen alle 15 Minuten herein, sobald ein Manager sie in den Einstellungen verbunden hat. Antworten, die zu einer Ihrer Käuferfragen passen, werden für Sie eingetragen.'],
+        ['Über Calendly', 'Bucht jemand im Calendly eines Maklers, kommt er als neuer Lead herein, mit der Besichtigung schon geplant (siehe „Kalender und Calendly“).'],
         ['Aus Odoo', 'Manager können alle bisherigen Käufer über den Tab Import übernehmen.'],
       ),
       p('Neue Käufer von der Website gehen an einen Makler oder abwechselnd an mehrere Makler („Round-Robin“). Ein Manager legt das unter Einstellungen → Allgemein fest.'),
+    ],
+  },
+  'new-leads': {
+    title: 'Neue Leads',
+    summary: 'Alle, die von selbst gekommen sind, warten hier, bis Sie ihnen eine Rolle geben.',
+    linkLabel: 'Neue Leads öffnen',
+    blocks: [
+      p('Neue Leads (linkes Menü) ist der Posteingang für Personen, die sich von selbst bei Ihnen gemeldet haben: über ein Formular auf der Website, ein Lead-Formular von Facebook oder Instagram oder eine Buchung in Calendly. Die rote Zahl zeigt, wie viele warten.'),
+      steps(
+        'Öffnen Sie Neue Leads. Jede Zeile zeigt die Person, das ausgefüllte Formular und ihre Nachricht.',
+        'Antworten Sie zuerst, wenn Sie möchten: „Antworten“ für eine E-Mail oder der WhatsApp-Knopf.',
+        'Wählen Sie eine Rolle (Käufer, Verkäufer, Mieter…) und drücken Sie „Zu Kontakten hinzufügen“. Die Person kommt mit allem, was sie gesendet hat, in Ihre Kontaktliste.',
+      ),
+      terms(
+        ['Löschen', 'Nur für Spam oder Tests. Der Lead und seine Nachrichten sind endgültig weg.'],
+        ['Als erledigt markieren', 'Agenturen ohne das Add-on Buyer Match nutzen Neue Leads als einfachen Posteingang: antworten und dann als erledigt markieren.'],
+      ),
+      tip('Neue Leads erscheinen auch sofort im Lead-Bericht. Ein Lead, den niemand anruft, wird dort rot.'),
     ],
   },
   record: {
@@ -86,7 +109,7 @@ export const de: GuideTranslation = {
         ['Phase', 'Wo der Käufer in Ihrem Ablauf steht. Ändern Sie sie hier oder ziehen Sie die Karte auf dem Board.'],
         ['Prioritätssterne', 'Geben Sie den wichtigsten Käufern 1 bis 3 Sterne. Klicken Sie erneut auf den letzten leuchtenden Stern, um einen Stern wegzunehmen.'],
         ['Makler und weitere Makler', 'Wer sich um diesen Käufer kümmert und wer sonst noch hilft.'],
-        ['WhatsApp', 'Öffnet einen WhatsApp-Chat mit der Telefonnummer des Käufers.'],
+        ['WhatsApp', 'Schreibt eine WhatsApp-Nachricht für Sie und öffnet Ihr eigenes WhatsApp (siehe „WhatsApp-Nachrichten“).'],
         ['Datenschutz', 'Einwilligung, Abmeldung und Löschen. Siehe „Datenschutz und einen Käufer löschen“ weiter unten.'],
         ['Zusammenfassung', 'Mit eingeschalteter KI drei kurze Zeilen, die sagen, wer dieser Käufer ist und was er möchte.'],
       ),
@@ -169,6 +192,22 @@ export const de: GuideTranslation = {
       warn('„Geöffnet“ stimmt nicht immer: Manche E-Mail-Programme öffnen Bilder von selbst. Ein Klick oder ein „Gefällt“ ist ein viel besseres Zeichen.'),
     ],
   },
+  whatsapp: {
+    title: 'WhatsApp-Nachrichten',
+    summary: 'Eine fertige Nachricht in der Sprache des Käufers, gesendet über Ihr eigenes WhatsApp.',
+    blocks: [
+      p('Der grüne WhatsApp-Knopf (bei einem Käufer, unter Neue Leads, bei einer Besichtigung, bei einer Aufgabe, im Lead-Bericht) schreibt die Nachricht für Sie in der Sprache des Käufers. Prüfen Sie sie, drücken Sie „WhatsApp öffnen“ und senden Sie sie über Ihr eigenes WhatsApp auf dem Handy oder Computer.'),
+      terms(
+        ['Immobilien', 'Aus Treffer oder Vorgeschlagen: die Immobilien mit Links zu Ihrer Website und zur Käuferseite. Klicks werden wie bei einer E-Mail verfolgt.'],
+        ['Antwort auf eine Anfrage', 'Aus Neue Leads: eine freundliche Antwort zu der Immobilie, nach der er gefragt hat.'],
+        ['Besichtigung', 'Aus einer geplanten Besichtigung: Tag, Uhrzeit, Immobilie und Treffpunkt mit einem Link zur Karte.'],
+        ['Nachfassen', 'Bei einem Käufer oder einer Aufgabe: eine kurze Nachricht, wie es ihm geht und wie weit er ist.'],
+        ['Meinen Buchungslink hinzufügen', 'Wenn Ihre Agentur Calendly nutzt, fügt das Ihre Buchungsseite hinzu. So wählt der Käufer selbst einen Termin.'],
+      ),
+      p('Jede Nachricht, die Sie öffnen, zählt als Kontakt mit dem Käufer: Sie erscheint unter Aktivität und im Lead-Bericht.'),
+      warn('Die Telefonnummer braucht die Ländervorwahl (+34…, +49…). Ohne sie findet WhatsApp die Person nicht; das Fenster warnt Sie.'),
+    ],
+  },
   ai: {
     title: 'KI-Helfer',
     summary: 'Lassen Sie die KI Nachrichten lesen, Notizen schreiben und Muster erkennen. Sie prüfen immer zuerst.',
@@ -192,10 +231,10 @@ export const de: GuideTranslation = {
       terms(
         ['Kontakte', 'Weitere beteiligte Personen: ein Partner, ein Familienmitglied oder eine Assistenz, mit Telefon und E-Mail.'],
         ['Interne Notizen', 'Freie Notizen, die nur Ihr Team sieht. Die KI kann sie lesen und daraus Regeln machen.'],
-        ['Reisen & Besichtigungen', 'Legen Sie eine Reise an, wenn der Käufer in die Gegend kommt, und fügen Sie ihr Besichtigungen hinzu. Der Käufer kann einen Reiseplan per E-Mail oder als PDF bekommen, und der Makler bekommt vor jeder Besichtigung eine Erinnerung.'],
+        ['Reisen & Besichtigungen', 'Legen Sie eine Reise an, wenn der Käufer in die Gegend kommt, und fügen Sie ihr Besichtigungen hinzu. Der Käufer kann einen Reiseplan per E-Mail (mit Kalenderdatei) oder als PDF bekommen, und der Makler bekommt vor jeder Besichtigung eine Erinnerung. Der Kalender-Knopf bei einer Besichtigung trägt sie in Google Kalender ein oder lädt sie für Outlook und iPhone herunter.'],
         ['Aufgaben', 'Dinge, die zu tun sind, etwa „Am Freitag zurückrufen“, mit Frist und zuständiger Person. Überfällige Aufgaben erscheinen rot.'],
         ['Dateien', 'Bilder und PDFs bis 20 MB, etwa eine Passkopie oder ein unterschriebenes Angebot.'],
-        ['Aktivität', 'Ein Tagebuch: Anrufe, E-Mails, Besichtigungen, Website-Besuche und Benachrichtigungen. Mit „Aktivität erfassen“ tragen Sie einen Anruf oder ein Treffen ein.'],
+        ['Aktivität', 'Ein Tagebuch: Anrufe (mit Ergebnis), WhatsApps, E-Mails, Besichtigungen, Website-Besuche und Benachrichtigungen. Mit „Aktivität erfassen“ tragen Sie einen Anruf oder ein Treffen ein.'],
         ['Verlauf', 'Jede Änderung am Käufer: wer was wann geändert hat. Nichts bleibt ein Rätsel.'],
       ),
       tip('Markieren Sie eine Besichtigung danach als „Erledigt“ und notieren Sie das Feedback des Käufers. Das hilft dem nächsten Makler und der KI.'),
@@ -206,9 +245,26 @@ export const de: GuideTranslation = {
     summary: 'Öffnen Sie diese jeden Morgen zuerst.',
     linkLabel: 'Mein Tag öffnen',
     blocks: [
-      p('„Mein Tag“ ist Ihre Morgenseite. Sie zeigt Ihre Pipeline, überfällige Aufgaben, Aufgaben für heute, Besichtigungen der nächsten 7 Tage, Käufer, auf deren Antwort Sie warten, Ihre heißen Käufer und Benachrichtigungen zum Genehmigen.'),
+      p('„Mein Tag“ ist Ihre Morgenseite. Sie zeigt Ihre Pipeline, Leads, die niemand rechtzeitig angerufen hat, überfällige Aufgaben, Aufgaben für heute, Besichtigungen der nächsten 7 Tage, Käufer, auf deren Antwort Sie warten, Ihre heißen Käufer und Benachrichtigungen zum Genehmigen.'),
       p('„Heute zu tun“ listet alle heute fälligen Aufgaben (überfällige zuerst) und Käufer, mit denen schon länger niemand gesprochen hat.'),
-      tip('Schalten Sie auf Mein Tag „Tägliche E-Mail mit dieser Übersicht“ ein, dann landet dieselbe Liste jeden Morgen in Ihrem Postfach.'),
+      tip('Schalten Sie auf Mein Tag „Tägliche E-Mail mit dieser Übersicht“ ein, dann landet dieselbe Liste jeden Morgen in Ihrem Postfach, auch mit den Leads, die Sie noch nicht angerufen haben.'),
+    ],
+  },
+  'lead-report': {
+    title: 'Lead-Bericht',
+    summary: 'Jeder Lead, wer ihn angerufen hat und wie es lief. Er füllt sich von selbst.',
+    linkLabel: 'Lead-Bericht öffnen',
+    blocks: [
+      p('Der Lead-Bericht ersetzt die Tabelle, in die Makler „einmal angerufen, nicht erreicht“ geschrieben haben. Jeder Lead ist eine Zeile, und die Nachverfolgung ergibt sich aus dem, was das Team wirklich getan hat: Anrufe, WhatsApps, E-Mails und Besichtigungen.'),
+      terms(
+        ['Nachverfolgung', 'Nicht kontaktiert (rot, wenn überfällig), noch nicht erreicht, zurückrufen, falsche Nummer oder erreicht. Darunter: wie viele Anrufe, WhatsApps und E-Mails, und wie lange es bis zum ersten Kontakt gedauert hat.'],
+        ['Anruf erfassen', 'Drücken Sie nach einem Anruf „Anruf erfassen“ und wählen Sie, wie es lief: erreicht, nicht erreicht, später zurückrufen oder falsche Nummer. Fügen Sie bei Bedarf eine Notiz hinzu.'],
+        ['Spalten', 'Eingegangen, Telefon und E-Mail, Makler, Phase, erster Kontakt, Termin (die nächste Besichtigung), letzte Notiz, ihre Anfrage, Budget und Objektart. Phase und Makler können Sie direkt in der Zeile ändern.'],
+        ['Käuferfragen', 'Manager drücken „Spalten“, um einige Ihrer Käuferfragen (etwa „Wann möchten Sie kaufen?“) als Spalten zu zeigen. Makler füllen sie direkt in der Zeile aus; Antworten aus Facebook-Formularen werden für Sie eingetragen.'],
+        ['Pro Makler', 'Oben eine Zeile pro Makler: Leads, nicht kontaktiert, überfällig, kontaktiert, erreicht, Zeit bis zum ersten Kontakt, Anrufe, WhatsApps, E-Mails, Besichtigungen, gewonnen, verloren, gewonnener Wert und Konversion. Klicken Sie auf einen Namen oder eine rote Zahl, um die Tabelle zu filtern.'],
+        ['CSV exportieren', 'Manager können die ganze Tabelle herunterladen und in Excel öffnen.'],
+      ),
+      tip('Makler sehen nur ihre eigenen Leads und ihre eigene Zeile. Ein Lead, den niemand rechtzeitig kontaktiert, erscheint auch auf Mein Tag und in der täglichen E-Mail des Maklers.'),
     ],
   },
   board: {
@@ -232,6 +288,23 @@ export const de: GuideTranslation = {
         'Genehmigte Benachrichtigungen werden gesendet, entweder sofort oder in einer täglichen E-Mail pro Käufer (das entscheidet Ihr Manager).',
       ),
       warn('Ohne Ihr OK wird nichts gesendet. Wenn Sie nie genehmigen, bekommen Käufer nie Benachrichtigungen.'),
+    ],
+  },
+  calendar: {
+    title: 'Kalender und Calendly',
+    summary: 'Ihre Besichtigungen in Google Kalender, und Käufer, die selbst einen Termin buchen.',
+    linkLabel: 'Kalender-Einstellungen öffnen',
+    blocks: [
+      p('Unter Einstellungen → Kalender hat jeder Nutzer einen privaten Kalenderlink. Fügen Sie ihn einmal in Google Kalender (Weitere Kalender → + → Per URL), Outlook oder Ihrem iPhone hinzu, dann erscheinen Ihre Besichtigungen dort. Der Link eines Maklers enthält seine eigenen Besichtigungen; der Link eines Managers die des ganzen Teams, mit dem Namen des Maklers in jedem Titel.'),
+      warn('Google entscheidet, wann es den Link neu liest: meist innerhalb weniger Stunden, manchmal erst nach einem Tag. Brauchen Sie eine Besichtigung sofort? Nutzen Sie dann den Kalender-Knopf bei der Besichtigung.'),
+      p('Calendly ist eine Buchungsseite, auf der der Käufer einen freien Termin im Kalender des Maklers wählt. Ein Manager verbindet Ihr Calendly-Konto einmal unter Einstellungen → Kalender.'),
+      terms(
+        ['Ein Käufer bucht', 'Beim richtigen Kontakt erscheint eine Besichtigung mit Makler und Uhrzeit, und der Lead zählt im Lead-Bericht als erreicht.'],
+        ['Jemand Neues bucht', 'Die Person kommt unter Neue Leads herein, schon dem Makler zugewiesen, bei dem sie gebucht hat. Ihre Antworten in Calendly füllen Ihre Käuferfragen aus.'],
+        ['Verschieben oder absagen', 'Die Besichtigung wandert zum neuen Termin oder wird als abgesagt markiert, mit dem Grund.'],
+        ['Den Link senden', 'Haken Sie in einer WhatsApp-Nachricht „Meinen Buchungslink hinzufügen“ an oder kopieren Sie ihn mit dem Kalender-Knopf im Lead-Bericht. Name und E-Mail des Käufers sind schon ausgefüllt.'],
+      ),
+      tip('Buchungen kommen nur mit einem bezahlten Calendly-Tarif (Standard oder höher) automatisch an. Im kostenlosen Tarif funktionieren die Buchungslinks trotzdem, aber Sie tragen die Besichtigung selbst ein. Makler werden per E-Mail zugeordnet: Nutzen Sie in Calendly dieselbe E-Mail wie hier.'),
     ],
   },
   reverse: {
@@ -265,13 +338,14 @@ export const de: GuideTranslation = {
     blocks: [
       p('Nur der Inhaber der Agentur oder ein Manager kann diese ändern. Makler können sie ansehen.'),
       terms(
-        ['Allgemein', 'Dürfen Makler die Käufer der anderen sehen? Wer bekommt neue Käufer von der Website? Nach wie vielen Tagen gilt ein Käufer als „vergessen“? Erinnerungen an Besichtigungen, die Uhrzeit der täglichen E-Mail, die Punktzahl für heiße Käufer, die Adresse der Immobilien-Links und die Adresse der Käuferseite.'],
+        ['Allgemein', 'Dürfen Makler die Käufer der anderen sehen? Wer bekommt neue Käufer von der Website? Nach wie vielen Tagen gilt ein Käufer als „vergessen“? Erinnerungen an Besichtigungen, die Uhrzeit der täglichen E-Mail, die Punktzahl für heiße Käufer, nach wie vielen Stunden ein nicht angerufener Lead rot wird, die Adresse der Immobilien-Links und die Adresse der Käuferseite.'],
         ['Phasen', 'Die Spalten Ihres Boards. Hinzufügen, umbenennen, einfärben, neu ordnen und die Chance in % für jede festlegen. Beim Löschen einer Phase werden Sie gefragt, wohin ihre Käufer sollen.'],
-        ['Fragen', 'Ihre eigenen Fragen zu Käufern. Sie können sie auch im Suchprofil-Formular der Website zeigen und übersetzen.'],
+        ['Fragen', 'Ihre eigenen Fragen zu Käufern. Sie können sie im Suchprofil-Formular der Website und als Spalten im Lead-Bericht zeigen und übersetzen. Formulieren Sie die Optionen wie in Ihrem Facebook-Formular, dann werden dessen Antworten von selbst eingetragen.'],
         ['Gewichtung', 'Wie stark jeder Wunsch in der Punktzahl zählt, von 0 (gar nicht) bis 10 (sehr stark). Einem Merkmal, etwa Meerblick, können Sie ein eigenes Gewicht geben.'],
         ['Benachrichtigungen & Beinahe-Treffer', 'Benachrichtigungen einschalten, „sofort“ oder „tägliche Zusammenfassung“ wählen und festlegen, wie groß eine Preissenkung sein muss. Legen Sie fest, wie weit ein Beinahe-Treffer über dem Budget oder entfernt liegen darf.'],
         ['Datenpflege', 'Mögliche Duplikate finden (gleiche Telefonnummer oder gleicher Name) und zusammenführen. Beim Zusammenführen bleibt alles erhalten, nichts geht verloren.'],
-        ['Facebook & Instagram', 'Verbinden Sie die Lead-Formulare Ihrer Werbung, dann werden neue Leads alle 15 Minuten zu Käufern.'],
+        ['Facebook & Instagram', 'Verbinden Sie die Lead-Formulare Ihrer Werbung, dann kommen neue Leads alle 15 Minuten herein.'],
+        ['Kalender', 'Der eigene Kalenderlink jedes Nutzers und (für Manager) die Verbindung zu Calendly.'],
       ),
       warn('Füllen Sie zuerst „Immobilien-Links in E-Mails“ aus. Ohne diese Angabe können E-Mails nicht auf Ihre Immobilienseiten verlinken.'),
     ],
@@ -331,6 +405,9 @@ export const de: GuideTranslation = {
         ['Ich habe dieselbe Person zweimal angelegt.', 'Nutzen Sie Einstellungen → Datenpflege → Mögliche Duplikate und führen Sie sie zusammen.'],
         ['Wie entferne ich einen Käufer?', 'Datenschutz → Personenbezogene Daten löschen (Manager). Der Käufer verschwindet endgültig aus Ihren Listen.'],
         ['Ein Käufer sagt, er bekommt zu viele E-Mails.', 'Datenschutz → Von Immobilien-E-Mails abmelden.'],
+        ['Mein Kalenderlink zeigt keine Besichtigungen.', 'Der Link eines Maklers enthält nur Besichtigungen, bei denen er der Makler ist (siehe „Makler:“ unter der Besichtigung). Google kann bis zu einem Tag brauchen, um den Link neu zu lesen.'],
+        ['Eine Calendly-Buchung ist nicht angekommen.', 'Unter Einstellungen → Kalender muss „Buchungen kommen automatisch an“ stehen (ein bezahlter Calendly-Tarif), und die Calendly-E-Mail des Maklers muss seine E-Mail hier sein.'],
+        ['Warum ist ein Lead im Lead-Bericht rot?', 'Niemand hat ihn rechtzeitig angerufen, per WhatsApp angeschrieben oder gemailt. Erfassen Sie einen Anruf (auch „nicht erreicht“), dann ändert es sich.'],
       ),
       tip('Kommen Sie nicht weiter? Öffnen Sie ein Ticket unter Support-Tickets und nennen Sie uns die Nummer des Käufers aus der Webadresse.'),
     ],

@@ -5,13 +5,14 @@ import { p, steps, terms, tip, warn, type GuideTranslation } from '../guide-type
 // kuin buyers/_i18n/fi.ts-tiedostossa.
 export const fi: GuideTranslation = {
   what: {
-    title: 'Mikä on Buyer Match?',
-    summary: 'Älykäs muistikirja ostajillesi, joka löytää heille sopivat kodit.',
+    title: 'Mikä on Yhteystiedot-osio?',
+    summary: 'Älykäs muistikirja ostajillesi ja liideillesi, joka löytää heille sopivat kodit.',
     blocks: [
-      p('Ajattele Buyer Matchia muistikirjana jokaisesta ihmisestä, joka haluaa ostaa (tai vuokrata) kohteen sinulta. Kirjaat jokaisesta, kuka hän on ja mitä hän etsii.'),
+      p('Yhteystiedot (Buyer Match -lisäosa) on muistikirja jokaisesta ihmisestä, joka haluaa ostaa (tai vuokrata) kohteen sinulta, sekä myyjistä, vuokranantajista ja muista ihmisistä, joiden kanssa teet töitä. Kirjaat jokaisesta, kuka hän on ja mitä hän etsii.'),
       p('Sitten tietokone tekee tylsän osan. Se käy läpi jokaisen verkkosivusi kohteen ja näyttää ne, jotka sopivat kullekin ostajalle. Valitset parhaat ja lähetät ne sähköpostilla yhdellä klikkauksella.'),
       p('Ostaja saa oman yksityisen verkkosivun, jossa kohteet ovat. Hän voi painaa ”tykkään”, ”ei minulle” tai ”haluan nähdä sen”. Näet jokaisen klikkauksen, joten tiedät, kuka on oikeasti kiinnostunut.'),
-      tip('Verkkosivusi lomakkeen täyttäneet ihmiset tulevat kohtaan Uudet liidit (vasen valikko). Anna jokaiselle siellä rooli, niin hän siirtyy Yhteystietoihin. Sinun ei tarvitse kirjoittaa heitä itse.'),
+      p('Se pitää myös tiimisi ajan tasalla jokaisesta liidistä: kuka soitti kenelle, kuka odottaa vielä puhelua ja mitkä esittelyt on varattu. Liidiraportti näyttää kaiken yhdessä taulukossa, kuten taulukko, jota monet toimistot ennen pitivät käsin.'),
+      tip('Verkkosivusi lomakkeen tai Facebookin liidilomakkeen täyttäneet tai Calendlyssä ajan varanneet ihmiset tulevat kohtaan Uudet liidit (vasen valikko). Anna jokaiselle siellä rooli, niin hän siirtyy Yhteystietoihin. Sinun ei tarvitse kirjoittaa heitä itse.'),
     ],
   },
   'quick-start': {
@@ -33,7 +34,10 @@ export const fi: GuideTranslation = {
     summary: 'Pieni sanasto Buyer Matchin sanoista.',
     blocks: [
       terms(
-        ['Ostaja', 'Kuka tahansa listallasi. Se voi olla myös myyjä, vuokranantaja, vuokralainen tai toinen välittäjä: ”Yhteystiedon tyyppi” kertoo kumpi.'],
+        ['Yhteystieto', 'Kuka tahansa listallasi: ostaja, myyjä, vuokranantaja, vuokralainen tai toinen välittäjä. ”Yhteystiedon tyyppi” kertoo, kuka. Tässä oppaassa ”ostaja” tarkoittaa mitä tahansa yhteystietoa.'],
+        ['Liidi', 'Uusi yhteystieto, jolle pitää vielä soittaa. Liidiraportti seuraa häntä, kunnes joku tavoittaa hänet.'],
+        ['Seuranta', 'Kuinka pitkälle tiimi pääsi liidin kanssa: ei yhteyttä, ei vielä vastausta, soita takaisin, väärä numero tai tavoitettu.'],
+        ['Myöhässä', 'Liidi, johon kukaan ei ottanut yhteyttä ajoissa (24 tunnissa, ellei esihenkilösi ole muuttanut sitä). Se muuttuu punaiseksi.'],
         ['Välittäjä', 'Tiimisi jäsen, joka hoitaa tätä ostajaa. ”Muut välittäjät” ovat auttavia kollegoita.'],
         ['Vaihe', 'Kuinka pitkällä ostaja on, esimerkiksi ”Uusi”, ”Esittely” tai ”Voitettu”. Vaiheet ovat Taulun sarakkeet.'],
         ['Toivelista', 'Mitä ostaja etsii.'],
@@ -65,16 +69,35 @@ export const fi: GuideTranslation = {
     ],
   },
   'new-buyer': {
-    title: 'Ostajan lisääminen',
-    summary: 'Käsin, verkkosivultasi, Facebook-mainoksista tai Odoo-tiedostosta.',
+    title: 'Yhteystiedon lisääminen',
+    summary: 'Käsin, verkkosivultasi, Facebook-mainoksista, Calendlystä tai Odoo-tiedostosta.',
     blocks: [
       terms(
         ['Käsin', 'Paina ”Uusi yhteystieto”, kirjoita nimi ja sähköposti, valitse yhteystiedon tyyppi ja välittäjä. Yksi sähköpostiosoite = yksi ostaja, joten samaa ihmistä ei voi lisätä kahdesti.'],
-        ['Verkkosivultasi', 'Kyselyt, toivelistalomake ja ”lähetä suosikkini sähköpostiin” luovat tai päivittävät ostajan itsestään.'],
-        ['Facebook- ja Instagram-mainoksista', 'Mainostesi liidilomakkeet tulevat sisään 15 minuutin välein, kun esihenkilö on yhdistänyt ne Asetuksissa.'],
+        ['Verkkosivultasi', 'Kyselyt, toivelistalomake ja ”lähetä suosikkini sähköpostiin” luovat tai päivittävät ostajan itsestään. Uudet ihmiset odottavat kohdassa Uudet liidit.'],
+        ['Facebook- ja Instagram-mainoksista', 'Mainostesi liidilomakkeet tulevat sisään 15 minuutin välein, kun esihenkilö on yhdistänyt ne Asetuksissa. Vastaukset, jotka sopivat johonkin ostajakysymykseesi, täytetään puolestasi.'],
+        ['Calendlystä', 'Kun joku varaa ajan välittäjän Calendlystä, hän tulee uutena liidinä ja esittely on jo suunniteltu (katso ”Kalenteri ja Calendly”).'],
         ['Odoosta', 'Esihenkilöt voivat tuoda kaikki vanhat ostajansa Tuonti-välilehdellä.'],
       ),
       p('Uudet ostajat verkkosivulta menevät yhdelle välittäjälle tai vuorotellen välittäjien kesken (”round-robin”). Esihenkilö valitsee tämän kohdassa Asetukset → Yleiset.'),
+    ],
+  },
+  'new-leads': {
+    title: 'Uudet liidit',
+    summary: 'Jokainen, joka tuli itse, odottaa täällä, kunnes annat hänelle roolin.',
+    linkLabel: 'Avaa Uudet liidit',
+    blocks: [
+      p('Uudet liidit (vasen valikko) on saapuneiden kansio ihmisille, jotka ottivat sinuun yhteyttä itse: verkkosivun lomake, Facebookin tai Instagramin liidilomake tai Calendly-varaus. Punainen numero kertoo, kuinka moni odottaa.'),
+      steps(
+        'Avaa Uudet liidit. Jokainen rivi näyttää henkilön, hänen täyttämänsä lomakkeen ja hänen viestinsä.',
+        'Vastaa hänelle ensin, jos haluat: ”Vastaa” sähköpostia varten tai WhatsApp-painike.',
+        'Valitse rooli (ostaja, myyjä, vuokralainen…) ja paina ”Lisää yhteystietoihin”. Hän siirtyy Yhteystiedot-listallesi kaiken lähettämänsä kanssa.',
+      ),
+      terms(
+        ['Poista', 'Vain roskapostille tai testeille. Liidi ja sen viestit katoavat pysyvästi.'],
+        ['Merkitse käsitellyksi', 'Toimistot ilman Buyer Match -lisäosaa käyttävät Uusia liidejä yksinkertaisena saapuneiden kansiona: vastaa ja merkitse sitten käsitellyksi.'],
+      ),
+      tip('Uudet liidit näkyvät heti myös liidiraportissa, joten liidi, jolle kukaan ei soita, muuttuu siellä punaiseksi.'),
     ],
   },
   record: {
@@ -87,7 +110,7 @@ export const fi: GuideTranslation = {
         ['Vaihe', 'Missä kohtaa prosessiasi ostaja on. Vaihda se tässä tai vedä korttia Taululla.'],
         ['Prioriteettitähdet', 'Anna 1–3 tähteä tärkeimmille ostajille. Klikkaa viimeistä palavaa tähteä uudelleen, niin yksi tähti poistuu.'],
         ['Välittäjä ja muut välittäjät', 'Kuka hoitaa tätä ostajaa ja kuka muu auttaa.'],
-        ['WhatsApp', 'Avaa WhatsApp-keskustelun ostajan puhelinnumeroon.'],
+        ['WhatsApp', 'Kirjoittaa WhatsApp-viestin puolestasi ja avaa oman WhatsAppisi (katso ”WhatsApp-viestit”).'],
         ['Tietosuoja', 'Suostumus, tilauksen peruminen ja poistaminen. Katso alta ”Tietosuoja ja ostajan poistaminen”.'],
         ['Yhteenveto', 'Kun tekoäly on käytössä, kolme lyhyttä riviä siitä, kuka ostaja on ja mitä hän haluaa.'],
       ),
@@ -170,6 +193,22 @@ export const fi: GuideTranslation = {
       warn('”Avattu” ei aina pidä paikkaansa: jotkin sähköpostiohjelmat avaavat kuvat itsestään. Klikkaus tai tykkäys on paljon parempi merkki.'),
     ],
   },
+  whatsapp: {
+    title: 'WhatsApp-viestit',
+    summary: 'Valmis viesti ostajan kielellä, lähetettynä omasta WhatsAppistasi.',
+    blocks: [
+      p('Vihreä WhatsApp-painike (ostajalla, Uusissa liideissä, esittelyssä, tehtävässä ja liidiraportissa) kirjoittaa viestin puolestasi ostajan kielellä. Tarkista se, paina ”Avaa WhatsApp” ja lähetä se omasta WhatsAppistasi puhelimella tai tietokoneella.'),
+      terms(
+        ['Kohteet', 'Sopivat- tai Ehdotetut-välilehdeltä: kohteet linkkeineen verkkosivullesi ja ostajan sivulle. Klikkauksia seurataan kuten sähköpostissa.'],
+        ['Vastaus kyselyyn', 'Uusista liideistä: ystävällinen vastaus kohteesta, jota hän kysyi.'],
+        ['Esittely', 'Suunnitellusta esittelystä: päivä, aika, kohde ja tapaamispaikka karttalinkin kanssa.'],
+        ['Seuranta', 'Ostajalta tai tehtävästä: lyhyt ”miten menee” -viesti.'],
+        ['Lisää varauslinkkini', 'Kun toimistosi käyttää Calendlyä, tämä lisää varaussivusi, jotta ostaja valitsee ajan itse.'],
+      ),
+      p('Jokainen avaamasi viesti lasketaan yhteydenotoksi ostajaan: se näkyy Toiminta-välilehdellä ja liidiraportissa.'),
+      warn('Puhelinnumerossa pitää olla maatunnus (+34…, +31…). Ilman sitä WhatsApp ei löydä henkilöä; ikkuna varoittaa sinua.'),
+    ],
+  },
   ai: {
     title: 'Tekoälyavustajat',
     summary: 'Anna tekoälyn lukea viestejä, kirjoittaa muistiinpanoja ja huomata toistuvia asioita. Sinä tarkistat aina ensin.',
@@ -193,10 +232,10 @@ export const fi: GuideTranslation = {
       terms(
         ['Yhteyshenkilöt', 'Muut mukana olevat ihmiset: puoliso, perheenjäsen tai avustaja, puhelimineen ja sähköposteineen.'],
         ['Sisäiset muistiinpanot', 'Vapaita muistiinpanoja, jotka vain tiimisi näkee. Tekoäly voi lukea ne ja tehdä niistä sääntöjä.'],
-        ['Matkat ja esittelyt', 'Lisää matka, kun ostaja käy alueella, ja lisää siihen esittelyjä. Ostaja voi saada matkaohjelman sähköpostilla tai PDF:nä, ja välittäjä saa muistutuksen ennen jokaista esittelyä.'],
+        ['Matkat ja esittelyt', 'Lisää matka, kun ostaja käy alueella, ja lisää siihen esittelyjä. Ostaja voi saada matkaohjelman sähköpostilla (kalenteritiedoston kanssa) tai PDF:nä, ja välittäjä saa muistutuksen ennen jokaista esittelyä. Esittelyn kalenteripainike lisää sen Google-kalenteriin tai lataa sen Outlookia ja iPhonea varten.'],
         ['Tehtävät', 'Tehtäviä, kuten ”Soita takaisin perjantaina”, määräajan ja tekijän kanssa. Myöhässä olevat tehtävät näkyvät punaisella.'],
         ['Tiedostot', 'Kuvia ja PDF-tiedostoja enintään 20 Mt, kuten passin kopio tai allekirjoitettu tarjous.'],
-        ['Toiminta', 'Päiväkirja: puhelut, sähköpostit, esittelyt, käynnit verkkosivulla ja hälytykset. Lisää puhelu tai tapaaminen painikkeella ”Kirjaa toiminta”.'],
+        ['Toiminta', 'Päiväkirja: puhelut (ja miten ne menivät), WhatsAppit, sähköpostit, esittelyt, käynnit verkkosivulla ja hälytykset. Lisää puhelu tai tapaaminen painikkeella ”Kirjaa toiminta”.'],
         ['Historia', 'Jokainen ostajaan tehty muutos: kuka muutti mitä ja milloin. Mikään ei jää arvoitukseksi.'],
       ),
       tip('Merkitse esittely esittelyn jälkeen tilaan ”Tehty” ja kirjoita ostajan palaute. Se auttaa seuraavaa välittäjää ja tekoälyä.'),
@@ -207,9 +246,26 @@ export const fi: GuideTranslation = {
     summary: 'Avaa nämä ensimmäisenä joka aamu.',
     linkLabel: 'Avaa Oma päivä',
     blocks: [
-      p('”Oma päivä” on aamusivusi. Se näyttää myyntiputkesi, myöhässä olevat tehtävät, tämän päivän tehtävät, seuraavan 7 päivän esittelyt, ostajat joiden vastausta odotat, kuumat ostajasi ja hyväksyttävät hälytykset.'),
+      p('”Oma päivä” on aamusivusi. Se näyttää myyntiputkesi, liidit, joille kukaan ei soittanut ajoissa, myöhässä olevat tehtävät, tämän päivän tehtävät, seuraavan 7 päivän esittelyt, ostajat joiden vastausta odotat, kuumat ostajasi ja hyväksyttävät hälytykset.'),
       p('”Tänään tehtävää” listaa kaikki tänään erääntyvät tehtävät (myöhässä olevat ensin) ja ostajat, joille kukaan ei ole puhunut vähään aikaan.'),
-      tip('Kytke Oma päivä -sivulla päälle ”Päivittäinen sähköposti tästä yhteenvedosta”, niin sama lista tulee sähköpostiisi joka aamu.'),
+      tip('Kytke Oma päivä -sivulla päälle ”Päivittäinen sähköposti tästä yhteenvedosta”, niin sama lista tulee sähköpostiisi joka aamu, mukana liidit, joille et ole vielä soittanut.'),
+    ],
+  },
+  'lead-report': {
+    title: 'Liidiraportti',
+    summary: 'Jokainen liidi, kuka hänelle soitti ja miten meni. Se täyttyy itsestään.',
+    linkLabel: 'Avaa liidiraportti',
+    blocks: [
+      p('Liidiraportti korvaa taulukon, johon välittäjät kirjoittivat ”soitettu kerran, ei vastausta”. Jokainen liidi on yksi rivi, ja seuranta päätellään siitä, mitä tiimi oikeasti teki: puheluista, WhatsAppeista, sähköposteista ja esittelyistä.'),
+      terms(
+        ['Seuranta', 'Ei yhteyttä (punainen, kun myöhässä), ei vielä vastausta, soita takaisin, väärä numero tai tavoitettu. Sen alla: kuinka monta puhelua, WhatsAppia ja sähköpostia, ja kuinka kauan ensimmäiseen yhteyteen meni.'],
+        ['Kirjaa puhelu', 'Paina puhelun jälkeen ”Kirjaa puhelu” ja valitse, miten meni: vastasi, ei vastausta, soita myöhemmin tai väärä numero. Lisää muistiinpano, jos haluat.'],
+        ['Sarakkeet', 'Saapui, puhelin ja sähköposti, välittäjä, vaihe, ensimmäinen yhteys, tapaaminen (seuraava esittely), viimeisin muistiinpano, mitä he kysyivät, budjetti ja kohdetyyppi. Vaihetta ja välittäjää voi muuttaa suoraan rivillä.'],
+        ['Ostajakysymykset', 'Esihenkilöt painavat ”Sarakkeet” näyttääkseen osan ostajakysymyksistäsi (kuten ”Milloin haluat ostaa?”) sarakkeina. Välittäjät täyttävät ne suoraan rivillä; Facebook-lomakkeiden vastaukset täytetään puolestasi.'],
+        ['Välittäjittäin', 'Ylhäällä yksi rivi per välittäjä: liidit, ei yhteyttä, myöhässä, yhteys otettu, tavoitettu, aika ensimmäiseen yhteyteen, puhelut, WhatsAppit, sähköpostit, esittelyt, voitetut, menetetyt, voitettu arvo ja konversio. Klikkaa nimeä tai punaista numeroa suodattaaksesi taulukon.'],
+        ['Vie CSV', 'Esihenkilöt voivat ladata koko taulukon ja avata sen Excelissä.'],
+      ),
+      tip('Välittäjät näkevät vain omat liidinsä ja oman rivinsä. Liidi, johon kukaan ei ota yhteyttä ajoissa, näkyy myös Oma päivä -sivulla ja välittäjän päivittäisessä sähköpostissa.'),
     ],
   },
   board: {
@@ -233,6 +289,23 @@ export const fi: GuideTranslation = {
         'Hyväksytyt hälytykset lähetetään joko heti tai yhdessä päivittäisessä sähköpostissa per ostaja (esihenkilösi päättää).',
       ),
       warn('Mitään ei lähetetä ilman hyväksyntääsi. Jos et koskaan hyväksy, ostajat eivät koskaan saa hälytyksiä.'),
+    ],
+  },
+  calendar: {
+    title: 'Kalenteri ja Calendly',
+    summary: 'Esittelysi Google-kalenterissa, ja ostajat, jotka varaavat ajan itse.',
+    linkLabel: 'Avaa kalenteriasetukset',
+    blocks: [
+      p('Kohdassa Asetukset → Kalenteri jokaisella käyttäjällä on yksityinen kalenterilinkki. Lisää se kerran Google-kalenteriin (Muut kalenterit → + → URL-osoitteesta), Outlookiin tai iPhoneesi, niin esittelysi näkyvät siellä. Välittäjän linkissä ovat hänen omat esittelynsä; esihenkilön linkissä koko tiimin esittelyt, ja välittäjän nimi on jokaisen otsikossa.'),
+      warn('Google päättää, milloin se lukee linkin uudelleen: yleensä muutamassa tunnissa, joskus vasta päivän päästä. Tarvitsetko yhden esittelyn heti? Käytä silloin esittelyn kalenteripainiketta.'),
+      p('Calendly on varaussivu, jolla ostaja valitsee vapaan ajan välittäjän kalenterista. Esihenkilö yhdistää Calendly-tilisi kerran kohdassa Asetukset → Kalenteri.'),
+      terms(
+        ['Ostaja varaa', 'Esittely ilmestyy oikealle yhteystiedolle välittäjän ja ajan kanssa, ja liidi lasketaan liidiraportissa tavoitetuksi.'],
+        ['Uusi ihminen varaa', 'Hän tulee kohtaan Uudet liidit, valmiiksi annettuna sille välittäjälle, jolta hän varasi. Hänen Calendly-vastauksensa täyttävät ostajakysymyksesi.'],
+        ['Siirto tai peruutus', 'Esittely siirtyy uuteen aikaan, tai se merkitään perutuksi syyn kanssa.'],
+        ['Linkin lähettäminen', 'Valitse WhatsApp-viestissä ”Lisää varauslinkkini” tai kopioi linkki liidiraportin kalenteripainikkeella. Ostajan nimi ja sähköposti ovat jo valmiina.'],
+      ),
+      tip('Varaukset tulevat itsestään vain maksullisella Calendly-paketilla (Standard tai parempi). Ilmaisessa paketissa varauslinkit toimivat silti, mutta lisäät esittelyn itse. Välittäjät yhdistetään sähköpostilla, joten käytä samaa sähköpostia Calendlyssä ja täällä.'),
     ],
   },
   reverse: {
@@ -266,13 +339,14 @@ export const fi: GuideTranslation = {
     blocks: [
       p('Vain toimiston omistaja tai esihenkilö voi muuttaa näitä. Välittäjät voivat katsoa.'),
       terms(
-        ['Yleiset', 'Näkevätkö välittäjät toistensa ostajat? Kuka saa uudet ostajat verkkosivulta? Monenko päivän jälkeen ostaja on ”unohdettu”? Esittelymuistutukset, päivittäisen sähköpostin aika, kuuman ostajan pisteraja, kohdelinkkien osoite ja ostajan sivun osoite.'],
+        ['Yleiset', 'Näkevätkö välittäjät toistensa ostajat? Kuka saa uudet ostajat verkkosivulta? Monenko päivän jälkeen ostaja on ”unohdettu”? Esittelymuistutukset, päivittäisen sähköpostin aika, kuuman ostajan pisteraja, monenko tunnin jälkeen liidi ilman soittoa muuttuu punaiseksi, kohdelinkkien osoite ja ostajan sivun osoite.'],
         ['Vaiheet', 'Taulusi sarakkeet. Lisää, nimeä uudelleen, väritä, järjestä ja aseta kunkin todennäköisyys-%. Kun poistat vaiheen, sinulta kysytään, minne sen ostajat siirretään.'],
-        ['Kysymykset', 'Omat kysymyksesi ostajista. Voit näyttää ne myös verkkosivun toivelistalomakkeella ja kääntää ne.'],
+        ['Kysymykset', 'Omat kysymyksesi ostajista. Voit näyttää ne verkkosivun toivelistalomakkeella ja liidiraportin sarakkeina, ja kääntää ne. Muotoile vaihtoehdot kuten Facebook-lomakkeessasi, niin sen vastaukset täyttyvät itsestään.'],
         ['Sopivuuden painot', 'Kuinka paljon kukin toive vaikuttaa pisteisiin, 0:sta (ei lainkaan) 10:een (paljon). Voit antaa yhdelle ominaisuudelle, kuten merinäköalalle, oman painon.'],
         ['Hälytykset ja läheltä piti -kohteet', 'Kytke hälytykset päälle, valitse ”heti” tai ”päivittäinen kooste” ja kuinka suuri hinnanalennuksen pitää olla. Aseta, kuinka paljon yli budjetin tai kuinka kaukana läheltä piti -kohde saa olla.'],
         ['Ylläpito', 'Etsi mahdolliset kaksoiskappaleet (sama puhelin tai nimi) ja yhdistä ne. Yhdistäminen säilyttää kaiken; mitään ei katoa.'],
-        ['Facebook ja Instagram', 'Yhdistä mainostesi liidilomakkeet, niin uusista liideistä tulee ostajia 15 minuutin välein.'],
+        ['Facebook ja Instagram', 'Yhdistä mainostesi liidilomakkeet, niin uudet liidit tulevat sisään 15 minuutin välein.'],
+        ['Kalenteri', 'Jokaisen oma kalenterilinkki ja (esihenkilöille) Calendly-yhteys.'],
       ),
       warn('Täytä ensin ”Kohdelinkit sähköposteissa”. Ilman sitä sähköpostit eivät voi linkittää kohdesivuillesi.'),
     ],
@@ -332,6 +406,9 @@ export const fi: GuideTranslation = {
         ['Lisäsin saman ihmisen kahdesti.', 'Käytä kohtaa Asetukset → Ylläpito → Mahdolliset kaksoiskappaleet ja yhdistä heidät.'],
         ['Miten poistan ostajan?', 'Tietosuoja → Poista henkilötiedot (esihenkilöt). Ostaja poistuu listoiltasi pysyvästi.'],
         ['Ostaja sanoo saavansa liikaa sähköposteja.', 'Tietosuoja → Peru kohdesähköpostien tilaus.'],
+        ['Kalenterilinkkini ei näytä yhtään esittelyä.', 'Välittäjän linkissä ovat vain esittelyt, joissa hän on välittäjänä (katso ”Välittäjä:” esittelyn alla). Googlella voi mennä jopa päivä ennen kuin se lukee linkin uudelleen.'],
+        ['Calendly-varaus ei tullut perille.', 'Kohdassa Asetukset → Kalenteri pitää lukea ”Varaukset tulevat itsestään” (maksullinen Calendly-paketti), ja välittäjän Calendly-sähköpostin pitää olla sama kuin hänen sähköpostinsa täällä.'],
+        ['Miksi liidi on punainen liidiraportissa?', 'Kukaan ei soittanut, lähettänyt WhatsAppia tai sähköpostia hänelle ajoissa. Kirjaa puhelu (vaikka ”ei vastausta”), niin se muuttuu.'],
       ),
       tip('Etkö vieläkään pääse eteenpäin? Avaa tukipyyntö kohdassa Tukipyynnöt ja kerro meille ostajan numero verkko-osoitteesta.'),
     ],

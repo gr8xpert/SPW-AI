@@ -44,8 +44,8 @@ export class PropertyTypeController {
   }
 
   @Get()
-  async findAll(@CurrentTenant() tenantId: number) {
-    return this.propertyTypeService.findAll(tenantId);
+  async findAll(@CurrentTenant() tenantId: number, @Query('includeInactive') includeInactive?: string) {
+    return this.propertyTypeService.findAll(tenantId, includeInactive === '1' || includeInactive === 'true');
   }
 
   @Put('reorder')
