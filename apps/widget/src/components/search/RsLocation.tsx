@@ -712,14 +712,30 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config, v
   );
 }
 
+/* ── Several places in one field (variations 3 and 4) ── */
+
+// The tick boxes mean what they show: a click ticks or unticks a place and
+// the list stays open, so a visitor can pick several (10-26, Monarch).
+function toggleId(ids: number[], id: number): number[] {
+  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+}
+
+// The closed field: the one place picked, else "{n} selected".
+function pickedText(locations: Location[], ids: number[], empty: string, nSelected: string): string {
+  if (!ids.length) return empty;
+  if (ids.length === 1) return locations.find((l) => l.id === ids[0])?.name ?? empty;
+  return nSelected.replace('{n}', String(ids.length));
+}
+
 /* ── Variation 3: Hierarchical with checkboxes ── */
 
-function Hierarchical({ locations, value, onChange, placeholder, allLabel, locked }: {
+function Hierarchical({ locations, value, onChange, placeholder, allLabel, nSelected, locked }: {
   locations: Location[];
-  value: number | undefined;
-  onChange: (id: number | undefined) => void;
+  value: number[];
+  onChange: (ids: number[]) => void;
   placeholder: string;
   allLabel: string;
+  nSelected: string;
   locked: boolean;
 }) {
   const facets = useFacets();
@@ -727,7 +743,6 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
   const tree = useMemo(() => buildTree(locations), [locations]);
-  const selected = locations.find(l => l.id === value);
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => scroll.attach());
@@ -751,7 +766,7 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
         onClick={() => !locked && setOpen(!open)}
         style="text-align: left"
       >
-        {selected ? selected.name : (placeholder || allLabel)}
+        {pickedText(locations, value, placeholder || allLabel, nSelected)}
       </button>
       {open && (
         <RsFloating anchorRef={ref}>
@@ -759,22 +774,22 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
             <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
             <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
               <li
-                class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
-                onClick={() => { onChange(undefined); setOpen(false); }}
+                class={`rs-dropdown__item${!value.length ? ' rs-dropdown__item--selected' : ''}`}
+                onClick={() => { onChange([]); setOpen(false); }}
               >
-                <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                  {!value && <CheckIcon />}
+                <span class={`rs-cascading-v2__checkbox${!value.length ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                  {!value.length && <CheckIcon />}
                 </span>
                 <span>{allLabel}</span>
               </li>
               {tree.map(loc => (
                 <li
                   key={loc.id}
-                  class={`rs-dropdown__item rs-dropdown__item--indent-${LEVEL_INDENT[loc.level] ?? 0}${loc.id === value ? ' rs-dropdown__item--selected' : ''}`}
-                  onClick={() => { onChange(loc.id); setOpen(false); }}
+                  class={`rs-dropdown__item rs-dropdown__item--indent-${LEVEL_INDENT[loc.level] ?? 0}${value.includes(loc.id) ? ' rs-dropdown__item--selected' : ''}`}
+                  onClick={() => onChange(toggleId(value, loc.id))}
                 >
-                  <span class={`rs-cascading-v2__checkbox${loc.id === value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                    {loc.id === value && <CheckIcon />}
+                  <span class={`rs-cascading-v2__checkbox${value.includes(loc.id) ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                    {value.includes(loc.id) && <CheckIcon />}
                   </span>
                   <span>{loc.name}</span>
                   <span class="rs-dropdown__meta">
@@ -796,12 +811,13 @@ function Hierarchical({ locations, value, onChange, placeholder, allLabel, locke
 
 /* ── Variation 4: Collapsible tree dropdown ── */
 
-function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked, placeholder }: {
+function CollapsibleTree({ locations, picked, value, onChange, allLabel, nSelected, locked, placeholder }: {
   locations: Location[];
   picked: { top: Set<string>; below: Set<string> } | null;
-  value: number | undefined;
-  onChange: (id: number | undefined) => void;
+  value: number[];
+  onChange: (ids: number[]) => void;
   allLabel: string;
+  nSelected: string;
   locked: boolean;
   placeholder: string;
 }) {
@@ -810,7 +826,6 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
-  const selected = locations.find(l => l.id === value);
 
   // Without picked levels: the whole tree from its roots. With them: the top
   // levels as roots, each with the picked lower levels found under it (at any
@@ -872,13 +887,13 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
   function renderNode(loc: Location, depth: number) {
     const children = childrenOf.get(loc.id);
     const isExpanded = expanded.has(loc.id);
-    const isSelected = loc.id === value;
+    const isSelected = value.includes(loc.id);
 
     return (
       <li key={loc.id}>
         <div
           class={`rs-dropdown__item rs-dropdown__item--indent-${depth}${isSelected ? ' rs-dropdown__item--selected' : ''}`}
-          onClick={() => { onChange(loc.id); setOpen(false); }}
+          onClick={() => onChange(toggleId(value, loc.id))}
         >
           {children && children.length > 0 ? (
             <button
@@ -921,7 +936,7 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
         onClick={() => !locked && setOpen(!open)}
         style="text-align: left"
       >
-        {selected ? selected.name : (placeholder || allLabel)}
+        {pickedText(locations, value, placeholder || allLabel, nSelected)}
       </button>
       {open && (
         <RsFloating anchorRef={ref}>
@@ -929,12 +944,12 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, locked,
             <ScrollArrow direction="up" visible={scroll.canUp} scroll={scroll} />
             <ul class="rs-dropdown__list" ref={scroll.listRef as any}>
               <li
-                class={`rs-dropdown__item${!value ? ' rs-dropdown__item--selected' : ''}`}
-                onClick={() => { onChange(undefined); setOpen(false); }}
+                class={`rs-dropdown__item${!value.length ? ' rs-dropdown__item--selected' : ''}`}
+                onClick={() => { onChange([]); setOpen(false); }}
               >
                 <span class="rs-tree__spacer" />
-                <span class={`rs-cascading-v2__checkbox${!value ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                  {!value && <CheckIcon />}
+                <span class={`rs-cascading-v2__checkbox${!value.length ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                  {!value.length && <CheckIcon />}
                 </span>
                 <span>{allLabel}</span>
               </li>
@@ -973,6 +988,8 @@ export default function RsLocation({ variation = 1 }: Props) {
   }, [setFilter]);
 
   const label = t('location_placeholder', 'Location');
+  const nSelected = t('location_n_selected', '{n} selected');
+  const multiValue = filters.locationIds ?? (filters.locationId != null ? [filters.locationId] : []);
   const picked = useMemo(() => pickedLevels(widgetConfig.locationSearchConfig), [widgetConfig.locationSearchConfig]);
   // 2–3 dropdowns switch any design to the cascading boxes; one keeps the
   // design's own field (search box, tree…).
@@ -1005,10 +1022,11 @@ export default function RsLocation({ variation = 1 }: Props) {
       {!cascading && variation === 3 && (
         <Hierarchical
           locations={locations}
-          value={filters.locationId}
-          onChange={handleChange}
+          value={multiValue}
+          onChange={handleMultiChange}
           placeholder={placeholder}
           allLabel={allLabel}
+          nSelected={nSelected}
           locked={locked}
         />
       )}
@@ -1016,9 +1034,10 @@ export default function RsLocation({ variation = 1 }: Props) {
         <CollapsibleTree
           locations={locations}
           picked={picked}
-          value={filters.locationId}
-          onChange={handleChange}
+          value={multiValue}
+          onChange={handleMultiChange}
           allLabel={allLabel}
+          nSelected={nSelected}
           locked={locked}
           placeholder={placeholder}
         />
