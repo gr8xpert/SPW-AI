@@ -1673,6 +1673,16 @@ button.rs-cascading-v2__tab--has-selection:not(.rs-cascading-v2__tab--active) {
   padding-left: 28px;
 }
 
+/* A box showing two levels (Municipality + Town): children indented under
+   their parent, as in the Property Type list. */
+.rs-cascading-v2__item.rs-cascading-v2__item--depth-1 { padding-left: 34px; }
+.rs-cascading-v2__item.rs-cascading-v2__item--depth-2 { padding-left: 56px; }
+.rs-cascading-v2__item.rs-cascading-v2__item--depth-3 { padding-left: 78px; }
+.rs-cascading-v2__item--child.rs-cascading-v2__item--depth-1 { padding-left: 50px; }
+.rs-cascading-v2__item--child.rs-cascading-v2__item--depth-2 { padding-left: 72px; }
+.rs-cascading-v2__item--child.rs-cascading-v2__item--depth-3 { padding-left: 94px; }
+.rs-cascading-v2__list:has(.rs-cascading-v2__item--depth-1) .rs-cascading-v2__item--root { font-weight: 500; }
+
 .rs-cascading-v2__checkbox {
   width: 18px;
   height: 18px;

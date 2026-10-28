@@ -113,10 +113,132 @@ function pickedLevels(config?: DropdownConfig): { top: Set<string>; below: Set<s
   const top = new Set(config?.dropdown1?.levels ?? []);
   if (!top.size) return null;
   const below = new Set<string>();
-  for (const d of [config?.dropdown2, config?.dropdown3]) {
-    if (d && d.visible !== false) for (const l of d.levels ?? []) if (!top.has(l)) below.add(l);
-  }
+  // With a box count set, only the boxes switched on count: one box with
+  // Area + Municipality shows just those, not box 2's towns as well.
+  const count = config?.count;
+  [config?.dropdown2, config?.dropdown3].forEach((d, i) => {
+    const on = count ? i + 2 <= count : d?.visible !== false;
+    if (d && on) for (const l of d.levels ?? []) if (!top.has(l)) below.add(l);
+  });
   return { top, below };
+}
+
+interface TreeRow { loc: Location; depth: number }
+
+/**
+ * A dropdown's places as a tree among themselves, like the Property Type
+ * list: each place sits under its nearest ancestor that is also in the list
+ * (a town under its municipality when a box shows Municipality + Town),
+ * indented by depth. A place with no such ancestor is a root. Before, a box
+ * with two levels listed them flat, so parents and children read as equals.
+ */
+function levelTree(items: Location[], all: Location[], rank: Map<number, number>): { rows: TreeRow[]; childrenOf: Map<number, Location[]> } {
+  const inList = new Set(items.map((l) => l.id));
+  const byId = new Map(all.map((l) => [l.id, l]));
+  const childrenOf = new Map<number, Location[]>();
+  const roots: Location[] = [];
+  for (const loc of items) {
+    let p = loc.parentId != null ? byId.get(loc.parentId) : undefined;
+    const seen = new Set<number>();
+    while (p && !inList.has(p.id) && !seen.has(p.id)) {
+      seen.add(p.id);
+      p = p.parentId != null ? byId.get(p.parentId) : undefined;
+    }
+    if (p && inList.has(p.id) && p.id !== loc.id) {
+      if (!childrenOf.has(p.id)) childrenOf.set(p.id, []);
+      childrenOf.get(p.id)!.push(loc);
+    } else {
+      roots.push(loc);
+    }
+  }
+  const byRank = (a: Location, b: Location) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0);
+  roots.sort(byRank);
+  for (const list of childrenOf.values()) list.sort(byRank);
+  const rows: TreeRow[] = [];
+  const placed = new Set<number>();
+  const walk = (loc: Location, depth: number) => {
+    if (placed.has(loc.id)) return; // a cycle in the data must not hang the page
+    placed.add(loc.id);
+    rows.push({ loc, depth });
+    for (const child of childrenOf.get(loc.id) ?? []) walk(child, depth + 1);
+  };
+  for (const root of roots) walk(root, 0);
+  for (const loc of items) if (!placed.has(loc.id)) rows.push({ loc, depth: 0 });
+  return { rows, childrenOf };
+}
+
+// A place and everything under it in the same dropdown.
+function branchIds(id: number, childrenOf: Map<number, Location[]>): number[] {
+  const out: number[] = [];
+  const stack = [id];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (out.includes(cur)) continue;
+    out.push(cur);
+    for (const c of childrenOf.get(cur) ?? []) stack.push(c.id);
+  }
+  return out;
+}
+
+function parentMap(childrenOf: Map<number, Location[]>): Map<number, number> {
+  const parentOf = new Map<number, number>();
+  for (const [pid, kids] of childrenOf) for (const k of kids) parentOf.set(k.id, pid);
+  return parentOf;
+}
+
+// The selection holds only the top picks: a ticked parent stands for its whole
+// branch (the API searches a place with everything under it), so the URL stays
+// short. A place shows ticked when it, or a parent above it, is picked.
+function isTicked(id: number, selected: Set<number>, parentOf: Map<number, number>): boolean {
+  const seen = new Set<number>();
+  for (let cur: number | undefined = id; cur != null && !seen.has(cur); cur = parentOf.get(cur)) {
+    if (selected.has(cur)) return true;
+    seen.add(cur);
+  }
+  return false;
+}
+
+// Ticking a parent ticks all its children. Unticking a child of a ticked
+// parent keeps its brothers and sisters ticked, the parent no longer whole.
+function toggleBranch(selected: Set<number>, id: number, childrenOf: Map<number, Location[]>): Set<number> {
+  const parentOf = parentMap(childrenOf);
+  const next = new Set(selected);
+  if (next.has(id)) {
+    next.delete(id);
+    return next;
+  }
+  // The picked parent this place is ticked through, if any.
+  const path = [id];
+  let picked: number | undefined;
+  for (let p = parentOf.get(id); p != null && !path.includes(p); p = parentOf.get(p)) {
+    path.push(p);
+    if (next.has(p)) { picked = p; break; }
+  }
+  if (picked != null) {
+    next.delete(picked);
+    // Down from that parent: every branch off the path stays ticked.
+    for (let i = path.length - 1; i > 0; i--) {
+      for (const c of childrenOf.get(path[i]) ?? []) if (c.id !== path[i - 1]) next.add(c.id);
+    }
+    return next;
+  }
+  for (const b of branchIds(id, childrenOf)) next.delete(b);
+  next.add(id);
+  return next;
+}
+
+// While searching, a match keeps its place and its parents in the tree.
+function filterRows(rows: TreeRow[], childrenOf: Map<number, Location[]>, query: string): TreeRow[] {
+  const q = normalizeSearch(query.trim());
+  if (!q) return rows;
+  const parentOf = new Map<number, number>();
+  for (const [pid, kids] of childrenOf) for (const k of kids) parentOf.set(k.id, pid);
+  const keep = new Set<number>();
+  for (const { loc } of rows) {
+    if (!normalizeSearch(loc.name).includes(q)) continue;
+    for (let id: number | undefined = loc.id; id != null && !keep.has(id); id = parentOf.get(id)) keep.add(id);
+  }
+  return rows.filter((r) => keep.has(r.loc.id));
 }
 
 function getDescendantIds(locations: Location[], parentIds: Set<number>): Set<number> {
@@ -566,41 +688,41 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config, v
   const allSelected = [selected1, selected2, selected3];
   const allSetters = [setSelected1, setSelected2, setSelected3];
 
+  const currentItems = activeTab != null ? allItems[activeTab] : [];
+  const currentSelected = activeTab != null ? allSelected[activeTab] : new Set<number>();
+
+  // The open box's places as a tree (Municipality + Town: towns under their
+  // municipality), the way the Property Type list shows its children.
+  const tree = useMemo(() => levelTree(currentItems, locations, rank), [currentItems, locations, rank]);
+  const filtered = useMemo(() => filterRows(tree.rows, tree.childrenOf, search), [tree, search]);
+  const treeParents = useMemo(() => parentMap(tree.childrenOf), [tree]);
+
   const toggleItem = (tab: number, id: number) => {
-    const next = new Set(allSelected[tab]);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    allSetters[tab](next);
+    allSetters[tab](toggleBranch(allSelected[tab], id, tree.childrenOf));
 
     if (tab === 0) { setSelected2(new Set()); setSelected3(new Set()); }
     if (tab === 1) { setSelected3(new Set()); }
   };
 
-  const currentItems = activeTab != null ? allItems[activeTab] : [];
-  const currentSelected = activeTab != null ? allSelected[activeTab] : new Set<number>();
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return currentItems;
-    const q = normalizeSearch(search);
-    return currentItems.filter(l => normalizeSearch(l.name).includes(q));
-  }, [currentItems, search]);
-
+  // Boxes 2 and 3 group their top places under the place they belong to
+  // (towns under "Marbella"); each group keeps its own children nested.
   const groupedItems = useMemo(() => {
-    if (activeTab === 0 || activeTab === null) return [{ parent: null as Location | null, items: filtered }];
-
-    const groups: { parent: Location | null; items: Location[] }[] = [];
-    const parentIdSet = new Set(filtered.map(l => l.parentId).filter((id): id is number => id != null));
-
-    for (const pid of parentIdSet) {
-      const parent = locations.find(l => l.id === pid) ?? null;
-      const children = filtered.filter(l => l.parentId === pid);
-      if (children.length > 0) groups.push({ parent, items: children });
+    if (activeTab === 0 || activeTab === null) return [{ parent: null as Location | null, rows: filtered }];
+    const byId = new Map(locations.map((l) => [l.id, l]));
+    const groups = new Map<number, { parent: Location | null; rows: TreeRow[] }>();
+    let current: { parent: Location | null; rows: TreeRow[] } | null = null;
+    for (const row of filtered) {
+      if (row.depth === 0 || !current) {
+        const pid = row.loc.parentId ?? 0;
+        if (!groups.has(pid)) groups.set(pid, { parent: byId.get(pid) ?? null, rows: [] });
+        current = groups.get(pid)!;
+      }
+      current.rows.push(row);
     }
-
-    const orphans = filtered.filter(l => !l.parentId);
-    if (orphans.length > 0) groups.unshift({ parent: null, items: orphans });
-
-    return groups.length > 0 ? groups : [{ parent: null as Location | null, items: filtered }];
+    const list = [...groups.values()];
+    // Places with no parent first, as before.
+    list.sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0));
+    return list.length > 0 ? list : [{ parent: null as Location | null, rows: filtered }];
   }, [activeTab, filtered, locations]);
 
   const formatTabLabel = (count: number, dd: DropdownDef) => {
@@ -677,14 +799,14 @@ function CascadingMultiSelect({ locations, value, onChange, locked, t, config, v
                       <div class="rs-cascading-v2__group-header">{group.parent.name}</div>
                     )}
                     <ul>
-                      {group.items.map(loc => (
+                      {group.rows.map(({ loc, depth }) => (
                         <li
                           key={loc.id}
-                          class={`rs-cascading-v2__item${group.parent ? ' rs-cascading-v2__item--child' : ''}`}
+                          class={`rs-cascading-v2__item${group.parent ? ' rs-cascading-v2__item--child' : ''}${depth > 0 ? ` rs-cascading-v2__item--depth-${Math.min(depth, 3)}` : ' rs-cascading-v2__item--root'}`}
                           onClick={() => toggleItem(activeTab, loc.id)}
                         >
-                          <span class={`rs-cascading-v2__checkbox${currentSelected.has(loc.id) ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
-                            {currentSelected.has(loc.id) && <CheckIcon />}
+                          <span class={`rs-cascading-v2__checkbox${isTicked(loc.id, currentSelected, treeParents) ? ' rs-cascading-v2__checkbox--checked' : ''}`}>
+                            {isTicked(loc.id, currentSelected, treeParents) && <CheckIcon />}
                           </span>
                           <span class="rs-cascading-v2__label">{loc.name}</span>
                           <span class="rs-dropdown__meta">
@@ -823,39 +945,26 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, nSelect
 }) {
   const facets = useFacets();
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
   const scroll = useScrollArrows();
 
-  // Without picked levels: the whole tree from its roots. With them: the top
-  // levels as roots, each with the picked lower levels found under it (at any
-  // depth); a lower place with no picked ancestor becomes a root itself.
+  // Without picked levels: the whole tree from its roots. With them: only the
+  // picked levels, each place under its nearest picked ancestor (Area +
+  // Municipality: municipalities under their area), the rest as roots.
   const { roots, childrenOf } = useMemo(() => {
-    const rank = dashboardRank(locations);
-    const byRank = (a: Location, b: Location) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0);
-    const map = new Map<number, Location[]>();
-    const add = (parent: number, loc: Location) => {
-      if (!map.has(parent)) map.set(parent, []);
-      map.get(parent)!.push(loc);
-    };
-    let top: Location[];
-    if (!picked) {
-      top = locations.filter(l => !l.parentId);
-      for (const loc of locations) if (loc.parentId) add(loc.parentId, loc);
-    } else {
-      const byId = new Map(locations.map((l) => [l.id, l]));
-      top = locations.filter((l) => picked.top.has(l.level));
-      for (const loc of locations) {
-        if (!picked.below.has(loc.level)) continue;
-        let p = loc.parentId != null ? byId.get(loc.parentId) : undefined;
-        while (p && !picked.top.has(p.level) && !picked.below.has(p.level)) p = p.parentId != null ? byId.get(p.parentId) : undefined;
-        if (p) add(p.id, loc);
-        else top.push(loc);
-      }
-    }
-    for (const children of map.values()) children.sort(byRank);
-    return { roots: top.sort(byRank), childrenOf: map };
+    const items = picked ? locations.filter((l) => picked.top.has(l.level) || picked.below.has(l.level)) : locations;
+    const { rows, childrenOf: map } = levelTree(items, locations, dashboardRank(locations));
+    return { roots: rows.filter((r) => r.depth === 0).map((r) => r.loc), childrenOf: map };
   }, [locations, picked]);
+  const parentOf = useMemo(() => parentMap(childrenOf), [childrenOf]);
+  const valueSet = useMemo(() => new Set(value), [value]);
+
+  // Picked levels open fully, like the Property Type list; the whole
+  // unpicked tree starts folded, as before (it can run to hundreds of places).
+  const [expanded, setExpanded] = useState<Set<number>>(() => (picked ? new Set(childrenOf.keys()) : new Set()));
+  useEffect(() => {
+    if (picked) setExpanded(new Set(childrenOf.keys()));
+  }, [childrenOf]);
 
   const toggleExpand = (e: MouseEvent, id: number) => {
     e.stopPropagation();
@@ -887,13 +996,13 @@ function CollapsibleTree({ locations, picked, value, onChange, allLabel, nSelect
   function renderNode(loc: Location, depth: number) {
     const children = childrenOf.get(loc.id);
     const isExpanded = expanded.has(loc.id);
-    const isSelected = value.includes(loc.id);
+    const isSelected = isTicked(loc.id, valueSet, parentOf);
 
     return (
       <li key={loc.id}>
         <div
-          class={`rs-dropdown__item rs-dropdown__item--indent-${depth}${isSelected ? ' rs-dropdown__item--selected' : ''}`}
-          onClick={() => onChange(toggleId(value, loc.id))}
+          class={`rs-dropdown__item rs-dropdown__item--indent-${Math.min(depth, 4)}${isSelected ? ' rs-dropdown__item--selected' : ''}`}
+          onClick={() => onChange([...toggleBranch(new Set(value), loc.id, childrenOf)])}
         >
           {children && children.length > 0 ? (
             <button
