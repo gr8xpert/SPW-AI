@@ -7,6 +7,8 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { ImpersonationBanner } from '@/components/layout/impersonation-banner';
 import { SuperAdminRedirectGuard } from '@/components/layout/super-admin-redirect-guard';
 import { MfaSetupGuard } from '@/components/layout/mfa-setup-guard';
+import { AgentRouteGuard } from '@/components/layout/agent-route-guard';
+import { AGENT_ROLE } from '@/lib/agent-access';
 import { I18nProvider } from '@/i18n/i18n-provider';
 import { toDashboardLanguage } from '@/i18n/languages';
 
@@ -37,6 +39,7 @@ export default async function DashboardLayout({
   }
 
   const userRole = session.user.role as string;
+  const isAgent = userRole === AGENT_ROLE;
 
   return (
     // The user's dashboard language from the session: the first render is
@@ -48,6 +51,7 @@ export default async function DashboardLayout({
           impersonating (e.g. a user tampered with cookies via devtools). */}
       <SuperAdminRedirectGuard />
       <MfaSetupGuard />
+      <AgentRouteGuard isAgent={isAgent} />
       <ImpersonationBanner />
       <Sidebar userRole={userRole} />
       <DashboardShell>

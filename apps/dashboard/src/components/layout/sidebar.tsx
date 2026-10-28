@@ -38,6 +38,7 @@ import { useDashboardAddons, type DashboardAddonKey, type TenantTier } from '@/h
 import { LockedFeatureDialog } from '@/components/locked-feature-dialog';
 import { useNewLeadCount } from '@/app/(dashboard)/dashboard/leads/use-new-leads';
 import { useCommonText } from '@/i18n/common';
+import { AGENT_HOME, AGENT_ROLE } from '@/lib/agent-access';
 import type { CommonText } from '@/i18n/common/en';
 
 interface NavItem {
@@ -292,6 +293,7 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
   const role = userRole || session?.user?.role;
   const isSuperAdmin = role === 'super_admin';
   const isWebmaster = role === 'webmaster';
+  const isAgent = role === AGENT_ROLE;
   const { addons, tier, known } = useDashboardAddons();
   const [lockedDialog, setLockedDialog] = useState<{
     name: string;
@@ -317,7 +319,7 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
       {/* Logo */}
       <div className="h-14 flex items-center px-4 border-b border-border/60">
         <Link
-          href={isWebmaster ? '/dashboard/time-tracking' : '/dashboard'}
+          href={isWebmaster ? '/dashboard/time-tracking' : isAgent ? AGENT_HOME : '/dashboard'}
           className="flex items-center gap-2.5 overflow-hidden"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
@@ -343,10 +345,12 @@ export function Sidebar({ userRole }: { userRole?: string } = {}) {
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {isWebmaster ? (
           <NavSection title={t.sections.work} items={webmasterWork} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
+        ) : isAgent ? (
+          <NavSection title={t.sections.marketing} items={marketingForAgents} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} badges={{ newLeads }} />
         ) : (
           <>
             <NavSection title={t.sections.main} items={navigation} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
-            <NavSection title={t.sections.marketing} items={role === 'user' ? marketingForAgents : marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} badges={{ newLeads }} />
+            <NavSection title={t.sections.marketing} items={marketing} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} badges={{ newLeads }} />
             <NavSection title={t.sections.integrations} items={integrations} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
             <NavSection title={t.sections.management} items={management} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />
             <NavSection title={t.sections.other} items={other} pathname={pathname} collapsed={collapsed} addons={addons} tier={tier} bypassTier={bypassTier} onLockedClick={setLockedDialog} />

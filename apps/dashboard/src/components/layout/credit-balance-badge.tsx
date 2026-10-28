@@ -25,7 +25,8 @@ export function CreditBalanceBadge() {
   const [loading, setLoading] = useState(true);
 
   const role = session?.user?.role as string | undefined;
-  const showChip = role === 'admin' || role === 'user';
+  // Credit hours are the manager's business; agents don't see Billing.
+  const showChip = role === 'admin';
 
   useEffect(() => {
     if (!showChip || !api.isReady) return;

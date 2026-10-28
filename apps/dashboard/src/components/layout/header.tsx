@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { CreditBalanceBadge } from './credit-balance-badge';
 import { LanguageSwitcher } from './language-switcher';
 import { useCommonText } from '@/i18n/common';
+import { AGENT_ROLE } from '@/lib/agent-access';
 
 export function Header() {
   const { data: session } = useSession();
@@ -65,12 +66,14 @@ export function Header() {
                 {t.profile}
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                {t.settings}
-              </Link>
-            </DropdownMenuItem>
+            {session?.user?.role !== AGENT_ROLE && (
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  {t.settings}
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
