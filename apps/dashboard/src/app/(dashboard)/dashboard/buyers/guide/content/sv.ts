@@ -207,6 +207,7 @@ export const sv: GuideTranslation = {
         ['Lägg till min bokningslänk', 'När din byrå använder Calendly lägger det här till din bokningssida, så att köparen själv väljer en tid.'],
       ),
       p('Varje meddelande du öppnar räknas som kontakt med köparen: det syns under Aktivitet och i Leadrapporten.'),
+      p('Meddelandet slutar med mäklarens namn, en WhatsApp-länk och e-post, så köparen når mäklaren med ett tryck. De kommer från Hantering → Mäklare (WhatsApp, annars telefon; offentlig e-post, annars inloggningsadressen). Lägg till landskoden på mäklarens nummer också.'),
       warn('Telefonnumret behöver landskoden (+34…, +31…). Utan den hittar WhatsApp inte personen; fönstret varnar dig.'),
     ],
   },

@@ -206,6 +206,7 @@ export const nl: GuideTranslation = {
         ['Mijn boekingslink toevoegen', 'Gebruikt je kantoor Calendly, dan zet dit je boekingspagina erbij, zodat de koper zelf een tijd kiest.'],
       ),
       p('Elk bericht dat je opent telt als contact met de koper: het staat in Activiteit en in het Leadrapport.'),
+      p('Het bericht eindigt met de naam van de makelaar, een WhatsApp-link en e-mail, zodat de koper de makelaar met één tik bereikt. Ze komen uit Beheer → Makelaars (WhatsApp, anders telefoon; openbaar e-mailadres, anders het login-adres). Zet ook bij de makelaar de landcode in het nummer.'),
       warn('Het telefoonnummer moet de landcode hebben (+34…, +31…). Zonder landcode vindt WhatsApp de persoon niet; het venster waarschuwt je.'),
     ],
   },

@@ -13,11 +13,14 @@ const card = (id: number, ref: string) => ({
   virtualTourUrl: null, image: null, location: null, propertyType: null,
 });
 
-function setup(lead: Record<string, unknown> = {}) {
-  const theLead = { id: 5, firstName: 'Ana', lastName: 'Ruiz', mobile: '+34 600 112 233', phone: null, language: 'en', erasedAt: null, unsubscribedAt: null, assignedToUser: { name: 'Sam' }, contact: null, ...lead };
+const sam = { id: 8, name: 'Sam', email: 'sam@conte.test', phone: '+34 611 222 333', whatsapp: null, publicEmail: null };
+
+function setup(lead: Record<string, unknown> = {}, agent: Record<string, unknown> | null = sam) {
+  const theLead = { id: 5, firstName: 'Ana', lastName: 'Ruiz', mobile: '+34 600 112 233', phone: null, language: 'en', erasedAt: null, unsubscribedAt: null, assignedTo: 8, assignedToUser: { name: 'Sam' }, contact: null, ...lead };
   const tenant = { id: 1, name: 'Conte', settings: { buyerMatch: { propertyUrlPatterns: { default: 'https://site.test/property/{ref}' } } } };
   const deps = {
     tenantRepository: { findOne: jest.fn().mockResolvedValue(tenant) },
+    userRepository: { findOne: jest.fn().mockResolvedValue(agent) },
     buyers: { get: jest.fn().mockResolvedValue(theLead), log: jest.fn() },
     newLeads: { findNew: jest.fn().mockResolvedValue(theLead), latestForm: jest.fn().mockResolvedValue({ metadata: { reference: 'R1', title: 'Villa', pageUrl: 'https://site.test/r1' } }), setHandled: jest.fn() },
     sender: {
@@ -34,7 +37,7 @@ function setup(lead: Record<string, unknown> = {}) {
     calendly: { linkForLead: jest.fn().mockResolvedValue({ url: 'https://calendly.com/sam/viewing?utm_content=spm5x0123456789', agent: 'Sam' }) },
   };
   const svc = new BuyerWhatsAppService(
-    deps.tenantRepository as never, deps.buyers as never, deps.newLeads as never, deps.sender as never, deps.suggestions as never,
+    deps.tenantRepository as never, deps.userRepository as never, deps.buyers as never, deps.newLeads as never, deps.sender as never, deps.suggestions as never,
     deps.mail as never, deps.formMail as never, deps.tracking as never, deps.pages as never, deps.viewings as never, deps.tasks as never,
     deps.calendly as never,
   );
@@ -60,7 +63,7 @@ describe('BuyerWhatsAppService', () => {
     expect(out.text).toContain('*Villa R11* · ');
     expect(out.text).toContain('https://site.test/property/R11');
     expect(out.text).toContain('All your selected properties: https://site.test/me/abc');
-    expect(out.text.endsWith('Sam · Conte Estates')).toBe(true);
+    expect(out.text.endsWith('Sam\n📱 https://wa.me/34611222333\n✉️ sam@conte.test')).toBe(true);
     expect(out.phones[0].digits).toBe('34600112233');
     expect(deps.tracking.createSend).not.toHaveBeenCalled();
     expect(deps.buyers.log).not.toHaveBeenCalled();
@@ -77,6 +80,21 @@ describe('BuyerWhatsAppService', () => {
     expect(deps.suggestions.markSent).toHaveBeenCalledWith(1, 7, 5, [11, 12]);
     expect(deps.tracking.record).toHaveBeenCalledWith(expect.objectContaining({ event: 'sent', source: 'whatsapp', sendId: 99 }));
     expect(deps.buyers.log).toHaveBeenCalledWith(5, 7, 'suggestion_sent', 'R11, R12', expect.objectContaining({ channel: 'whatsapp', sendId: 99 }), true);
+  });
+
+  it('signs with the agent WhatsApp number and public email, never a no-login placeholder', async () => {
+    const { svc } = setup({}, { ...sam, whatsapp: '0034 699 000 111', email: 'agent-1-0123456789ab@no-login.invalid' });
+    const out = await svc.preview(1, viewer, 5, { kind: 'follow_up' }, 'buyer');
+    expect(out.text.endsWith('Sam\n📱 https://wa.me/34699000111')).toBe(true);
+    const pub = await setup({}, { ...sam, publicEmail: 'sales@conte.test' }).svc.preview(1, viewer, 5, { kind: 'follow_up' }, 'buyer');
+    expect(pub.text).toContain('✉️ sales@conte.test');
+    expect(pub.text).not.toContain('sam@conte.test');
+  });
+
+  it('signs as the sender when the lead has no agent yet', async () => {
+    const { svc, deps } = setup({ assignedTo: null, assignedToUser: null });
+    await svc.preview(1, viewer, 5, { kind: 'enquiry' }, 'newLead');
+    expect(deps.userRepository.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 7, tenantId: 1 } }));
   });
 
   it('uses a typed-in number over the contact one', async () => {

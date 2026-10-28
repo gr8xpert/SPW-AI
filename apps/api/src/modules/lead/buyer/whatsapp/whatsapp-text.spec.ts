@@ -1,4 +1,4 @@
-import { buildWhatsAppText, cleanPhone, phonesOf, waUrl } from './whatsapp-text';
+import { agentSignature, buildWhatsAppText, cleanPhone, phonesOf, waUrl } from './whatsapp-text';
 
 describe('cleanPhone', () => {
   it('keeps the digits of an international number', () => {
@@ -68,5 +68,19 @@ describe('buildWhatsAppText', () => {
     const text = buildWhatsAppText({ message: 'x'.repeat(5000), properties: [{ title: 'A', price: '€1', link: 'https://x.test/a' }] });
     expect(text.length).toBeLessThanOrEqual(4000);
     expect(text).toContain('https://x.test/a');
+  });
+});
+
+describe('agentSignature', () => {
+  it('puts name, wa.me link and email on their own lines', () => {
+    expect(agentSignature({ name: 'Sam', whatsapp: '+34 611 222 333', phone: '952 000 000', email: 'sam@x.test' }, 'Conte')).toBe(
+      'Sam\n📱 https://wa.me/34611222333\n✉️ sam@x.test',
+    );
+  });
+  it('shows a number without a country code as typed', () => {
+    expect(agentSignature({ name: 'Sam', phone: '611 222 333' }, 'Conte')).toBe('Sam\n📱 611 222 333');
+  });
+  it('falls back to the company name', () => {
+    expect(agentSignature(null, 'Conte Estates')).toBe('Conte Estates');
   });
 });

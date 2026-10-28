@@ -206,6 +206,7 @@ export const de: GuideTranslation = {
         ['Meinen Buchungslink hinzufügen', 'Wenn Ihre Agentur Calendly nutzt, fügt das Ihre Buchungsseite hinzu. So wählt der Käufer selbst einen Termin.'],
       ),
       p('Jede Nachricht, die Sie öffnen, zählt als Kontakt mit dem Käufer: Sie erscheint unter Aktivität und im Lead-Bericht.'),
+      p('Die Nachricht endet mit dem Namen des Maklers, einem WhatsApp-Link und der E-Mail, so erreicht der Käufer den Makler mit einem Tipp. Die Angaben kommen aus Verwaltung → Makler (WhatsApp, sonst Telefon; öffentliche E-Mail, sonst Login-E-Mail). Geben Sie auch beim Makler die Ländervorwahl an.'),
       warn('Die Telefonnummer braucht die Ländervorwahl (+34…, +49…). Ohne sie findet WhatsApp die Person nicht; das Fenster warnt Sie.'),
     ],
   },

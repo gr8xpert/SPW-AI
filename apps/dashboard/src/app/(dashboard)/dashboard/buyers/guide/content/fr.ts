@@ -206,6 +206,7 @@ export const fr: GuideTranslation = {
         ['Ajouter mon lien de réservation', 'Si votre agence utilise Calendly, ajoute votre page de réservation pour que l’acheteur choisisse lui-même un créneau.'],
       ),
       p('Chaque message que vous ouvrez compte comme un contact avec l’acheteur : il apparaît dans Activité et dans le Rapport des leads.'),
+      p('Le message se termine par le nom de l’agent, un lien WhatsApp et son email : l’acheteur le contacte en un geste. Ils viennent de Gestion → Agents (WhatsApp, sinon téléphone ; email public, sinon email de connexion). Mettez aussi l’indicatif pays sur le numéro de l’agent.'),
       warn('Le numéro doit avoir l’indicatif pays (+34…, +31…). Sans lui, WhatsApp ne trouve pas la personne ; la fenêtre vous prévient.'),
     ],
   },

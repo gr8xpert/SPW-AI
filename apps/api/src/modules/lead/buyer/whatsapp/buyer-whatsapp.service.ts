@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { TenantSettings } from '@spm/shared';
-import { Lead, Tenant } from '../../../../database/entities';
+import { Lead, Tenant, User } from '../../../../database/entities';
+import { isPlaceholderEmail } from '../../../team/agent-profile';
 import { FormMailService, titleOf } from '../../form-mail.service';
 import { priceText } from '../../../property/price-text';
 import { BuyerService, assertNotErased } from '../buyer.service';
@@ -22,7 +23,7 @@ import { localDayTime } from '../alerts/alert-rules';
 import type { BuyerPropertyCard } from '../buyer-property-card';
 import type { WhatsAppDto } from '../dto/buyer-whatsapp.dto';
 import { CalendlyService } from '../calendar/calendly.service';
-import { buildWhatsAppText, cleanPhone, phonesOf, waUrl, type WhatsAppPhone, type WhatsAppPropertyLine } from './whatsapp-text';
+import { agentSignature, buildWhatsAppText, cleanPhone, phonesOf, waUrl, type WhatsAppAgent, type WhatsAppPhone, type WhatsAppPropertyLine } from './whatsapp-text';
 
 // Where the lead is opened from: a contact in Buyer Match (add-on), or the
 // New Leads inbox (every client; enquiry replies only).
@@ -58,6 +59,8 @@ export class BuyerWhatsAppService {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly buyers: BuyerService,
     private readonly newLeads: NewLeadService,
     private readonly sender: BuyerSendService,
@@ -179,7 +182,8 @@ export class BuyerWhatsAppService {
 
     const template = labels[TEMPLATE_KEYS[dto.kind]] || '';
     const message = dto.message?.trim() || greet(template, firstName, vars);
-    const agent = lead.assignedToUser?.name?.trim() || null;
+    // The buyer's agent, else whoever is sending (a new lead has no agent yet).
+    const agent = await this.agentOf(tenantId, lead.assignedTo || viewer.id);
     const company = this.formMail.sender(tenant).name;
     return {
       lead,
@@ -192,9 +196,22 @@ export class BuyerWhatsAppService {
       allSkipped,
       extra,
       booking,
-      signature: [agent, company].filter(Boolean).join(' · '),
+      signature: agentSignature(agent, company),
       phones: phonesOf({ mobile: lead.mobile, phone: lead.phone || lead.contact?.phone }),
     };
+  }
+
+  // Name and contact details for the signature. Never the placeholder email
+  // of a person without a login.
+  private async agentOf(tenantId: number, userId: number | null | undefined): Promise<WhatsAppAgent | null> {
+    if (!userId) return null;
+    const u = await this.userRepository.findOne({
+      where: { id: userId, tenantId },
+      select: ['id', 'name', 'email', 'phone', 'whatsapp', 'publicEmail'],
+    });
+    if (!u) return null;
+    const email = u.publicEmail?.trim() || (isPlaceholderEmail(u.email) ? null : u.email);
+    return { name: u.name, phone: u.phone, whatsapp: u.whatsapp, email };
   }
 
   private text(

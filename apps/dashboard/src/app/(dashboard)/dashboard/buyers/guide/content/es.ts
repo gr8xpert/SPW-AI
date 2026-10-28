@@ -206,6 +206,7 @@ export const es: GuideTranslation = {
         ['Añadir mi enlace de reserva', 'Si tu agencia usa Calendly, añade tu página de reservas para que el comprador elija la hora él mismo.'],
       ),
       p('Cada mensaje que abres cuenta como contacto con el comprador: sale en Actividad y en el Informe de leads.'),
+      p('El mensaje termina con el nombre del agente, un enlace de WhatsApp y su email, para que el comprador le contacte con un toque. Salen de Gestión → Agentes (WhatsApp, si no el teléfono; email público, si no el de acceso). Pon también el prefijo de país en el número del agente.'),
       warn('El teléfono necesita el prefijo de país (+34…, +31…). Sin él, WhatsApp no encuentra a la persona; la ventana te avisa.'),
     ],
   },

@@ -207,6 +207,7 @@ export const fi: GuideTranslation = {
         ['Lisää varauslinkkini', 'Kun toimistosi käyttää Calendlyä, tämä lisää varaussivusi, jotta ostaja valitsee ajan itse.'],
       ),
       p('Jokainen avaamasi viesti lasketaan yhteydenotoksi ostajaan: se näkyy Toiminta-välilehdellä ja liidiraportissa.'),
+      p('Viestin lopussa on välittäjän nimi, WhatsApp-linkki ja sähköposti, joten ostaja tavoittaa välittäjän yhdellä napautuksella. Tiedot tulevat kohdasta Hallinta → Välittäjät (WhatsApp, muuten puhelin; julkinen sähköposti, muuten kirjautumisosoite). Lisää maatunnus myös välittäjän numeroon.'),
       warn('Puhelinnumerossa pitää olla maatunnus (+34…, +31…). Ilman sitä WhatsApp ei löydä henkilöä; ikkuna varoittaa sinua.'),
     ],
   },

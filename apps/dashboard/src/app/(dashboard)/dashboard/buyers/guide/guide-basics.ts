@@ -249,6 +249,7 @@ export const BASICS: GuideSection[] = [
         ['Add my booking link', 'When your agency uses Calendly, this adds your booking page so the buyer picks a time themselves.'],
       ),
       p('Every message you open counts as contact with the buyer: it shows in Activity and on the Lead Report.'),
+      p('The message ends with the agent\'s name, a WhatsApp link and email, so the buyer can reach the agent in one tap. They come from Management → Agents (WhatsApp, else phone; public email, else login email). Add the country code to the agent\'s number too.'),
       warn('The phone number needs the country code (+34…, +31…). Without it WhatsApp cannot find the person; the window warns you.'),
     ],
   },

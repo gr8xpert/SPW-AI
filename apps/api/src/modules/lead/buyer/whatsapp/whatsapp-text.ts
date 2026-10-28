@@ -47,6 +47,28 @@ export function waUrl(digits: string, text: string): string {
   return `https://wa.me/${digits.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 }
 
+export interface WhatsAppAgent {
+  name?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  // Already the address to show (public email, else a real login email).
+  email?: string | null;
+}
+
+// The agent's name, then a wa.me link (one tap opens a chat with the agent)
+// and their email (WhatsApp turns it into a mail link). A number without a
+// country code can't make a wa.me link, so it's shown as typed. No agent
+// name: the company name.
+export function agentSignature(agent: WhatsAppAgent | null, company: string | null): string {
+  const lines: string[] = [agent?.name?.trim() || company?.trim() || ''];
+  const number = agent?.whatsapp?.trim() || agent?.phone?.trim() || '';
+  const clean = cleanPhone(number);
+  if (clean) lines.push(`📱 ${clean.international ? `https://wa.me/${clean.digits}` : number}`);
+  const email = agent?.email?.trim();
+  if (email) lines.push(`✉️ ${email}`);
+  return lines.filter(Boolean).join('\n');
+}
+
 // Message, then a block per property (*title* · price, link), extra lines,
 // the agent's signature. A long message is cut, never a link.
 export function buildWhatsAppText(i: {
