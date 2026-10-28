@@ -15,11 +15,13 @@ import {
   FavoritesController,
 } from './analytics.controller';
 import { TenantModule } from '../tenant/tenant.module';
+import { PropertyModule } from '../property/property.module';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
 @Module({
   imports: [
     TenantModule,
+    PropertyModule,
     TypeOrmModule.forFeature([
       PropertyView,
       SearchLog,

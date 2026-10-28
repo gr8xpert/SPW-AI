@@ -457,12 +457,15 @@ export class AnalyticsService {
     sessionId?: string,
     contactId?: number,
   ): Promise<Favorite[]> {
-    return this.favoriteRepository.find({
+    const favorites = await this.favoriteRepository.find({
       where: contactId
         ? { tenantId, contactId }
         : { tenantId, sessionId },
       relations: ['property'],
     });
+    // Only listings the website could show: a draft or withdrawn listing
+    // saved earlier (or by id guessing) never comes back through here.
+    return favorites.filter((f) => f.property?.status === 'active' && f.property?.isPublished);
   }
 
   // Saved Searches

@@ -19,6 +19,8 @@ import { TenantService } from '../tenant/tenant.service';
 import { TrackViewDto, TrackSearchDto, TrackPdfDto } from './dto';
 import { CurrentTenant, CurrentUser, Public } from '../../common/decorators';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
+import { PropertySearchService } from '../property/property-search.service';
+import { Tenant } from '../../database/entities';
 
 @Controller('api/dashboard/analytics')
 export class AnalyticsController {
@@ -182,23 +184,30 @@ export class FavoritesController {
   constructor(
     private readonly analyticsService: AnalyticsService,
     private readonly tenantService: TenantService,
+    private readonly propertySearchService: PropertySearchService,
   ) {}
 
-  private async resolveTenant(apiKey: string): Promise<number> {
+  private async resolveTenant(apiKey: string): Promise<Tenant> {
     if (!apiKey) throw new UnauthorizedException('API key required');
     const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
-    return tenant.id;
+    return tenant;
   }
 
+  // A website key only saves and returns listings that site shows.
   @Public()
   @Get()
   async getFavorites(
     @Headers('x-api-key') apiKey: string,
     @Query('sessionId') sessionId: string,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
-    return this.analyticsService.getFavorites(tenantId, sessionId);
+    const tenant = await this.resolveTenant(apiKey);
+    const favorites = await this.analyticsService.getFavorites(tenant.id, sessionId);
+    if (!tenant.keyScope) return favorites;
+    const inScope = await Promise.all(
+      favorites.map((f) => this.propertySearchService.isInKeyScope(tenant.id, f.propertyId, tenant.keyScope)),
+    );
+    return favorites.filter((_, i) => inScope[i]);
   }
 
   @Public()
@@ -208,8 +217,11 @@ export class FavoritesController {
     @Body('propertyId') propertyId: number,
     @Body('sessionId') sessionId: string,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
-    return this.analyticsService.addFavorite(tenantId, propertyId, sessionId);
+    const tenant = await this.resolveTenant(apiKey);
+    if (!(await this.propertySearchService.isInKeyScope(tenant.id, Number(propertyId), tenant.keyScope))) {
+      return null;
+    }
+    return this.analyticsService.addFavorite(tenant.id, propertyId, sessionId);
   }
 
   @Public()
@@ -219,7 +231,7 @@ export class FavoritesController {
     @Param('propertyId', ParseIntPipe) propertyId: number,
     @Query('sessionId') sessionId: string,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
+    const { id: tenantId } = await this.resolveTenant(apiKey);
     await this.analyticsService.removeFavorite(tenantId, propertyId, sessionId);
     return { success: true };
   }

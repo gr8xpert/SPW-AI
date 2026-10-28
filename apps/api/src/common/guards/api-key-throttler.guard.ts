@@ -5,6 +5,7 @@ import {
   ThrottlerOptions,
   ThrottlerGetTrackerFunction,
   ThrottlerGenerateKeyFunction,
+  ThrottlerException,
 } from '@nestjs/throttler';
 import type { ThrottlerStorage } from '@nestjs/throttler';
 import { Reflector } from '@nestjs/core';
@@ -71,6 +72,9 @@ interface KeyResolution {
   valid: boolean;
   // A website key's domain lock (null = any site; the main key never has one).
   allowedDomains?: string[] | null;
+  // Set when a key was sent but never looked up (the IP is over its probe
+  // budget): its domain lock can't be checked, so the request is refused.
+  unverified?: boolean;
 }
 
 // Sentinel returned by resolveKey for the anon path. Hoisted to a frozen
@@ -80,6 +84,12 @@ const ANON_RESOLUTION: KeyResolution = Object.freeze({
   tracker: 'apikey:_anon',
   limit: ANON_ABUSE_LIMIT,
   valid: false,
+});
+
+// Same bucket as anon, but the key itself went unchecked — see handleRequest.
+const PROBE_BLOCKED_RESOLUTION: KeyResolution = Object.freeze({
+  ...ANON_RESOLUTION,
+  unverified: true,
 });
 
 @Injectable()
@@ -150,6 +160,12 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
       sourceIp,
     );
 
+    // A key we skipped looking up could be a domain-locked one; serving it
+    // would let a site get round the lock by sending junk keys first.
+    if (resolution.unverified) {
+      throw new ThrottlerException('Too many unknown API keys from this address.');
+    }
+
     // Domain lock: a browser call from a site that isn't on the key's list is
     // refused. Calls that name no site (servers) pass; the lock is there so a
     // key copied into someone else's website stops working.
@@ -214,7 +230,7 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
     // job. This is the only place we can absorb a flood-with-fresh-keys
     // attack without burning a DB cycle per attempt.
     if (sourceIp && this.isProbeBudgetExceeded(sourceIp, now)) {
-      return ANON_RESOLUTION;
+      return PROBE_BLOCKED_RESOLUTION;
     }
 
     try {
