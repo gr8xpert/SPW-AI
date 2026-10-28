@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.13
+Stable tag: 2.9.14
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,10 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.14 =
+* A property page built from single blocks ([spm block="detail_title"], detail_gallery …) now works on its own: the property loads without a full [spm_detail] design on the page, and /property/<ref> finds that page. Needs the widget from the same release.
+* New single blocks: detail_taxes_fees, detail_download_pdf and detail_badges.
 
 = 2.9.13 =
 * New [spm_short_list] shortcode for the homepage: a few cards (6 unless limit="" says otherwise), with no filters, view tabs, map, sort or page numbers. E.g. [spm_short_list featured="yes"].

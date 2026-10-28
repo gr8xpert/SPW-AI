@@ -112,6 +112,9 @@ export function registerAllComponents(): void {
   registerComponent('detail_tour_link', () => import('@/components/detail/RsDetailTourLink'));
   registerComponent('detail_tour_embed', () => import('@/components/detail/RsDetailTourEmbed'));
   registerComponent('detail_pdf', () => import('@/components/detail/RsDetailPdf'));
+  registerComponent('detail_download_pdf', () => import('@/components/detail/RsDetailDownloadPdf'));
+  registerComponent('detail_taxes_fees', () => import('@/components/detail/RsDetailTaxesFees'));
+  registerComponent('detail_badges', () => import('@/components/detail/RsDetailGalleryBadges'));
   registerComponent('detail_map', () => import('@/components/detail/RsDetailMap'));
   registerComponent('detail_related', () => import('@/components/detail/RsDetailRelated'));
   registerComponent('detail_agent', () => import('@/components/detail/RsDetailAgent'));

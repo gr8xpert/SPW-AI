@@ -34,6 +34,15 @@ export function onlyFormBlocks(names: string[]): boolean {
   return names.length > 0 && names.every((n) => FORM_COMPONENTS.has(n));
 }
 
+// A property page: a whole detail design, or any one of its parts placed on
+// its own ([spm block="detail_title"]). Either way the page loads the
+// property named in its address — until 10-27 single parts did not, so a page
+// built from them alone showed nothing.
+export function isDetailEntry(e: { isTemplate: boolean; templateId?: string; componentType: string }): boolean {
+  if (e.isTemplate) return !!e.templateId?.startsWith('detail-template');
+  return e.componentType === 'detail' || e.componentType.startsWith('detail_');
+}
+
 // Attributes that make a short list rather than describe a search: a number
 // ("six of them") or hand-picked references. Plain search filters
 // (for, location, type, beds, price, sort…) don't — for="sale" on a results

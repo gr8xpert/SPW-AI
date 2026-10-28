@@ -539,6 +539,7 @@ export class DataLoader {
     // max) leave this flag off. DetailTemplate uses it to detect stale/thin
     // selectedProperty and re-fetch.
     property.__detailFull = true;
+    withDetailFields(property);
     this.setMemoryCache(cacheKey, property);
     return property;
   }
@@ -702,6 +703,14 @@ export interface Facets {
 export interface MapPointsResponse {
   data: MapPoint[];
   meta: { total: number; truncated: boolean };
+}
+
+// The API sends the stored column builtYear; the detail blocks read year.
+// Until 10-27 Year Built never showed anywhere. (The street address is read
+// by the detail_address block alone — the Specs table doesn't show it.)
+function withDetailFields(p: Property): void {
+  const built = Number((p as Property & { builtYear?: number | null }).builtYear);
+  if (!p.year && built > 0) p.year = built;
 }
 
 // Query string for /v1/properties (and /map, which takes the same filters).

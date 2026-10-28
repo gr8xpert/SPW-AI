@@ -131,7 +131,7 @@ class SPM_Shortcode_Reference {
             ],
             [
                 'title' => 'Property page',
-                'intro' => 'Only on the SPM property page. Place each block in its own Divi module to build your own layout.',
+                'intro' => 'Only on the SPM property page. Place each block in its own Divi module to build your own layout — the page loads the property by itself, no full design needed.',
                 'items' => [
                     'detail'                => 'The whole property page in one block',
                     'detail_gallery'        => 'Photo gallery',
@@ -154,6 +154,8 @@ class SPM_Shortcode_Reference {
                     'detail_parking'        => 'Parking',
                     'detail_energy_rating'  => 'Energy rating',
                     'detail_community_fees' => 'Community fees',
+                    'detail_taxes_fees'     => 'Taxes & fees (community, IBI, rubbish)',
+                    'detail_badges'         => 'Badges (featured, key ready…)',
                     'detail_specs'          => 'All the key figures together',
                     'detail_description'    => 'Description',
                     'detail_features'       => 'Features list',
@@ -163,6 +165,7 @@ class SPM_Shortcode_Reference {
                     'detail_tour_embed'     => 'Virtual tour',
                     'detail_tour_link'      => 'Link to the virtual tour',
                     'detail_pdf'            => 'Download brochure (PDF)',
+                    'detail_download_pdf'   => 'Download brochure button (always the SPM brochure)',
                     'detail_resources'      => 'Brochure, energy certificate and other files',
                     'detail_agent'          => 'The agent for this property',
                     'detail_inquiry_form'   => 'Enquiry form',

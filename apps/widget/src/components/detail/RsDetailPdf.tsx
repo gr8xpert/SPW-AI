@@ -1,11 +1,15 @@
 import { useLabels } from '@/hooks/useLabels';
 import { useSelector } from '@/hooks/useStore';
 import { selectors } from '@/core/selectors';
+import RsDetailDownloadPdf from './RsDetailDownloadPdf';
 
 export default function RsDetailPdf() {
   const { t } = useLabels();
   const property = useSelector(selectors.getSelectedProperty);
-  if (!property?.pdfUrl) return null;
+  if (!property) return null;
+  // No PDF of its own (the API sends none today): the brochure SPM makes,
+  // the same button the full property page shows.
+  if (!property.pdfUrl) return <RsDetailDownloadPdf />;
 
   return (
     <a

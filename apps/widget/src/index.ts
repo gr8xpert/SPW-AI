@@ -11,7 +11,7 @@ import { isMounted, mountAll, releaseDetached, remountChangedSiteBlocks } from '
 import { registerAllComponents } from './registry/component-registry';
 import { parseConfig, applyTheme, mergeWithDashboardConfig } from './core/config-parser';
 import { parsePrefilledFilters, parseLockedFilters } from './core/attribute-parser';
-import { isCurated, isPageResults, liftSearchBlocks, markCuratedBlocksStandalone, onlyFormBlocks, RESULT_COMPONENTS } from './core/block-role';
+import { isCurated, isDetailEntry, isPageResults, liftSearchBlocks, markCuratedBlocksStandalone, onlyFormBlocks, RESULT_COMPONENTS } from './core/block-role';
 import { installLegacyAPI, setRefreshHandler, setSearchHandler, type SearchOptions } from './core/legacy-api';
 import { loadPersistedFavorites } from './hooks/useFavorites';
 import { startTracking, trackSearch } from './core/tracker';
@@ -98,7 +98,7 @@ function startBoot(config: WidgetConfig): Boot {
   // A script in <head> runs before the blocks exist: nothing to guess from
   // then, so the first search waits for init() instead of being a wasted one.
   const entries = scanDOM();
-  b.earlyDetail = entries.some((e) => e.isTemplate && e.templateId?.startsWith('detail-template'));
+  b.earlyDetail = entries.some(isDetailEntry);
   b.earlyRefs = b.earlyDetail ? detailRefCandidates(config) : [];
   b.earlyProperty = b.earlyRefs[0] ? loader.getProperty(b.earlyRefs[0]).catch(() => null) : null;
   // A page holding only forms (the wishlist form) searches for nothing.
@@ -443,10 +443,8 @@ async function setupPage(config: WidgetConfig, b: Boot | null): Promise<void> {
   const mountEntries = allEntries.filter((e) => !isMounted(e.element));
   console.log('[SPM] Mounting', mountEntries.length, 'components...');
 
-  // Auto-load property from URL if a detail template is present
-  const hasDetailTemplate = allEntries.some(
-    (e) => e.isTemplate && e.templateId?.startsWith('detail-template')
-  );
+  // Auto-load property from URL if a detail design, or any part of one, is present
+  const hasDetailTemplate = allEntries.some(isDetailEntry);
   // Page title / meta tags follow the property shown (however it was loaded).
   if (hasDetailTemplate && !seoHooked) {
     seoHooked = true;
