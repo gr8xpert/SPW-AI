@@ -21,20 +21,9 @@ const nextConfig = {
       },
     ];
   },
-  async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-    if (!apiUrl) {
-      return [];
-    }
-
-    return [
-      {
-        source: '/api/proxy/:path*',
-        destination: `${apiUrl}/:path*`,
-      },
-    ];
-  },
+  // No rewrites: the browser calls the API directly. The unused /api/proxy
+  // rewrite was removed because Next 14.x has unpatched SSRF and request
+  // smuggling advisories in rewrites (fixed only in 15.5.x).
 };
 
 module.exports = nextConfig;
