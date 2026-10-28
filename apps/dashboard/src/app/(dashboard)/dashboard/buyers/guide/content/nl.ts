@@ -97,6 +97,7 @@ export const nl: GuideTranslation = {
         ['Markeren als afgehandeld', 'Kantoren zonder de add-on Buyer Match gebruiken Nieuwe leads als simpele inbox: beantwoorden en dan als afgehandeld markeren.'],
       ),
       tip('Nieuwe leads staan ook meteen in het Leadrapport, dus een lead die niemand belt wordt daar rood.'),
+      tip("Meer dan één website? Geef elke site een eigen websitesleutel (Instellingen → API-sleutels). De aanvragen zeggen dan van welke website ze komen en kunnen naar het eigen e-mailadres van die site gaan."),
     ],
   },
   record: {

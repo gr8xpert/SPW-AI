@@ -24,6 +24,7 @@ import {
   TenantTier,
   DEFAULT_TENANT_TIER,
 } from '@spm/shared';
+import type { ApiKeyScope, ApiKeySettings } from '@spm/shared';
 
 @Entity('tenants')
 export class Tenant {
@@ -220,4 +221,11 @@ export class Tenant {
 
   @OneToMany('SubscriptionPayment', 'tenant')
   subscriptionPayments: any[];
+
+  // Not columns: set by TenantService.findByApiKey when the request came in on
+  // an extra website key (api_keys). Null on the main key, which shows everything.
+  apiKeyId?: number | null;
+  apiKeyName?: string | null;
+  keyScope?: ApiKeyScope | null;
+  keySettings?: ApiKeySettings | null;
 }

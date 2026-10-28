@@ -4,7 +4,7 @@ import { PropertyService } from '../property/property.service';
 import { LocationService } from '../location/location.service';
 import { FeatureService } from '../feature/feature.service';
 import { ToolDefinition, ToolCall } from '../ai/ai.service';
-import { TenantSettings } from '@spm/shared';
+import { TenantSettings, ApiKeyScope } from '@spm/shared';
 import { siteListingTypes, siteMinPrices } from '../property/site-limits';
 
 const SEARCH_PROPERTIES_TOOL: ToolDefinition = {
@@ -137,6 +137,7 @@ export class AiChatToolsService {
     tenantId: number,
     toolCall: ToolCall,
     settings?: TenantSettings,
+    keyScope?: ApiKeyScope | null,
   ): Promise<{ name: string; result: any }> {
     const name = toolCall.function.name;
     let args: any;
@@ -149,15 +150,15 @@ export class AiChatToolsService {
     try {
       switch (name) {
         case 'search_properties':
-          return { name, result: await this.executeSearch(tenantId, args, settings) };
+          return { name, result: await this.executeSearch(tenantId, args, settings, keyScope) };
         case 'get_property':
-          return { name, result: await this.executeGetProperty(tenantId, args) };
+          return { name, result: await this.executeGetProperty(tenantId, args, keyScope) };
         case 'get_locations':
           return { name, result: await this.executeGetLocations(tenantId, args) };
         case 'get_features':
           return { name, result: await this.executeGetFeatures(tenantId, args) };
         case 'compare_properties':
-          return { name, result: await this.executeCompare(tenantId, args) };
+          return { name, result: await this.executeCompare(tenantId, args, keyScope) };
         default:
           return { name, result: { error: `Unknown tool: ${name}` } };
       }
@@ -167,7 +168,7 @@ export class AiChatToolsService {
     }
   }
 
-  private async executeSearch(tenantId: number, args: any, settings?: TenantSettings) {
+  private async executeSearch(tenantId: number, args: any, settings?: TenantSettings, keyScope?: ApiKeyScope | null) {
     const dto = {
       locationId: args.locationId,
       propertyTypeId: args.propertyTypeId,
@@ -190,6 +191,7 @@ export class AiChatToolsService {
       // The website's own limits (Settings -> Widget), as in the widget's search.
       siteListingTypes: siteListingTypes(settings) ?? undefined,
       siteMinPrices: siteMinPrices(settings) ?? undefined,
+      keyScope: keyScope ?? undefined,
     };
     const result = await this.searchService.search(tenantId, dto);
     return {
@@ -201,14 +203,16 @@ export class AiChatToolsService {
   }
 
   // Only listings that are live on the website; the chat is public.
-  private async findLive(tenantId: number, reference: unknown) {
+  // And, on a website key, only what that site shows.
+  private async findLive(tenantId: number, reference: unknown, keyScope?: ApiKeyScope | null) {
     if (typeof reference !== 'string' || !reference.trim()) return null;
     const property = await this.propertyService.findByReference(tenantId, reference.trim());
-    return property && property.status === 'active' && property.isPublished ? property : null;
+    if (!property || property.status !== 'active' || !property.isPublished) return null;
+    return (await this.searchService.isInKeyScope(tenantId, property.id, keyScope)) ? property : null;
   }
 
-  private async executeGetProperty(tenantId: number, args: { reference: string }) {
-    const property = await this.findLive(tenantId, args.reference);
+  private async executeGetProperty(tenantId: number, args: { reference: string }, keyScope?: ApiKeyScope | null) {
+    const property = await this.findLive(tenantId, args.reference, keyScope);
     if (!property) return { error: 'Property not found' };
     return this.detailProperty(property);
   }
@@ -240,9 +244,9 @@ export class AiChatToolsService {
     }));
   }
 
-  private async executeCompare(tenantId: number, args: { references: string[] }) {
+  private async executeCompare(tenantId: number, args: { references: string[] }, keyScope?: ApiKeyScope | null) {
     const refs = Array.isArray(args.references) ? args.references.slice(0, 4) : [];
-    const properties = await Promise.all(refs.map((ref) => this.findLive(tenantId, ref)));
+    const properties = await Promise.all(refs.map((ref) => this.findLive(tenantId, ref, keyScope)));
     return properties
       .filter((p) => p !== null)
       .map((p) => this.detailProperty(p!));

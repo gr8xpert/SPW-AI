@@ -98,6 +98,7 @@ export const fi: GuideTranslation = {
         ['Merkitse käsitellyksi', 'Toimistot ilman Buyer Match -lisäosaa käyttävät Uusia liidejä yksinkertaisena saapuneiden kansiona: vastaa ja merkitse sitten käsitellyksi.'],
       ),
       tip('Uudet liidit näkyvät heti myös liidiraportissa, joten liidi, jolle kukaan ei soita, muuttuu siellä punaiseksi.'),
+      tip("Useampi verkkosivu? Anna jokaiselle oma verkkosivuavain (Asetukset → API-avaimet). Sen yhteydenotot kertovat silloin, miltä sivulta ne tulivat, ja voivat mennä sivun omaan sähköpostiin."),
     ],
   },
   record: {

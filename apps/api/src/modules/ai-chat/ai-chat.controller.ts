@@ -17,6 +17,7 @@ import { SetMetadata } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { TenantService } from '../tenant/tenant.service';
+import type { Tenant } from '../../database/entities';
 import { AiChatService } from './ai-chat.service';
 import { CreateChatMessageDto } from './dto/create-chat-message.dto';
 import { IsEmail } from 'class-validator';
@@ -39,11 +40,11 @@ export class AiChatController {
     private readonly tenantService: TenantService,
   ) {}
 
-  private async getTenantId(apiKey: string): Promise<number> {
+  private async getTenant(apiKey: string): Promise<Tenant> {
     if (!apiKey) throw new UnauthorizedException('API key required');
     const tenant = await this.tenantService.findByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
-    return tenant.id;
+    return tenant;
   }
 
   // Besides the site's API-key budget, each visitor (IP) gets its own cap:
@@ -57,7 +58,8 @@ export class AiChatController {
     @Body() dto: CreateChatMessageDto,
     @Res() res: Response,
   ) {
-    const tenantId = await this.getTenantId(apiKey);
+    const tenant = await this.getTenant(apiKey);
+    const tenantId = tenant.id;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -66,7 +68,7 @@ export class AiChatController {
     res.flushHeaders();
 
     try {
-      for await (const event of this.chatService.processMessage(tenantId, dto)) {
+      for await (const event of this.chatService.processMessage(tenantId, dto, tenant.keyScope)) {
         res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`);
       }
     } catch (err) {
@@ -86,7 +88,7 @@ export class AiChatController {
     @Headers('x-chat-token') token: string,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    const tenantId = await this.getTenantId(apiKey);
+    const { id: tenantId } = await this.getTenant(apiKey);
     return this.chatService.getVisitorConversation(tenantId, id, token);
   }
 
@@ -100,7 +102,7 @@ export class AiChatController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: EmailTranscriptDto,
   ) {
-    const tenantId = await this.getTenantId(apiKey);
+    const { id: tenantId } = await this.getTenant(apiKey);
     await this.chatService.emailVisitorTranscript(tenantId, id, token, dto.email);
     return { sent: true };
   }

@@ -119,6 +119,7 @@ export const BASICS: GuideSection[] = [
         ['Mark as handled', 'Agencies without the Buyer Match add-on use New Leads as a simple inbox: reply, then mark it handled.'],
       ),
       tip('New leads also show on the Lead Report straight away, so a lead nobody calls turns red there.'),
+      tip("Run more than one website? Give each its own website key (Settings → API Keys). Its enquiries then say which website they came from, and can go to that site's own email address."),
     ],
   },
   {

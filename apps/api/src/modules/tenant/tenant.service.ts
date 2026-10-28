@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { Tenant, User, WebhookDelivery } from '../../database/entities';
+import { ApiKey, Tenant, User, WebhookDelivery } from '../../database/entities';
 import { TenantPublic, TenantSettings, DEFAULT_TENANT_TIER, DEFAULT_LOCATION_SEARCH_CONFIG } from '@spm/shared';
 import { generateApiKey, hashApiKey } from '../../common/crypto/api-key';
 import { createPreviewToken, isPreviewToken, verifyPreviewToken } from '../../common/crypto/preview-token';
@@ -11,6 +11,7 @@ import { widgetVersion } from './widget-version';
 import { WebhookService } from '../webhook/webhook.service';
 import { validateWebhookTarget, validateWebhookTargetAsync } from '../webhook/webhook-target';
 import { siteMinPrices } from '../property/site-limits';
+import { cleanKeyScope, cleanKeySettings } from '../property/key-scope';
 import { cleanTitlePatterns, unknownTitleTokens } from '../property/title-pattern';
 import { isRecaptchaKey } from '../../common/security/recaptcha-key';
 import { publicSiteAgent } from './site-agent';
@@ -79,11 +80,49 @@ export class TenantService {
     return this.toPublic(tenant);
   }
 
+  // The main key (tenants.apiKeyHash) first, exactly as before website keys
+  // existed; then the client's extra website keys (api_keys), whose tenant
+  // comes back carrying that key's id and scope.
   async findByApiKey(rawApiKey: string): Promise<Tenant | null> {
     if (!rawApiKey) return null;
-    return this.tenantRepository.findOne({
-      where: { apiKeyHash: hashApiKey(rawApiKey), isActive: true },
+    const hash = hashApiKey(rawApiKey);
+    const tenant = await this.tenantRepository.findOne({
+      where: { apiKeyHash: hash, isActive: true },
     });
+    if (tenant) return tenant;
+    const key = await this.tenantRepository.manager.getRepository(ApiKey).findOne({ where: { keyHash: hash, isActive: true } });
+    if (!key) return null;
+    const owner = await this.tenantRepository.findOne({ where: { id: key.tenantId, isActive: true } });
+    if (!owner) return null;
+    owner.apiKeyId = key.id;
+    owner.apiKeyName = key.name;
+    owner.keyScope = cleanKeyScope(key.scope);
+    owner.keySettings = cleanKeySettings(key.settings);
+    this.touchApiKey(key);
+    return owner;
+  }
+
+  // Which site a website key was last seen on (the widget's browser origin),
+  // for the dashboard's key list. At most once every 10 minutes per key.
+  private readonly keyOriginSeen = new Map<number, number>();
+  noteApiKeyOrigin(apiKeyId: number, origin: string): void {
+    const now = Date.now();
+    if (now - (this.keyOriginSeen.get(apiKeyId) || 0) < 10 * 60_000) return;
+    this.keyOriginSeen.set(apiKeyId, now);
+    this.tenantRepository.manager
+      .getRepository(ApiKey)
+      .update({ id: apiKeyId }, { lastUsedOrigin: origin.slice(0, 255) })
+      .catch((err) => this.logger.warn(`api key ${apiKeyId} origin update failed: ${(err as Error).message}`));
+  }
+
+  // "Last used" on the dashboard's key list, written at most every 10 minutes
+  // per key and never in the way of the request.
+  private touchApiKey(key: ApiKey): void {
+    if (key.lastUsedAt && Date.now() - new Date(key.lastUsedAt).getTime() < 10 * 60_000) return;
+    this.tenantRepository.manager
+      .getRepository(ApiKey)
+      .update({ id: key.id }, { lastUsedAt: new Date() })
+      .catch((err) => this.logger.warn(`api key ${key.id} last-used update failed: ${(err as Error).message}`));
   }
 
   // Like findByApiKey but additionally enforces the entitlements required for

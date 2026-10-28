@@ -83,6 +83,10 @@ export class InquiryController {
       pageUrl: dto.pageUrl,
     });
 
+    this.leadService
+      .markWebsiteKey(lead.id, tenant.apiKeyId)
+      .catch((err) => this.logger.warn(`Lead website key not saved: ${(err as Error).message}`));
+
     // Analytics → Inquiries (and the property's row in Property Analytics).
     if (propertyId && dto.sessionId) {
       this.analytics

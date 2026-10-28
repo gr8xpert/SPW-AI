@@ -98,6 +98,7 @@ export const sv: GuideTranslation = {
         ['Markera som hanterad', 'Byråer utan tillägget Buyer Match använder Nya leads som en enkel inkorg: svara, och markera den sedan som hanterad.'],
       ),
       tip('Nya leads syns också direkt i Leadrapporten, så en lead som ingen ringer blir röd där.'),
+      tip("Fler än en webbplats? Ge var och en en egen webbplatsnyckel (Inställningar → API-nycklar). Dess förfrågningar visar då vilken webbplats de kom från och kan gå till webbplatsens egen e-post."),
     ],
   },
   record: {

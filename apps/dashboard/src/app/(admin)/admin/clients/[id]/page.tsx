@@ -23,6 +23,7 @@ import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { ClientUsersCard, type ClientUser } from '@/components/admin/client-password-actions';
 import { DeleteClientDialog } from '@/components/admin/delete-client-dialog';
+import { ClientWebsiteKeys } from '@/components/admin/client-website-keys';
 import {
   ArrowLeft,
   Edit,
@@ -571,7 +572,7 @@ export default function ClientDetailPage() {
               <div>
                 <CardTitle>Widget API Key</CardTitle>
                 <CardDescription>
-                  Single key per client. Used by the website widget and WordPress plugin in the <code>x-api-key</code> header. Format: <code>spm_…</code>
+                  The client&apos;s main key (shows everything). Used by the website widget and WordPress plugin in the <code>x-api-key</code> header. Format: <code>spm_…</code>
                 </CardDescription>
               </div>
               <Button variant="outline" onClick={handleRotateApiKey} disabled={actionLoading}>
@@ -593,6 +594,7 @@ export default function ClientDetailPage() {
               </div>
             </CardContent>
           </Card>
+          <ClientWebsiteKeys clientId={String(clientId)} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

@@ -10,7 +10,7 @@ import { AiChatPromptService } from './ai-chat-prompt.service';
 import { SystemMailerService } from '../mail/system-mailer.service';
 import { CreateChatMessageDto } from './dto/create-chat-message.dto';
 import { SSEEvent, ChatContext } from './interfaces/chat-tool.interface';
-import { TenantSettings } from '@spm/shared';
+import { TenantSettings, ApiKeyScope } from '@spm/shared';
 
 const MAX_TOOL_ITERATIONS = 3;
 const MAX_CONTEXT_MESSAGES = 20;
@@ -50,9 +50,11 @@ export class AiChatService {
     private readonly mailerService: SystemMailerService,
   ) {}
 
+  // keyScope: the website key's scope, so the chat only offers what that site shows.
   async *processMessage(
     tenantId: number,
     dto: CreateChatMessageDto,
+    keyScope?: ApiKeyScope | null,
   ): AsyncGenerator<SSEEvent> {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Tenant not found');
@@ -142,7 +144,7 @@ export class AiChatService {
             },
           };
 
-          const toolResult = await this.toolsService.executeTool(tenantId, toolCall, settings);
+          const toolResult = await this.toolsService.executeTool(tenantId, toolCall, settings, keyScope);
 
           yield {
             type: 'tool_result',

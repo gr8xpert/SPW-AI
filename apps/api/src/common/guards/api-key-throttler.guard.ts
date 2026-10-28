@@ -1,4 +1,4 @@
-import { ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import {
   ThrottlerGuard,
   ThrottlerModuleOptions,
@@ -12,6 +12,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { createHash } from 'crypto';
 import { isPreviewToken, verifyPreviewToken } from '../crypto/preview-token';
+import { cleanAllowedDomains, hostAllowed, requestSiteHost } from '../../modules/property/key-scope';
 
 // Throttler tier for public widget endpoints (/api/v1/*). Two tracker shapes:
 //
@@ -68,6 +69,8 @@ interface KeyResolution {
   // ceiling is applied.
   limit: number;
   valid: boolean;
+  // A website key's domain lock (null = any site; the main key never has one).
+  allowedDomains?: string[] | null;
 }
 
 // Sentinel returned by resolveKey for the anon path. Hoisted to a frozen
@@ -147,6 +150,16 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
       sourceIp,
     );
 
+    // Domain lock: a browser call from a site that isn't on the key's list is
+    // refused. Calls that name no site (servers) pass; the lock is there so a
+    // key copied into someone else's website stops working.
+    if (resolution.allowedDomains?.length) {
+      const host = requestSiteHost(req?.headers);
+      if (host && !hostAllowed(host, resolution.allowedDomains)) {
+        throw new ForbiddenException('This key is not allowed on this website.');
+      }
+    }
+
     const decoratorLimit = Number.isFinite(limit) && limit > 0 ? limit : Number.POSITIVE_INFINITY;
     const effectiveLimit = Math.min(resolution.limit, decoratorLimit);
 
@@ -205,14 +218,19 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
     }
 
     try {
+      // The client's main key, or one of their extra website keys (api_keys):
+      // each gets its own bucket at the client's plan rate. One query, so an
+      // unknown key still costs a single DB hit.
       const row = await this.dataSource
         .createQueryBuilder()
         .select('p.ratePerMinute', 'ratePerMinute')
+        .addSelect('k.allowedDomains', 'allowedDomains')
         .from('tenants', 't')
         .innerJoin('plans', 'p', 'p.id = t.planId')
-        .where('t.apiKeyHash = :hash', { hash })
+        .leftJoin('api_keys', 'k', 'k.tenantId = t.id AND k.keyHash = :hash AND k.isActive = 1', { hash })
+        .where('(t.apiKeyHash = :hash OR k.id IS NOT NULL)', { hash })
         .andWhere('t.isActive = :active', { active: true })
-        .getRawOne<{ ratePerMinute: number | string }>();
+        .getRawOne<{ ratePerMinute: number | string; allowedDomains?: unknown }>();
 
       let resolution: KeyResolution;
       if (row && row.ratePerMinute != null) {
@@ -220,6 +238,7 @@ export class ApiKeyThrottlerGuard extends ThrottlerGuard {
           tracker: `apikey:${hash.slice(0, 32)}`,
           limit: Number(row.ratePerMinute) || DEFAULT_TENANT_LIMIT,
           valid: true,
+          allowedDomains: cleanAllowedDomains(parseJson(row.allowedDomains)),
         };
       } else {
         // Unknown key. Increment the IP's probe counter so a flood doesn't
@@ -287,3 +306,13 @@ export const __throttlerInternals = {
   UNKNOWN_PROBE_WINDOW_MS,
   LIMIT_CACHE_TTL_MS,
 };
+
+// MySQL JSON columns come back from raw queries as text on some drivers.
+function parseJson(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}

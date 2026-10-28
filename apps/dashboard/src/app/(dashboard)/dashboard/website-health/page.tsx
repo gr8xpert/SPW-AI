@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { AlertTriangle, CheckCircle2, Globe, Info, Loader2, RefreshCw, Upload, Building2, Inbox, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Globe, Info, KeyRound, Loader2, RefreshCw, Upload, Building2, Inbox, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiGet } from '@/lib/api';
@@ -33,7 +33,7 @@ interface Report {
   overall: Status;
   checks: Check[];
   feeds: Feed[];
-  sites: Array<{ siteUrl: string; source: 'plugin' | 'widget'; pluginVersion: string | null; lastSeenAt: string; status: Status }>;
+  sites: Array<{ siteUrl: string; source: 'plugin' | 'widget'; pluginVersion: string | null; lastSeenAt: string; status: Status; apiKeyName?: string | null }>;
   activity: { views7d: number; searches7d: number; lastViewAt: string | null };
   listings: { published: number };
   leads: { new7d: number; waiting: number };
@@ -200,6 +200,12 @@ export default function WebsiteHealthPage() {
                     <span className="text-muted-foreground">
                       {s.source === 'plugin' ? t.plugin(s.pluginVersion) : t.widget} · {t.lastSeen(when(s.lastSeenAt))}
                     </span>
+                    {s.apiKeyName && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                        <KeyRound className="h-3 w-3" />
+                        {s.apiKeyName}
+                      </span>
+                    )}
                   </div>
                 ))}
               </CardContent>

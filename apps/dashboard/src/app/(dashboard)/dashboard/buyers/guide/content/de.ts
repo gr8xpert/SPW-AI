@@ -97,6 +97,7 @@ export const de: GuideTranslation = {
         ['Als erledigt markieren', 'Agenturen ohne das Add-on Buyer Match nutzen Neue Leads als einfachen Posteingang: antworten und dann als erledigt markieren.'],
       ),
       tip('Neue Leads erscheinen auch sofort im Lead-Bericht. Ein Lead, den niemand anruft, wird dort rot.'),
+      tip("Mehr als eine Website? Geben Sie jeder einen eigenen Website-Schlüssel (Einstellungen → API-Schlüssel). Ihre Anfragen nennen dann die Website und können an deren eigene E-Mail-Adresse gehen."),
     ],
   },
   record: {

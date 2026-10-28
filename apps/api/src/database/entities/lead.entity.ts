@@ -159,6 +159,11 @@ export class Lead {
   @Column({ type: 'varchar', length: 500, nullable: true })
   photoUrl: string | null;
 
+  // The website key of the client's site the lead first enquired on
+  // (api_keys.id); null = the main website or not from a website.
+  @Column({ type: 'int', nullable: true })
+  apiKeyId: number | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   street: string | null;
 

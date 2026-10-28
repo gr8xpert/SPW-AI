@@ -31,6 +31,7 @@ export class AnalyticsService {
     dto: TrackViewDto,
     ip: string,
     userAgent: string,
+    apiKeyId: number | null = null,
   ): Promise<void> {
     // Only this client's own listings (a stale or foreign id would fail the
     // insert or count another client's property).
@@ -43,6 +44,7 @@ export class AnalyticsService {
       referrer: dto.referrer,
       userAgent,
       durationSeconds: dto.duration,
+      apiKeyId,
     });
 
     await this.propertyViewRepository.save(view);
@@ -51,8 +53,10 @@ export class AnalyticsService {
   async trackSearch(
     tenantId: number,
     dto: TrackSearchDto,
+    apiKeyId: number | null = null,
   ): Promise<void> {
     const log = this.searchLogRepository.create({
+      apiKeyId,
       tenantId,
       sessionId: dto.sessionId,
       filters: dto.filters || {},

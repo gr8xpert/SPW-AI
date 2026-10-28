@@ -6,6 +6,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { ApiKeySettings } from './use-api-key-cache';
 import { useSettingsText } from '../_i18n';
+import { WebsiteKeysCard } from './website-keys-card';
 
 export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
   const { toast } = useToast();
@@ -87,6 +88,8 @@ export function ApiKeysTab({ apiKey }: { apiKey: ApiKeySettings }) {
           </div>
         </CardContent>
       </Card>
+
+      <WebsiteKeysCard />
     </TabsContent>
   );
 }

@@ -15,6 +15,7 @@ import { cleanTitlePatterns } from './title-pattern';
 import { withWidgetCache } from '../../common/http/widget-http-cache';
 import type { Tenant } from '../../database/entities';
 import { siteListingTypes, siteMinPrices } from './site-limits';
+import { keyScopeTag, scopedListingTypes } from './key-scope';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -46,7 +47,8 @@ export class PublicPropertyController {
       throw new UnauthorizedException('Invalid API key');
     }
     req.spwSlugFormat = (tenant.settings as { slugFormat?: unknown } | null)?.slugFormat;
-    req.spwListingTypes = siteListingTypes(tenant.settings);
+    req.spwKeyScope = tenant.keyScope ?? null;
+    req.spwListingTypes = scopedListingTypes(siteListingTypes(tenant.settings), req.spwKeyScope);
     req.spwMinPrices = siteMinPrices(tenant.settings);
     req.spwTenantId = tenant.id;
     const titles = cleanTitlePatterns((tenant.settings as { titlePatterns?: unknown } | null)?.titlePatterns);
@@ -55,8 +57,13 @@ export class PublicPropertyController {
   }
 
   // Settings -> Widget limits, set by the server only (see SearchPropertyDto).
-  private siteLimits(req: PropertyTitleRequest): Pick<SearchPropertyDto, 'siteListingTypes' | 'siteMinPrices'> {
-    return { siteListingTypes: req.spwListingTypes ?? undefined, siteMinPrices: req.spwMinPrices ?? undefined };
+  // Plus the website key's scope.
+  private siteLimits(req: PropertyTitleRequest): Pick<SearchPropertyDto, 'siteListingTypes' | 'siteMinPrices' | 'keyScope'> {
+    return {
+      siteListingTypes: req.spwListingTypes ?? undefined,
+      siteMinPrices: req.spwMinPrices ?? undefined,
+      keyScope: req.spwKeyScope ?? undefined,
+    };
   }
 
   // Every route below answers a revalidation with a 304 and no listing query
@@ -76,7 +83,8 @@ export class PublicPropertyController {
     return withWidgetCache(
       req,
       res,
-      { tenantId: tenant.id, syncVersion: tenant.syncVersion, settings: tenant.settings, route, params },
+      // Two keys of one client answer differently, so the key's scope is part of the tag.
+      { tenantId: tenant.id, syncVersion: tenant.syncVersion, settings: tenant.settings, route, params: { ...params, keyScope: tenant.keyScope ? keyScopeTag(tenant.keyScope) : undefined } },
       load,
     );
   }
@@ -161,7 +169,7 @@ export class PublicPropertyController {
       res,
       tenant,
       'similar',
-      () => this.propertySearchService.findSimilar(tenant.id, reference, limit, req.spwListingTypes, req.spwMinPrices),
+      () => this.propertySearchService.findSimilar(tenant.id, reference, limit, req.spwListingTypes, req.spwMinPrices, req.spwKeyScope),
       { reference },
     );
   }
@@ -186,6 +194,9 @@ export class PublicPropertyController {
         const property = await this.propertyService.findByReference(tenant.id, reference);
         const allowed = req.spwListingTypes;
         if (!property || property.status !== 'active' || !property.isPublished || (allowed && !allowed.includes(property.listingType))) {
+          throw new NotFoundException('Property not found');
+        }
+        if (!(await this.propertySearchService.isInKeyScope(tenant.id, property.id, req.spwKeyScope))) {
           throw new NotFoundException('Property not found');
         }
         return property;

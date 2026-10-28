@@ -24,10 +24,16 @@ function makeDataSource(planRateForHash: Record<string, number | null>) {
         select() {
           return qb;
         },
+        addSelect() {
+          return qb;
+        },
         from() {
           return qb;
         },
         innerJoin() {
+          return qb;
+        },
+        leftJoin() {
           return qb;
         },
         where(_clause: string, p: Record<string, unknown>) {

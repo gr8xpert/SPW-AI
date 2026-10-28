@@ -97,6 +97,7 @@ export const es: GuideTranslation = {
         ['Marcar como atendida', 'Las agencias sin el complemento Buyer Match usan Nuevos leads como una bandeja sencilla: responde y márcala como atendida.'],
       ),
       tip('Los leads nuevos también salen enseguida en el Informe de leads, así que un lead al que nadie llama se pone en rojo allí.'),
+      tip("¿Tienes más de un sitio web? Dale a cada uno su propia clave (Ajustes → Claves API). Sus consultas indican de qué sitio vienen y pueden ir al email propio de ese sitio."),
     ],
   },
   record: {

@@ -6,6 +6,7 @@ import { SearchPropertyDto } from './dto';
 import { fenceFor, resolveLocationPoints } from '../location/location-points';
 import { locationKey } from '../location-template/location-name';
 import { applySiteMinPrices, type SiteMinPrices } from './site-limits';
+import type { ApiKeyScope } from '@spm/shared';
 
 // Where a listing is for map and area searches: its own GPS, else its
 // location's point (filled from the location template). Feeds such as Resales
@@ -251,6 +252,7 @@ export class PropertySearchService {
     limit: number,
     siteListingTypes?: string[] | null,
     siteMinPrices?: SiteMinPrices | null,
+    keyScope?: ApiKeyScope | null,
   ): Promise<Property[]> {
     const source = await this.propertyRepository.findOne({
       where: { tenantId, reference },
@@ -272,6 +274,7 @@ export class PropertySearchService {
       qb.andWhere('p.listingType IN (:...siteListingTypes)', { siteListingTypes });
     }
     applySiteMinPrices(qb, siteMinPrices);
+    await this.applyKeyScope(qb, keyScope, tenantId);
 
     if (source.locationId || source.propertyTypeId) {
       qb.andWhere('(p.locationId = :locationId OR p.propertyTypeId = :propertyTypeId)', {
@@ -347,8 +350,70 @@ export class PropertySearchService {
     return [...result];
   }
 
+  // A website key's scope (see key-scope.ts): what that site may show at all,
+  // whatever the visitor asks for. Places and types include everything below
+  // them, as in a search.
+  // `alias`: the query's name for the property table (feed exports use 'property').
+  async applyKeyScope(query: SelectQueryBuilder<Property>, scope: ApiKeyScope | null | undefined, tenantId: number, alias = 'p'): Promise<void> {
+    if (!scope) return;
+    const expand = async (roots: number[] | undefined, table: 'locations' | 'property_types') => {
+      const all = new Set<number>();
+      for (const id of roots || []) for (const e of await this.expandDescendants(tenantId, id, table)) all.add(e);
+      return [...all];
+    };
+    if (scope.locationIds?.length) {
+      query.andWhere(`${alias}.locationId IN (:...scopeLocationIds)`, { scopeLocationIds: await expand(scope.locationIds, 'locations') });
+    }
+    if (scope.propertyTypeIds?.length) {
+      query.andWhere(`${alias}.propertyTypeId IN (:...scopeTypeIds)`, { scopeTypeIds: await expand(scope.propertyTypeIds, 'property_types') });
+    }
+    if (scope.listingTypes?.length) {
+      query.andWhere(`${alias}.listingType IN (:...scopeListingTypes)`, { scopeListingTypes: scope.listingTypes });
+    }
+    if (scope.features?.length) {
+      const parts = scope.features.map((_, i) => `JSON_CONTAINS(${alias}.features, :scopeFeature${i})`);
+      const params = Object.fromEntries(scope.features.map((id, i) => [`scopeFeature${i}`, JSON.stringify(id)]));
+      query.andWhere(`(${parts.join(scope.featureMatch === 'any' ? ' OR ' : ' AND ')})`, params);
+    }
+    if (scope.priceMin) query.andWhere(`${alias}.price >= :scopePriceMin`, { scopePriceMin: scope.priceMin });
+    if (scope.priceMax) query.andWhere(`${alias}.price <= :scopePriceMax`, { scopePriceMax: scope.priceMax });
+    if (scope.ownOnly) query.andWhere(`${alias}.isOwnProperty = 1`);
+    if (scope.featuredOnly) query.andWhere(`${alias}.isFeatured = 1`);
+    if (scope.excludeRefs?.length) {
+      query.andWhere(`${alias}.reference NOT IN (:...scopeExcludeRefs)`, { scopeExcludeRefs: scope.excludeRefs });
+    }
+  }
+
+  // Whether one listing is inside a key's scope: the detail page, brochure
+  // and AI chat answer "not found" for anything outside it.
+  async isInKeyScope(tenantId: number, propertyId: number, scope: ApiKeyScope | null | undefined): Promise<boolean> {
+    if (!scope) return true;
+    const query = this.propertyRepository
+      .createQueryBuilder('p')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.id = :propertyId', { propertyId });
+    await this.applyKeyScope(query, scope, tenantId);
+    return (await query.getCount()) > 0;
+  }
+
+  // How many published listings a scope covers, against the whole stock: the
+  // live count beside a website key in the dashboard.
+  async countForKeyScope(tenantId: number, scope: ApiKeyScope | null): Promise<{ count: number; total: number }> {
+    const base = () => this.propertyRepository
+      .createQueryBuilder('p')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere('p.isPublished = :published', { published: true });
+    const total = await base().getCount();
+    if (!scope) return { count: total, total };
+    const query = base();
+    await this.applyKeyScope(query, scope, tenantId);
+    return { count: await query.getCount(), total };
+  }
+
   // Public so Buyer Match runs the exact website search rules.
   async applyFilters(query: SelectQueryBuilder<Property>, dto: SearchPropertyDto, tenantId: number): Promise<void> {
+    await this.applyKeyScope(query, dto.keyScope, tenantId);
     if (dto.reference) {
       query.andWhere('p.reference = :reference', { reference: dto.reference });
     }

@@ -2,6 +2,7 @@ import { IsOptional, IsNumber, IsIn, IsArray, IsBoolean, IsString, Min, Max, Mat
 import { Type, Transform } from 'class-transformer';
 import { ListingType } from '../../../database/entities/property.entity';
 import type { SiteMinPrices } from '../site-limits';
+import type { ApiKeyScope } from '@spm/shared';
 
 // Splits a CSV string of integers (locationIds=1,2,3) into number[] so the
 // widget can pass list-shaped filters via the GET query string. Anything that
@@ -87,6 +88,8 @@ export class SearchPropertyDto {
   declare siteListingTypes?: string[];
   // Same rule: the client's "Hide properties below" price per listing type.
   declare siteMinPrices?: SiteMinPrices;
+  // Same rule: the scope of the website key the request came in on.
+  declare keyScope?: ApiKeyScope;
 
   // Latitude/longitude/radius are used by the map view to search a circular
   // region. Bounds is a SW/NE box "swLat,swLng,neLat,neLng" used by the map's

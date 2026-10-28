@@ -80,6 +80,7 @@ export * from './audit-log.entity';
 
 // License key entities
 export * from './license-key.entity';
+export * from './api-key.entity';
 
 // Subscription payment entities
 export * from './subscription-payment.entity';

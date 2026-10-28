@@ -6,6 +6,7 @@ import {
   Headers,
   Res,
   UnauthorizedException,
+  NotFoundException,
   SetMetadata,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,8 @@ import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { BrochureService } from './brochure.service';
 import { TenantService } from '../tenant/tenant.service';
+import { PropertyService } from '../property/property.service';
+import { PropertySearchService } from '../property/property-search.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 
@@ -25,6 +28,8 @@ export class BrochureController {
   constructor(
     private readonly brochureService: BrochureService,
     private readonly tenantService: TenantService,
+    private readonly propertyService: PropertyService,
+    private readonly propertySearchService: PropertySearchService,
   ) {}
 
   // Public PDF endpoint. API key can come from header (preferred) OR `?apiKey=`
@@ -45,6 +50,14 @@ export class BrochureController {
 
     const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
+
+    // A website key only hands out brochures for listings that site shows.
+    if (tenant.keyScope) {
+      const property = await this.propertyService.findByReference(tenant.id, reference);
+      if (!property || !(await this.propertySearchService.isInKeyScope(tenant.id, property.id, tenant.keyScope))) {
+        throw new NotFoundException('Property not found');
+      }
+    }
 
     const lang = (langRaw && /^[a-z]{2,5}$/i.test(langRaw) ? langRaw.toLowerCase() : 'en');
     const variantOverride =

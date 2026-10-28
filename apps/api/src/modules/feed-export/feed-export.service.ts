@@ -21,6 +21,8 @@ import {
 } from '../../database/entities';
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
 import { displayName } from './idealista/idealista-builder';
+import { PropertySearchService } from '../property/property-search.service';
+import { cleanKeyScope } from '../property/key-scope';
 import { KyeroLocationRow, buildKyeroFeed } from './kyero/kyero-builder';
 
 // Which listings a URL feed sends. The Kyero XML feed reads these from the
@@ -83,6 +85,7 @@ export class FeedExportService {
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
     private configService: ConfigService,
+    private propertySearch: PropertySearchService,
   ) {}
 
   // ============ Config Management ============
@@ -340,17 +343,15 @@ export class FeedExportService {
       );
     }
 
+    // Same rule as a website key's scope: a picked place or type brings
+    // everything below it (before, only listings filed on that exact id went out).
     if (config.propertyFilter) {
-      if (config.propertyFilter.locations?.length) {
-        query.andWhere('property.locationId IN (:...locations)', {
-          locations: config.propertyFilter.locations,
-        });
-      }
-      if (config.propertyFilter.types?.length) {
-        query.andWhere('property.propertyTypeId IN (:...types)', {
-          types: config.propertyFilter.types,
-        });
-      }
+      await this.propertySearch.applyKeyScope(
+        query,
+        cleanKeyScope({ locationIds: config.propertyFilter.locations, propertyTypeIds: config.propertyFilter.types }),
+        tenantId,
+        'property',
+      );
     }
 
     return query.orderBy('property.id', 'ASC').getMany();

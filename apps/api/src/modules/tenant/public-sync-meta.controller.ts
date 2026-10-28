@@ -58,7 +58,7 @@ export class PublicSyncMetaController {
       throw new UnauthorizedException('Invalid API key');
     }
     // The WordPress plugin says which site it is (Website Health page).
-    if (site && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, site, 'plugin', pluginVersion, buyerPage);
+    if (site && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, site, 'plugin', pluginVersion, buyerPage, tenant.apiKeyId ?? null);
     return this.tenantService.getSyncMeta(tenant.id);
   }
 }

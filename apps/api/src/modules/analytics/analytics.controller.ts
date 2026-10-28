@@ -128,11 +128,12 @@ export class TrackingController {
     private readonly tenantService: TenantService,
   ) {}
 
-  private async resolveTenant(apiKey: string): Promise<number> {
+  // The tenant and the website key (null = main key) the event came in on.
+  private async resolveTenant(apiKey: string): Promise<{ tenantId: number; apiKeyId: number | null }> {
     if (!apiKey) throw new UnauthorizedException('API key required');
     const tenant = await this.tenantService.findActiveWidgetTenantByApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
-    return tenant.id;
+    return { tenantId: tenant.id, apiKeyId: tenant.apiKeyId ?? null };
   }
 
   @Public()
@@ -142,11 +143,11 @@ export class TrackingController {
     @Body() dto: TrackViewDto,
     @Req() req: Request,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
+    const { tenantId, apiKeyId } = await this.resolveTenant(apiKey);
     const ip = req.ip || req.socket.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
 
-    await this.analyticsService.trackView(tenantId, dto, ip, userAgent);
+    await this.analyticsService.trackView(tenantId, dto, ip, userAgent, apiKeyId);
     return { success: true };
   }
 
@@ -156,8 +157,8 @@ export class TrackingController {
     @Headers('x-api-key') apiKey: string,
     @Body() dto: TrackSearchDto,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
-    await this.analyticsService.trackSearch(tenantId, dto);
+    const { tenantId, apiKeyId } = await this.resolveTenant(apiKey);
+    await this.analyticsService.trackSearch(tenantId, dto, apiKeyId);
     return { success: true };
   }
 
@@ -167,7 +168,7 @@ export class TrackingController {
     @Headers('x-api-key') apiKey: string,
     @Body() dto: TrackPdfDto,
   ) {
-    const tenantId = await this.resolveTenant(apiKey);
+    const { tenantId } = await this.resolveTenant(apiKey);
     await this.analyticsService.markPdfDownload(tenantId, dto.propertyId, dto.sessionId);
     return { success: true };
   }

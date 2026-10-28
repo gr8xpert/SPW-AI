@@ -97,6 +97,7 @@ export const fr: GuideTranslation = {
         ['Marquer comme traitée', 'Les agences sans le module Buyer Match utilisent Nouveaux leads comme une simple boîte de réception : répondez, puis marquez la demande comme traitée.'],
       ),
       tip('Les nouveaux leads apparaissent aussi tout de suite dans le Rapport des leads : un lead que personne n’appelle y passe en rouge.'),
+      tip("Plusieurs sites ? Donnez à chacun sa propre clé de site (Paramètres → Clés API). Ses demandes indiquent alors de quel site elles viennent et peuvent aller à l’adresse email de ce site."),
     ],
   },
   record: {

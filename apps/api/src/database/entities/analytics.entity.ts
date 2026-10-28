@@ -56,6 +56,10 @@ export class PropertyView {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   viewedAt: Date;
+
+  // The website key it came in on (api_keys.id); null = the client's main key.
+  @Column({ type: 'int', nullable: true })
+  apiKeyId: number | null;
 }
 
 @Entity('search_logs')
@@ -89,6 +93,10 @@ export class SearchLog {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   searchedAt: Date;
+
+  // The website key it came in on (api_keys.id); null = the client's main key.
+  @Column({ type: 'int', nullable: true })
+  apiKeyId: number | null;
 }
 
 @Entity('favorites')

@@ -13,6 +13,8 @@ import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
+import { trimToScope } from '../property/key-scope';
+import type { Tenant } from '../../database/entities';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -26,17 +28,18 @@ export class PublicPropertyTypeController {
     private readonly tenantService: TenantService,
   ) {}
 
-  private async resolveTenantId(apiKey: string): Promise<number> {
+  private async resolveTenant(apiKey: string): Promise<Tenant> {
     if (!apiKey) throw new UnauthorizedException('API key required');
     const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
-    return tenant.id;
+    return tenant;
   }
 
   @Public()
   @Get()
   async getPropertyTypes(@Headers('x-api-key') apiKey: string) {
-    const tenantId = await this.resolveTenantId(apiKey);
-    return this.propertyTypeService.findAll(tenantId);
+    const tenant = await this.resolveTenant(apiKey);
+    // A website key limited to some types lists only those (with their parents and sub-types).
+    return trimToScope(await this.propertyTypeService.findAll(tenant.id), tenant.keyScope?.propertyTypeIds);
   }
 }

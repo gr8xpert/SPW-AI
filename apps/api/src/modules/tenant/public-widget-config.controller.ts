@@ -11,6 +11,8 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Tenant } from '../../database/entities';
 import { AI_SEARCH_STATUS, type AiSearchStatusProvider } from '../ai/ai-search-status.token';
 import { TenantService } from './tenant.service';
+import { siteListingTypes } from '../property/site-limits';
+import { scopedListingTypes } from '../property/key-scope';
 import { SiteCheckinService } from '../website-health/site-checkin.service';
 import { isPreviewToken } from '../../common/crypto/preview-token';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
@@ -43,11 +45,18 @@ export class PublicWidgetConfigController {
       throw new UnauthorizedException('Invalid API key');
     }
     // A browser loading the widget: remember which site (Website Health page).
-    if (origin && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, origin, 'widget');
+    if (origin && !isPreviewToken(apiKey)) this.checkins.record(tenant.id, origin, 'widget', undefined, undefined, tenant.apiKeyId ?? null);
+    if (origin && tenant.apiKeyId) this.tenantService.noteApiKeyOrigin(tenant.apiKeyId, origin);
     const [config, aiSearch] = await Promise.all([
       this.tenantService.getPublicWidgetConfig(tenant.id),
       this.aiSearchStatus(tenant),
     ]);
+    // A website key limited to some listing types offers only those in the search form.
+    const keyTypes = scopedListingTypes(siteListingTypes(config), tenant.keyScope);
+    if (tenant.keyScope?.listingTypes?.length && keyTypes) config.enabledListingTypes = keyTypes;
+    // The key's own look, over Settings (a currency set on the page itself still wins in the widget).
+    if (tenant.keySettings?.currency) config.currency = tenant.keySettings.currency;
+    if (tenant.keySettings?.primaryColor) config.primaryColor = tenant.keySettings.primaryColor;
     // Whether to show the AI and voice buttons, so the widget needn't ask
     // ai-search/status separately. Left out if it can't be worked out — the
     // widget then asks that endpoint as before.

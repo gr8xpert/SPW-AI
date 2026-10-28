@@ -77,14 +77,19 @@ export class FormMailService {
     const pageUrl = await this.ownSiteUrl(tenant, dto.pageUrl, origin);
     const propertyLine = property ? `${property.reference} — ${titleOf(property.title)}` : '';
 
-    // 1. To the agency. Reply goes straight to the visitor.
-    const recipients = (s.inquiryNotificationEmails || []).map(validEmail).filter(Boolean) as string[];
+    // 1. To the agency. Reply goes straight to the visitor. A website key
+    // with its own enquiry addresses sends that site's enquiries there.
+    const recipients = (tenant.keySettings?.inquiryEmails?.length ? tenant.keySettings.inquiryEmails : s.inquiryNotificationEmails || [])
+      .map(validEmail)
+      .filter(Boolean) as string[];
+    const websiteLine = tenant.apiKeyName ? `Website key: ${tenant.apiKeyName}` : '';
     if (recipients.length) {
       const html = frame(from, 'New Property Inquiry', `
         <p><strong>From:</strong> ${escapeHtml(name)} (${escapeHtml(dto.email)})</p>
         <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
         ${propertyLine ? `<p><strong>Property:</strong> ${escapeHtml(propertyLine)}</p>` : ''}
         ${pageUrl ? `<p><strong>Page:</strong> <a href="${escapeHtml(pageUrl)}">${escapeHtml(pageUrl)}</a></p>` : ''}
+        ${websiteLine ? `<p><strong>Website key:</strong> ${escapeHtml(tenant.apiKeyName as string)}</p>` : ''}
         ${quote(message)}
         <p style="color:#64748b;font-size:12px;">Lead #${leadId}. Reply to this email to answer ${escapeHtml(name)} directly.</p>`);
       const text = [
@@ -92,6 +97,7 @@ export class FormMailService {
         `Phone: ${phone}`,
         ...(propertyLine ? [`Property: ${propertyLine}`] : []),
         ...(pageUrl ? [`Page: ${pageUrl}`] : []),
+        ...(websiteLine ? [websiteLine] : []),
         '',
         message,
       ].join('\n');

@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { propertyUrlSegment } from './property-url';
 import type { SiteMinPrices } from './site-limits';
+import type { ApiKeyScope } from '@spm/shared';
 import { agentCard, type AgentCardSource } from '../team/agent-profile';
 
 // The controller puts the tenant's slug format here once it has resolved the key.
@@ -13,6 +14,8 @@ export interface PropertyUrlRequest extends Request {
   spwListingTypes?: string[] | null;
   // The client's "Hide properties below" prices (null = none).
   spwMinPrices?: SiteMinPrices | null;
+  // The scope of the website key the request came in on (null = main key, everything).
+  spwKeyScope?: ApiKeyScope | null;
 }
 
 // Adds `urlSegment` to every property in a public response. Must run AFTER

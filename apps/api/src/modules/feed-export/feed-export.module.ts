@@ -14,6 +14,7 @@ import {
   RightmovePushLog,
 } from '../../database/entities';
 import { FeedExportService } from './feed-export.service';
+import { PropertyModule } from '../property/property.module';
 import {
   FeedExportConfigController,
   FeedExportController,
@@ -47,6 +48,8 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
       RightmoveLocation,
       RightmovePushLog,
     ]),
+    // PropertySearchService: the location/type filter rules shared with website keys.
+    PropertyModule,
   ],
   controllers: [
     FeedExportConfigController,

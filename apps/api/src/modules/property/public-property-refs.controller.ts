@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from '../../database/entities';
 import { TenantService } from '../tenant/tenant.service';
+import { PropertySearchService } from './property-search.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { propertyUrlSegment, slugifyTitle } from './property-url';
@@ -38,6 +39,7 @@ export class PublicPropertyRefsController {
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
     private readonly tenantService: TenantService,
+    private readonly propertySearchService: PropertySearchService,
   ) {}
 
   @Public()
@@ -54,14 +56,17 @@ export class PublicPropertyRefsController {
     const lang = (langParam || 'en').trim().toLowerCase().slice(0, 5) || 'en';
     const limit = Math.min(Math.max(parseInt(limitParam || '', 10) || MAX_REFS, 1), MAX_REFS);
 
-    const rows = await this.propertyRepository
+    const query = this.propertyRepository
       .createQueryBuilder('p')
       .leftJoin('p.location', 'location')
       .leftJoin('p.propertyType', 'propertyType')
       .select(['p.id', 'p.reference', 'p.title', 'p.slug', 'p.updatedAt', 'location.id', 'location.name', 'propertyType.id', 'propertyType.name'])
       .where('p.tenantId = :tenantId', { tenantId: tenant.id })
       .andWhere('p.status = :status', { status: 'active' })
-      .andWhere('p.isPublished = :published', { published: true })
+      .andWhere('p.isPublished = :published', { published: true });
+    // A website key's sitemap lists only what that site shows.
+    await this.propertySearchService.applyKeyScope(query, tenant.keyScope, tenant.id);
+    const rows = await query
       .orderBy('p.updatedAt', 'DESC')
       .take(limit)
       .getMany();

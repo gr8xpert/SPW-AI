@@ -30,7 +30,8 @@ export class SiteCheckinService {
 
   // buyerPageUrl: undefined = not sent (an older plugin: keep what is
   // stored); anything else is stored when it is a page of the same site.
-  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown, buyerPageUrl?: unknown): void {
+  // apiKeyId: the website key the site uses (null = the main key).
+  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown, buyerPageUrl?: unknown, apiKeyId: number | null = null): void {
     const siteUrl = normaliseSiteUrl(site);
     if (!siteUrl) return;
     // Our own pages (template gallery previews, demo) and local test copies are not client sites.
@@ -39,18 +40,18 @@ export class SiteCheckinService {
     const version = typeof pluginVersion === 'string' && /^[\w.-]{1,20}$/.test(pluginVersion) ? pluginVersion : null;
     const sentPage = buyerPageUrl !== undefined;
     const page = sentPage ? sameSitePage(buyerPageUrl, siteUrl) : null;
-    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}|${sentPage ? page ?? '-' : ''}`;
+    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}|${sentPage ? page ?? '-' : ''}|${apiKeyId ?? ''}`;
     const now = Date.now();
     if ((this.lastWrite.get(key) ?? 0) > now - WRITE_EVERY_MS) return;
     if (this.lastWrite.size > MAX_TRACKED) this.lastWrite.clear();
     this.lastWrite.set(key, now);
     this.dataSource
       .query(
-        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, buyerPageUrl, firstSeenAt, lastSeenAt)
-         VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, buyerPageUrl, apiKeyId, firstSeenAt, lastSeenAt)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
          ON DUPLICATE KEY UPDATE lastSeenAt = NOW(), pluginVersion = COALESCE(VALUES(pluginVersion), pluginVersion),
-           buyerPageUrl = IF(?, VALUES(buyerPageUrl), buyerPageUrl)`,
-        [tenantId, siteUrl, source, version, page, sentPage ? 1 : 0],
+           buyerPageUrl = IF(?, VALUES(buyerPageUrl), buyerPageUrl), apiKeyId = VALUES(apiKeyId)`,
+        [tenantId, siteUrl, source, version, page, apiKeyId, sentPage ? 1 : 0],
       )
       .catch((err: Error) => this.logger.warn(`check-in not saved: ${err.message}`));
   }

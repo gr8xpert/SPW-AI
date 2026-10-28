@@ -32,4 +32,8 @@ export class SiteCheckin {
 
   @Column({ type: 'timestamp' })
   lastSeenAt: Date;
+
+  // The website key it came in on (api_keys.id); null = the client's main key.
+  @Column({ type: 'int', nullable: true })
+  apiKeyId: number | null;
 }

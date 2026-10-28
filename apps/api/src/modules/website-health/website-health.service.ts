@@ -42,6 +42,8 @@ export interface SiteHealth {
   firstSeenAt: string;
   lastSeenAt: string;
   status: HealthStatus;
+  // The website key the site uses; null = the main key.
+  apiKeyName: string | null;
 }
 
 export interface WebsiteHealthReport {
@@ -224,7 +226,9 @@ export class WebsiteHealthService {
 
   private async sites(tenantId: number, now: number): Promise<SiteHealth[]> {
     const rows: any[] = await this.db.query(
-      `SELECT siteUrl, source, pluginVersion, firstSeenAt, lastSeenAt FROM site_checkins WHERE tenantId = ? ORDER BY lastSeenAt DESC LIMIT 20`,
+      `SELECT c.siteUrl, c.source, c.pluginVersion, c.firstSeenAt, c.lastSeenAt, k.name AS apiKeyName
+       FROM site_checkins c LEFT JOIN api_keys k ON k.id = c.apiKeyId AND k.tenantId = c.tenantId
+       WHERE c.tenantId = ? ORDER BY c.lastSeenAt DESC LIMIT 20`,
       [tenantId],
     );
     return rows.map((r) => {
@@ -233,7 +237,7 @@ export class WebsiteHealthService {
       // widget-only sites only when someone views them.
       const okWithin = r.source === 'plugin' ? 6 * HOUR : 3 * DAY;
       const status: HealthStatus = age <= okWithin ? 'ok' : age <= 7 * DAY ? 'warning' : 'error';
-      return { siteUrl: r.siteUrl, source: r.source, pluginVersion: r.pluginVersion, firstSeenAt: iso(r.firstSeenAt)!, lastSeenAt: iso(r.lastSeenAt)!, status };
+      return { siteUrl: r.siteUrl, source: r.source, pluginVersion: r.pluginVersion, firstSeenAt: iso(r.firstSeenAt)!, lastSeenAt: iso(r.lastSeenAt)!, status, apiKeyName: r.apiKeyName ?? null };
     });
   }
 

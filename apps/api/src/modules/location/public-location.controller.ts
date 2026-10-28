@@ -16,6 +16,8 @@ import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
+import { trimToScope } from '../property/key-scope';
+import type { Tenant } from '../../database/entities';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -33,18 +35,19 @@ export class PublicLocationController {
     private readonly tenantService: TenantService,
   ) {}
 
-  private async resolveTenantId(apiKey: string): Promise<number> {
+  private async resolveTenant(apiKey: string): Promise<Tenant> {
     if (!apiKey) throw new UnauthorizedException('API key required');
     const tenant = await this.tenantService.findWidgetTenantForRead(apiKey);
     if (!tenant) throw new UnauthorizedException('Invalid API key');
-    return tenant.id;
+    return tenant;
   }
 
   @Public()
   @Get()
   async getLocations(@Headers('x-api-key') apiKey: string) {
-    const tenantId = await this.resolveTenantId(apiKey);
-    return this.locationService.findAll(tenantId);
+    const tenant = await this.resolveTenant(apiKey);
+    // A website key limited to some places lists only those (with their parents and children).
+    return trimToScope(await this.locationService.findAll(tenant.id), tenant.keyScope?.locationIds);
   }
 
   // One place's point and outline, for the detail page map. Kept off the
@@ -53,7 +56,7 @@ export class PublicLocationController {
   @Public()
   @Get(':id/outline')
   async getOutline(@Headers('x-api-key') apiKey: string, @Param('id', ParseIntPipe) id: number) {
-    const tenantId = await this.resolveTenantId(apiKey);
+    const { id: tenantId } = await this.resolveTenant(apiKey);
     const outline = await this.locationService.outline(tenantId, id);
     if (!outline) throw new NotFoundException('Location not found');
     return outline;

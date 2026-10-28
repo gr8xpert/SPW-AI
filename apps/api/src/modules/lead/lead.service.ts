@@ -15,6 +15,18 @@ export class LeadService {
     private activityRepository: Repository<LeadActivity>,
   ) {}
 
+  // The website key a lead first enquired on (see Lead.apiKeyId). Only set
+  // once, so a buyer who later enquires on the main site keeps their first site.
+  async markWebsiteKey(leadId: number, apiKeyId: number | null | undefined): Promise<void> {
+    if (!apiKeyId) return;
+    await this.leadRepository
+      .createQueryBuilder()
+      .update(Lead)
+      .set({ apiKeyId })
+      .where('id = :leadId AND apiKeyId IS NULL', { leadId })
+      .execute();
+  }
+
   // Duplicate-inquiry guard used by the public widget endpoints (review
   // P1-09). Returns an existing lead created within `windowMs` for the same
   // (tenantId, email, propertyId) so a refresh-spamming visitor or a

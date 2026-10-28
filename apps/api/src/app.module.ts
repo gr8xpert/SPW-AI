@@ -48,6 +48,7 @@ import { MigrationModule } from './modules/migration/migration.module';
 // Phase 5: Role-Based Features
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { LicenseModule } from './modules/license/license.module';
+import { ApiKeyModule } from './modules/api-key/api-key.module';
 import { CreditModule } from './modules/credit/credit.module';
 import { WebmasterModule } from './modules/webmaster/webmaster.module';
 import { ReorderModule } from './modules/reorder/reorder.module';
@@ -170,6 +171,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     // ============ Phase 5: Role-Based Features ============
     SuperAdminModule,
     LicenseModule,
+    ApiKeyModule,
     CreditModule,
     WebmasterModule,
     ReorderModule,
