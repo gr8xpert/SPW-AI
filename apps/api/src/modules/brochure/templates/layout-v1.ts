@@ -95,11 +95,14 @@ export function renderLayoutV1Sections(ctx: BrochureContext, opts: { skipEmptyFe
   const specs: Array<{ label: string; value: string }> = [
     { label: t('detail_reference', 'Reference'), value: property.reference },
   ];
-  if (property.bedrooms != null) specs.push({ label: t('detail_bedrooms', 'Bedrooms'), value: String(property.bedrooms) });
-  if (property.bathrooms != null) specs.push({ label: t('detail_bathrooms', 'Bathrooms'), value: String(property.bathrooms) });
-  if (property.plotSize != null) specs.push({ label: t('detail_plot_size', 'Plot Size'), value: `${property.plotSize}m²` });
-  if (property.buildSize != null) specs.push({ label: t('detail_build_size', 'Build Size'), value: `${property.buildSize}m²` });
-  if (property.terraceSize != null) specs.push({ label: t('detail_terrace', 'Terrace'), value: `${property.terraceSize}m²` });
+  const add = (label: string, value: string | null) => {
+    if (value) specs.push({ label, value });
+  };
+  add(t('detail_bedrooms', 'Bedrooms'), specRange(property.bedrooms, property.bedroomsTo));
+  add(t('detail_bathrooms', 'Bathrooms'), specRange(property.bathrooms, property.bathroomsTo));
+  add(t('detail_plot_size', 'Plot Size'), specRange(property.plotSize, property.plotSizeTo, 'm²'));
+  add(t('detail_build_size', 'Build Size'), specRange(property.buildSize, property.buildSizeTo, 'm²'));
+  add(t('detail_terrace', 'Terrace'), specRange(property.terraceSize, property.terraceSizeTo, 'm²'));
 
   return `
   <!-- ===== Page 1: Cover ===== -->
@@ -345,3 +348,14 @@ export const LAYOUT_V1_CSS = `
     color: #333;
   }
 `;
+
+// A spec as the website shows it (widget core/property-display specRange): a
+// development's range "1–3" or "80–140m²", a single value otherwise, and
+// nothing for an empty or zero value ("0.00" sizes from feeds).
+export function specRange(from: number | null | undefined, to: number | null | undefined, unit = ''): string | null {
+  const a = Number(from);
+  if (from == null || !Number.isFinite(a) || a <= 0) return null;
+  const b = Number(to);
+  const show = (n: number) => String(unit ? Math.round(n) : Math.round(n * 10) / 10);
+  return (to != null && Number.isFinite(b) && b > a ? `${show(a)}–${show(b)}` : show(a)) + unit;
+}

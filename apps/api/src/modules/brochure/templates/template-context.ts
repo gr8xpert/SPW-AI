@@ -15,6 +15,12 @@ export interface BrochurePropertyContext {
   buildSize: number | null;
   plotSize: number | null;
   terraceSize: number | null;
+  // A development's upper end (1–3 beds, 80–140 m²); null for a single home.
+  bedroomsTo: number | null;
+  bathroomsTo: number | null;
+  buildSizeTo: number | null;
+  plotSizeTo: number | null;
+  terraceSizeTo: number | null;
   energyRating: string | null;
   listingTypeLabel: string;
   propertyTypeName: string | null;
