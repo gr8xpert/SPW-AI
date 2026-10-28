@@ -11,6 +11,7 @@ import { runBootSecurityAudit } from './common/security/boot-audit';
 import { parseTrustProxy } from './common/security/trust-proxy';
 import { JsonLogger } from './common/logging/json-logger';
 import { UploadSyncService } from './modules/upload/upload-sync.service';
+import { canonicalLanguageMiddleware } from './common/i18n/language-code';
 
 async function bootstrap() {
   // Switch to JSON-lines logging in production so log aggregators can index
@@ -88,6 +89,8 @@ async function bootstrap() {
     }),
   );
   app.use(compression());
+  // nb / nn / nb_NO → "no", the code Norwegian translations are stored under.
+  app.use(canonicalLanguageMiddleware);
 
   // Local uploads, in order:
   //  1. a file UploadSyncService moved to R2 → 301 to the R2 copy, so old

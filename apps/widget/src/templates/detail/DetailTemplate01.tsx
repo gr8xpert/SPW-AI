@@ -298,7 +298,9 @@ export default function DetailTemplate01() {
 
           <RsDetailDownloadPdf />
 
-          <RsDetailPdf />
+          {/* The listing's own PDF only: without one, RsDetailPdf falls back to
+              the brochure button above and it showed twice (10-28, Elpano). */}
+          {property.pdfUrl && <RsDetailPdf />}
 
           <RsDetailAgent />
 

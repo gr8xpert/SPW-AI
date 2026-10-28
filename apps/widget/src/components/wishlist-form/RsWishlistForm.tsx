@@ -85,7 +85,9 @@ export default function RsWishlistForm() {
   const countryPicked = useRef(false);
   const [phone, setPhone] = useState('');
   const [preferredContact, setPreferredContact] = useState('');
-  const [language, setLanguage] = useState(LANGUAGES.includes(lang) ? lang : 'en');
+  // Norwegian pages say nb or nn (Bokmål / Nynorsk); the list has "no".
+  const formLang = lang === 'nb' || lang === 'nn' ? 'no' : lang;
+  const [language, setLanguage] = useState(LANGUAGES.includes(formLang) ? formLang : 'en');
   const [notes, setNotes] = useState('');
   const [privacy, setPrivacy] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
