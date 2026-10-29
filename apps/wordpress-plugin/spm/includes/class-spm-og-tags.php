@@ -152,9 +152,7 @@ class SPM_OG_Tags {
             $raw = rawurldecode((string) get_query_var('spm_ref'));
             $segment = $raw !== '' ? $raw : (string) ($p['reference'] ?? '');
         }
-        $i18n = SPM_I18n::instance();
-        $default = $i18n->default_lang_code();
-        $prefix = ($i18n->detect()['plugin'] !== 'none' && $lang !== $default) ? '/' . $lang : '';
+        $prefix = SPM_I18n::instance()->prefix_for($lang);
         // No trailing slash: exactly the address the widget links to and the sitemap lists.
         return home_url($prefix . '/' . SPM_Plugin::slug('detail', $lang) . '/' . rawurlencode($segment));
     }

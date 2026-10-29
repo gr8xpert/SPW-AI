@@ -41,6 +41,7 @@ class SPM_Rewrite {
      */
     public function route_query($q) {
         if (!method_exists($q, 'is_main_query') || !$q->is_main_query()) return;
+        $this->legacy_query_ref($q);
         if (empty($q->query_vars['spm_ref'])) return;
         if (!empty($q->query_vars['page_id'])) return;
 
@@ -55,6 +56,42 @@ class SPM_Rewrite {
         $q->is_home     = false;
         $q->is_archive  = false;
         $q->is_404      = false;
+    }
+
+    /**
+     * Old plugins (Inmotech, early SPW) linked to `/property/?ref_no=R1` or
+     * `/property/?ref=R1`. Treat those as `/property/R1`: the page renders the
+     * property, and SPM_Detail_Page then 301s it (unknown parameter, path
+     * without the title) to the clean address — one hop, so search engines
+     * fold the old URLs into the new ones. An unknown ref is left alone.
+     */
+    private function legacy_query_ref($q) {
+        if (!empty($q->query_vars['spm_ref'])) return;
+        $raw = $_GET['ref_no'] ?? $_GET['ref'] ?? null;
+        if (!is_string($raw)) return;
+        $ref = trim(wp_unslash($raw));
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/', $ref)) return;
+
+        // Only on the detail page itself: /<slug>/ or /<lang>/<slug>/.
+        $path = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/');
+        $home = trim((string) parse_url(home_url('/'), PHP_URL_PATH), '/');
+        if ($home !== '' && strpos($path . '/', $home . '/') === 0) $path = trim(substr($path, strlen($home)), '/');
+        $path = rawurldecode($path);
+
+        $map = (array) SPM_Plugin::get('slugs_detail', ['en' => 'property']);
+        if (empty($map)) $map = ['en' => 'property'];
+        $lang = null;
+        foreach ($map as $code => $slug) {
+            if (!$slug) continue;
+            if ($path === $slug) { $lang = ''; break; }
+            if (preg_match('#^([a-z]{2}(?:[-_][a-zA-Z]{2,4})?)/' . preg_quote($slug, '#') . '$#', $path, $m)) { $lang = $m[1]; break; }
+        }
+        if ($lang === null) return;
+
+        $q->set('spm_ref', $ref);
+        if ($lang !== '') $q->set('spm_lang', $lang);
+        // pagename would win over the page_id route_query() sets.
+        $q->set('pagename', '');
     }
 
     public function block_canonical_for_detail($redirect_url, $requested_url) {
@@ -88,10 +125,11 @@ class SPM_Rewrite {
             );
         }
 
-        // Language-prefixed rules — one per (lang, slug) pair. We DON'T skip
-        // the default lang here because some translation plugins do prefix it.
+        // Language-prefixed rules — one per (lang, slug) pair. The default
+        // language gets one too when the translation plugin puts it in the URL.
+        $default_prefixed = class_exists('SPM_I18n') && SPM_I18n::instance()->default_prefixed();
         foreach ($map as $lang => $slug) {
-            if (!$lang || !$slug || $lang === $default_lang) continue;
+            if (!$lang || !$slug || ($lang === $default_lang && !$default_prefixed)) continue;
             $lc = preg_quote($lang, '#');
             $sl = preg_quote($slug, '#');
             add_rewrite_rule(

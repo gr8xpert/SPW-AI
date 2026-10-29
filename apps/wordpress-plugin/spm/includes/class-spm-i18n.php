@@ -156,12 +156,48 @@ class SPM_I18n {
         if (!$info['current_lang']) {
             $info['current_lang'] = $this->short_from_locale($info['current_locale']);
         }
-        if ($info['current_lang'] && $info['default_lang'] && $info['current_lang'] !== $info['default_lang']) {
+        $info['default_prefixed'] = $this->default_in_url($info['plugin']);
+        if ($info['current_lang'] && $info['default_lang']
+            && ($info['current_lang'] !== $info['default_lang'] || $info['default_prefixed'])) {
             $info['language_prefix'] = '/' . $info['current_lang'];
         }
 
         $this->info = $info;
         return $info;
+    }
+
+    /**
+     * Whether the default language also sits in the URL (/en/property/…) —
+     * Polylang without "hide the default language", WPML's directory for the
+     * default language, TranslatePress's subdirectory for it.
+     */
+    private function default_in_url($plugin) {
+        if ($plugin === 'polylang') {
+            $o = function_exists('PLL') && PLL() && isset(PLL()->options) ? PLL()->options : get_option('polylang');
+            if (!is_array($o) && !($o instanceof ArrayAccess)) return false;
+            return (int) ($o['force_lang'] ?? 0) === 1 && empty($o['hide_default']);
+        }
+        if ($plugin === 'wpml') {
+            $urls = apply_filters('wpml_setting', [], 'urls');
+            return (int) apply_filters('wpml_setting', 0, 'language_negotiation_type') === 1
+                && is_array($urls) && !empty($urls['directory_for_default_language']);
+        }
+        if ($plugin === 'translatepress') {
+            $trp = get_option('trp_settings');
+            return is_array($trp) && ($trp['add-subdirectory-to-default-language'] ?? '') === 'yes';
+        }
+        return false;
+    }
+
+    /** The URL prefix of a language: '/es', '' for the default unless it sits in the URL too. */
+    public function prefix_for($lang) {
+        $i = $this->detect();
+        if ($i['plugin'] === 'none' || !$lang) return '';
+        return ($lang !== $this->default_lang_code() || $i['default_prefixed']) ? '/' . $lang : '';
+    }
+
+    public function default_prefixed() {
+        return (bool) $this->detect()['default_prefixed'];
     }
 
     /** All known non-default language codes — used by rewrite rules. */

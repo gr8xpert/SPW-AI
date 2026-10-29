@@ -69,8 +69,12 @@ class SPM_Plugin {
     }
 
     public static function maybe_flush_rewrites() {
-        if (!get_option('spm_flush_rewrites')) return;
+        // Updates replace the files without re-running activate(), so new rewrite rules
+        // (e.g. 2.9.15's /<default-lang>/property/…) are flushed once per version too.
+        $new_version = get_option('spm_rewrite_version') !== SPM_VERSION;
+        if (!get_option('spm_flush_rewrites') && !$new_version) return;
         delete_option('spm_flush_rewrites');
+        update_option('spm_rewrite_version', SPM_VERSION, false);
         flush_rewrite_rules();
     }
 

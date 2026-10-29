@@ -93,7 +93,8 @@ class SPM_Sitemap {
         $default = class_exists('SPM_I18n') ? SPM_I18n::instance()->default_lang_code() : 'en';
         $slug = SPM_Plugin::slug('detail', $default);
         $path = $segment !== '' ? $segment : ($title_slug ? $title_slug . '_' . $ref : $ref);
-        return home_url('/' . $slug . '/' . rawurlencode($path));
+        $prefix = class_exists('SPM_I18n') ? SPM_I18n::instance()->prefix_for($default) : '';
+        return home_url($prefix . '/' . $slug . '/' . rawurlencode($path));
     }
 
     // ─── Yoast ────────────────────────────────────────────────────────

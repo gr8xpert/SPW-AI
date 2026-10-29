@@ -4,7 +4,7 @@ Tags: real estate, property, listings, idx, mls
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.9.14
+Stable tag: 2.9.15
 License: GPLv2 or later
 
 One-click integration for the Smart Property Manager. Listings, search, property detail pages, social sharing, and SEO.
@@ -35,6 +35,10 @@ Connects your WordPress site to the Smart Property Manager (SPM) platform. Insta
 4. Anything wrong later? SPM → Site Health shows it with a one-click fix.
 
 == Changelog ==
+
+= 2.9.15 =
+* Old property links /property/?ref_no=R123 and /property/?ref=R123 (Inmotech, early SPW) now 301 to the property's SEO address, so search engines drop the duplicates. Works with a language prefix too (/en/property/?ref_no=…).
+* Sites whose default language also sits in the URL (/en/property/…, Polylang without "hide the default language", WPML or TranslatePress with a folder for it) now work: property pages no longer 404, and the canonical, sitemap and widget links keep the /en/ prefix.
 
 = 2.9.14 =
 * A property page built from single blocks ([spm block="detail_title"], detail_gallery …) now works on its own: the property loads without a full [spm_detail] design on the page, and /property/<ref> finds that page. Needs the widget from the same release.
