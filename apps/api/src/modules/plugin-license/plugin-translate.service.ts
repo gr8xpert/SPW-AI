@@ -43,10 +43,23 @@ const TRANSLATIONS_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-/** Output budget for a batch: ~2x the source text in tokens, plus room for the JSON wrapper. */
+/** Instructions + glossary up to this size are included; longer `system` text is billed too. */
+export const FREE_SYSTEM_CHARS = 6_000;
+
+/**
+ * Billable words for a batch. Each item counts the larger of its words and characters/8, so markup-heavy
+ * text (tags, shortcodes) is charged like prose of the same size, and at least 1. `system` text beyond
+ * FREE_SYSTEM_CHARS counts at characters/8. Normal prose (~6 characters a word) bills by words.
+ */
+export function billableWords(items: Array<{ text: string }>, system: string): number {
+  let units = 0;
+  for (const item of items) units += Math.max(1, countWords([item.text]), Math.ceil(item.text.length / 8));
+  return units + Math.ceil(Math.max(0, system.length - FREE_SYSTEM_CHARS) / 8);
+}
+
+/** Output budget derived from the billed units of the items (~4 tokens a word plus the JSON wrapper). */
 export function outputTokenCap(items: Array<{ text: string }>): number {
-  const chars = items.reduce((n, i) => n + i.text.length, 0);
-  return Math.min(16_000, Math.max(256, Math.ceil(chars / 2) + 64 * items.length + 256));
+  return Math.min(16_000, Math.max(256, billableWords(items, '') * 4 + 32 * items.length + 128));
 }
 
 @Injectable()
@@ -69,7 +82,7 @@ export class PluginTranslateService {
     }
 
     const items = parseItems(req.user);
-    const words = countWords(items.map((i) => i.text));
+    const words = billableWords(items, req.system);
     const { start } = this.licenses.creditPeriod(license);
 
     await this.guardBudget();
@@ -111,7 +124,12 @@ export class PluginTranslateService {
     } catch {
       result = null;
     }
-    if (message.stop_reason !== 'end_turn' || !result || typeof result !== 'object') {
+    // The reply must answer exactly the requested ids; anything else is treated as a failed call.
+    const returned = Array.isArray((result as { translations?: unknown })?.translations)
+      ? ((result as { translations: Array<{ id?: unknown }> }).translations.map((t) => String(t?.id)))
+      : null;
+    const sameIds = !!returned && returned.length === items.length && items.every((i) => returned.includes(i.id));
+    if (message.stop_reason !== 'end_turn' || !result || typeof result !== 'object' || !sameIds) {
       await this.refund(license.id, start, words);
       const truncated = message.stop_reason === 'max_tokens';
       throw pluginError(

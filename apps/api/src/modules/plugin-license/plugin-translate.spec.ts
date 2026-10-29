@@ -66,9 +66,10 @@ describe('PluginTranslateService', () => {
     (callAnthropic as jest.Mock).mockResolvedValue(aiReply({ translations: [{ id: '0', text: 'Bonjour le monde' }] }));
     const res = await svc.translate(request(['Hello <strong>big</strong> world']));
     expect(res.result).toEqual({ translations: [{ id: '0', text: 'Bonjour le monde' }] });
-    expect(res.usage).toMatchObject({ words: 3, tokens_in: 500, tokens_out: 200 });
-    expect(usageRow.wordsUsed).toBe(103);
-    expect(res.credits.words_used).toBe(103);
+    // 'Hello <strong>big</strong> world' = 3 words but 32 characters → billed as 4 (characters/8).
+    expect(res.usage).toMatchObject({ words: 4, tokens_in: 500, tokens_out: 200 });
+    expect(usageRow.wordsUsed).toBe(104);
+    expect(res.credits.words_used).toBe(104);
     const call = (callAnthropic as jest.Mock).mock.calls[0];
     // Server-side schema, not the client's; user message rebuilt from validated items only.
     expect(call[6].schema).toMatchObject({ required: ['translations'] });
@@ -108,6 +109,24 @@ describe('PluginTranslateService', () => {
     expect(call[2]).toBeLessThanOrEqual(400);
     const longId = { ...request(['hi']), user: JSON.stringify({ items: [{ id: 'x'.repeat(5000), text: 'hi' }] }) };
     expect(await code(svc.translate(longId))).toBe('invalid_request');
+  });
+
+  it('bills markup-heavy text and oversized instructions; output cap follows the bill', async () => {
+    const { svc, usageRow } = setup({ wordsAllowed: 100_000 });
+    (callAnthropic as jest.Mock).mockResolvedValue(aiReply({ translations: [{ id: '0', text: 'ok' }] }));
+    const markup = '<span class="a"></span>'.repeat(100) + 'hi'; // 1 word, 2,302 characters.
+    const res = await svc.translate({ ...request([markup]), system: 'x'.repeat(6_000 + 800) });
+    expect(res.usage.words).toBe(Math.ceil(markup.length / 8) + 100); // 288 for the text + 100 for 800 extra system chars.
+    expect(usageRow.wordsUsed).toBe(res.usage.words);
+    const cap = (callAnthropic as jest.Mock).mock.calls[0][2];
+    expect(cap).toBe(Math.ceil(markup.length / 8) * 4 + 32 + 128);
+  });
+
+  it('refunds when the reply does not answer exactly the requested ids', async () => {
+    const { svc, usageRow } = setup();
+    (callAnthropic as jest.Mock).mockResolvedValue(aiReply({ translations: [{ id: '0', text: 'a' }, { id: 'extra', text: 'essay' }] }));
+    expect(await code(svc.translate(request(['two words'])))).toBe('ai_invalid');
+    expect(usageRow.wordsUsed).toBe(0);
   });
 
   it('rejects bring-your-own-key licences and malformed requests', async () => {
