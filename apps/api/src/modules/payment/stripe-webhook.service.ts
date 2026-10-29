@@ -16,6 +16,10 @@ import {
 import { verifyStripeSignature } from './stripe-signature';
 import { XeroSyncService } from '../xero-sync/xero-sync.service';
 import { lockCreditBalance } from '../credit/credit-balance-lock';
+import {
+  PluginLicenseBillingService,
+  isPluginStripeObject,
+} from '../plugin-license/plugin-license-billing.service';
 
 export interface StripeProcessResult {
   processed: boolean;
@@ -52,6 +56,7 @@ export class StripeWebhookService {
     private readonly paymentRepo: Repository<SubscriptionPayment>,
     private readonly dataSource: DataSource,
     private readonly xeroSyncService: XeroSyncService,
+    private readonly pluginBilling: PluginLicenseBillingService,
   ) {}
 
   async process(options: {
@@ -110,6 +115,13 @@ export class StripeWebhookService {
       const obj = event.data?.object;
       if (!obj) {
         return { processed: true, eventId, eventType, outcome: 'ignored' as const };
+      }
+
+      // Plugin purchases (metadata.spm_product) never touch tenants: same signature check, dedupe and
+      // transaction as above, then their own handler.
+      if (isPluginStripeObject(eventType, obj)) {
+        const outcome = await this.pluginBilling.handle(manager, eventType, obj, created);
+        return { processed: true, eventId, eventType, outcome };
       }
 
       switch (eventType) {

@@ -128,6 +128,8 @@ function makeService(db: ReturnType<typeof makeDb>, env: Record<string, string |
     get: jest.fn((k: string) => (k in env ? env[k] : k === 'STRIPE_WEBHOOK_SECRET' ? SECRET : undefined)),
   };
   const xeroSyncService = { enqueueCreditPurchaseInvoice: jest.fn().mockResolvedValue(undefined) };
+  // Plugin purchases (metadata.spm_product) are delegated; tenant events never reach it.
+  const pluginBilling = { handle: jest.fn().mockResolvedValue('applied') };
   const svc = new StripeWebhookService(
     config as any,
     db.processedRepo as any,
@@ -135,8 +137,9 @@ function makeService(db: ReturnType<typeof makeDb>, env: Record<string, string |
     {} as any,
     db.dataSource as any,
     xeroSyncService as any,
+    pluginBilling as any,
   );
-  return { svc, xeroSyncService, config };
+  return { svc, xeroSyncService, config, pluginBilling };
 }
 
 function signed(event: any) {
@@ -490,6 +493,37 @@ describe('StripeWebhookService', () => {
       expect(db.ledger.map((l) => l.paymentReference)).toEqual(['pi_1']);
       expect(db.balances.get(7).balance).toBe(5);
       expect(xeroSyncService.enqueueCreditPurchaseInvoice).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('plugin purchases (realtysoft.eu Payment Links)', () => {
+    it('hands plugin events to the plugin billing service and never touches tenants', async () => {
+      const db = makeDb({ tenants: [{ id: 7 }] });
+      const { svc, pluginBilling } = makeService(db);
+      const session = {
+        id: 'cs_plugin', mode: 'subscription', payment_status: 'paid', subscription: 'sub_p',
+        customer_details: { email: 'buyer@example.com' }, metadata: { spm_product: 'spm-ai-translator', spm_plan: 'pro_single' },
+      };
+      const res = await svc.process(signed({ id: 'evt_p', type: 'checkout.session.completed', created: 1790000000, data: { object: session } }));
+      expect(res).toEqual({ processed: true, eventId: 'evt_p', eventType: 'checkout.session.completed', outcome: 'applied' });
+      expect(pluginBilling.handle).toHaveBeenCalledWith(expect.anything(), 'checkout.session.completed', session, 1790000000);
+      expect(db.ledger).toHaveLength(0);
+      expect(db.processed.get('evt_p')).toBe('checkout.session.completed');
+    });
+
+    it('routes renewal invoices of plugin subscriptions to the plugin handler', async () => {
+      const db = makeDb();
+      const { svc, pluginBilling } = makeService(db);
+      const invoice = { id: 'in_p', parent: { subscription_details: { subscription: 'sub_p', metadata: { spm_product: 'spm-ai-translator' } } } };
+      await svc.process(signed({ id: 'evt_inv_p', type: 'invoice.paid', created: 1790000100, data: { object: invoice } }));
+      expect(pluginBilling.handle).toHaveBeenCalledWith(expect.anything(), 'invoice.paid', invoice, 1790000100);
+    });
+
+    it('does not send tenant events to the plugin handler', async () => {
+      const db = makeDb({ tenants: [{ id: 7 }] });
+      const { svc, pluginBilling } = makeService(db);
+      await svc.process(signed({ id: 'evt_t', type: 'checkout.session.completed', data: { object: { id: 'cs_t', mode: 'payment', payment_status: 'paid', payment_intent: 'pi_t', metadata: { tenantId: '7', hours: '5' } } } }));
+      expect(pluginBilling.handle).not.toHaveBeenCalled();
     });
   });
 

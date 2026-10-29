@@ -108,3 +108,6 @@ export * from './site-checkin.entity';
 export * from './ai-search-usage.entity';
 export * from './translation-memory.entity';
 export * from './email-designer.entity';
+export * from './plugin-license.entity';
+export * from './plugin-activation.entity';
+export * from './plugin-credit-usage.entity';

@@ -144,8 +144,11 @@ export async function callAnthropic(
   body: Pick<Anthropic.MessageCreateParamsNonStreaming, 'system' | 'messages' | 'tools'>,
   timeoutMs = 60_000,
   maxRetries?: number,
+  // Structured output (JSON matching a schema). Optional; existing callers are unaffected.
+  format?: Anthropic.JSONOutputFormat,
 ): Promise<Anthropic.Message> {
   const { thinking, effort, extraTokens } = thinkingFor(model);
+  const outputConfig = effort || format ? { ...(effort ? { effort } : {}), ...(format ? { format } : {}) } : undefined;
   try {
     return await clientFor(apiKey).messages.create(
       {
@@ -155,7 +158,7 @@ export async function callAnthropic(
         messages: body.messages,
         ...(body.tools?.length ? { tools: body.tools } : {}),
         ...(thinking ? { thinking } : {}),
-        ...(effort ? { output_config: { effort } } : {}),
+        ...(outputConfig ? { output_config: outputConfig } : {}),
       },
       { timeout: timeoutMs, ...(maxRetries !== undefined ? { maxRetries } : {}) },
     );

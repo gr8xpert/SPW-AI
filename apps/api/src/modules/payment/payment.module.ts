@@ -16,6 +16,7 @@ import { StripeSubscriptionService } from './stripe-subscription.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { XeroSyncModule } from '../xero-sync/xero-sync.module';
+import { PluginLicenseModule } from '../plugin-license/plugin-license.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { XeroSyncModule } from '../xero-sync/xero-sync.module';
     // Stripe webhook fires a fire-and-forget enqueue to XeroSyncService on
     // successful credit purchase — see StripeWebhookService.handleCheckoutCompleted.
     XeroSyncModule,
+    // Plugin purchases (realtysoft.eu Payment Links) share the Stripe account and webhook.
+    PluginLicenseModule,
   ],
   controllers: [
     BillingCheckoutController,

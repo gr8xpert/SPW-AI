@@ -57,6 +57,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { PluginLicenseModule } from './modules/plugin-license/plugin-license.module';
 import { XeroSyncModule } from './modules/xero-sync/xero-sync.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AiEnrichmentModule } from './modules/ai-enrichment/ai-enrichment.module';
@@ -180,6 +181,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     MaintenanceModule,
     MailModule,
     PaymentModule,
+    PluginLicenseModule,
     XeroSyncModule,
 
     // ============ Phase 6: AI & Translation ============
