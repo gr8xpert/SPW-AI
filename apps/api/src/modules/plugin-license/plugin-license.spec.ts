@@ -3,6 +3,7 @@ import { PluginLicense } from '../../database/entities';
 import { countWords, generatePluginKey, hashPluginKey, normaliseSiteUrl } from './plugin-plans';
 import { PluginLicenseService, compareVersions } from './plugin-license.service';
 import { PluginLicenseBillingService, isPluginStripeObject } from './plugin-license-billing.service';
+import { PluginLicenseMailer } from './plugin-license-mailer.service';
 
 /* ------------------------------------------------------------------ fakes */
 
@@ -145,7 +146,8 @@ describe('PluginLicenseBillingService', () => {
     const licenses = repo<any>([]);
     const manager = { getRepository: () => licenses } as any;
     const mailer = { send: jest.fn().mockResolvedValue({ delivered: true }) };
-    const svc = new PluginLicenseBillingService(config({ STRIPE_GRACE_DAYS: '7' }), mailer as any);
+    const cfg = config({ STRIPE_GRACE_DAYS: '7', PLUGIN_STRIPE_AUTO_ISSUE: 'true' });
+    const svc = new PluginLicenseBillingService(cfg, new PluginLicenseMailer(cfg, mailer as any));
     return { svc, licenses, manager, mailer };
   }
 

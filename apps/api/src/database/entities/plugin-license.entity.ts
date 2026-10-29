@@ -1,9 +1,11 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 // Licences for SPM's sellable WordPress plugins (first: SPM AI Translator for Polylang, 2026-10-29).
-// Bought on realtysoft.eu through Stripe Payment Links; no SPM tenant is needed. One row per purchase
-// (Stripe subscription). Only the sha256 of the key is stored; the raw key is emailed once.
+// Issued by a super admin after confirming payment on realtysoft.eu (source=manual), or, when
+// PLUGIN_STRIPE_AUTO_ISSUE is on, automatically from a Stripe Payment Link (source=stripe).
+// No SPM tenant is needed. Only the sha256 of the key is stored; the raw key is shown/emailed once.
 export type PluginLicenseStatus = 'active' | 'expired' | 'revoked';
+export type PluginLicenseSource = 'manual' | 'stripe';
 
 @Entity('plugin_licenses')
 @Index('idx_plugin_licenses_email', ['email'])
@@ -34,7 +36,7 @@ export class PluginLicense {
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status: PluginLicenseStatus;
 
-  // End of the paid period plus grace. Null only before Stripe told us the period.
+  // End of the paid period (plus grace for Stripe licences). Null only before Stripe told us the period.
   @Column({ type: 'timestamp', nullable: true })
   expiresAt: Date | null;
 
@@ -47,6 +49,13 @@ export class PluginLicense {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   customerName: string | null;
+
+  @Column({ type: 'varchar', length: 10, default: 'manual' })
+  source: PluginLicenseSource;
+
+  // Super-admin note, e.g. the realtysoft.eu order or invoice number.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  notes: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   stripeCustomerId: string | null;

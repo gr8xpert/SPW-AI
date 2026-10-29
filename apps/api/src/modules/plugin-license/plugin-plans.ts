@@ -26,7 +26,7 @@ export function pluginPlan(id: string | undefined | null): PluginPlan | null {
   return id && Object.prototype.hasOwnProperty.call(PLUGIN_PLANS, id) ? PLUGIN_PLANS[id] : null;
 }
 
-// Keys look like SPMAI-7K2Q-9XWM-4TPA-HD3F: 20 random characters from an alphabet without
+// Keys look like SPMAI-7K2Q-9XWM-4TPA-HD3F-R8NC: 20 random characters from an alphabet without
 // look-alikes (no 0/O, 1/I/L), 98+ bits of entropy, grouped for copying from an email.
 const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 

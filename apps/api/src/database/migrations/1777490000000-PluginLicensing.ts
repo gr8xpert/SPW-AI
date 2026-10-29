@@ -21,6 +21,8 @@ export class PluginLicensing1777490000000 implements MigrationInterface {
           creditsPeriodStart TIMESTAMP NULL,
           email VARCHAR(255) NOT NULL,
           customerName VARCHAR(255) NULL,
+          source VARCHAR(10) NOT NULL DEFAULT 'manual',
+          notes VARCHAR(500) NULL,
           stripeCustomerId VARCHAR(255) NULL,
           stripeSubscriptionId VARCHAR(255) NULL,
           stripeCheckoutSessionId VARCHAR(255) NULL,

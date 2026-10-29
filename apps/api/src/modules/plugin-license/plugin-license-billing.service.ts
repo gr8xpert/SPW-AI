@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EntityManager } from 'typeorm';
 import { PluginLicense } from '../../database/entities';
-import { SystemMailerService } from '../mail/system-mailer.service';
+import { PluginLicenseMailer } from './plugin-license-mailer.service';
 import { PLUGIN_PRODUCT, generatePluginKey, pluginPlan } from './plugin-plans';
 
 // Stripe events for plugin purchases (realtysoft.eu Payment Links). StripeWebhookService verifies the
@@ -29,7 +29,7 @@ export class PluginLicenseBillingService {
 
   constructor(
     private readonly config: ConfigService,
-    private readonly mailer: SystemMailerService,
+    private readonly keyMailer: PluginLicenseMailer,
   ) {}
 
   private graceMs(): number {
@@ -62,8 +62,14 @@ export class PluginLicenseBillingService {
     }
   }
 
-  /** Paid checkout: create the licence (once) and email the key. */
+  /** Paid checkout: create the licence (once) and email the key. Off unless PLUGIN_STRIPE_AUTO_ISSUE=true. */
   private async checkoutPaid(manager: EntityManager, session: any, created?: number): Promise<PluginBillingOutcome> {
+    // realtysoft.eu sells several packages in one checkout, so keys are issued by a super admin after
+    // confirming payment (Admin -> Plugin licences). Automatic issuing is for a later marketplace model.
+    if (this.config.get<string>('PLUGIN_STRIPE_AUTO_ISSUE') !== 'true') {
+      this.logger.log(`plugin checkout ${session.id}: auto-issue is off, issue the key in Admin -> Plugin licences`);
+      return 'ignored';
+    }
     const repo = manager.getRepository(PluginLicense);
     const plan = pluginPlan(session.metadata?.spm_plan);
     const email = String(session.customer_details?.email ?? session.customer_email ?? '').trim().toLowerCase();
@@ -94,6 +100,7 @@ export class PluginLicenseBillingService {
       creditsPeriodStart: plan.words ? new Date(Math.floor(Date.now() / 1000) * 1000) : null,
       email,
       customerName: session.customer_details?.name ?? null,
+      source: 'stripe',
       stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null,
       stripeSubscriptionId: subscriptionId,
       stripeCheckoutSessionId: session.id,
@@ -102,7 +109,7 @@ export class PluginLicenseBillingService {
     await repo.save(license);
     // Fire after commit would be ideal; the key is only useful once the row exists, and a failed send
     // is logged so support can resend. The transaction is short, so send inline.
-    await this.sendKeyEmail(license, key.rawKey, plan.label);
+    await this.keyMailer.sendKey(license, key.rawKey);
     this.logger.log(`plugin licence ${license.id} issued: plan=${plan.id} email=${email}`);
     return 'applied';
   }
@@ -159,38 +166,6 @@ export class PluginLicenseBillingService {
     if (license.wordsAllowed && periodStart) patch.creditsPeriodStart = new Date(periodStart * 1000);
     await repo.update(license.id, patch);
     return 'applied';
-  }
-
-  private async sendKeyEmail(license: PluginLicense, rawKey: string, planLabel: string): Promise<void> {
-    const download = this.config.get<string>('PLUGIN_DOWNLOAD_PAGE_URL') || 'https://realtysoft.eu/en/ai-translator-for-polylang/';
-    const name = license.customerName ? ` ${license.customerName.split(' ')[0]}` : '';
-    const sites = `${license.sitesAllowed} ${license.sitesAllowed === 1 ? 'site' : 'sites'}`;
-    const text = [
-      `Hi${name},`,
-      '',
-      `Thank you for buying SPM AI Translator for Polylang (${planLabel}, ${sites}).`,
-      '',
-      `Your licence key: ${rawKey}`,
-      '',
-      'To get started:',
-      `1. Download the plugin: ${download}`,
-      '2. In WordPress, go to Plugins → Add New → Upload Plugin, upload the zip and activate it.',
-      '3. The setup wizard opens. Paste your licence key in the first step.',
-      '',
-      'Keep this email: the key is shown only here. Updates arrive in WordPress automatically while your licence is active.',
-      '',
-      'RealtySoft',
-    ].join('\n');
-    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
-    const html =
-      `<p>Hi${esc(name)},</p><p>Thank you for buying <strong>SPM AI Translator for Polylang</strong> (${esc(planLabel)}, ${esc(sites)}).</p>` +
-      `<p>Your licence key:</p><p style="font:600 20px/1.4 monospace;letter-spacing:1px;padding:12px 16px;background:#f3f6f4;border-radius:6px;display:inline-block">${esc(rawKey)}</p>` +
-      `<ol><li><a href="${esc(download)}">Download the plugin</a>.</li><li>In WordPress, go to Plugins → Add New → Upload Plugin, upload the zip and activate it.</li><li>The setup wizard opens. Paste your licence key in the first step.</li></ol>` +
-      '<p>Keep this email: the key is shown only here. Updates arrive in WordPress automatically while your licence is active.</p><p>RealtySoft</p>';
-    const result = await this.mailer.send({ to: license.email, subject: 'Your SPM AI Translator licence key', text, html });
-    if (!result.delivered) {
-      this.logger.error(`plugin licence ${license.id}: key email NOT delivered to ${license.email} (${result.skippedReason ?? 'error'})`);
-    }
   }
 }
 

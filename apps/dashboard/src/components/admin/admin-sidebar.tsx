@@ -24,6 +24,7 @@ import {
   HeartPulse,
   Languages,
   MapPinned,
+  KeyRound,
 } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -61,6 +62,7 @@ const support = [
 const billing = [
   { name: 'Credits', href: '/admin/credits', icon: CreditCard },
   { name: 'Credit Packages', href: '/admin/credit-packages', icon: Package },
+  { name: 'Plugin Licences', href: '/admin/plugin-licenses', icon: KeyRound },
   { name: 'Xero Sync', href: '/admin/xero-sync', icon: Receipt },
 ];
 
