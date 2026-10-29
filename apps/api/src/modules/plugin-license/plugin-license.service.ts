@@ -78,11 +78,12 @@ export class PluginLicenseService {
     } else {
       const used = await this.activations.count({ where: { licenseId: license.id } });
       if (used >= license.sitesAllowed) {
-        const word = license.sitesAllowed === 1 ? 'activation' : 'activations';
         throw pluginError(
           HttpStatus.CONFLICT,
           'site_limit',
-          `All ${license.sitesAllowed} ${word} of this licence are in use. Deactivate the plugin on another site first, or upgrade your plan.`,
+          license.sitesAllowed === 1
+            ? 'This licence is already active on another site. Deactivate it there first, or upgrade to a plan with more sites.'
+            : `All ${license.sitesAllowed} activations of this licence are in use. Deactivate the plugin on another site first, or upgrade your plan.`,
         );
       }
       await this.activations.insert({ licenseId: license.id, siteUrl: site, pluginVersion: pluginVersion ?? null, lastSeenAt: new Date() });
