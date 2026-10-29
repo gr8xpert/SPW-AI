@@ -17,8 +17,9 @@ export class PluginLicenseRequestDto {
 }
 
 export class PluginTranslateDto extends PluginLicenseRequestDto {
+  // Translator instructions plus the site's glossary; capped so it stays overhead, not a payload.
   @IsString()
-  @MaxLength(20_000)
+  @MaxLength(16_000)
   system: string;
 
   // JSON string {"items":[{"id","text"}]}; batches are capped by the plugin (~8,000 source characters).
@@ -26,6 +27,8 @@ export class PluginTranslateDto extends PluginLicenseRequestDto {
   @MaxLength(200_000)
   user: string;
 
+  // Accepted for compatibility and ignored: the server uses its own fixed translations schema.
+  @IsOptional()
   @IsObject()
-  schema: Record<string, unknown>;
+  schema?: Record<string, unknown>;
 }

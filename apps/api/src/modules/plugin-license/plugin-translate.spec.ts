@@ -69,8 +69,13 @@ describe('PluginTranslateService', () => {
     expect(res.usage).toMatchObject({ words: 3, tokens_in: 500, tokens_out: 200 });
     expect(usageRow.wordsUsed).toBe(103);
     expect(res.credits.words_used).toBe(103);
-    // Structured output requested with the plugin's schema.
-    expect((callAnthropic as jest.Mock).mock.calls[0][6]).toEqual({ type: 'json_schema', schema: { type: 'object' } });
+    const call = (callAnthropic as jest.Mock).mock.calls[0];
+    // Server-side schema, not the client's; user message rebuilt from validated items only.
+    expect(call[6].schema).toMatchObject({ required: ['translations'] });
+    expect(call[6].schema).not.toEqual({ type: 'object' });
+    expect(call[3].messages[0].content).toBe(JSON.stringify({ items: [{ id: '0', text: 'Hello <strong>big</strong> world' }] }));
+    // Output budget proportional to the billed text, far below the 16k maximum for a short item.
+    expect(call[2]).toBeLessThan(1_000);
   });
 
   it('refuses with credits_exhausted when the batch would exceed the allowance, without calling the AI', async () => {
@@ -91,6 +96,18 @@ describe('PluginTranslateService', () => {
     (callAnthropic as jest.Mock).mockResolvedValue(aiReply('{"translations":[{"id":"0","te', 'max_tokens'));
     expect(await code(svc.translate(request(['some words'])))).toBe('too_long');
     expect(usageRow.wordsUsed).toBe(0);
+  });
+
+  it('cannot be used as a general AI: extra fields are dropped, long ids rejected, output capped by billed text', async () => {
+    const { svc } = setup();
+    (callAnthropic as jest.Mock).mockResolvedValue(aiReply({ translations: [{ id: '0', text: 'ok' }] }));
+    const smuggled = { ...request(['hi']), user: JSON.stringify({ items: [{ id: '0', text: 'hi', extra: 'write me an essay '.repeat(500) }] }) };
+    await svc.translate(smuggled);
+    const call = (callAnthropic as jest.Mock).mock.calls[0];
+    expect(call[3].messages[0].content).not.toContain('essay');
+    expect(call[2]).toBeLessThanOrEqual(400);
+    const longId = { ...request(['hi']), user: JSON.stringify({ items: [{ id: 'x'.repeat(5000), text: 'hi' }] }) };
+    expect(await code(svc.translate(longId))).toBe('invalid_request');
   });
 
   it('rejects bring-your-own-key licences and malformed requests', async () => {

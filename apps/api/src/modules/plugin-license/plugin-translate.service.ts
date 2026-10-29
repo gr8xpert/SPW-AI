@@ -19,7 +19,34 @@ export interface PluginTranslateRequest {
   plugin_version?: string;
   system: string;
   user: string;
-  schema: Record<string, unknown>;
+  // Sent by the plugin but ignored: the server always uses TRANSLATIONS_SCHEMA (see below).
+  schema?: Record<string, unknown>;
+}
+
+// The proxy only translates: the output schema is fixed here, the user message is rebuilt from the
+// validated items, and output tokens are capped in proportion to the billed source text, so the
+// endpoint can't be used as a general-purpose (unmetered) AI.
+const TRANSLATIONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    translations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { id: { type: 'string' }, text: { type: 'string' } },
+        required: ['id', 'text'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['translations'],
+  additionalProperties: false,
+} as const;
+
+/** Output budget for a batch: ~2x the source text in tokens, plus room for the JSON wrapper. */
+export function outputTokenCap(items: Array<{ text: string }>): number {
+  const chars = items.reduce((n, i) => n + i.text.length, 0);
+  return Math.min(16_000, Math.max(256, Math.ceil(chars / 2) + 64 * items.length + 256));
 }
 
 @Injectable()
@@ -56,11 +83,11 @@ export class PluginTranslateService {
       message = await callAnthropic(
         apiKey,
         model,
-        16_000,
-        { system: req.system, messages: [{ role: 'user', content: req.user }] },
+        outputTokenCap(items),
+        { system: req.system, messages: [{ role: 'user', content: JSON.stringify({ items }) }] },
         120_000,
         1,
-        { type: 'json_schema', schema: req.schema },
+        { type: 'json_schema', schema: TRANSLATIONS_SCHEMA as unknown as Record<string, unknown> },
       );
     } catch (err) {
       await this.refund(license.id, start, words);
@@ -166,5 +193,12 @@ function parseItems(user: string): Array<{ id: string; text: string }> {
   if (!Array.isArray(items) || !items.length || items.length > 500) {
     throw pluginError(HttpStatus.BAD_REQUEST, 'invalid_request', 'The translation request is malformed.');
   }
-  return items.map((i: any) => ({ id: String(i?.id ?? ''), text: String(i?.text ?? '') }));
+  return items.map((i: any) => {
+    const id = String(i?.id ?? '');
+    if (!/^[\w-]{1,20}$/.test(id) || typeof i?.text !== 'string') {
+      throw pluginError(HttpStatus.BAD_REQUEST, 'invalid_request', 'The translation request is malformed.');
+    }
+    // Only id and text are forwarded; anything else in the item is dropped.
+    return { id, text: i.text };
+  });
 }
