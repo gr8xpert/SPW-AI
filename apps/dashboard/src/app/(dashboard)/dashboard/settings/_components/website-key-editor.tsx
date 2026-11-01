@@ -5,7 +5,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import type { ApiKeyScope, ApiKeySettings } from '@spm/shared';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -285,12 +285,25 @@ export function WebsiteKeyEditor({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>{t.cancel}</Button>
-          <Button onClick={save} disabled={saving || !name.trim()}>
-            {saving ? t.saving : t.save}
-          </Button>
-        </DialogFooter>
+        {/* Stays at the bottom while the form scrolls, so the count answers every click. */}
+        <div
+          className="sticky -bottom-6 z-10 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-3 border-t bg-background px-6 py-3 sm:rounded-b-xl"
+          data-testid="wk-footer"
+        >
+          <p className="flex items-center gap-2 text-sm" aria-live="polite" data-testid="wk-count">
+            {preview.isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            <span className="text-muted-foreground">{t.preview}</span>
+            <strong className="text-primary">
+              {preview.data ? t.listings(preview.data.count, preview.data.total) : t.counting}
+            </strong>
+          </p>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={saving}>{t.cancel}</Button>
+            <Button onClick={save} disabled={saving || !name.trim()}>
+              {saving ? t.saving : t.save}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

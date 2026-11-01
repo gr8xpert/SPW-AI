@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiKeyScope, ApiKeySettings, ApiKeySummary } from '@spm/shared';
 import { useApi } from '@/hooks/use-api';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
@@ -72,6 +72,8 @@ export function useScopePreview(draft: ApiKeyScope, enabled: boolean) {
     queryFn: async () => unwrap<ScopePreview>(await api.post('/api/dashboard/api-keys/preview', { scope: draft })),
     enabled: enabled && ready && api.isReady,
     staleTime: 60_000,
+    // Keep the last count on screen while the new one loads (no "Counting…" flash per click).
+    placeholderData: keepPreviousData,
   });
 }
 
