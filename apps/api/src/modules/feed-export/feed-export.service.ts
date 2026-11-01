@@ -7,7 +7,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import type { ApiKeyScope } from '@spm/shared';
 import {
+  ApiKey,
   FeedExportConfig,
   FeedExportLog,
   Property,
@@ -32,7 +34,12 @@ interface ListingRules {
   includeSold: boolean;
   listingScope: 'all' | 'own';
   propertyFilter?: Record<string, any> | null;
+  // A website key's scope, for that key's own XML feed.
+  keyScope?: ApiKeyScope | null;
 }
+
+// A website key's XML feed token (Settings -> API Keys). The Kyero export keys start with sk_export_.
+export const KEY_FEED_PREFIX = 'sk_feed_';
 
 // The JSON feed's settings. Rows saved before it had its own fall back to
 // the shared values (the migration copies them; this covers a missed row).
@@ -84,6 +91,8 @@ export class FeedExportService {
     private featureRepository: Repository<Feature>,
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
+    @InjectRepository(ApiKey)
+    private apiKeyRepository: Repository<ApiKey>,
     private configService: ConfigService,
     private propertySearch: PropertySearchService,
   ) {}
@@ -307,6 +316,32 @@ export class FeedExportService {
     return { content, contentType };
   }
 
+  // A website key's own XML feed: Kyero v3, with the same listings the key
+  // shows on a website (published, live, inside its scope). Needs the key on
+  // and its feed switched on; the client's Kyero feed settings don't apply.
+  async exportKeyFeed(tenantSlug: string, feedKey: string): Promise<{ content: string; contentType: string }> {
+    const tenant = await this.tenantRepository.findOne({ where: { slug: tenantSlug }, select: ['id'] });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    const key = feedKey
+      ? await this.apiKeyRepository.findOne({ where: { tenantId: tenant.id, feedKey } })
+      : null;
+    if (!key || !key.isActive) throw new UnauthorizedException('Invalid export key');
+
+    const rules: ListingRules = {
+      includeUnpublished: false,
+      includeSold: false,
+      listingScope: 'all',
+      keyScope: cleanKeyScope(key.scope),
+    };
+    const [properties, lookups] = await Promise.all([
+      this.loadProperties(tenant.id, rules, 'xml'),
+      this.loadLookups(tenant.id),
+    ]);
+    const result = buildKyeroFeed({ properties, ...lookups });
+    await this.apiKeyRepository.update({ id: key.id }, { feedLastUsedAt: new Date() });
+    return { content: result.xml, contentType: 'application/xml; charset=utf-8' };
+  }
+
   // ============ Private Methods ============
   generateIdealistaKey(): string {
     return `idl_${crypto.randomBytes(24).toString('hex')}`;
@@ -352,6 +387,10 @@ export class FeedExportService {
         tenantId,
         'property',
       );
+    }
+
+    if (config.keyScope) {
+      await this.propertySearch.applyKeyScope(query, config.keyScope, tenantId, 'property');
     }
 
     return query.orderBy('property.id', 'ASC').getMany();

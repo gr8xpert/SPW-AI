@@ -12,6 +12,7 @@ import { useSettingsText } from '../_i18n';
 import { useWebsiteKeysText, type WebsiteKeysText } from './website-keys-text';
 import { WebsiteKeyEditor } from './website-key-editor';
 import { WebsiteKeySuggestions } from './website-key-suggestions';
+import { WebsiteKeyFeed } from './website-key-feed';
 import {
   useCreateWebsiteKey,
   useRemoveWebsiteKey,
@@ -175,6 +176,7 @@ export function WebsiteKeysCard() {
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => onRemove(k.id)} disabled={remove.isPending}>{t.remove}</Button>
                     </div>
                   </div>
+                  <WebsiteKeyFeed k={k} slug={data.feedSlug} t={t} />
                   {revealed?.id === k.id && (
                     <div className="mt-3 rounded-md border border-primary/20 bg-secondary/20 p-3">
                       <p className="text-sm font-medium text-primary">{t.copyNow}</p>

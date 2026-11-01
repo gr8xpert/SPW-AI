@@ -72,6 +72,15 @@ const en = {
   cancel: 'Cancel',
   save: 'Save',
   saving: 'Saving…',
+  feedTitle: "XML feed for portals",
+  feedHint: "The same listings as this key, as a Kyero v3 XML link. Give it to another portal, website or CRM — it only gets these listings.",
+  feedConfirmNewLink: "Make a new feed link? The old link stops working at once.",
+  feedConfirmOff: "Turn the XML feed off? Anyone using the link stops getting listings.",
+  feedNewLink: "New link",
+  feedLastRead: (w: string) => `Last read ${w}`,
+  feedNeverRead: "Not read yet",
+  feedKeyOff: "This website key is off, so the feed is off too.",
+  feedLocked: "XML feed per key is part of the Feed Export add-on.",
 };
 
 export type WebsiteKeysText = typeof en;
@@ -143,6 +152,15 @@ const nl: WebsiteKeysText = {
   cancel: 'Annuleren',
   save: 'Opslaan',
   saving: 'Opslaan…',
+  feedTitle: "XML-feed voor portalen",
+  feedHint: "Dezelfde woningen als deze sleutel, als Kyero v3 XML-link. Geef hem aan een ander portaal, website of CRM — die krijgt alleen deze woningen.",
+  feedConfirmNewLink: "Nieuwe feedlink maken? De oude link werkt meteen niet meer.",
+  feedConfirmOff: "XML-feed uitzetten? Wie de link gebruikt, krijgt geen woningen meer.",
+  feedNewLink: "Nieuwe link",
+  feedLastRead: (w) => `Laatst gelezen ${w}`,
+  feedNeverRead: "Nog niet gelezen",
+  feedKeyOff: "Deze websitesleutel staat uit, dus de feed ook.",
+  feedLocked: "XML-feed per sleutel hoort bij de add-on Feed-export.",
 };
 
 const es: WebsiteKeysText = {
@@ -212,6 +230,15 @@ const es: WebsiteKeysText = {
   cancel: 'Cancelar',
   save: 'Guardar',
   saving: 'Guardando…',
+  feedTitle: "Feed XML para portales",
+  feedHint: "Los mismos inmuebles que esta clave, como enlace XML Kyero v3. Dáselo a otro portal, web o CRM: solo recibe estos inmuebles.",
+  feedConfirmNewLink: "¿Crear un nuevo enlace del feed? El enlace anterior deja de funcionar al instante.",
+  feedConfirmOff: "¿Desactivar el feed XML? Quien use el enlace dejará de recibir inmuebles.",
+  feedNewLink: "Nuevo enlace",
+  feedLastRead: (w) => `Última lectura ${w}`,
+  feedNeverRead: "Aún no leído",
+  feedKeyOff: "Esta clave de sitio web está desactivada, así que el feed también.",
+  feedLocked: "El feed XML por clave forma parte del complemento Exportar feeds.",
 };
 
 const fr: WebsiteKeysText = {
@@ -281,6 +308,15 @@ const fr: WebsiteKeysText = {
   cancel: 'Annuler',
   save: 'Enregistrer',
   saving: 'Enregistrement…',
+  feedTitle: "Flux XML pour portails",
+  feedHint: "Les mêmes biens que cette clé, en lien XML Kyero v3. Donnez-le à un autre portail, site ou CRM : il ne reçoit que ces biens.",
+  feedConfirmNewLink: "Créer un nouveau lien de flux ? L’ancien lien cesse de fonctionner immédiatement.",
+  feedConfirmOff: "Désactiver le flux XML ? Ceux qui utilisent le lien ne recevront plus de biens.",
+  feedNewLink: "Nouveau lien",
+  feedLastRead: (w) => `Dernière lecture ${w}`,
+  feedNeverRead: "Pas encore lu",
+  feedKeyOff: "Cette clé de site web est désactivée, donc le flux aussi.",
+  feedLocked: "Le flux XML par clé fait partie du module Export de flux.",
 };
 
 const de: WebsiteKeysText = {
@@ -350,6 +386,15 @@ const de: WebsiteKeysText = {
   cancel: 'Abbrechen',
   save: 'Speichern',
   saving: 'Wird gespeichert…',
+  feedTitle: "XML-Feed für Portale",
+  feedHint: "Dieselben Objekte wie dieser Schlüssel, als Kyero-v3-XML-Link. Geben Sie ihn einem anderen Portal, einer Website oder einem CRM – es erhält nur diese Objekte.",
+  feedConfirmNewLink: "Neuen Feed-Link erstellen? Der alte Link funktioniert sofort nicht mehr.",
+  feedConfirmOff: "XML-Feed ausschalten? Wer den Link nutzt, erhält keine Objekte mehr.",
+  feedNewLink: "Neuer Link",
+  feedLastRead: (w) => `Zuletzt gelesen ${w}`,
+  feedNeverRead: "Noch nicht gelesen",
+  feedKeyOff: "Dieser Website-Schlüssel ist aus, also auch der Feed.",
+  feedLocked: "XML-Feed pro Schlüssel gehört zum Add-on Feed-Export.",
 };
 
 const fi: WebsiteKeysText = {
@@ -419,6 +464,15 @@ const fi: WebsiteKeysText = {
   cancel: 'Peruuta',
   save: 'Tallenna',
   saving: 'Tallennetaan…',
+  feedTitle: "XML-syöte portaaleille",
+  feedHint: "Samat kohteet kuin tällä avaimella, Kyero v3 -XML-linkkinä. Anna se toiselle portaalille, sivustolle tai CRM:lle – se saa vain nämä kohteet.",
+  feedConfirmNewLink: "Luodaanko uusi syötelinkki? Vanha linkki lakkaa toimimasta heti.",
+  feedConfirmOff: "Poistetaanko XML-syöte käytöstä? Linkin käyttäjät eivät enää saa kohteita.",
+  feedNewLink: "Uusi linkki",
+  feedLastRead: (w) => `Luettu viimeksi ${w}`,
+  feedNeverRead: "Ei vielä luettu",
+  feedKeyOff: "Tämä verkkosivuavain on pois päältä, joten myös syöte.",
+  feedLocked: "Avainkohtainen XML-syöte kuuluu Syötteiden vienti -lisäosaan.",
 };
 
 const sv: WebsiteKeysText = {
@@ -488,6 +542,15 @@ const sv: WebsiteKeysText = {
   cancel: 'Avbryt',
   save: 'Spara',
   saving: 'Sparar…',
+  feedTitle: "XML-flöde för portaler",
+  feedHint: "Samma objekt som den här nyckeln, som Kyero v3 XML-länk. Ge den till en annan portal, webbplats eller CRM – den får bara dessa objekt.",
+  feedConfirmNewLink: "Skapa en ny flödeslänk? Den gamla länken slutar fungera direkt.",
+  feedConfirmOff: "Stänga av XML-flödet? Den som använder länken får inga fler objekt.",
+  feedNewLink: "Ny länk",
+  feedLastRead: (w) => `Senast läst ${w}`,
+  feedNeverRead: "Inte läst än",
+  feedKeyOff: "Den här webbplatsnyckeln är av, så flödet är också av.",
+  feedLocked: "XML-flöde per nyckel ingår i tillägget Flödesexport.",
 };
 
 const websiteKeysText: Dictionaries<WebsiteKeysText> = { en, nl, es, fr, de, fi, sv };

@@ -8,10 +8,11 @@ import { FeatureModule } from '../feature/feature.module';
 import { AiModule } from '../ai/ai.module';
 import { ApiKeyController, SuperAdminApiKeyController } from './api-key.controller';
 import { ApiKeyService } from './api-key.service';
+import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ApiKey, Tenant, Property]), PropertyModule, LocationModule, PropertyTypeModule, FeatureModule, AiModule],
   controllers: [ApiKeyController, SuperAdminApiKeyController],
-  providers: [ApiKeyService],
+  providers: [ApiKeyService, DashboardAddonGuard],
 })
 export class ApiKeyModule {}

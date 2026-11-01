@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@spm/shared';
-import { JwtAuthGuard, TenantGuard, RolesGuard } from '../../common/guards';
-import { CurrentTenant, Roles } from '../../common/decorators';
+import { JwtAuthGuard, TenantGuard, RolesGuard, DashboardAddonGuard } from '../../common/guards';
+import { CurrentTenant, RequiresAddon, Roles } from '../../common/decorators';
 import { ApiKeyService } from './api-key.service';
-import { AiScopeDto, CreateApiKeyDto, PreviewScopeDto, UpdateApiKeyDto } from './dto/api-key.dto';
+import { AiScopeDto, CreateApiKeyDto, KeyFeedDto, PreviewScopeDto, UpdateApiKeyDto } from './dto/api-key.dto';
 
 // Settings -> API Keys: the client's extra website keys. Anyone on the team
 // can look; creating, changing and revoking keys is for admins, like rotating
@@ -64,6 +64,16 @@ export class ApiKeyController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   rotate(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number) {
     return this.apiKeys.rotate(tenantId, id);
+  }
+
+  // The key's own XML feed (same listings as the key). Part of the Feed Export add-on.
+  @Post(':id/feed')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard, DashboardAddonGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @RequiresAddon('feedExport')
+  setFeed(@CurrentTenant() tenantId: number, @Param('id', ParseIntPipe) id: number, @Body() dto: KeyFeedDto) {
+    return this.apiKeys.setFeed(tenantId, id, dto.enabled, dto.rotate === true);
   }
 
   @Delete(':id')

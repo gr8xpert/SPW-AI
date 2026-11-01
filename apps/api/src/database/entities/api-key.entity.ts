@@ -45,6 +45,15 @@ export class ApiKey {
   @Column({ type: 'varchar', length: 255, nullable: true })
   lastUsedOrigin: string | null;
 
+  // This key's XML feed token (?key= on /api/feed/:slug/properties.xml).
+  // Null = no feed. Kept raw like the feed export keys so the URL can be shown again.
+  @Index('uq_api_keys_feed_key', { unique: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  feedKey: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  feedLastUsedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

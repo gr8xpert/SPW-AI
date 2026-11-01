@@ -65,3 +65,13 @@ export class AiScopeDto {
   @MaxLength(400)
   text: string;
 }
+
+// Settings -> API Keys -> a key's XML feed: on/off, or a new URL.
+export class KeyFeedDto {
+  @IsBoolean()
+  enabled: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  rotate?: boolean;
+}

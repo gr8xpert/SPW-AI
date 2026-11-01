@@ -35,6 +35,8 @@ export interface WebsiteKeyList {
   main: { last4: string } & KeyStats;
   keys: WebsiteKey[];
   total: number;
+  /** The client's slug, for the keys' XML feed URLs. */
+  feedSlug: string;
 }
 
 export interface ScopePreview {
@@ -99,6 +101,13 @@ export function useUpdateWebsiteKey() {
 export function useRotateWebsiteKey() {
   return useKeyMutation(async (api, id: number) =>
     unwrap<{ key: ApiKeySummary; apiKey: string }>(await api.post(`/api/dashboard/api-keys/${id}/rotate`)),
+  );
+}
+
+// The key's own XML feed: on/off, or rotate = a new URL.
+export function useSetKeyFeed() {
+  return useKeyMutation(async (api, { id, ...body }: { id: number; enabled: boolean; rotate?: boolean }) =>
+    unwrap<ApiKeySummary>(await api.post(`/api/dashboard/api-keys/${id}/feed`, body)),
   );
 }
 

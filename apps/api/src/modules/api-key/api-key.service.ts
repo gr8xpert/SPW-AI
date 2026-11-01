@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as crypto from 'crypto';
 import type { ApiKeyScope, ApiKeySummary } from '@spm/shared';
 import { ApiKey, Property, Tenant } from '../../database/entities';
 import { generateApiKey } from '../../common/crypto/api-key';
@@ -63,8 +64,9 @@ export class ApiKeyService {
     private readonly ai: AiService,
   ) {}
 
-  async list(tenantId: number): Promise<{ main: MainKeySummary; keys: Array<ApiKeySummary & KeyStats>; total: number }> {
-    const tenant = await this.tenants.findOne({ where: { id: tenantId }, select: ['id', 'apiKeyLast4'] });
+  // `feedSlug`: the client's slug, for the keys' XML feed URLs.
+  async list(tenantId: number): Promise<{ main: MainKeySummary; keys: Array<ApiKeySummary & KeyStats>; total: number; feedSlug: string }> {
+    const tenant = await this.tenants.findOne({ where: { id: tenantId }, select: ['id', 'apiKeyLast4', 'slug'] });
     if (!tenant) throw new NotFoundException('Client not found');
     const rows = await this.keys.find({ where: { tenantId }, order: { createdAt: 'ASC' } });
     const { total } = await this.search.countForKeyScope(tenantId, null);
@@ -77,7 +79,7 @@ export class ApiKeyService {
         ...statsFor(row.id),
       })),
     );
-    return { main: { last4: tenant.apiKeyLast4, count: total, ...statsFor(null) }, keys, total };
+    return { main: { last4: tenant.apiKeyLast4, count: total, ...statsFor(null) }, keys, total, feedSlug: tenant.slug };
   }
 
   // Property views and website enquiries per key over the last 30 days
@@ -145,6 +147,15 @@ export class ApiKeyService {
     row.lastUsedAt = null;
     row.lastUsedOrigin = null;
     return { key: this.toSummary(await this.keys.save(row)), apiKey: generated.rawKey };
+  }
+
+  // This key's XML feed: on = a token (kept if it already has one), off = none,
+  // so the old URL stops at once. `rotate` gives a new URL; the website key is untouched.
+  async setFeed(tenantId: number, id: number, enabled: boolean, rotate = false): Promise<ApiKeySummary> {
+    const row = await this.find(tenantId, id);
+    row.feedKey = enabled ? (rotate || !row.feedKey ? `sk_feed_${crypto.randomBytes(24).toString('hex')}` : row.feedKey) : null;
+    if (!enabled || rotate) row.feedLastUsedAt = null;
+    return this.toSummary(await this.keys.save(row));
   }
 
   async remove(tenantId: number, id: number): Promise<void> {
@@ -351,6 +362,8 @@ export class ApiKeyService {
       isActive: row.isActive,
       lastUsedAt: row.lastUsedAt ? new Date(row.lastUsedAt).toISOString() : null,
       lastUsedOrigin: row.lastUsedOrigin,
+      feedKey: row.feedKey ?? null,
+      feedLastUsedAt: row.feedLastUsedAt ? new Date(row.feedLastUsedAt).toISOString() : null,
       createdAt: new Date(row.createdAt).toISOString(),
     };
   }

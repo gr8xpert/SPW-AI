@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { FeedExportService } from './feed-export.service';
+import { FeedExportService, KEY_FEED_PREFIX } from './feed-export.service';
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
 import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
 import { ExportFormat, ExportLogFormat } from '../../database/entities';
@@ -82,10 +82,21 @@ export class FeedExportController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    // A website key's own feed (Settings -> API Keys): only that key's listings.
+    const providedKey = headerKey || queryKey || '';
+    if (providedKey.startsWith(KEY_FEED_PREFIX)) {
+      const { content, contentType } = await this.service.exportKeyFeed(tenantSlug, providedKey);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'private, max-age=900');
+      res.setHeader('X-Robots-Tag', 'noindex');
+      res.send(content);
+      return;
+    }
+
     const { config, tenantId } = await this.service.validateExportKey(
       tenantSlug,
       // Portals like Kyero can only fetch a URL, so ?key= works too.
-      headerKey || queryKey,
+      providedKey,
     );
 
     const ip = req.ip || req.socket.remoteAddress || '';

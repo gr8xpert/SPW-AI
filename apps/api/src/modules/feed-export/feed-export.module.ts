@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
+  ApiKey,
   FeedExportConfig,
   FeedExportLog,
   Property,
@@ -36,6 +37,7 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      ApiKey,
       FeedExportConfig,
       FeedExportLog,
       Property,

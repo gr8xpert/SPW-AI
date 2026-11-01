@@ -48,5 +48,8 @@ export interface ApiKeySummary {
   isActive: boolean;
   lastUsedAt: string | null;
   lastUsedOrigin: string | null;
+  /** Token for this key's XML feed; null = the feed is off. */
+  feedKey: string | null;
+  feedLastUsedAt: string | null;
   createdAt: string;
 }
