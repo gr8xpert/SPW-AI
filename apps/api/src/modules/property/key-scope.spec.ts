@@ -1,4 +1,4 @@
-import { cleanKeyScope, keyScopeTag, scopeRoots, scopedListingTypes, trimToScope } from './key-scope';
+import { cleanKeyScope, cleanKeySettings, keyScopeTag, scopeRoots, scopedListingTypes, trimToScope } from './key-scope';
 
 describe('key-scope', () => {
   it('keeps only what a scope can mean', () => {
@@ -74,6 +74,14 @@ describe('key-scope', () => {
     ];
     expect(trimToScope(items, [2]).map((i) => i.id)).toEqual([1, 2, 3]);
     expect(trimToScope(items, undefined)).toBe(items);
+  });
+
+  it('keeps only known listing types and looks in the PDF choice', () => {
+    expect(cleanKeySettings({ brochureVariants: { sale: 'branded', development: 'unbranded', rent: 'default', villa: 'branded' } })).toEqual({
+      brochureVariants: { sale: 'branded', development: 'unbranded' },
+    });
+    expect(cleanKeySettings({ brochureVariants: { sale: 'x' } })).toBeNull();
+    expect(cleanKeySettings({ brochureVariants: ['branded'] })).toBeNull();
   });
 
   it('tags equal scopes alike and no scope as empty', () => {

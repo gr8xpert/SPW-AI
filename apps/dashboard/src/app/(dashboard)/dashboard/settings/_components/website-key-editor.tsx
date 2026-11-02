@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -77,6 +78,7 @@ export function WebsiteKeyEditor({
     if (settings.currency?.trim()) look.currency = settings.currency.trim().toUpperCase();
     if (settings.primaryColor) look.primaryColor = settings.primaryColor;
     if (lines(emails).length) look.inquiryEmails = lines(emails);
+    if (Object.keys(settings.brochureVariants ?? {}).length) look.brochureVariants = settings.brochureVariants;
     onSave({ name: name.trim(), scope: tabsToScope(tabs, initial?.scope?.excludeRefs), allowedDomains: lines(domains), settings: look });
   };
 
@@ -86,6 +88,13 @@ export function WebsiteKeyEditor({
     setTabs((all) => ({ ...all, [type]: { ...all[type], filters: { ...all[type].filters, ...patch } } }));
   const setOn = (type: ListingType, on: boolean) => setTabs((all) => ({ ...all, [type]: { ...all[type], on } }));
   const onCount = LISTING_TYPES.filter((type) => tabs[type].on).length;
+  const setBrochure = (type: ListingType, value: string) =>
+    setSettings((s) => {
+      const next = { ...s.brochureVariants };
+      if (value === 'branded' || value === 'unbranded') next[type] = value;
+      else delete next[type];
+      return { ...s, brochureVariants: next };
+    });
   const copyToOthers = (from: ListingType) => {
     setTabs((all) => {
       const next = { ...all };
@@ -165,7 +174,21 @@ export function WebsiteKeyEditor({
                     )}
                   </div>
                   {tabs[type].on ? (
-                    <WebsiteKeyTabFilters t={t} filters={tabs[type].filters} onChange={(patch) => setFilters(type, patch)} />
+                    <>
+                      <WebsiteKeyTabFilters t={t} filters={tabs[type].filters} onChange={(patch) => setFilters(type, patch)} />
+                      <div className="space-y-1.5 border-t pt-4">
+                        <Label htmlFor={`wk-pdf-${type}`}>{t.pdf}</Label>
+                        <p className="text-xs text-muted-foreground">{t.pdfHint}</p>
+                        <Select value={settings.brochureVariants?.[type] ?? 'default'} onValueChange={(v) => setBrochure(type, v)}>
+                          <SelectTrigger id={`wk-pdf-${type}`} className="w-[240px]" data-testid={`wk-pdf-${type}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">{t.pdfDefault}</SelectItem>
+                            <SelectItem value="branded">{t.pdfBranded}</SelectItem>
+                            <SelectItem value="unbranded">{t.pdfUnbranded}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground">{t.tabOffHint}</p>
                   )}

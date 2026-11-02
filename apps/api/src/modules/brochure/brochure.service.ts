@@ -25,7 +25,11 @@ interface RenderArgs {
   reference: string;
   lang: string;
   variantOverride?: BrochureVariant;
+  /** The website key's choice per listing type, when the request came through one. */
+  keyVariants?: KeyVariants;
 }
+
+type KeyVariants = Partial<Record<string, BrochureVariant>>;
 
 /** Public-URL fetch cache for tenant logos — keyed by URL, base64 of the
  *  fetched image. 1h TTL bounds tenant logo swaps; cleared on full restart. */
@@ -56,7 +60,7 @@ export class BrochureService {
     const tenantFull = await this.tenantRepo.findOne({ where: { id: tenantId } });
     if (!tenantFull) throw new NotFoundException('Tenant not found');
 
-    const variant = this.resolveVariant(property, tenantFull, args.variantOverride);
+    const variant = this.resolveVariant(property, tenantFull, args.variantOverride, args.keyVariants);
 
     // Cache lookup
     const cached = this.cache.get({
@@ -129,15 +133,20 @@ export class BrochureService {
     return this.puppeteerPool.renderPdf(html, { format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } });
   }
 
+  // Most specific first: the property's own choice, then the website key's
+  // choice for its listing type, then the client's default.
   private resolveVariant(
     property: Property,
     tenant: Tenant,
     override?: BrochureVariant,
+    keyVariants?: KeyVariants,
   ): BrochureVariant {
     if (override === 'branded' || override === 'unbranded') return override;
     if (property.brochureVariant === 'branded' || property.brochureVariant === 'unbranded') {
       return property.brochureVariant;
     }
+    const keyVariant = keyVariants?.[property.listingType];
+    if (keyVariant) return keyVariant;
     return (tenant.settings?.defaultBrochureVariant as BrochureVariant) || 'branded';
   }
 

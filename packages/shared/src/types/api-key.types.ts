@@ -49,6 +49,11 @@ export interface ApiKeySettings {
   primaryColor?: string;
   /** Who gets this website's enquiries (instead of Settings -> Email). */
   inquiryEmails?: string[];
+  /**
+   * PDF brochure look per listing type (2026-11-03). A property's own choice
+   * beats it; a type left out uses the client's default.
+   */
+  brochureVariants?: Partial<Record<ListingType, 'branded' | 'unbranded'>>;
 }
 
 /** A website key as the dashboard lists it. The raw key is never returned after creation. */

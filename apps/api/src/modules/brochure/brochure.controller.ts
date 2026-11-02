@@ -68,6 +68,7 @@ export class BrochureController {
       reference,
       lang,
       variantOverride,
+      keyVariants: tenant.keySettings?.brochureVariants,
     });
 
     res.setHeader('Content-Type', 'application/pdf');

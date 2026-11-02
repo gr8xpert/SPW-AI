@@ -188,5 +188,14 @@ export function cleanKeySettings(raw: unknown): ApiKeySettings | null {
       .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 254))].slice(0, 10);
     if (emails.length) out.inquiryEmails = emails;
   }
+  if (r.brochureVariants && typeof r.brochureVariants === 'object' && !Array.isArray(r.brochureVariants)) {
+    const raw = r.brochureVariants as Record<string, unknown>;
+    const variants: NonNullable<ApiKeySettings['brochureVariants']> = {};
+    for (const type of LISTING_TYPES) {
+      const value = raw[type];
+      if (value === 'branded' || value === 'unbranded') variants[type] = value;
+    }
+    if (Object.keys(variants).length) out.brochureVariants = variants;
+  }
   return Object.keys(out).length ? out : null;
 }
