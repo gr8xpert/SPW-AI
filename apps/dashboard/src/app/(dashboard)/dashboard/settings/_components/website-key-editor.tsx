@@ -2,40 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
-import type { ApiKeyScope, ApiKeySettings } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeySettings, ListingType } from '@spm/shared';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MultiPicker } from '../../buyers/[id]/_components/multi-picker';
-import { useMatchOptions } from '../../buyers/use-buyer-match';
 import { useWebsiteKeysText } from './website-keys-text';
 import { useAiScope, useScopePreview, type WebsiteKeyInput } from './use-website-keys';
-
-const LISTING_TYPES = ['sale', 'development', 'rent', 'holiday_rent'] as const;
-
-// The scope with empty parts left out, as the API stores it.
-function compact(s: ApiKeyScope): ApiKeyScope {
-  const out: ApiKeyScope = {};
-  if (s.locationIds?.length) out.locationIds = s.locationIds;
-  if (s.propertyTypeIds?.length) out.propertyTypeIds = s.propertyTypeIds;
-  if (s.listingTypes?.length) out.listingTypes = s.listingTypes;
-  if (s.features?.length) {
-    out.features = s.features;
-    out.featureMatch = s.featureMatch ?? 'all';
-  }
-  if (s.priceMin && s.priceMin > 0) out.priceMin = s.priceMin;
-  if (s.priceMax && s.priceMax > 0) out.priceMax = s.priceMax;
-  if (s.ownOnly) out.ownOnly = true;
-  if (s.featuredOnly) out.featuredOnly = true;
-  if (s.excludeRefs?.length) out.excludeRefs = s.excludeRefs;
-  return out;
-}
+import { LISTING_TYPES, WebsiteKeyTabFilters, scopeToTabs, tabsToScope, type KeyTabs } from './website-key-tab-filters';
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -68,21 +46,25 @@ export function WebsiteKeyEditor({
   const t = useWebsiteKeysText();
   const { toast } = useToast();
   const [name, setName] = useState('');
-  const [scope, setScope] = useState<ApiKeyScope>({});
+  const [tabs, setTabs] = useState<KeyTabs>(() => scopeToTabs(null));
+  const [activeTab, setActiveTab] = useState<ListingType>('sale');
   const [domains, setDomains] = useState('');
   const [settings, setSettings] = useState<ApiKeySettings>({});
   const [emails, setEmails] = useState('');
   const [aiText, setAiText] = useState('');
   const [aiNote, setAiNote] = useState('');
   const ai = useAiScope();
-  const locations = useMatchOptions('locations');
-  const types = useMatchOptions('property-types');
-  const features = useMatchOptions('features');
+
+  // Opens on the first listing type that is on; a key with some on can't lose them all.
+  const showTabs = (next: KeyTabs) => {
+    setTabs(next);
+    setActiveTab(LISTING_TYPES.find((type) => next[type].on) ?? 'sale');
+  };
 
   useEffect(() => {
     if (!open) return;
     setName(initial?.name ?? '');
-    setScope(initial?.scope ?? {});
+    showTabs(scopeToTabs(initial?.scope));
     setDomains((initial?.allowedDomains ?? []).join('\n'));
     setSettings(initial?.settings ?? {});
     setEmails((initial?.settings?.inquiryEmails ?? []).join('\n'));
@@ -95,26 +77,29 @@ export function WebsiteKeyEditor({
     if (settings.currency?.trim()) look.currency = settings.currency.trim().toUpperCase();
     if (settings.primaryColor) look.primaryColor = settings.primaryColor;
     if (lines(emails).length) look.inquiryEmails = lines(emails);
-    onSave({ name: name.trim(), scope: compact(scope), allowedDomains: lines(domains), settings: look });
+    onSave({ name: name.trim(), scope: tabsToScope(tabs, initial?.scope?.excludeRefs), allowedDomains: lines(domains), settings: look });
   };
 
-  const draft = useDebounced(compact(scope), 400);
+  const draft = useDebounced(tabsToScope(tabs, initial?.scope?.excludeRefs), 400);
   const preview = useScopePreview(draft, open);
-  const set = (patch: Partial<ApiKeyScope>) => setScope((s) => ({ ...s, ...patch }));
-  const toggleType = (type: (typeof LISTING_TYPES)[number]) => {
-    const now = scope.listingTypes ?? [];
-    set({ listingTypes: now.includes(type) ? now.filter((x) => x !== type) : [...now, type] });
-  };
-  const num = (v: string) => {
-    const n = Number(v.replace(/[^\d.]/g, ''));
-    return Number.isFinite(n) && n > 0 ? n : undefined;
+  const setFilters = (type: ListingType, patch: Partial<ApiKeyFilters>) =>
+    setTabs((all) => ({ ...all, [type]: { ...all[type], filters: { ...all[type].filters, ...patch } } }));
+  const setOn = (type: ListingType, on: boolean) => setTabs((all) => ({ ...all, [type]: { ...all[type], on } }));
+  const onCount = LISTING_TYPES.filter((type) => tabs[type].on).length;
+  const copyToOthers = (from: ListingType) => {
+    setTabs((all) => {
+      const next = { ...all };
+      for (const type of LISTING_TYPES) if (type !== from) next[type] = { ...all[type], filters: { ...all[from].filters } };
+      return next;
+    });
+    toast({ title: t.copied });
   };
 
   const fillWithAi = () => {
     if (!aiText.trim()) return;
     ai.mutate(aiText.trim(), {
       onSuccess: (res) => {
-        setScope(res.scope ?? {});
+        showTabs(scopeToTabs(res.scope));
         if (!name.trim() && res.name) setName(res.name);
         setAiNote(res.summary);
       },
@@ -147,71 +132,47 @@ export function WebsiteKeyEditor({
             <Input id="wk-name" maxLength={100} value={name} placeholder={t.namePlaceholder} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{t.locations}</Label>
-            <p className="text-xs text-muted-foreground">{t.locationsHint}</p>
-            {locations.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-              <MultiPicker options={locations.data ?? []} value={scope.locationIds ?? []} onChange={(ids) => set({ locationIds: ids })} />
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.types}</Label>
-            <p className="text-xs text-muted-foreground">{t.typesHint}</p>
-            {types.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-              <MultiPicker options={types.data ?? []} value={scope.propertyTypeIds ?? []} onChange={(ids) => set({ propertyTypeIds: ids })} />
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.listingTypes}</Label>
-            <div className="flex flex-wrap gap-4">
-              {LISTING_TYPES.map((type) => (
-                <label key={type} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox checked={scope.listingTypes?.includes(type) ?? false} onCheckedChange={() => toggleType(type)} />
-                  {t.listingTypeNames[type]}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.features}</Label>
-            {features.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-              <MultiPicker options={features.data ?? []} value={scope.features ?? []} onChange={(ids) => set({ features: ids })} />
-            )}
-            {(scope.features?.length ?? 0) > 1 && (
-              <div className="flex items-center gap-2 text-sm">
-                <span>{t.featureMatch}</span>
-                <Select value={scope.featureMatch ?? 'all'} onValueChange={(v) => set({ featureMatch: v as 'all' | 'any' })}>
-                  <SelectTrigger className="h-8 w-[160px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t.matchAll}</SelectItem>
-                    <SelectItem value="any">{t.matchAny}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.price}</Label>
-            <div className="flex items-center gap-2">
-              <Input inputMode="numeric" className="w-40" placeholder={t.priceMin} value={scope.priceMin ?? ''} onChange={(e) => set({ priceMin: num(e.target.value) })} />
-              <span className="text-muted-foreground">–</span>
-              <Input inputMode="numeric" className="w-40" placeholder={t.priceMax} value={scope.priceMax ?? ''} onChange={(e) => set({ priceMax: num(e.target.value) })} />
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <label className="flex items-center gap-3 text-sm">
-              <Switch checked={!!scope.ownOnly} onCheckedChange={(v) => set({ ownOnly: v })} />
-              {t.ownOnly}
-            </label>
-            <label className="flex items-center gap-3 text-sm">
-              <Switch checked={!!scope.featuredOnly} onCheckedChange={(v) => set({ featuredOnly: v })} />
-              {t.featuredOnly}
-            </label>
+            <Label>{t.listingTypes}</Label>
+            <p className="text-xs text-muted-foreground">{t.tabsHint}</p>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ListingType)}>
+              <TabsList className="h-auto w-full flex-wrap justify-start">
+                {LISTING_TYPES.map((type) => (
+                  <TabsTrigger key={type} value={type} className={`gap-1.5 ${tabs[type].on ? '' : 'text-muted-foreground/70'}`} data-testid={`wk-tab-${type}`}>
+                    {t.listingTypeNames[type]}
+                    <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">
+                      {tabs[type].on ? (preview.data?.byListingType?.[type] ?? 0).toLocaleString() : t.paused}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {LISTING_TYPES.map((type) => (
+                <TabsContent key={type} value={type} className="space-y-4 rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-3 text-sm font-medium">
+                      <Switch
+                        checked={tabs[type].on}
+                        disabled={tabs[type].on && onCount === 1}
+                        onCheckedChange={(v) => setOn(type, v)}
+                        data-testid={`wk-tab-on-${type}`}
+                      />
+                      {t.tabOn}
+                    </label>
+                    {tabs[type].on && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => copyToOthers(type)}>
+                        {t.copyToOthers}
+                      </Button>
+                    )}
+                  </div>
+                  {tabs[type].on ? (
+                    <WebsiteKeyTabFilters t={t} filters={tabs[type].filters} onChange={(patch) => setFilters(type, patch)} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{t.tabOffHint}</p>
+                  )}
+                  {tabs[type].on && onCount === 1 && <p className="text-xs text-muted-foreground">{t.keepOne}</p>}
+                </TabsContent>
+              ))}
+            </Tabs>
           </div>
 
           <div className="space-y-1.5">

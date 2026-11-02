@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnav
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import type { ApiKeyScope, ApiKeySummary } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeyScope, ApiKeySummary } from '@spm/shared';
 import { ApiKey, Property, Tenant } from '../../database/entities';
 import { generateApiKey } from '../../common/crypto/api-key';
 import { cleanAllowedDomains, cleanKeyScope, cleanKeySettings } from '../property/key-scope';
@@ -168,18 +168,25 @@ export class ApiKeyService {
     count: number;
     total: number;
     scope: ApiKeyScope | null;
+    byListingType: Record<string, number>;
     sample: Array<{ reference: string; title: string; price: number | null; currency: string; image: string | null }>;
   }> {
     const scope = cleanKeyScope(rawScope);
     const { count, total } = await this.search.countForKeyScope(tenantId, scope);
-    const query = this.properties
+    const live = () => this.properties
       .createQueryBuilder('p')
-      .select(['p.id', 'p.reference', 'p.title', 'p.price', 'p.currency', 'p.images'])
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.status = :status', { status: 'active' })
       .andWhere('p.isPublished = :published', { published: true });
+    const query = live().select(['p.id', 'p.reference', 'p.title', 'p.price', 'p.currency', 'p.images']);
     await this.search.applyKeyScope(query, scope, tenantId);
     const rows = await query.orderBy('p.updatedAt', 'DESC').take(4).getMany();
+    // The number beside each listing type's tab in the editor.
+    const perType = live().select('p.listingType', 'type').addSelect('COUNT(*)', 'n').groupBy('p.listingType');
+    await this.search.applyKeyScope(perType, scope, tenantId);
+    const byListingType = Object.fromEntries(
+      (await perType.getRawMany<{ type: string; n: string }>()).map((r) => [r.type, Number(r.n)]),
+    );
     const sample = rows.map((p) => {
       const images = Array.isArray(p.images) ? [...p.images].sort((a: any, b: any) => (a?.order ?? 0) - (b?.order ?? 0)) : [];
       const first: any = images[0];
@@ -191,7 +198,7 @@ export class ApiKeyService {
         image: first ? first.thumbnailUrl || first.url || null : null,
       };
     });
-    return { count, total, scope, sample };
+    return { count, total, scope, byListingType, sample };
   }
 
   /**
@@ -223,12 +230,16 @@ export class ApiKeyService {
       '- listingTypes holds any of: sale, rent, holiday_rent, development ("new build" / "new development" is development, "resale" is sale).',
       '- "500k" is 500000, "1.5m" is 1500000. "over X" sets priceMin, "under X" sets priceMax.',
       '- Features: featureMatch is "all" unless the text says "or" / "any of".',
+      '- "2+ beds" sets bedsMin, "up to 3 beds" sets bedsMax; bathsMin and bathsMax work the same.',
       '- ownOnly when the text says only the agency\'s own listings; featuredOnly when it says only featured ones.',
+      '- When the listing types have different rules ("all new developments and resales that are off plan"), use byListingType instead of the other fields: one entry per listing type to show, each with its own filters. An entry with no filters ({}) shows all of that type.',
       '- name: a short name for the website key, e.g. "Marbella New Builds".',
       '- summary: one short sentence saying what the key will show.',
       '',
       'Reply with this shape, leaving out anything the text does not say:',
-      '{"scope":{"locationIds":[],"propertyTypeIds":[],"listingTypes":[],"features":[],"featureMatch":"all","priceMin":0,"priceMax":0,"ownOnly":false,"featuredOnly":false},"name":"","summary":""}',
+      '{"scope":{"locationIds":[],"propertyTypeIds":[],"listingTypes":[],"features":[],"featureMatch":"all","priceMin":0,"priceMax":0,"bedsMin":0,"bedsMax":0,"bathsMin":0,"bathsMax":0,"ownOnly":false,"featuredOnly":false},"name":"","summary":""}',
+      'Or, with different rules per listing type:',
+      '{"scope":{"byListingType":{"sale":{"features":[]},"development":{}}},"name":"","summary":""}',
     ].join('\n');
 
     const parsed = (await this.askJson(tenantId, system, `Website: "${text.trim()}"`, 800)) as { scope?: unknown; summary?: unknown; name?: unknown };
@@ -338,10 +349,14 @@ export class ApiKeyService {
       const out = (ids || []).filter((id) => known.has(id));
       return out.length ? out : undefined;
     };
-    scope.locationIds = keep(scope.locationIds, locations);
-    scope.propertyTypeIds = keep(scope.propertyTypeIds, types);
-    scope.features = keep(scope.features, features);
-    if (!scope.features) delete scope.featureMatch;
+    const keepKnown = (filters: ApiKeyFilters) => {
+      filters.locationIds = keep(filters.locationIds, locations);
+      filters.propertyTypeIds = keep(filters.propertyTypeIds, types);
+      filters.features = keep(filters.features, features);
+      if (!filters.features) delete filters.featureMatch;
+    };
+    keepKnown(scope);
+    for (const tab of Object.values(scope.byListingType ?? {})) if (tab) keepKnown(tab);
     return cleanKeyScope(scope);
   }
 

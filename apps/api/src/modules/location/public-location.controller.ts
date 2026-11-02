@@ -16,7 +16,7 @@ import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
-import { trimToScope } from '../property/key-scope';
+import { scopeRoots, trimToScope } from '../property/key-scope';
 import type { Tenant } from '../../database/entities';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -47,7 +47,7 @@ export class PublicLocationController {
   async getLocations(@Headers('x-api-key') apiKey: string) {
     const tenant = await this.resolveTenant(apiKey);
     // A website key limited to some places lists only those (with their parents and children).
-    return trimToScope(await this.locationService.findAll(tenant.id), tenant.keyScope?.locationIds);
+    return trimToScope(await this.locationService.findAll(tenant.id), scopeRoots(tenant.keyScope, 'locationIds'));
   }
 
   // One place's point and outline, for the detail page map. Kept off the

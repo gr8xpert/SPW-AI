@@ -6,7 +6,7 @@ import { SearchPropertyDto } from './dto';
 import { fenceFor, resolveLocationPoints } from '../location/location-points';
 import { locationKey } from '../location-template/location-name';
 import { applySiteMinPrices, type SiteMinPrices } from './site-limits';
-import type { ApiKeyScope } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeyScope } from '@spm/shared';
 
 // Where a listing is for map and area searches: its own GPS, else its
 // location's point (filled from the location template). Feeds such as Resales
@@ -356,32 +356,73 @@ export class PropertySearchService {
   // `alias`: the query's name for the property table (feed exports use 'property').
   async applyKeyScope(query: SelectQueryBuilder<Property>, scope: ApiKeyScope | null | undefined, tenantId: number, alias = 'p'): Promise<void> {
     if (!scope) return;
-    const expand = async (roots: number[] | undefined, table: 'locations' | 'property_types') => {
-      const all = new Set<number>();
-      for (const id of roots || []) for (const e of await this.expandDescendants(tenantId, id, table)) all.add(e);
-      return [...all];
-    };
-    if (scope.locationIds?.length) {
-      query.andWhere(`${alias}.locationId IN (:...scopeLocationIds)`, { scopeLocationIds: await expand(scope.locationIds, 'locations') });
+    if (scope.byListingType) {
+      // One group per listing type, all inside one set of brackets: an OR that
+      // reached the outer query would let in listings of any client.
+      const groups: string[] = [];
+      const params: Record<string, unknown> = {};
+      let n = 0;
+      for (const [type, tab] of Object.entries(scope.byListingType)) {
+        const prefix = `scopeTab${n++}`;
+        const part = await this.keyFilterSql(tab ?? {}, tenantId, alias, prefix);
+        groups.push(`(${[`${alias}.listingType = :${prefix}Type`, ...part.conditions].join(' AND ')})`);
+        Object.assign(params, part.params, { [`${prefix}Type`]: type });
+      }
+      if (groups.length) query.andWhere(`(${groups.join(' OR ')})`, params);
+    } else {
+      const { conditions, params } = await this.keyFilterSql(scope, tenantId, alias, 'scope');
+      if (scope.listingTypes?.length) {
+        query.andWhere(`${alias}.listingType IN (:...scopeListingTypes)`, { scopeListingTypes: scope.listingTypes });
+      }
+      for (const condition of conditions) query.andWhere(condition);
+      query.setParameters(params);
     }
-    if (scope.propertyTypeIds?.length) {
-      query.andWhere(`${alias}.propertyTypeId IN (:...scopeTypeIds)`, { scopeTypeIds: await expand(scope.propertyTypeIds, 'property_types') });
-    }
-    if (scope.listingTypes?.length) {
-      query.andWhere(`${alias}.listingType IN (:...scopeListingTypes)`, { scopeListingTypes: scope.listingTypes });
-    }
-    if (scope.features?.length) {
-      const parts = scope.features.map((_, i) => `JSON_CONTAINS(${alias}.features, :scopeFeature${i})`);
-      const params = Object.fromEntries(scope.features.map((id, i) => [`scopeFeature${i}`, JSON.stringify(id)]));
-      query.andWhere(`(${parts.join(scope.featureMatch === 'any' ? ' OR ' : ' AND ')})`, params);
-    }
-    if (scope.priceMin) query.andWhere(`${alias}.price >= :scopePriceMin`, { scopePriceMin: scope.priceMin });
-    if (scope.priceMax) query.andWhere(`${alias}.price <= :scopePriceMax`, { scopePriceMax: scope.priceMax });
-    if (scope.ownOnly) query.andWhere(`${alias}.isOwnProperty = 1`);
-    if (scope.featuredOnly) query.andWhere(`${alias}.isFeatured = 1`);
     if (scope.excludeRefs?.length) {
       query.andWhere(`${alias}.reference NOT IN (:...scopeExcludeRefs)`, { scopeExcludeRefs: scope.excludeRefs });
     }
+  }
+
+  // One filter set as SQL conditions, with parameter names under `prefix` so
+  // several sets can sit in one query.
+  private async keyFilterSql(
+    filters: ApiKeyFilters,
+    tenantId: number,
+    alias: string,
+    prefix: string,
+  ): Promise<{ conditions: string[]; params: Record<string, unknown> }> {
+    const conditions: string[] = [];
+    const params: Record<string, unknown> = {};
+    const add = (sql: string, name: string, value: unknown) => {
+      conditions.push(sql.replace('?', `:${prefix}${name}`));
+      params[`${prefix}${name}`] = value;
+    };
+    const expand = async (roots: number[], table: 'locations' | 'property_types') => {
+      const all = new Set<number>();
+      for (const id of roots) for (const e of await this.expandDescendants(tenantId, id, table)) all.add(e);
+      return [...all];
+    };
+    if (filters.locationIds?.length) {
+      conditions.push(`${alias}.locationId IN (:...${prefix}LocationIds)`);
+      params[`${prefix}LocationIds`] = await expand(filters.locationIds, 'locations');
+    }
+    if (filters.propertyTypeIds?.length) {
+      conditions.push(`${alias}.propertyTypeId IN (:...${prefix}TypeIds)`);
+      params[`${prefix}TypeIds`] = await expand(filters.propertyTypeIds, 'property_types');
+    }
+    if (filters.features?.length) {
+      const parts = filters.features.map((_, i) => `JSON_CONTAINS(${alias}.features, :${prefix}Feature${i})`);
+      filters.features.forEach((id, i) => { params[`${prefix}Feature${i}`] = JSON.stringify(id); });
+      conditions.push(`(${parts.join(filters.featureMatch === 'any' ? ' OR ' : ' AND ')})`);
+    }
+    if (filters.priceMin) add(`${alias}.price >= ?`, 'PriceMin', filters.priceMin);
+    if (filters.priceMax) add(`${alias}.price <= ?`, 'PriceMax', filters.priceMax);
+    if (filters.bedsMin) add(`COALESCE(${alias}.bedroomsTo, ${alias}.bedrooms) >= ?`, 'BedsMin', filters.bedsMin);
+    if (filters.bedsMax) add(`${alias}.bedrooms <= ?`, 'BedsMax', filters.bedsMax);
+    if (filters.bathsMin) add(`COALESCE(${alias}.bathroomsTo, ${alias}.bathrooms) >= ?`, 'BathsMin', filters.bathsMin);
+    if (filters.bathsMax) add(`${alias}.bathrooms <= ?`, 'BathsMax', filters.bathsMax);
+    if (filters.ownOnly) conditions.push(`${alias}.isOwnProperty = 1`);
+    if (filters.featuredOnly) conditions.push(`${alias}.isFeatured = 1`);
+    return { conditions, params };
   }
 
   // Whether one listing is inside a key's scope: the detail page, brochure

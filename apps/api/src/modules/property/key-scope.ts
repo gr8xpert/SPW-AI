@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import type { ApiKeyScope, ApiKeySettings } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeyScope, ApiKeySettings, ListingType } from '@spm/shared';
 import { LISTING_TYPES } from './site-limits';
 
 // A website key's scope (api_keys.scope), cleaned so only what it can mean
@@ -17,30 +17,59 @@ const price = (raw: unknown): number | undefined => {
   return raw != null && raw !== '' && Number.isFinite(n) && n > 0 ? n : undefined;
 };
 
+function cleanFilters(r: Record<string, unknown>): ApiKeyFilters {
+  const out: ApiKeyFilters = {};
+  const locationIds = ids(r.locationIds);
+  if (locationIds) out.locationIds = locationIds;
+  const propertyTypeIds = ids(r.propertyTypeIds);
+  if (propertyTypeIds) out.propertyTypeIds = propertyTypeIds;
+  const features = ids(r.features, 50);
+  if (features) {
+    out.features = features;
+    out.featureMatch = r.featureMatch === 'any' ? 'any' : 'all';
+  }
+  const range = (minKey: 'priceMin' | 'bedsMin' | 'bathsMin', maxKey: 'priceMax' | 'bedsMax' | 'bathsMax') => {
+    const min = price(r[minKey]);
+    const max = price(r[maxKey]);
+    if (min) out[minKey] = min;
+    if (max && (!min || max >= min)) out[maxKey] = max;
+  };
+  range('priceMin', 'priceMax');
+  range('bedsMin', 'bedsMax');
+  range('bathsMin', 'bathsMax');
+  if (r.ownOnly === true) out.ownOnly = true;
+  if (r.featuredOnly === true) out.featuredOnly = true;
+  return out;
+}
+
+// One filter set per listing type that is on. Types left out don't show.
+function cleanByListingType(raw: unknown): Partial<Record<ListingType, ApiKeyFilters>> | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out: Partial<Record<ListingType, ApiKeyFilters>> = {};
+  for (const type of LISTING_TYPES) {
+    const tab = (raw as Record<string, unknown>)[type];
+    if (!tab || typeof tab !== 'object' || Array.isArray(tab)) continue;
+    out[type] = cleanFilters(tab as Record<string, unknown>);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function cleanKeyScope(raw: unknown): ApiKeyScope | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
-  const scope: ApiKeyScope = {};
-  const locationIds = ids(r.locationIds);
-  if (locationIds) scope.locationIds = locationIds;
-  const propertyTypeIds = ids(r.propertyTypeIds);
-  if (propertyTypeIds) scope.propertyTypeIds = propertyTypeIds;
-  if (Array.isArray(r.listingTypes)) {
-    const types = [...new Set(r.listingTypes.filter((t): t is (typeof LISTING_TYPES)[number] =>
+  const byType = cleanByListingType(r.byListingType);
+  const tabs = byType ? Object.values(byType) : [];
+  // Tabs that all say the same are a plain scope: simpler everywhere, and the
+  // query needs no OR.
+  const same = byType && tabs.every((tab) => JSON.stringify(tab) === JSON.stringify(tabs[0]));
+  const scope: ApiKeyScope = byType && !same ? {} : cleanFilters(byType ? { ...tabs[0] } : r);
+  if (byType && !same) scope.byListingType = byType;
+  const rawTypes = byType ? Object.keys(byType) : r.listingTypes;
+  if (Array.isArray(rawTypes)) {
+    const types = [...new Set(rawTypes.filter((t): t is (typeof LISTING_TYPES)[number] =>
       typeof t === 'string' && (LISTING_TYPES as readonly string[]).includes(t)))];
     if (types.length && types.length < LISTING_TYPES.length) scope.listingTypes = types;
   }
-  const features = ids(r.features, 50);
-  if (features) {
-    scope.features = features;
-    scope.featureMatch = r.featureMatch === 'any' ? 'any' : 'all';
-  }
-  const priceMin = price(r.priceMin);
-  const priceMax = price(r.priceMax);
-  if (priceMin) scope.priceMin = priceMin;
-  if (priceMax && (!priceMin || priceMax >= priceMin)) scope.priceMax = priceMax;
-  if (r.ownOnly === true) scope.ownOnly = true;
-  if (r.featuredOnly === true) scope.featuredOnly = true;
   if (Array.isArray(r.excludeRefs)) {
     const refs = [...new Set(r.excludeRefs.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean))]
       .map((s) => s.slice(0, 100))
@@ -59,6 +88,19 @@ export function scopedListingTypes(site: string[] | null, scope: ApiKeyScope | n
   if (!site) return keyTypes;
   const both = site.filter((t) => (keyTypes as string[]).includes(t));
   return both.length ? both : ['none'];
+}
+
+// The places (or types) a scoped site's dropdowns start from. With different
+// filters per listing type it's all of them together; a type with no limit
+// there means the whole list.
+export function scopeRoots(scope: ApiKeyScope | null | undefined, field: 'locationIds' | 'propertyTypeIds'): number[] | undefined {
+  if (!scope?.byListingType) return scope?.[field];
+  const all = new Set<number>();
+  for (const tab of Object.values(scope.byListingType)) {
+    if (!tab?.[field]?.length) return undefined;
+    for (const id of tab[field]!) all.add(id);
+  }
+  return [...all];
 }
 
 // Short and stable, for cache tags: two keys with the same scope share it.

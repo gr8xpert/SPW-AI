@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { AlertTriangle, KeyRound, Loader2, Lock, Plus } from 'lucide-react';
-import type { ApiKeyScope } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeyScope } from '@spm/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -34,18 +34,37 @@ function useScopeChips(t: WebsiteKeysText) {
     const loc = names(locations.data);
     const typ = names(types.data);
     const fea = names(features.data);
-    return (s: ApiKeyScope): string[] => {
+    const range = (min: number | undefined, max: number | undefined, unit = '') => {
+      if (min && max) return `${min.toLocaleString()}–${max.toLocaleString()}${unit}`;
+      if (min) return `${min.toLocaleString()}+${unit}`;
+      return max ? `≤ ${max.toLocaleString()}${unit}` : null;
+    };
+    const filterChips = (s: ApiKeyFilters): string[] => {
       const chips: string[] = [];
       for (const id of s.locationIds ?? []) chips.push(loc.get(id) || `#${id}`);
       for (const id of s.propertyTypeIds ?? []) chips.push(typ.get(id) || `#${id}`);
-      for (const lt of s.listingTypes ?? []) chips.push(t.listingTypeNames[lt] || lt);
       for (const id of s.features ?? []) chips.push(fea.get(id) || `#${id}`);
-      if (s.priceMin && s.priceMax) chips.push(`${s.priceMin.toLocaleString()}–${s.priceMax.toLocaleString()}`);
-      else if (s.priceMin) chips.push(`${s.priceMin.toLocaleString()}+`);
-      else if (s.priceMax) chips.push(`≤ ${s.priceMax.toLocaleString()}`);
+      const price = range(s.priceMin, s.priceMax);
+      const beds = range(s.bedsMin, s.bedsMax, ` ${t.beds}`);
+      const baths = range(s.bathsMin, s.bathsMax, ` ${t.baths}`);
+      if (price) chips.push(price);
+      if (beds) chips.push(beds);
+      if (baths) chips.push(baths);
       if (s.ownOnly) chips.push(t.ownOnly);
       if (s.featuredOnly) chips.push(t.featuredOnly);
       return chips;
+    };
+    return (s: ApiKeyScope): string[] => {
+      // Different filters per listing type: one chip per type, "Resale: Off Plan".
+      if (s.byListingType) {
+        return Object.entries(s.byListingType).map(([lt, tab]) => {
+          const name = t.listingTypeNames[lt] || lt;
+          const parts = filterChips(tab ?? {});
+          return parts.length ? `${name}: ${parts.join(', ')}` : `${name}: ${t.allOfType}`;
+        });
+      }
+      const types = (s.listingTypes ?? []).map((lt) => t.listingTypeNames[lt] || lt);
+      return [...filterChips(s), ...types];
     };
   }, [locations.data, types.data, features.data, t]);
 }

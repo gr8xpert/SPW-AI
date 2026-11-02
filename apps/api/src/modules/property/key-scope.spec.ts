@@ -1,4 +1,4 @@
-import { cleanKeyScope, keyScopeTag, scopedListingTypes, trimToScope } from './key-scope';
+import { cleanKeyScope, keyScopeTag, scopeRoots, scopedListingTypes, trimToScope } from './key-scope';
 
 describe('key-scope', () => {
   it('keeps only what a scope can mean', () => {
@@ -21,6 +21,39 @@ describe('key-scope', () => {
     expect(cleanKeyScope(null)).toBeNull();
     expect(cleanKeyScope([1])).toBeNull();
     expect(cleanKeyScope({ listingTypes: ['sale', 'rent', 'holiday_rent', 'development'] })).toBeNull();
+  });
+
+  it('keeps different filters per listing type, and their listing types', () => {
+    expect(
+      cleanKeyScope({
+        byListingType: { sale: { features: [9], bedsMin: '2', bedsMax: 1 }, development: {}, villa: { features: [1] } },
+        excludeRefs: ['R1'],
+      }),
+    ).toEqual({
+      byListingType: { sale: { features: [9], featureMatch: 'all', bedsMin: 2 }, development: {} },
+      listingTypes: ['sale', 'development'],
+      excludeRefs: ['R1'],
+    });
+  });
+
+  it('turns tabs that all say the same into the plain scope', () => {
+    const tab = { locationIds: [5] };
+    expect(cleanKeyScope({ byListingType: { sale: tab, rent: tab } })).toEqual({ locationIds: [5], listingTypes: ['sale', 'rent'] });
+    expect(cleanKeyScope({ byListingType: { sale: {}, development: {}, rent: {}, holiday_rent: {} } })).toBeNull();
+    expect(cleanKeyScope({ byListingType: { sale: tab, development: tab, rent: tab, holiday_rent: tab } })).toEqual({ locationIds: [5] });
+  });
+
+  it('leaves an old scope exactly as it was', () => {
+    const old = { locationIds: [5], listingTypes: ['development'], features: [3], featureMatch: 'any', priceMin: 100, ownOnly: true, excludeRefs: ['R1'] };
+    expect(cleanKeyScope(old)).toEqual(old);
+    expect(cleanKeyScope(cleanKeyScope(old))).toEqual(old);
+  });
+
+  it('lists every tab\'s places for the dropdowns, or all when a tab has no limit', () => {
+    expect(scopeRoots(null, 'locationIds')).toBeUndefined();
+    expect(scopeRoots({ locationIds: [1] }, 'locationIds')).toEqual([1]);
+    expect(scopeRoots({ byListingType: { sale: { locationIds: [1] }, rent: { locationIds: [2, 1] } } }, 'locationIds')).toEqual([1, 2]);
+    expect(scopeRoots({ byListingType: { sale: { locationIds: [1] }, rent: {} } }, 'locationIds')).toBeUndefined();
   });
 
   it('combines the site and key listing types', () => {

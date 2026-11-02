@@ -42,6 +42,7 @@ export interface WebsiteKeyList {
 export interface ScopePreview {
   count: number;
   total: number;
+  byListingType: Record<string, number>;
   sample: Array<{ reference: string; title: string; price: number | null; currency: string; image: string | null }>;
 }
 

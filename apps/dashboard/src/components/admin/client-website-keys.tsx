@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Lock } from 'lucide-react';
-import type { ApiKeyScope, ApiKeySummary } from '@spm/shared';
+import type { ApiKeyFilters, ApiKeyScope, ApiKeySummary } from '@spm/shared';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useApi } from '@/hooks/use-api';
@@ -18,15 +18,27 @@ const LISTING_TYPES: Record<string, string> = { sale: 'Resale', development: 'Ne
 
 // The scope in words without the client's place names (they belong to the
 // client; View as client shows them by name).
-function describe(s: ApiKeyScope): string {
+function describeFilters(s: ApiKeyFilters): string[] {
   const parts: string[] = [];
   if (s.locationIds?.length) parts.push(`${s.locationIds.length} place${s.locationIds.length > 1 ? 's' : ''}`);
   if (s.propertyTypeIds?.length) parts.push(`${s.propertyTypeIds.length} type${s.propertyTypeIds.length > 1 ? 's' : ''}`);
-  if (s.listingTypes?.length) parts.push(s.listingTypes.map((t) => LISTING_TYPES[t] || t).join(', '));
   if (s.features?.length) parts.push(`${s.features.length} feature${s.features.length > 1 ? 's' : ''}`);
   if (s.priceMin || s.priceMax) parts.push(`${s.priceMin?.toLocaleString() ?? '0'}–${s.priceMax?.toLocaleString() ?? '∞'}`);
+  if (s.bedsMin || s.bedsMax) parts.push(`${s.bedsMin ?? '0'}–${s.bedsMax ?? '∞'} beds`);
+  if (s.bathsMin || s.bathsMax) parts.push(`${s.bathsMin ?? '0'}–${s.bathsMax ?? '∞'} baths`);
   if (s.ownOnly) parts.push('own listings only');
   if (s.featuredOnly) parts.push('featured only');
+  return parts;
+}
+
+function describe(s: ApiKeyScope): string {
+  if (s.byListingType) {
+    return Object.entries(s.byListingType)
+      .map(([type, tab]) => `${LISTING_TYPES[type] || type}: ${describeFilters(tab ?? {}).join(', ') || 'all'}`)
+      .join(' · ');
+  }
+  const parts = describeFilters(s);
+  if (s.listingTypes?.length) parts.unshift(s.listingTypes.map((t) => LISTING_TYPES[t] || t).join(', '));
   return parts.join(' · ') || 'Everything';
 }
 

@@ -13,7 +13,7 @@ import { TenantService } from '../tenant/tenant.service';
 import { IS_PUBLIC_KEY } from '../../common/guards/jwt-auth.guard';
 import { ApiKeyThrottlerGuard } from '../../common/guards/api-key-throttler.guard';
 import { ResolveNameInterceptor } from '../../common/i18n/resolve-name.interceptor';
-import { trimToScope } from '../property/key-scope';
+import { scopeRoots, trimToScope } from '../property/key-scope';
 import type { Tenant } from '../../database/entities';
 
 const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -40,6 +40,6 @@ export class PublicPropertyTypeController {
   async getPropertyTypes(@Headers('x-api-key') apiKey: string) {
     const tenant = await this.resolveTenant(apiKey);
     // A website key limited to some types lists only those (with their parents and sub-types).
-    return trimToScope(await this.propertyTypeService.findAll(tenant.id), tenant.keyScope?.propertyTypeIds);
+    return trimToScope(await this.propertyTypeService.findAll(tenant.id), scopeRoots(tenant.keyScope, 'propertyTypeIds'));
   }
 }
