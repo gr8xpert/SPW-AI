@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import {
-  BUYER_ROLES, buyerName, daysSince, stageName, useBuyerAgents, useBuyerSettings, useBuyerStages, useSetBuyerStage,
+  BUYER_ROLES, buyerName, daysSince, importedDay, stageName, useBuyerAgents, useBuyerSettings, useBuyerStages, useSetBuyerStage,
   useUpdateBuyer, type Buyer, type UpdateBuyerInput,
 } from '../../use-buyers';
 import { BuyerAvatar, PriorityStars } from '../../_components/buyer-bits';
@@ -31,7 +31,8 @@ export function BuyerHeader({ buyer }: { buyer: Buyer }) {
   const name = buyerName(buyer);
   const relatedIds = buyer.agents.map((a) => a.userId);
   const days = daysSince(buyer.lastActivityAt);
-  const stale = buyer.stage?.kind === 'open' && days !== null && days >= (settings.data?.staleDays ?? 14);
+  const imported = importedDay(buyer);
+  const stale = !imported && buyer.stage?.kind === 'open' && days !== null && days >= (settings.data?.staleDays ?? 14);
   const phone = buyer.mobile || buyer.phone;
   const waDigits = phone?.replace(/\D/g, '');
 
@@ -69,6 +70,11 @@ export function BuyerHeader({ buyer }: { buyer: Buyer }) {
               {stale ? (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                   {t.stale}: {t.daysAgo(days!)}
+                </span>
+              ) : null}
+              {imported ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300" data-testid="badge-created">
+                  {t.createdOn(imported)}
                 </span>
               ) : null}
               {buyer.unsubscribedAt && !buyer.erasedAt ? (

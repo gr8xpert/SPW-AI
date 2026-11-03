@@ -29,6 +29,7 @@ export const sv: BuyerText = {
   lastActivity: 'Senaste aktivitet',
   never: 'aldrig',
   daysAgo: (n: number) => (n <= 0 ? 'i dag' : n === 1 ? 'i går' : `för ${n} dagar sedan`),
+  createdOn: (d: string) => `Skapad ${d}`,
   stale: 'Ingen aktivitet',
   unassigned: 'Ingen mäklare',
   sort: {

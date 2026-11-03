@@ -30,6 +30,7 @@ export const en = {
   lastActivity: 'Last activity',
   never: 'never',
   daysAgo: (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`),
+  createdOn: (d: string) => `Created ${d}`,
   stale: 'No activity',
   unassigned: 'Unassigned',
   sort: {

@@ -22,7 +22,7 @@ import { LockedRouteGuard } from '@/components/locked-route-guard';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName, daysSince, stageName, useBuyerAgents, useBuyerSettings, type BuyerListItem, type BuyerStage } from '../use-buyers';
+import { buyerName, daysSince, importedDay, stageName, useBuyerAgents, useBuyerSettings, type BuyerListItem, type BuyerStage } from '../use-buyers';
 import { useBuyerBoard, useBuyerQuestions, useMoveOnBoard } from '../use-buyer-follow-up';
 import { BuyerFilters, type BuyerFilterValues } from '../_components/buyer-filters';
 import { BuyersNav } from '../_components/buyers-nav';
@@ -37,7 +37,8 @@ function BoardCard({ buyer, staleDays, dragging }: { buyer: BuyerListItem; stale
   const t = useBuyerText();
   const name = buyerName(buyer);
   const days = daysSince(buyer.lastActivityAt);
-  const stale = buyer.stage?.kind === 'open' && days !== null && days >= staleDays;
+  const imported = importedDay(buyer);
+  const stale = !imported && buyer.stage?.kind === 'open' && days !== null && days >= staleDays;
   return (
     <Card className={cn('border-border/60 bg-background', dragging && 'rotate-2 shadow-lg')}>
       <CardContent className="space-y-2 p-3">
@@ -50,7 +51,7 @@ function BoardCard({ buyer, staleDays, dragging }: { buyer: BuyerListItem; stale
           <span className="truncate">{buyer.assignedToUser?.name || buyer.assignedToUser?.email || t.unassigned}</span>
           <span className={cn('flex shrink-0 items-center gap-1', stale && 'font-medium text-amber-600')}>
             <Clock className="h-3 w-3" />
-            {days === null ? t.never : t.daysAgo(days)}
+            {imported ? t.createdOn(imported) : days === null ? t.never : t.daysAgo(days)}
           </span>
         </div>
       </CardContent>

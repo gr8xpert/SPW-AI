@@ -5,14 +5,15 @@ import { Mail, MapPin, Clock, UserRound } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName, daysSince, type BuyerListItem } from '../use-buyers';
+import { buyerName, daysSince, importedDay, type BuyerListItem } from '../use-buyers';
 import { BuyerAvatar, HotBadge, PriorityStars, StageBadge } from './buyer-bits';
 
 export function BuyerCard({ buyer, staleDays }: { buyer: BuyerListItem; staleDays: number }) {
   const t = useBuyerText();
   const name = buyerName(buyer);
   const days = daysSince(buyer.lastActivityAt);
-  const stale = buyer.stage?.kind !== 'won' && buyer.stage?.kind !== 'lost' && days !== null && days >= staleDays;
+  const imported = importedDay(buyer);
+  const stale = !imported && buyer.stage?.kind !== 'won' && buyer.stage?.kind !== 'lost' && days !== null && days >= staleDays;
 
   return (
     <Link href={`/dashboard/buyers/${buyer.id}`} className="block">
@@ -53,7 +54,7 @@ export function BuyerCard({ buyer, staleDays }: { buyer: BuyerListItem; staleDay
             </span>
             <span className={cn('flex items-center gap-1 text-[11px]', stale ? 'font-medium text-amber-600' : 'text-muted-foreground')}>
               <Clock className="h-3 w-3" />
-              {days === null ? t.never : t.daysAgo(days)}
+              {imported ? t.createdOn(imported) : days === null ? t.never : t.daysAgo(days)}
             </span>
           </div>
         </CardContent>

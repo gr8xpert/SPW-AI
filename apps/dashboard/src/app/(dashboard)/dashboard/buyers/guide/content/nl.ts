@@ -373,7 +373,7 @@ export const nl: GuideTranslation = {
         ['Voorgestelde woningen', 'Klik op het pijltje bij Linked Properties en voeg van daaruit toe: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Laat Matched Properties weg. SPM berekent die zelf, en ze kunnen de export te groot maken voor Odoo.'),
-      tip('Een import telt niet als activiteit: kopers beginnen op hun Odoo-datum, dus wie al lang niets had, staat onder "Geen recente activiteit" zodat makelaars ze kunnen oppakken. Hetzelfde bestand opnieuw importeren verandert hun laatste activiteit niet.'),
+      tip('Een import telt niet als activiteit: kopers beginnen op hun Odoo-datum, dus wie al lang niets had, staat onder "Geen recente activiteit" zodat makelaars ze kunnen oppakken. Hetzelfde bestand opnieuw importeren verandert hun laatste activiteit niet. Tot iemand met ze aan de slag gaat, toont hun kaart "Aangemaakt" en die datum, niet een aantal dagen.'),
     ],
   },
   privacy: {

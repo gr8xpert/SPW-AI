@@ -29,6 +29,7 @@ export const fi: BuyerText = {
   lastActivity: 'Viimeisin toiminta',
   never: 'ei koskaan',
   daysAgo: (n: number) => (n <= 0 ? 'tänään' : n === 1 ? 'eilen' : `${n} päivää sitten`),
+  createdOn: (d: string) => `Luotu ${d}`,
   stale: 'Ei toimintaa',
   unassigned: 'Ei välittäjää',
   sort: {

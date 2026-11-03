@@ -30,6 +30,7 @@ export const es: BuyerText = {
   lastActivity: 'Última actividad',
   never: 'nunca',
   daysAgo: (n: number) => (n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`),
+  createdOn: (d: string) => `Creado: ${d}`,
   stale: 'Sin actividad',
   unassigned: 'Sin asignar',
   sort: {

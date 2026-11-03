@@ -30,6 +30,7 @@ export const nl: BuyerText = {
   lastActivity: 'Laatste activiteit',
   never: 'nooit',
   daysAgo: (n: number) => (n <= 0 ? 'vandaag' : n === 1 ? 'gisteren' : `${n} dagen geleden`),
+  createdOn: (d: string) => `Aangemaakt ${d}`,
   stale: 'Geen activiteit',
   unassigned: 'Niet toegewezen',
   sort: {

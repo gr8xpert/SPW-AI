@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName, daysSince, type BuyerListItem } from '../use-buyers';
+import { buyerName, daysSince, importedDay, type BuyerListItem } from '../use-buyers';
 import { BuyerAvatar, HotBadge, PriorityStars, StageBadge } from './buyer-bits';
 
 export function BuyerTable({ buyers, staleDays }: { buyers: BuyerListItem[]; staleDays: number }) {
@@ -29,7 +29,8 @@ export function BuyerTable({ buyers, staleDays }: { buyers: BuyerListItem[]; sta
           {buyers.map((b) => {
             const name = buyerName(b);
             const days = daysSince(b.lastActivityAt);
-            const stale = b.stage?.kind === 'open' && days !== null && days >= staleDays;
+            const imported = importedDay(b);
+            const stale = !imported && b.stage?.kind === 'open' && days !== null && days >= staleDays;
             return (
               <TableRow key={b.id} className="cursor-pointer" onClick={() => router.push(`/dashboard/buyers/${b.id}`)}>
                 <TableCell>
@@ -46,7 +47,7 @@ export function BuyerTable({ buyers, staleDays }: { buyers: BuyerListItem[]; sta
                 <TableCell className="text-muted-foreground">{b.assignedToUser?.name || b.assignedToUser?.email || t.unassigned}</TableCell>
                 <TableCell><PriorityStars value={b.priority} /></TableCell>
                 <TableCell className={cn('text-right text-xs', stale ? 'font-medium text-amber-600' : 'text-muted-foreground')}>
-                  {days === null ? t.never : t.daysAgo(days)}
+                  {imported ? t.createdOn(imported) : days === null ? t.never : t.daysAgo(days)}
                 </TableCell>
               </TableRow>
             );

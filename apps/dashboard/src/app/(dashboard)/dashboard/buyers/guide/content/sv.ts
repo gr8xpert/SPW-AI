@@ -374,7 +374,7 @@ export const sv: GuideTranslation = {
         ['Föreslagna objekt', 'Klicka på pilen vid Linked Properties och lägg till därifrån: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Utelämna Matched Properties. SPM räknar ut dem själv, och de kan göra exporten för stor för Odoo.'),
-      tip('En import räknas inte som aktivitet: köpare börjar på sitt Odoo-datum, så de utan något nyligen visas under "Ingen aktivitet nyligen" så att mäklarna kan ta tag i dem. Att importera samma fil igen ändrar inte deras senaste aktivitet.'),
+      tip('En import räknas inte som aktivitet: köpare börjar på sitt Odoo-datum, så de utan något nyligen visas under "Ingen aktivitet nyligen" så att mäklarna kan ta tag i dem. Att importera samma fil igen ändrar inte deras senaste aktivitet. Tills någon tar tag i dem visar deras kort "Skapad" och det datumet, inte ett antal dagar.'),
     ],
   },
   privacy: {

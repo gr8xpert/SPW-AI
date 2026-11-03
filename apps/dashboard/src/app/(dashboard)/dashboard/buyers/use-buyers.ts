@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useApi } from '@/hooks/use-api';
 import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import type { NoteRule } from './use-buyer-ai';
-import { dashboardLanguage } from '@/i18n/i18n-provider';
+import { dashboardLanguage, dashboardLocale } from '@/i18n/i18n-provider';
 
 // Buyer Match data. Keys carry the signed-in user and impersonated tenant
 // (useTenantQueryScope); every write invalidates everything under 'buyers'.
@@ -62,6 +62,7 @@ export interface BuyerListItem {
   assignedToUser: BuyerAgent | null;
   contact: { id: number; email: string } | null;
   lastActivityAt: string | null;
+  importRef?: string | null;
   // Set by the list (milestone I): likes, viewing requests, clicks, enquiries lately.
   hot?: boolean;
   // GDPR (milestone J).
@@ -362,4 +363,12 @@ export function stageName(stage: Pick<BuyerStage, 'name'> | null | undefined): s
 export function daysSince(date: string | null | undefined): number | null {
   if (!date) return null;
   return Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
+}
+
+// An imported buyer nobody has worked on: their last activity is still the date
+// from the import, so it is shown as that date and not as days without activity.
+export function importedDay(buyer: Pick<BuyerListItem, 'importRef' | 'lastActivityAt' | 'createdAt'>): string | null {
+  if (!buyer.importRef || !buyer.lastActivityAt) return null;
+  if (new Date(buyer.lastActivityAt).getTime() !== new Date(buyer.createdAt).getTime()) return null;
+  return new Date(buyer.createdAt).toLocaleDateString(dashboardLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }

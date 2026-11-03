@@ -373,7 +373,7 @@ export const es: GuideTranslation = {
         ['Propiedades sugeridas', 'Haz clic en la flecha de Linked Properties y añade desde dentro: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('No incluyas Matched Properties. SPM las calcula por sí mismo, y pueden hacer que la exportación sea demasiado grande para Odoo.'),
-      tip('Una importación no cuenta como actividad: los compradores empiezan en su fecha de Odoo, así que los que no tienen nada reciente aparecen en "Sin actividad reciente" para que los agentes los retomen. Importar de nuevo el mismo archivo no cambia su última actividad.'),
+      tip('Una importación no cuenta como actividad: los compradores empiezan en su fecha de Odoo, así que los que no tienen nada reciente aparecen en "Sin actividad reciente" para que los agentes los retomen. Importar de nuevo el mismo archivo no cambia su última actividad. Hasta que alguien trabaje con ellos, su tarjeta muestra "Creado" y esa fecha, no un número de días.'),
     ],
   },
   privacy: {

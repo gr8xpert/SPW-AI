@@ -186,7 +186,7 @@ export const MORE: GuideSection[] = [
         ['Suggested properties', 'Click the arrow on Linked Properties and add from inside it: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Leave out Matched Properties. SPM works those out itself, and they can make the export too large for Odoo.'),
-      tip('An import is not activity: buyers start at their Odoo date, so those with nothing recent appear under "No recent activity" for agents to pick up. Importing the same file again does not change their last activity.'),
+      tip('An import is not activity: buyers start at their Odoo date, so those with nothing recent appear under "No recent activity" for agents to pick up. Importing the same file again does not change their last activity. Until someone works on them, their card shows "Created" and that date, not a day count.'),
     ],
   },
   {

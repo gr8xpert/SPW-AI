@@ -1,3 +1,17 @@
+deployed_at:   2026-11-03T22:41 UTC (deploy 2026-11-04c-created-label, run from the FullStack session at the owner's request after the permission check refused the DevOps agent; 2026-11-04 03:41 in Pakistan)
+git_head:      3f1ad09 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out; held mobile-width work not in it)
+dashboard_id:  Qq4a85sf9lh1LyE2QnD8Q
+new_deps:      none
+includes:      imported buyers nobody worked on show Created <date> instead of a day count (cards, list, Board, buyer page; 7 languages; Guide); replaces 11-04b, which said Imported <date>
+
+deployed_at:   2026-11-03T22:25 UTC (deploy 2026-11-04b-imported-label, by DevOps; dashboard only; 2026-11-04 03:25 in Pakistan)
+git_head:      3f1ad09 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out; held mobile-width work not in it)
+dashboard_id:  ICeOYo2AsatpHdV52I2pD
+new_deps:      none
+includes:      Imported buyers who were never worked on show "Imported <date>" instead of a day count (Contacts cards and List, Board, grey Imported badge on the buyer page), Guide -> Import from Odoo sentence; dashboard only, API stays 2026-11-04a, no migration; also everything in 11-04a
+
 deployed_at:   2026-11-03T21:20 UTC (deploy 2026-11-04a-odoo-tabs, by DevOps; 2026-11-04 02:20 in Pakistan)
 git_head:      2e19dda (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out; held mobile-width work not in it)

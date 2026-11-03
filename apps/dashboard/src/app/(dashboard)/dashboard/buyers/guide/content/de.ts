@@ -373,7 +373,7 @@ export const de: GuideTranslation = {
         ['Vorgeschlagene Immobilien', 'Klicken Sie auf den Pfeil bei Linked Properties und fügen Sie von dort hinzu: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Lassen Sie Matched Properties weg. SPM ermittelt diese selbst, und sie können den Export für Odoo zu groß machen.'),
-      tip('Ein Import zählt nicht als Aktivität: Käufer starten mit ihrem Odoo-Datum, wer lange nichts hatte, erscheint also unter "Keine aktuelle Aktivität", damit Makler sich darum kümmern. Dieselbe Datei erneut zu importieren ändert ihre letzte Aktivität nicht.'),
+      tip('Ein Import zählt nicht als Aktivität: Käufer starten mit ihrem Odoo-Datum, wer lange nichts hatte, erscheint also unter "Keine aktuelle Aktivität", damit Makler sich darum kümmern. Dieselbe Datei erneut zu importieren ändert ihre letzte Aktivität nicht. Bis sich jemand darum kümmert, zeigt ihre Karte "Erstellt" und dieses Datum, keine Anzahl von Tagen.'),
     ],
   },
   privacy: {
