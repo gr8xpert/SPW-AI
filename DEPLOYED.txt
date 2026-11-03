@@ -1,3 +1,38 @@
+deployed_at:   2026-11-03T17:01 UTC (deploy 2026-11-03d-feature-picker, by DevOps; dashboard only)
+git_head:      d52678b (feature/plugin-demo) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  gpph-Heb2NctId5tuZmX5
+new_deps:      none
+includes:      Contacts wishlist: new Features and wishes picker; dashboard only, API stays 2026-11-03c (same code), no migration; also everything in 11-03c
+
+deployed_at:   2026-11-03T16:17 UTC (deploy 2026-11-03c-odoo-import, by DevOps)
+git_head:      d52678b (feature/plugin-demo) + uncommitted 11-02b and 11-03c changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  5TAzncDUx11S7bRhfRWDN
+new_deps:      none
+includes:      Odoo buyer import reads the real export columns (budget, Pref. Settings, Responsible User, Linked Properties as suggested properties, doubled columns), importing again matches by Odoo ID before email, first Related Sale Agent, stars, Created On, skipped property notes kept; Guide -> Import from Odoo field list in 7 languages; no migration; also everything in 11-02b
+
+deployed_at:   2026-11-03T14:23 UTC (deploy 2026-11-03b-export-log, by DevOps)
+git_head:      955e387 (feature/plugin-demo) + uncommitted 11-02b and 11-03b changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  tGpGNjQ4PEZ_H6-EBRP3z
+new_deps:      none
+includes:      Feed Export log on Kyero/JSON/idealista tabs, website key feeds logged, Properties menu View on Website, migration 1777520000000-ExportLogKeyAndDetailPage (feed_export_logs.apiKeyId + site_checkins.detailPageUrl); plugin 2.9.16 shipped separately, not installed; also everything in 11-02b
+
+deployed_at:   2026-11-02T20:07 UTC (deploy 2026-11-03a-pdf-tabs, by DevOps; 2026-11-03 01:07 in Pakistan)
+git_head:      39d3e61 (feature/plugin-demo) + uncommitted 11-02b and 11-03a changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  L70D-mqqIumN5WXpjnEzP
+new_deps:      none
+includes:      PDF brochure choice per website key tab (Default from Settings / Branded / Unbranded; order = property, then tab, then client default), stored in api_keys.settings, no migration; also everything in 11-02b
+
+deployed_at:   2026-11-02T16:55 UTC (deploy 2026-11-02b-type-merge, by DevOps)
+git_head:      39d3e61 (feature/plugin-demo) + uncommitted type-merge changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  X-bTs6clvHz09moqlrNrI
+new_deps:      none
+includes:      Property Types Move to / Merge into / Other spellings, imports keep merges and honour spellings, type + location merges re-point website keys, feed exports, wishlists, location groups; migration 1777510000000-PropertyTypeAliases (property_types.aliases); key tabs per listing type (11-02a, which was already live since 13:21 UTC with dashboard_id ZEFRaJ8Mhgy2DbUx6LCFQ, not logged here); also 11-01a/b/c
+
 deployed_at:   2026-11-01T13:41 UTC (deploy 2026-11-01a-key-feed, by DevOps)
 git_head:      c1a2812 (main) + uncommitted key-feed changes (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)

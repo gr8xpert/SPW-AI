@@ -88,8 +88,10 @@ export class BuyerImportService {
     });
   }
 
-  // The tenant's buyers these Odoo rows land on: by email first, then by
-  // Odoo ID. Merged-away leads never count.
+  // The tenant's buyers these Odoo rows land on: by Odoo ID first, then by
+  // email. Odoo lets several people share one email (an agent's own address
+  // on their buyers), so an email only finds a buyer no other Odoo ID owns,
+  // and only for one row. Merged-away leads never count.
   private async existing(tenantId: number, mapped: MappedBuyer[]): Promise<Map<string, Lead>> {
     const emails = [...new Set(mapped.map((b) => b.email ?? placeholderEmail(b.odooId)))];
     const byEmail = new Map<string, Lead>();
@@ -101,7 +103,7 @@ export class BuyerImportService {
         .andWhere('lead.mergedIntoId IS NULL')
         .andWhere('contact.email IN (:...emails)', { emails })
         .getMany();
-      for (const r of rows) byEmail.set(r.contact.email.toLowerCase(), r);
+      for (const r of rows) if (!r.importRef) byEmail.set(r.contact.email.toLowerCase(), r);
     }
     const refs = mapped.map((b) => b.odooId);
     const byRef = new Map<string, Lead>();
@@ -110,8 +112,11 @@ export class BuyerImportService {
     }
     const out = new Map<string, Lead>();
     for (const b of mapped) {
-      const lead = byEmail.get(b.email ?? placeholderEmail(b.odooId)) ?? byRef.get(b.odooId);
-      if (lead) out.set(b.odooId, lead);
+      const email = b.email ?? placeholderEmail(b.odooId);
+      const lead = byRef.get(b.odooId) ?? byEmail.get(email);
+      if (!lead) continue;
+      out.set(b.odooId, lead);
+      if (byEmail.get(email) === lead) byEmail.delete(email);
     }
     return out;
   }
@@ -148,6 +153,16 @@ export class BuyerImportService {
       }
     }
     return [...counts].map(([reference, count]) => ({ reference, count }));
+  }
+
+  // A suggested property that isn't in SPM (sold, say) can't become a row,
+  // but what the agent wrote about it stays readable in the buyer's notes.
+  private static keepSkippedSuggestions(b: MappedBuyer, refs: Map<string, number>): void {
+    for (const s of b.suggestions) {
+      if (BuyerImportService.propertyFor(s, refs)) continue;
+      const ref = s.reference || s.agentReference;
+      if (ref) b.notMatched.push(`Suggested property ${ref}${s.note ? `: ${s.note}` : ''}`);
+    }
   }
 
   private async load(tenantId: number, buffer: Buffer, mapping: ImportMapping) {
@@ -207,6 +222,7 @@ export class BuyerImportService {
     for (const b of mapped) {
       try {
         const found = existing.get(b.odooId);
+        BuyerImportService.keepSkippedSuggestions(b, refs);
         const lead = found ?? (await this.create(tenantId, b, defaultStage));
         const changes = await this.update(tenantId, lead, b, stages);
         await this.changeLog.record(tenantId, lead.id, userId, 'import', found ? changes : [{ field: 'created', from: null, to: 'Odoo import' }]);
@@ -272,6 +288,9 @@ export class BuyerImportService {
     if (b.wishlist) patch.wishlist = b.wishlist;
     if (Object.keys(b.answers).length) patch.answers = { ...(lead.answers ?? {}), ...b.answers };
     if (b.agentId) patch.assignedTo = b.agentId;
+    // An earlier file may not have had Created On; an imported buyer takes
+    // Odoo's date, a buyer who was already here keeps their own.
+    if (b.createdAt && lead.importRef === b.odooId) patch.createdAt = b.createdAt;
     const stage = b.stageId ? stages.find((s) => s.id === b.stageId) : undefined;
     if (stage) {
       patch.stageId = stage.id;
@@ -307,6 +326,7 @@ export class BuyerImportService {
         status: s.status,
         note: s.note,
         visitDate: s.visitDate ? new Date(`${s.visitDate}T10:00:00Z`) : null,
+        ...(s.virtualTourUrl ? { virtualTourUrl: s.virtualTourUrl } : {}),
       };
       const row = await this.suggestions.findOne({ where: { leadId, propertyId } });
       if (row) await this.suggestions.update(row.id, values);

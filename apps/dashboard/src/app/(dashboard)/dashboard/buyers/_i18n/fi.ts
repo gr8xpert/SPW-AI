@@ -471,6 +471,8 @@ export const fi: BuyerText = {
     max: 'Enint.',
     features: 'Ominaisuudet ja toiveet',
     featuresHelp: 'Kunto, näkymät, uima-allas, sijainti ja muut ominaisuudet. Ne nostavat sopivuuspisteitä, mutta eivät koskaan piilota kohdetta.',
+    featuresNone: 'Mitään ei ole vielä valittu. Avaa ryhmä tai hae alta.',
+    featuresSearch: 'Hae ominaisuuksia, kuten merinäköala tai autotalli',
     featureCategories: {
       interior: 'Sisätilat', exterior: 'Ulkotilat', community: 'Yhteiset tilat', climate: 'Ilmasto', views: 'Näkymät',
       security: 'Turvallisuus', parking: 'Pysäköinti', other: 'Muut',
@@ -803,7 +805,7 @@ export const fi: BuyerText = {
     title: 'Tuo Odoosta',
     description: 'Tuo Odoo-ostajasi: yhteystiedot, rooli, välittäjä, prioriteetti, tila, muistiinpanot, vierailuaika, toivelista ja ehdotetut kohteet.',
     adminsOnly: 'Vain esihenkilöt voivat tuoda ostajia.',
-    howTo: 'Vie Odoossa kaikki ostajat listanäkymästä XLSX-tiedostona oppaan "Exporting buyers from Odoo" kentillä. Saman tiedoston tuominen uudelleen päivittää samat ostajat; mitään ei tule kahteen kertaan.',
+    howTo: 'Vie Odoossa kaikki ostajat listanäkymästä XLSX-tiedostona oppaan "Tuo Odoosta" kentillä. Saman tiedoston tuominen uudelleen päivittää samat ostajat; mitään ei tule kahteen kertaan.',
     file: 'Odoo-vienti (.xlsx)',
     preview: 'Tarkista tiedosto',
     checking: 'Luetaan tiedostoa…',

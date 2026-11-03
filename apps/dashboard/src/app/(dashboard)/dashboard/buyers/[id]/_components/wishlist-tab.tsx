@@ -8,11 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
 import type { Buyer, BuyerWishlist } from '../../use-buyers';
-import { nameOf, useMatchOptions, useSaveWishlist, type PickOption } from '../../use-buyer-match';
+import { useMatchOptions, useSaveWishlist } from '../../use-buyer-match';
 import { FilterSelect } from '../../_components/filter-select';
+import { FeaturePicker } from './feature-picker';
 import { MultiPicker } from './multi-picker';
 import { AiButton } from './ai/ai-gate';
 import { PasteDialog } from './ai/paste-dialog';
@@ -96,12 +96,6 @@ export function WishlistTab({ buyer }: { buyer: Buyer }) {
       toast({ title: t.failed, description: (err as Error).message, variant: 'destructive' });
     }
   };
-
-  const featureGroups = useMemo(() => {
-    const groups = new Map<string, PickOption[]>();
-    for (const f of features.data ?? []) groups.set(f.category || 'other', [...(groups.get(f.category || 'other') ?? []), f]);
-    return Array.from(groups.entries());
-  }, [features.data]);
 
   const numberInput = (k: NumberKey, placeholder: string, label: string, money = false) => (
     <Input
@@ -209,28 +203,9 @@ export function WishlistTab({ buyer }: { buyer: Buyer }) {
           <div className="space-y-2">
             <Label>{t.features}</Label>
             <p className="text-xs text-muted-foreground">{t.featuresHelp}</p>
-            <div className="space-y-3">
-              {featureGroups.map(([cat, list]) => (
-                <div key={cat} className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-24 shrink-0 text-xs font-medium text-muted-foreground">{t.featureCategories[cat] ?? cat}</span>
-                  {list.map((f) => {
-                    const on = draft.featureIds.includes(f.id);
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        aria-pressed={on}
-                        data-feature={f.id}
-                        onClick={() => toggleIn('featureIds', f.id)}
-                        className={cn('rounded-full border px-3 py-1 text-xs transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted')}
-                      >
-                        {nameOf(f.name)}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
+            {features.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+              <FeaturePicker options={features.data ?? []} value={draft.featureIds} onChange={(ids) => setDraft((d) => ({ ...d, featureIds: ids }))} />
+            )}
           </div>
 
           <div className="space-y-2">

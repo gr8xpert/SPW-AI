@@ -55,4 +55,29 @@ describe('Odoo export parser', () => {
     expect(() => parseOdooRows([['Email'], ['a@b.c']])).toThrow(/ID column/);
     expect(() => parseOdooRows([['nothing']])).toThrow(/header/);
   });
+
+  it("reads Odoo's Linked Properties columns, one row per property", () => {
+    const { buyers, missingColumns } = parseOdooRows([
+      ['ID', 'Linked Properties/Property Reference', 'Linked Properties/Agent Reference', 'Linked Properties/Note', 'Linked Properties/Virtual Viewing Appt.'],
+      ['17', 'R4834114', '', 'Sold', ''],
+      ['', 'R4827760', '247-01697P', 'Suggested', 'https://tour.example/1'],
+    ]);
+    expect(buyers).toHaveLength(1);
+    expect(buyers[0].suggestions).toEqual([
+      { reference: 'R4834114', agentReference: null, visitDate: null, status: null, note: 'Sold', virtualViewing: null },
+      { reference: 'R4827760', agentReference: '247-01697P', visitDate: null, status: null, note: 'Suggested', virtualViewing: 'https://tour.example/1' },
+    ]);
+    expect(missingColumns).toEqual(expect.arrayContaining(['Email', 'Minimum Budget', 'Towns']));
+    expect(missingColumns).not.toContain('Linked Properties/Property Reference');
+  });
+
+  it('reads two columns with one label: lists add up, otherwise the first value stays', () => {
+    const { buyers } = parseOdooRows([
+      ['ID', 'Condition', 'Condition', 'Views', 'Views', 'Status Buyer', 'Status Buyer', 'Minimum Budget', 'Maximum Budget'],
+      ['1', '', 'Good', 'Sea Views', 'Golf', 'New', 'Qualified', '€300000', '€400000'],
+    ]);
+    expect(buyers[0].multi.condition).toEqual(['Good']);
+    expect(buyers[0].multi.views).toEqual(['Sea Views', 'Golf']);
+    expect(buyers[0].values).toMatchObject({ status: 'New', budgetMin: '€300000', budgetMax: '€400000' });
+  });
 });

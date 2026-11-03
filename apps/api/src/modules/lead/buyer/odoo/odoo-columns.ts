@@ -24,6 +24,7 @@ export const ODOO_COLUMNS = {
   role: ['contact type', 'type of contact'],
   salesperson: ['salesperson', 'sales person'],
   salesAgent: ['sales agent'],
+  responsibleUser: ['responsible user'],
   relatedAgents: ['related sale agents', 'related sales agents', 'related agents'],
   lawyer: ["buyer's lawyer", 'buyers lawyer', 'lawyer'],
   priority: ['priority'],
@@ -38,15 +39,15 @@ export const ODOO_COLUMNS = {
   propertyType: ['property type', 'property types'],
   bedrooms: ['bedrooms'],
   bathrooms: ['bathrooms'],
-  budgetMin: ['budget from'],
-  budgetMax: ['budget to'],
+  budgetMin: ['budget from', 'minimum budget'],
+  budgetMax: ['budget to', 'maximum budget'],
   towns: ['towns', 'town'],
   buildSize: ['build size (m2)', 'build size', 'built size (m2)'],
   plotSize: ['plot size (m2)', 'plot size'],
   condition: ['condition'],
   views: ['views'],
   pool: ['swimming pool', 'pool'],
-  settings: ['settings', 'setting'],
+  settings: ['settings', 'setting', 'pref. settings'],
   sendMatchesTo: ['send matched properties to'],
   purpose: ['purpose'],
   financial: ['financial situation'],
@@ -59,14 +60,30 @@ export const ODOO_COLUMNS = {
   visitEnd: ['visiting period - end', 'visiting period end'],
   createdOn: ['created on', 'creation date'],
   createdBy: ['created by'],
-  sugRef: ['suggested properties/property reference', 'suggested properties / property reference'],
-  sugAgentRef: ['suggested properties/agent reference', 'suggested properties / agent reference'],
-  sugVisitDate: ['suggested properties/visiting date', 'suggested properties / visiting date'],
-  sugStatus: ['suggested properties/status', 'suggested properties / status'],
-  sugNote: ['suggested properties/note', 'suggested properties / note'],
+  sugRef: ['linked properties/property reference', 'suggested properties/property reference', 'suggested properties / property reference'],
+  sugAgentRef: ['linked properties/agent reference', 'suggested properties/agent reference', 'suggested properties / agent reference'],
+  sugVisitDate: ['linked properties/visiting date', 'suggested properties/visiting date', 'suggested properties / visiting date'],
+  sugStatus: ['linked properties/status', 'suggested properties/status', 'suggested properties / status'],
+  sugNote: ['linked properties/note', 'suggested properties/note', 'suggested properties / note'],
+  sugVirtual: ['linked properties/virtual viewing appt.', 'suggested properties/virtual viewing appt.'],
 } as const;
 
 export type OdooField = keyof typeof ODOO_COLUMNS;
+
+// A file without these imports fine but brings little across: the preview
+// names them so a thin export is noticed before pressing Import.
+export const EXPECTED_COLUMNS: [OdooField, string][] = [
+  ['email', 'Email'],
+  ['firstName', 'First Name'],
+  ['lastName', 'Last Name'],
+  ['listingType', 'Listing Type'],
+  ['propertyType', 'Property Type'],
+  ['bedrooms', 'Bedrooms'],
+  ['budgetMin', 'Minimum Budget'],
+  ['budgetMax', 'Maximum Budget'],
+  ['towns', 'Towns'],
+  ['sugRef', 'Linked Properties/Property Reference'],
+];
 
 // Columns that may hold several values ("Marbella, Estepona").
 export const MULTI_FIELDS: OdooField[] = [

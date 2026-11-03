@@ -471,6 +471,8 @@ export const sv: BuyerText = {
     max: 'Max.',
     features: 'Egenskaper och önskemål',
     featuresHelp: 'Skick, utsikt, pool, läge och andra egenskaper. De höjer matchningspoängen; de döljer aldrig ett objekt.',
+    featuresNone: 'Inget valt än. Öppna en grupp eller sök nedan.',
+    featuresSearch: 'Sök egenskaper, till exempel havsutsikt eller garage',
     featureCategories: {
       interior: 'Interiör', exterior: 'Exteriör', community: 'Gemensamt', climate: 'Klimat', views: 'Utsikt',
       security: 'Säkerhet', parking: 'Parkering', other: 'Övrigt',
@@ -803,7 +805,7 @@ export const sv: BuyerText = {
     title: 'Importera från Odoo',
     description: 'För över dina köpare från Odoo: kontaktuppgifter, roll, mäklare, prioritet, status, anteckningar, besöksperiod, önskelista och föreslagna objekt.',
     adminsOnly: 'Bara chefer kan importera köpare.',
-    howTo: 'Exportera i Odoo alla köpare från listvyn som XLSX med fälten från guiden "Exporting buyers from Odoo". Importerar du samma fil igen uppdateras samma köpare; inget dubbleras.',
+    howTo: 'Exportera i Odoo alla köpare från listvyn som XLSX med fälten från guiden "Importera från Odoo". Importerar du samma fil igen uppdateras samma köpare; inget dubbleras.',
     file: 'Odoo-export (.xlsx)',
     preview: 'Kontrollera filen',
     checking: 'Läser filen…',

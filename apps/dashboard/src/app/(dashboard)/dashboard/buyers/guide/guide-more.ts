@@ -171,12 +171,19 @@ export const MORE: GuideSection[] = [
     link: { href: '/dashboard/buyers/import', label: 'Open Import' },
     blocks: [
       steps(
-        'In Odoo, export your buyers as an .xlsx file.',
+        'In Odoo, open the Buyers list, select all, choose Action → Export and leave "I want to update data" unticked. Add the fields below and export as .xlsx.',
         'On the Import tab choose the file and press "Check the file". Nothing is saved yet.',
         'Look at "What will happen": new buyers, updated buyers and values that did not match.',
         'For each value that did not match (an agent, a town…), pick what it means in SPM, or leave "Keep as a note".',
         'Press "Import". Importing the same file again updates the same buyers; it never makes copies.',
       ),
+      terms(
+        ['Contact details', 'ID, First Name, Last Name, Email, Phone, Mobile, Language, Street, Street2, Zip, City, State, Country, I prefer contact by, ID Type, ID Number, Referred By, Notes, Created on.'],
+        ['Agents and status', 'Salesperson, Responsible User, Related Sale Agents, Priority, Status Buyer, Sub-status, Waiting for Reply Date, Contact Type.'],
+        ['Wishlist', 'Listing Type, Property Type, Bedrooms, Bathrooms, Minimum Budget, Maximum Budget, Towns, Build Size (m2), Plot Size (m2), Condition, Views, Swimming Pool, Settings, Send Matched Properties to. Where Odoo lists a name twice, add both.'],
+        ['Suggested properties', 'Click the arrow on Linked Properties and add from inside it: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
+      ),
+      warn('Leave out Matched Properties. SPM works those out itself, and they can make the export too large for Odoo.'),
     ],
   },
   {

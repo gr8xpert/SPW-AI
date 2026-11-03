@@ -142,7 +142,7 @@ export const fr: GuideTranslation = {
         ['Types de bien', 'Choisissez « Villa » et toutes les sortes de villas comptent aussi.'],
         ['Budget', 'De et à. Un bien hors budget ne correspond jamais.'],
         ['Chambres, salles de bain, surfaces', 'Le minimum que veut l’acheteur.'],
-        ['Caractéristiques et souhaits', 'Piscine, vue mer, garage, etc. Ils font monter un bien dans la liste ; ils ne le cachent jamais.'],
+        ['Caractéristiques et souhaits', 'Piscine, vue mer, garage, etc. Ils font monter un bien dans la liste ; ils ne le cachent jamais. Cherchez, ou ouvrez un groupe et cochez ce que l’acheteur souhaite. Vos choix s’affichent en haut.'],
         ['Envoyer les biens correspondants à', 'L’acheteur, l’agent ou les deux.'],
       ),
       warn('Les critères obligatoires sont stricts. Si vous choisissez une seule petite ville et un budget bas, vous n’aurez peut-être aucune correspondance. Élargissez un peu la zone ou le budget.'),
@@ -358,12 +358,19 @@ export const fr: GuideTranslation = {
     linkLabel: 'Ouvrir Importer',
     blocks: [
       steps(
-        'Dans Odoo, exportez vos acheteurs en fichier .xlsx.',
+        'Dans Odoo, ouvrez la liste des acheteurs, sélectionnez-les tous, choisissez Action → Exporter et laissez « I want to update data » décoché. Ajoutez les champs ci-dessous et exportez au format .xlsx.',
         'Dans l’onglet Importer, choisissez le fichier et cliquez sur « Vérifier le fichier ». Rien n’est encore enregistré.',
         'Regardez « Ce qui va se passer » : nouveaux acheteurs, acheteurs mis à jour et valeurs non reconnues.',
         'Pour chaque valeur non reconnue (un agent, une ville…), choisissez ce qu’elle signifie dans SPM, ou laissez « Garder en note ».',
         'Cliquez sur « Importer ». Importer à nouveau le même fichier met à jour les mêmes acheteurs ; cela ne crée jamais de copies.',
       ),
+      terms(
+        ['Coordonnées', 'ID, First Name, Last Name, Email, Phone, Mobile, Language, Street, Street2, Zip, City, State, Country, I prefer contact by, ID Type, ID Number, Referred By, Notes, Created on.'],
+        ['Agents et statut', 'Salesperson, Responsible User, Related Sale Agents, Priority, Status Buyer, Sub-status, Waiting for Reply Date, Contact Type.'],
+        ['Liste de souhaits', 'Listing Type, Property Type, Bedrooms, Bathrooms, Minimum Budget, Maximum Budget, Towns, Build Size (m2), Plot Size (m2), Condition, Views, Swimming Pool, Settings, Send Matched Properties to. Quand Odoo affiche un nom deux fois, ajoutez les deux.'],
+        ['Biens suggérés', 'Cliquez sur la flèche de Linked Properties et ajoutez depuis l’intérieur : Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
+      ),
+      warn('N’ajoutez pas Matched Properties. SPM les calcule lui-même, et ils peuvent rendre l’export trop volumineux pour Odoo.'),
     ],
   },
   privacy: {

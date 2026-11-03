@@ -472,6 +472,8 @@ export const en = {
     max: 'Max.',
     features: 'Features and wishes',
     featuresHelp: 'Condition, views, pool, setting and other features. They raise the match score; they never hide a property.',
+    featuresNone: 'Nothing chosen yet. Open a group or search below.',
+    featuresSearch: 'Search features, such as sea views or garage',
     featureCategories: {
       interior: 'Interior', exterior: 'Exterior', community: 'Community', climate: 'Climate', views: 'Views',
       security: 'Security', parking: 'Parking', other: 'Other',
@@ -804,7 +806,7 @@ export const en = {
     title: 'Import from Odoo',
     description: 'Bring your Odoo buyers across: contact details, role, agent, priority, status, notes, visiting period, wishlist and suggested properties.',
     adminsOnly: 'Only managers can import buyers.',
-    howTo: 'In Odoo, export all buyers from the list view as XLSX with the fields from the "Exporting buyers from Odoo" guide. Importing the same file again updates the same buyers; nothing is duplicated.',
+    howTo: 'In Odoo, export all buyers from the list view as XLSX with the fields from the "Import from Odoo" guide. Importing the same file again updates the same buyers; nothing is duplicated.',
     file: 'Odoo export (.xlsx)',
     preview: 'Check the file',
     checking: 'Reading the file…',

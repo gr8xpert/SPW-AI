@@ -40,7 +40,7 @@ describe('Odoo matching', () => {
     const e = mapOdooBuyer(buyers[0], m);
     expect(e.email).toBe('odoo.update@test.local');
     expect(e.fields).toMatchObject({
-      firstName: 'Emma', lastName: 'Odoo-Update', language: 'nl', country: 'NL', role: 'buyer', priority: 2, subStatus: 'reply_sent',
+      firstName: 'Emma', lastName: 'Odoo-Update', language: 'nl', country: 'NL', role: 'buyer', priority: 3, subStatus: 'reply_sent',
       idType: 'passport', preferredContact: 'whatsapp', referralPercent: 2.5, visitStart: '2026-11-03', visitEnd: '2026-11-10', waitingReplyAt: '2026-10-15',
     });
     expect(e.agentId).toBe(3);
@@ -112,5 +112,30 @@ describe('Odoo matching', () => {
     const later = importNotes(`Agent note\n\n${block}\n\nCalled 21/10`, { odooNotes: 'Now: sea or golf.', notMatched: [] });
     expect(later).toBe('Agent note\n\n[From Odoo]\nNow: sea or golf.\n[/From Odoo]\n\nCalled 21/10');
     expect(importNotes('Agent note', { odooNotes: null, notMatched: [] })).toBe('Agent note');
+  });
+
+  it('without a main agent, the first related agent takes the buyer', () => {
+    const buyer = (values: OdooBuyer['values'], related: string[]): OdooBuyer => ({ row: 2, id: '1', values, multi: { relatedAgents: related }, suggestions: [] });
+    const onlyRelated = mapOdooBuyer(buyer({}, ['Alex Agent', 'Test Client']), m);
+    expect(onlyRelated.agentId).toBe(3);
+    expect(onlyRelated.relatedAgentIds).toEqual([2]);
+    expect(mapOdooBuyer(buyer({ salesperson: 'Test Client' }, ['Alex Agent']), m).agentId).toBe(2);
+    expect(mapOdooBuyer(buyer({ responsibleUser: 'Alex Agent' }, []), m).agentId).toBe(3);
+  });
+
+  it('a virtual viewing link goes to the tour field, anything else to the note', () => {
+    const suggestion = { reference: 'R1', agentReference: null, visitDate: null, status: null, note: 'Hi' };
+    const { suggestions } = mapOdooBuyer({ row: 2, id: '1', values: {}, multi: {}, suggestions: [
+      { ...suggestion, virtualViewing: 'https://tour.example/1' },
+      { ...suggestion, virtualViewing: '2026-11-04' },
+    ] }, m);
+    expect(suggestions[0]).toMatchObject({ virtualTourUrl: 'https://tour.example/1', note: 'Hi' });
+    expect(suggestions[1]).toMatchObject({ virtualTourUrl: null, note: 'Hi\nVirtual viewing: 2026-11-04' });
+  });
+
+  it("reads this Odoo's priority, ID type and send-to values", () => {
+    const { fields, wishlist } = mapOdooBuyer({ row: 2, id: '1', values: { priority: 'High', idType: 'N.I.E', sendMatchesTo: 'Sales Agent' }, multi: {}, suggestions: [] }, m);
+    expect(fields).toMatchObject({ priority: 3, idType: 'nie' });
+    expect(wishlist?.sendMatchesTo).toBe('agent');
   });
 });

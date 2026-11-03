@@ -472,6 +472,8 @@ export const de: BuyerText = {
     max: 'Max.',
     features: 'Merkmale und Wünsche',
     featuresHelp: 'Zustand, Aussicht, Pool, Lage und weitere Merkmale. Sie erhöhen die Trefferpunkte; sie blenden nie eine Immobilie aus.',
+    featuresNone: 'Noch nichts ausgewählt. Öffnen Sie unten eine Gruppe oder suchen Sie.',
+    featuresSearch: 'Merkmale suchen, z. B. Meerblick oder Garage',
     featureCategories: {
       interior: 'Innen', exterior: 'Außen', community: 'Wohnanlage', climate: 'Klima', views: 'Aussicht',
       security: 'Sicherheit', parking: 'Parken', other: 'Sonstiges',
@@ -804,7 +806,7 @@ export const de: BuyerText = {
     title: 'Aus Odoo importieren',
     description: 'Übernehmen Sie Ihre Odoo-Käufer: Kontaktdaten, Rolle, Makler, Priorität, Status, Notizen, Aufenthaltszeitraum, Suchprofil und vorgeschlagene Immobilien.',
     adminsOnly: 'Nur Manager können Käufer importieren.',
-    howTo: 'Exportieren Sie in Odoo alle Käufer aus der Listenansicht als XLSX mit den Feldern aus der Anleitung „Käufer aus Odoo exportieren“. Wenn Sie dieselbe Datei erneut importieren, werden dieselben Käufer aktualisiert; nichts wird doppelt angelegt.',
+    howTo: 'Exportieren Sie in Odoo alle Käufer aus der Listenansicht als XLSX mit den Feldern aus der Anleitung „Aus Odoo importieren“. Wenn Sie dieselbe Datei erneut importieren, werden dieselben Käufer aktualisiert; nichts wird doppelt angelegt.',
     file: 'Odoo-Export (.xlsx)',
     preview: 'Datei prüfen',
     checking: 'Datei wird gelesen…',

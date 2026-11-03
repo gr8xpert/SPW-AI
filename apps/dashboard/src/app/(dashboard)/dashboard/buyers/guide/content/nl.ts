@@ -142,7 +142,7 @@ export const nl: GuideTranslation = {
         ['Woningtypes', 'Kies "Villa" en elk soort villa telt ook mee.'],
         ['Budget', 'Van en tot. Een woning buiten het budget wordt nooit gematcht.'],
         ['Slaapkamers, badkamers, oppervlakte', 'Het minimum dat de koper wil.'],
-        ['Kenmerken en wensen', 'Zwembad, zeezicht, garage enzovoort. Ze zetten een woning hoger; ze verbergen hem nooit.'],
+        ['Kenmerken en wensen', 'Zwembad, zeezicht, garage enzovoort. Ze zetten een woning hoger; ze verbergen hem nooit. Zoek, of open een groep en vink aan wat de koper wil. Je keuzes staan bovenaan.'],
         ['Passende woningen sturen naar', 'De koper, de makelaar of beide.'],
       ),
       warn('Must-haves zijn streng. Kies je maar één kleine plaats en een laag budget, dan krijg je misschien helemaal geen matches. Maak het gebied of het budget wat ruimer.'),
@@ -358,12 +358,19 @@ export const nl: GuideTranslation = {
     linkLabel: 'Open Importeren',
     blocks: [
       steps(
-        'Exporteer in Odoo je kopers als .xlsx-bestand.',
+        'Open in Odoo de koperslijst, selecteer alles, kies Actie → Exporteren en laat "I want to update data" uitgevinkt. Voeg de velden hieronder toe en exporteer als .xlsx.',
         'Kies op het tabblad Importeren het bestand en druk op "Bestand controleren". Er wordt nog niets opgeslagen.',
         'Bekijk "Wat er gaat gebeuren": nieuwe kopers, bijgewerkte kopers en waarden die niet pasten.',
         'Kies voor elke waarde die niet paste (een makelaar, een plaats…) wat die in SPM betekent, of laat "Als notitie bewaren" staan.',
         'Druk op de knop "… kopers importeren". Importeer je hetzelfde bestand nog eens, dan worden dezelfde kopers bijgewerkt; er komen nooit kopieën.',
       ),
+      terms(
+        ['Contactgegevens', 'ID, First Name, Last Name, Email, Phone, Mobile, Language, Street, Street2, Zip, City, State, Country, I prefer contact by, ID Type, ID Number, Referred By, Notes, Created on.'],
+        ['Makelaars en status', 'Salesperson, Responsible User, Related Sale Agents, Priority, Status Buyer, Sub-status, Waiting for Reply Date, Contact Type.'],
+        ['Wensenlijst', 'Listing Type, Property Type, Bedrooms, Bathrooms, Minimum Budget, Maximum Budget, Towns, Build Size (m2), Plot Size (m2), Condition, Views, Swimming Pool, Settings, Send Matched Properties to. Staat een naam twee keer in Odoo, voeg dan beide toe.'],
+        ['Voorgestelde woningen', 'Klik op het pijltje bij Linked Properties en voeg van daaruit toe: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
+      ),
+      warn('Laat Matched Properties weg. SPM berekent die zelf, en ze kunnen de export te groot maken voor Odoo.'),
     ],
   },
   privacy: {

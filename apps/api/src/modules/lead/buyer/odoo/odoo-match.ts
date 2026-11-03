@@ -40,6 +40,7 @@ export interface SuggestionRef {
   status: SuggestionStatusValue;
   visitDate: string | null;
   note: string | null;
+  virtualTourUrl: string | null;
 }
 type SuggestionStatusValue = 'suggested' | 'sent' | 'visited' | 'interested' | 'not_interested';
 
@@ -72,14 +73,14 @@ const ROLE_MAP: Record<string, BuyerRole> = {
   owner: 'seller',
 };
 const PRIORITY_MAP: Record<string, number> = {
-  '0': 0, '1': 1, '2': 2, '3': 3, normal: 0, none: 0, low: 1, medium: 2, high: 2, 'very high': 3, urgent: 3,
+  '0': 0, '1': 1, '2': 2, '3': 3, none: 0, low: 0, normal: 2, medium: 2, high: 3, 'very high': 3, urgent: 3,
 };
 const SUB_STATUS_MAP: Record<string, string> = Object.fromEntries(BUYER_SUB_STATUSES.map((s) => [key(s.replace('_', ' ')), s]));
-const ID_TYPE_MAP: Record<string, string> = { ...Object.fromEntries(BUYER_ID_TYPES.map((s) => [s, s])), pasaporte: 'passport' };
+const ID_TYPE_MAP: Record<string, string> = { ...Object.fromEntries(BUYER_ID_TYPES.map((s) => [s, s])), pasaporte: 'passport', 'd n i': 'dni', 'n i e': 'nie' };
 const CONTACT_MAP: Record<string, PreferredContact> = {
   call: 'call', phone: 'call', 'phone call': 'call', telephone: 'call', email: 'email', 'e mail': 'email', mail: 'email', whatsapp: 'whatsapp', 'whats app': 'whatsapp',
 };
-const SEND_MAP: Record<string, 'buyer' | 'agent' | 'both'> = { buyer: 'buyer', agent: 'agent', both: 'both', 'buyer and agent': 'both' };
+const SEND_MAP: Record<string, 'buyer' | 'agent' | 'both'> = { buyer: 'buyer', agent: 'agent', both: 'both', 'buyer and agent': 'both', 'sales agent': 'agent' };
 const LISTING_MAP: Record<string, NonNullable<BuyerWishlist['listingTypes']>[number]> = {
   sale: 'sale', sales: 'sale', resale: 'sale', 'for sale': 'sale', buy: 'sale',
   development: 'development', 'new development': 'development', 'new build': 'development', 'off plan': 'development', 'new developments': 'development',
@@ -141,6 +142,8 @@ function languageCode(v: string): string | null {
   }
   return null;
 }
+
+const isUrl = (v: string): boolean => /^https?:\/\/\S+$/i.test(v.trim());
 
 function num(v: string | undefined): number | undefined {
   if (!v) return undefined;
@@ -348,9 +351,13 @@ export function mapOdooBuyer(b: OdooBuyer, m: OdooMatchers, mapping: ImportMappi
   }
 
   // Agents
-  const mainName = v.salesAgent || v.salesperson;
-  const agentId = mainName ? (resolve('agent', mainName, v.salesAgent ? 'salesAgent' : 'salesperson') as number | null) : null;
-  const relatedAgentIds = (many('agent', 'relatedAgents') as number[]).filter((id) => id !== agentId);
+  const mainColumn: OdooField | null = v.salesAgent ? 'salesAgent' : v.salesperson ? 'salesperson' : v.responsibleUser ? 'responsibleUser' : null;
+  const mainAgentId = mainColumn ? (resolve('agent', v[mainColumn]!, mainColumn) as number | null) : null;
+  const related = many('agent', 'relatedAgents') as number[];
+  // Odoo often has only a related agent: that agent takes the buyer, so the
+  // buyer doesn't land Unassigned.
+  const agentId = mainAgentId ?? related[0] ?? null;
+  const relatedAgentIds = related.filter((id) => id !== agentId);
 
   const stageId = v.status ? (resolve('stage', v.status, 'status') as number | null) : null;
 
@@ -389,7 +396,9 @@ export function mapOdooBuyer(b: OdooBuyer, m: OdooMatchers, mapping: ImportMappi
     agentReference: s.agentReference,
     status: (s.status && SUGGESTION_MAP[key(s.status)]) || 'suggested',
     visitDate: date(s.visitDate ?? undefined),
-    note: s.note ? s.note.slice(0, 2000) : null,
+    // Virtual Viewing Appt. is a link or a date; only a link fits the tour field.
+    note: [s.note, s.virtualViewing && !isUrl(s.virtualViewing) ? `Virtual viewing: ${s.virtualViewing}` : ''].filter(Boolean).join('\n').slice(0, 2000) || null,
+    virtualTourUrl: s.virtualViewing && isUrl(s.virtualViewing) ? s.virtualViewing.slice(0, 500) : null,
   }));
 
   const email = v.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim()) ? v.email.trim().toLowerCase() : null;

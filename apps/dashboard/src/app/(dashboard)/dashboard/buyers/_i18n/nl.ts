@@ -472,6 +472,8 @@ export const nl: BuyerText = {
     max: 'Max.',
     features: 'Kenmerken en wensen',
     featuresHelp: 'Staat, uitzicht, zwembad, ligging en andere kenmerken. Ze verhogen de matchscore; ze verbergen nooit een woning.',
+    featuresNone: 'Nog niets gekozen. Open hieronder een groep of zoek.',
+    featuresSearch: 'Zoek kenmerken, zoals zeezicht of garage',
     featureCategories: {
       interior: 'Interieur', exterior: 'Exterieur', community: 'Gemeenschappelijk', climate: 'Klimaat', views: 'Uitzicht',
       security: 'Beveiliging', parking: 'Parkeren', other: 'Overig',
@@ -804,7 +806,7 @@ export const nl: BuyerText = {
     title: 'Importeren uit Odoo',
     description: 'Haal je kopers uit Odoo over: contactgegevens, rol, makelaar, prioriteit, status, notities, bezoekperiode, wensenlijst en voorgestelde woningen.',
     adminsOnly: 'Alleen managers kunnen kopers importeren.',
-    howTo: 'Exporteer in Odoo alle kopers vanuit de lijstweergave als XLSX met de velden uit de handleiding "Kopers exporteren uit Odoo". Als je hetzelfde bestand opnieuw importeert, worden dezelfde kopers bijgewerkt; er wordt niets dubbel aangemaakt.',
+    howTo: 'Exporteer in Odoo alle kopers vanuit de lijstweergave als XLSX met de velden uit de handleiding "Importeren uit Odoo". Als je hetzelfde bestand opnieuw importeert, worden dezelfde kopers bijgewerkt; er wordt niets dubbel aangemaakt.',
     file: 'Odoo-export (.xlsx)',
     preview: 'Bestand controleren',
     checking: 'Bestand lezen…',

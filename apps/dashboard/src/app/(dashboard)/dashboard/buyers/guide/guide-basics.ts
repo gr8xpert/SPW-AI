@@ -173,7 +173,7 @@ export const BASICS: GuideSection[] = [
         ['Property types', 'Choose "Villa" and every kind of villa counts too.'],
         ['Budget', 'From and to. A property outside the budget is never matched.'],
         ['Bedrooms, bathrooms, sizes', 'The minimum the buyer wants.'],
-        ['Features and wishes', 'Pool, sea views, garage and so on. They push a property higher up; they never hide it.'],
+        ['Features and wishes', 'Pool, sea views, garage and so on. They push a property higher up; they never hide it. Search, or open a group and tick what the buyer wants. Your choices show at the top.'],
         ['Send matched properties to', 'The buyer, the agent, or both.'],
       ),
       warn('Must-haves are strict. If you choose only one small town and a low budget, you may get no matches at all. Make the area or budget a little wider.'),

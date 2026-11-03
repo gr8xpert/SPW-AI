@@ -143,7 +143,7 @@ export const sv: GuideTranslation = {
         ['Objekttyper', 'Välj ”Villa” så räknas alla sorters villor också.'],
         ['Budget', 'Från och till. Ett objekt utanför budgeten matchas aldrig.'],
         ['Sovrum, badrum, storlekar', 'Det minsta köparen vill ha.'],
-        ['Egenskaper och önskemål', 'Pool, havsutsikt, garage och så vidare. De flyttar upp ett objekt; de döljer det aldrig.'],
+        ['Egenskaper och önskemål', 'Pool, havsutsikt, garage och så vidare. De flyttar upp ett objekt; de döljer det aldrig. Sök, eller öppna en grupp och kryssa i vad köparen vill ha. Dina val visas högst upp.'],
         ['Skicka matchade objekt till', 'Köparen, mäklaren eller båda.'],
       ),
       warn('Måsten är strikta. Om du bara väljer en liten ort och en låg budget kanske du inte får några matchningar alls. Gör området eller budgeten lite större.'),
@@ -359,12 +359,19 @@ export const sv: GuideTranslation = {
     linkLabel: 'Öppna Import',
     blocks: [
       steps(
-        'Exportera dina köpare från Odoo som en .xlsx-fil.',
+        'Öppna köparlistan i Odoo, markera alla, välj Åtgärd → Exportera och lämna "I want to update data" omarkerad. Lägg till fälten nedan och exportera som .xlsx.',
         'Välj filen på fliken Import och tryck på ”Kontrollera filen”. Inget sparas än.',
         'Titta på ”Vad som händer”: nya köpare, uppdaterade köpare och värden som inte matchade.',
         'För varje värde som inte matchade (en mäklare, en ort…) väljer du vad det betyder i SPM, eller låter det stå som ”Behåll som anteckning”.',
         'Tryck på ”Importera”. Om du importerar samma fil igen uppdateras samma köpare; det blir aldrig kopior.',
       ),
+      terms(
+        ['Kontaktuppgifter', 'ID, First Name, Last Name, Email, Phone, Mobile, Language, Street, Street2, Zip, City, State, Country, I prefer contact by, ID Type, ID Number, Referred By, Notes, Created on.'],
+        ['Mäklare och status', 'Salesperson, Responsible User, Related Sale Agents, Priority, Status Buyer, Sub-status, Waiting for Reply Date, Contact Type.'],
+        ['Önskelista', 'Listing Type, Property Type, Bedrooms, Bathrooms, Minimum Budget, Maximum Budget, Towns, Build Size (m2), Plot Size (m2), Condition, Views, Swimming Pool, Settings, Send Matched Properties to. Om Odoo visar ett namn två gånger, lägg till båda.'],
+        ['Föreslagna objekt', 'Klicka på pilen vid Linked Properties och lägg till därifrån: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
+      ),
+      warn('Utelämna Matched Properties. SPM räknar ut dem själv, och de kan göra exporten för stor för Odoo.'),
     ],
   },
   privacy: {

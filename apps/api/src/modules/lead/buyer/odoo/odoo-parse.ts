@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Workbook } from 'exceljs';
-import { MULTI_FIELDS, ODOO_COLUMNS, headerKey, type OdooField } from './odoo-columns';
+import { EXPECTED_COLUMNS, MULTI_FIELDS, ODOO_COLUMNS, headerKey, type OdooField } from './odoo-columns';
 
 // The Odoo export as buyers. Pure apart from readOdooSheet (exceljs).
 //
@@ -13,6 +13,7 @@ export interface OdooSuggestion {
   visitDate: string | null;
   status: string | null;
   note: string | null;
+  virtualViewing: string | null;
 }
 
 export interface OdooBuyer {
@@ -26,7 +27,7 @@ export interface OdooBuyer {
 export interface OdooSheet {
   buyers: OdooBuyer[];
   unknownHeaders: string[];
-  missingColumns: OdooField[];
+  missingColumns: string[]; // Odoo labels, shown as they are in the preview
 }
 
 const MAX_BUYERS = 5000;
@@ -64,8 +65,8 @@ export function parseOdooRows(rows: unknown[][]): OdooSheet {
   header.forEach((h, i) => {
     if (!h) return;
     const field = LOOKUP.get(h);
-    if (field && ![...columns.values()].includes(field)) columns.set(i, field);
-    else if (!field) unknownHeaders.push(h);
+    if (field) columns.set(i, field);
+    else unknownHeaders.push(h);
   });
   const present = new Set(columns.values());
   if (!present.has('id')) throw new BadRequestException({ code: 'ODOO_NO_ID', message: 'The file has no ID column (add "ID" to the Odoo export)' });
@@ -75,7 +76,11 @@ export function parseOdooRows(rows: unknown[][]): OdooSheet {
     const cells: Partial<Record<OdooField, string>> = {};
     for (const [i, field] of columns) {
       const text = cellText(rows[r][i]);
-      if (text) cells[field] = text;
+      if (!text) continue;
+      // Odoo can offer two fields with one label (two Condition columns,
+      // often one of them empty): lists add up, otherwise the first value stays.
+      if (cells[field] && MULTI_FIELDS.includes(field)) cells[field] += `, ${text}`;
+      else cells[field] ??= text;
     }
     if (!Object.keys(cells).length) continue;
     const suggestion: OdooSuggestion | null =
@@ -86,6 +91,7 @@ export function parseOdooRows(rows: unknown[][]): OdooSheet {
             visitDate: cells.sugVisitDate ?? null,
             status: cells.sugStatus ?? null,
             note: cells.sugNote ?? null,
+            virtualViewing: cells.sugVirtual ?? null,
           }
         : null;
 
@@ -109,7 +115,7 @@ export function parseOdooRows(rows: unknown[][]): OdooSheet {
     }
     if (suggestion) buyer.suggestions.push(suggestion);
   }
-  const missingColumns = (['email', 'firstName', 'lastName'] as OdooField[]).filter((f) => !present.has(f));
+  const missingColumns = EXPECTED_COLUMNS.filter(([field]) => !present.has(field)).map(([, label]) => label);
   return { buyers, unknownHeaders, missingColumns };
 }
 

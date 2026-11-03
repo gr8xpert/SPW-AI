@@ -143,7 +143,7 @@ export const fi: GuideTranslation = {
         ['Kohdetyypit', 'Valitse ”Huvila”, niin kaikenlaiset huvilat lasketaan mukaan.'],
         ['Budjetti', 'Alkaen ja enintään. Budjetin ulkopuolinen kohde ei koskaan osu.'],
         ['Makuuhuoneet, kylpyhuoneet, koot', 'Vähintään se, mitä ostaja haluaa.'],
-        ['Ominaisuudet ja toiveet', 'Uima-allas, merinäköala, autotalli ja niin edelleen. Ne nostavat kohdetta ylemmäs; ne eivät koskaan piilota sitä.'],
+        ['Ominaisuudet ja toiveet', 'Uima-allas, merinäköala, autotalli ja niin edelleen. Ne nostavat kohdetta ylemmäs; ne eivät koskaan piilota sitä. Hae, tai avaa ryhmä ja valitse, mitä ostaja haluaa. Valintasi näkyvät ylhäällä.'],
         ['Lähetä sopivat kohteet', 'Ostajalle, välittäjälle tai molemmille.'],
       ),
       warn('Pakolliset ovat tiukkoja. Jos valitset vain yhden pienen kaupungin ja pienen budjetin, et ehkä saa yhtään osumaa. Laajenna aluetta tai budjettia hieman.'),
@@ -359,12 +359,19 @@ export const fi: GuideTranslation = {
     linkLabel: 'Avaa Tuonti',
     blocks: [
       steps(
-        'Vie Odoossa ostajasi .xlsx-tiedostoksi.',
+        'Avaa Odoossa ostajalista, valitse kaikki, valitse Action → Export ja jätä "I want to update data" valitsematta. Lisää alla olevat kentät ja vie .xlsx-tiedostona.',
         'Valitse Tuonti-välilehdellä tiedosto ja paina ”Tarkista tiedosto”. Mitään ei vielä tallenneta.',
         'Katso kohta ”Mitä tapahtuu”: uudet ostajat, päivitetyt ostajat ja arvot, jotka eivät täsmänneet.',
         'Valitse jokaiselle täsmäämättömälle arvolle (välittäjä, kaupunki…), mitä se tarkoittaa SPM:ssä, tai jätä ”Säilytä muistiinpanona”.',
         'Paina ”Tuo”. Saman tiedoston tuominen uudelleen päivittää samat ostajat; se ei koskaan tee kopioita.',
       ),
+      terms(
+        ['Yhteystiedot', 'ID, First Name, Last Name, Email, Phone, Mobile, Language, Street, Street2, Zip, City, State, Country, I prefer contact by, ID Type, ID Number, Referred By, Notes, Created on.'],
+        ['Välittäjät ja tila', 'Salesperson, Responsible User, Related Sale Agents, Priority, Status Buyer, Sub-status, Waiting for Reply Date, Contact Type.'],
+        ['Toivelista', 'Listing Type, Property Type, Bedrooms, Bathrooms, Minimum Budget, Maximum Budget, Towns, Build Size (m2), Plot Size (m2), Condition, Views, Swimming Pool, Settings, Send Matched Properties to. Jos Odoo näyttää saman nimen kahdesti, lisää molemmat.'],
+        ['Ehdotetut kohteet', 'Napsauta Linked Properties -kohdan nuolta ja lisää sen sisältä: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
+      ),
+      warn('Jätä Matched Properties pois. SPM laskee ne itse, ja ne voivat tehdä viennistä liian suuren Odoolle.'),
     ],
   },
   privacy: {

@@ -472,6 +472,8 @@ export const es: BuyerText = {
     max: 'Máx.',
     features: 'Características y deseos',
     featuresHelp: 'Estado, vistas, piscina, entorno y otras características. Suben la puntuación de coincidencia; nunca ocultan una propiedad.',
+    featuresNone: 'Aún no hay nada elegido. Abre un grupo o busca abajo.',
+    featuresSearch: 'Buscar características, como vistas al mar o garaje',
     featureCategories: {
       interior: 'Interior', exterior: 'Exterior', community: 'Comunidad', climate: 'Climatización', views: 'Vistas',
       security: 'Seguridad', parking: 'Aparcamiento', other: 'Otros',
@@ -804,7 +806,7 @@ export const es: BuyerText = {
     title: 'Importar desde Odoo',
     description: 'Trae tus compradores de Odoo: datos de contacto, rol, agente, prioridad, estado, notas, periodo de visita, lista de deseos y propiedades sugeridas.',
     adminsOnly: 'Solo los managers pueden importar compradores.',
-    howTo: 'En Odoo, exporta todos los compradores desde la vista de lista como XLSX con los campos de la guía "Exportar compradores desde Odoo". Si importas el mismo archivo otra vez, se actualizan los mismos compradores; no se duplica nada.',
+    howTo: 'En Odoo, exporta todos los compradores desde la vista de lista como XLSX con los campos de la guía "Importar desde Odoo". Si importas el mismo archivo otra vez, se actualizan los mismos compradores; no se duplica nada.',
     file: 'Exportación de Odoo (.xlsx)',
     preview: 'Revisar el archivo',
     checking: 'Leyendo el archivo…',
