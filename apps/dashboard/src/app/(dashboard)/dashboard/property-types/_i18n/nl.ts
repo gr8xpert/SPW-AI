@@ -38,6 +38,7 @@ export const nl: PropertyTypesText = {
 
   searchPlaceholder: 'Zoek woningtypes...',
   hideEmpty: 'Types met 0 woningen verbergen',
+  viewProperties: 'Deze woningen tonen',
   selected: (n) => `${n === 1 ? 'type' : 'types'} geselecteerd`,
   moveUnderParent: 'Onder een ander type plaatsen…',
 

@@ -16,10 +16,17 @@ export class ListPropertyDto {
   @IsIn(['sale', 'rent', 'holiday_rent', 'development'])
   listingType?: ListingType;
 
+  // A type and its sub-types — the same set the Property Types page counts.
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   propertyTypeId?: number;
+
+  // Listings carrying this feature — the same set the Features page counts.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  featureId?: number;
 
   // A place and every place inside it — the same set the Locations page
   // counts, so "2 properties" there opens exactly those 2.

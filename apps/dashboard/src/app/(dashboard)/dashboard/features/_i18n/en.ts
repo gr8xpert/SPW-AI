@@ -49,6 +49,7 @@ export const en = {
   showAll: 'Show all features on website',
   shownCount: (shown: number, total: number) => `(${shown} of ${total} shown)`,
   hideEmpty: 'Hide features with 0 properties',
+  viewProperties: 'Show these properties',
   selected: (n: number) => `${n === 1 ? 'feature' : 'features'} selected`,
 
   // List

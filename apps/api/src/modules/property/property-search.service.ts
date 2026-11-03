@@ -306,6 +306,7 @@ export class PropertySearchService {
     tenantId: number,
     rootId: number,
     table: 'locations' | 'property_types',
+    options: { aliases?: boolean } = {},
   ): Promise<number[]> {
     const rows: Array<{ id: number; parentId: number | null; name?: unknown; aliases?: unknown }> =
       await this.propertyRepository.manager.query(
@@ -326,7 +327,7 @@ export class PropertySearchService {
     // "Centro" when Centro lists Malaga as another name. Same for a type.
     const root = rows.find((r) => Number(r.id) === rootId);
     const rootKeys = new Set(Object.values(jsonOf<Record<string, string>>(root?.name) || {}).map(locationKey).filter(Boolean));
-    for (const r of rows) {
+    for (const r of options.aliases === false ? [] : rows) {
       const aliases = jsonOf<string[]>(r.aliases);
       if (!Array.isArray(aliases) || !aliases.some((a) => rootKeys.has(locationKey(a)))) continue;
       if (!result.has(Number(r.id))) {

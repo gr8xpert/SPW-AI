@@ -38,6 +38,7 @@ export const fi: PropertyTypesText = {
 
   searchPlaceholder: 'Hae kohdetyyppejä...',
   hideEmpty: 'Piilota tyypit, joilla ei ole kohteita',
+  viewProperties: 'Näytä nämä kohteet',
   selected: (n) => `${n === 1 ? 'tyyppi' : 'tyyppiä'} valittu`,
   moveUnderParent: 'Siirrä ylätyypin alle…',
 

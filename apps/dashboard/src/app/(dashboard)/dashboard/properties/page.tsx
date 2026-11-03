@@ -78,6 +78,29 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'destruct
 // language selection whenever this prop changes identity.
 const DEFAULT_LANGUAGES = ['en'];
 
+// A filter the list was opened with from a count on another dashboard page.
+function LinkedFilter({ label, name, note, removeLabel, onRemove, testId }: {
+  label: string;
+  name: string;
+  note?: string;
+  removeLabel: string;
+  onRemove: () => void;
+  testId: string;
+}) {
+  return (
+    <div className="mt-3 flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <Badge variant="secondary" className="gap-1 pr-1" data-testid={testId}>
+        {name}
+        <button type="button" onClick={onRemove} aria-label={removeLabel} className="rounded-full p-0.5 hover:bg-muted">
+          <X className="h-3 w-3" />
+        </button>
+      </Badge>
+      {note && <span className="text-xs text-muted-foreground">{note}</span>}
+    </div>
+  );
+}
+
 function displayName(name: Record<string, string> | string): string {
   if (typeof name === 'string') return name;
   return name?.en || name?.es || Object.values(name)[0] || '';
@@ -110,6 +133,11 @@ export default function PropertiesPage() {
   // Set from a link on the Locations page (?locationId=…&locationName=…):
   // that place and every place inside it, matching the count shown there.
   const [location, setLocation] = useState<{ id: string; name: string } | null>(null);
+  // Set from a count on the Property Types page (?propertyTypeId=…&propertyTypeName=…).
+  // The name is kept because a hidden type isn't in the Property Type dropdown.
+  const [linkedTypeName, setLinkedTypeName] = useState('');
+  // Set from a count on the Features page (?featureId=…&featureName=…).
+  const [feature, setFeature] = useState<{ id: string; name: string } | null>(null);
   // The list waits for the address to be read, so a filtered link doesn't
   // first load every property.
   const [urlRead, setUrlRead] = useState(false);
@@ -118,6 +146,13 @@ export default function PropertiesPage() {
     const q = new URLSearchParams(window.location.search);
     const id = q.get('locationId');
     if (id && /^\d+$/.test(id)) setLocation({ id, name: q.get('locationName') || `#${id}` });
+    const typeId = q.get('propertyTypeId');
+    if (typeId && /^\d+$/.test(typeId)) {
+      setPropertyTypeId(typeId);
+      setLinkedTypeName(q.get('propertyTypeName') || `#${typeId}`);
+    }
+    const featureId = q.get('featureId');
+    if (featureId && /^\d+$/.test(featureId)) setFeature({ id: featureId, name: q.get('featureName') || `#${featureId}` });
     const p = Number(q.get('page'));
     if (Number.isInteger(p) && p > 1) setPage(p);
     setUrlRead(true);
@@ -139,10 +174,30 @@ export default function PropertiesPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const dropFromAddress = (...keys: string[]) => {
+    const q = new URLSearchParams(window.location.search);
+    keys.forEach((key) => q.delete(key));
+    const query = q.toString();
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+  };
+
   const clearLocation = () => {
     setLocation(null);
     setPage(1);
-    window.history.replaceState(null, '', window.location.pathname);
+    dropFromAddress('locationId', 'locationName');
+  };
+
+  const changePropertyType = (id: string) => {
+    setPropertyTypeId(id);
+    setLinkedTypeName('');
+    setPage(1);
+    dropFromAddress('propertyTypeId', 'propertyTypeName');
+  };
+
+  const clearFeature = () => {
+    setFeature(null);
+    setPage(1);
+    dropFromAddress('featureId', 'featureName');
   };
 
   const hasActiveFilters = !!(status || listingType || propertyTypeId || source || isOwnProperty || isFeatured);
@@ -150,7 +205,7 @@ export default function PropertiesPage() {
   const clearFilters = () => {
     setStatus('');
     setListingType('');
-    setPropertyTypeId('');
+    changePropertyType('');
     setSource('');
     setIsOwnProperty(false);
     setIsFeatured(false);
@@ -167,6 +222,7 @@ export default function PropertiesPage() {
     if (isOwnProperty) params.isOwnProperty = true;
     if (isFeatured) params.isFeatured = true;
     if (location) params.locationId = location.id;
+    if (feature) params.featureId = feature.id;
     return params;
   };
 
@@ -382,16 +438,33 @@ export default function PropertiesPage() {
           </div>
 
           {location && (
-            <div className="mt-3 flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{t.list.location}</span>
-              <Badge variant="secondary" className="gap-1 pr-1" data-testid="location-filter">
-                {location.name}
-                <button type="button" onClick={clearLocation} aria-label={t.list.removeLocationFilter} className="rounded-full p-0.5 hover:bg-muted">
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-              <span className="text-xs text-muted-foreground">{t.list.includingInside}</span>
-            </div>
+            <LinkedFilter
+              label={t.list.location}
+              name={location.name}
+              note={t.list.includingInside}
+              removeLabel={t.list.removeLocationFilter}
+              onRemove={clearLocation}
+              testId="location-filter"
+            />
+          )}
+          {linkedTypeName && (
+            <LinkedFilter
+              label={t.list.typeFilter}
+              name={linkedTypeName}
+              note={t.list.includingSubTypes}
+              removeLabel={t.list.removeTypeFilter}
+              onRemove={() => changePropertyType('')}
+              testId="type-filter"
+            />
+          )}
+          {feature && (
+            <LinkedFilter
+              label={t.list.featureFilter}
+              name={feature.name}
+              removeLabel={t.list.removeFeatureFilter}
+              onRemove={clearFeature}
+              testId="feature-filter"
+            />
           )}
 
           {filtersOpen && (
@@ -434,7 +507,7 @@ export default function PropertiesPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">{t.list.propertyType}</Label>
-                  <Select value={propertyTypeId} onValueChange={(v) => { setPropertyTypeId(v === 'all' ? '' : v); setPage(1); }}>
+                  <Select value={propertyTypeId} onValueChange={(v) => changePropertyType(v === 'all' ? '' : v)}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allPropertyTypes} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{t.list.allPropertyTypes}</SelectItem>
@@ -483,7 +556,7 @@ export default function PropertiesPage() {
           {/* Total beside the heading: the "Showing x to y of n" line below only
               appears when there is more than one page. */}
           <CardTitle data-testid="properties-heading">
-            {hasActiveFilters || location || search.trim() ? t.list.matching : t.list.allProperties}
+            {hasActiveFilters || location || feature || search.trim() ? t.list.matching : t.list.allProperties}
             {meta && (
               <>
                 {' '}

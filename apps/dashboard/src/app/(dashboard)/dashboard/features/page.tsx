@@ -592,7 +592,20 @@ export default function FeaturesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="outline">{feature.propertyCount ?? 0}</Badge>
+                          {(feature.propertyCount ?? 0) > 0 ? (
+                            // Opens Properties filtered to this feature — the
+                            // same set this count is made of.
+                            <a
+                              href={`/dashboard/properties?featureId=${feature.id}&featureName=${encodeURIComponent(feature.name.en || Object.values(feature.name)[0] || '')}`}
+                              draggable={false}
+                              title={t.viewProperties}
+                              data-testid="feature-property-count"
+                            >
+                              <Badge variant="outline" className="cursor-pointer text-primary hover:bg-muted">{feature.propertyCount}</Badge>
+                            </a>
+                          ) : (
+                            <Badge variant="outline">0</Badge>
+                          )}
                           <div
                             className="flex items-center gap-1.5"
                             title={feature.isActive !== false ? t.visibleOnWebsite : t.hiddenFromWebsite}

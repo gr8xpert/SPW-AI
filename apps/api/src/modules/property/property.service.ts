@@ -158,7 +158,16 @@ export class PropertyService {
     }
 
     if (dto.propertyTypeId !== undefined) {
-      query.andWhere('p.propertyTypeId = :propertyTypeId', { propertyTypeId: dto.propertyTypeId });
+      // No "other spellings" here: the Property Types count is the type and its
+      // sub-types only, and this list has to show that same number.
+      const propertyTypeIds = await this.searchService.expandDescendants(tenantId, dto.propertyTypeId, 'property_types', {
+        aliases: false,
+      });
+      query.andWhere('p.propertyTypeId IN (:...propertyTypeIds)', { propertyTypeIds });
+    }
+
+    if (dto.featureId !== undefined) {
+      query.andWhere('JSON_CONTAINS(p.features, :featureId)', { featureId: String(dto.featureId) });
     }
 
     if (dto.locationId !== undefined) {

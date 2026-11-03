@@ -42,6 +42,7 @@ export const fi: FeaturesText = {
   showAll: 'Näytä kaikki ominaisuudet verkkosivustolla',
   shownCount: (shown, total) => `(${shown}/${total} näkyvissä)`,
   hideEmpty: 'Piilota ominaisuudet, joilla ei ole kohteita',
+  viewProperties: 'Näytä nämä kohteet',
   selected: (n) => `${n === 1 ? 'ominaisuus' : 'ominaisuutta'} valittu`,
 
   categoryCount: (category, n) => `${category} (${n})`,

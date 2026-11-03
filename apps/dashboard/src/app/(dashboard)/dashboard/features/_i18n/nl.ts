@@ -42,6 +42,7 @@ export const nl: FeaturesText = {
   showAll: 'Alle kenmerken tonen op de website',
   shownCount: (shown, total) => `(${shown} van ${total} getoond)`,
   hideEmpty: 'Kenmerken met 0 woningen verbergen',
+  viewProperties: 'Deze woningen tonen',
   selected: (n) => `${n === 1 ? 'kenmerk' : 'kenmerken'} geselecteerd`,
 
   categoryCount: (category, n) => `${category} (${n})`,

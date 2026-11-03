@@ -38,6 +38,7 @@ export const es: PropertyTypesText = {
 
   searchPlaceholder: 'Buscar tipos de propiedad...',
   hideEmpty: 'Ocultar tipos con 0 propiedades',
+  viewProperties: 'Ver estas propiedades',
   selected: (n) => `${n === 1 ? 'tipo seleccionado' : 'tipos seleccionados'}`,
   moveUnderParent: 'Mover bajo un tipo superior…',
 

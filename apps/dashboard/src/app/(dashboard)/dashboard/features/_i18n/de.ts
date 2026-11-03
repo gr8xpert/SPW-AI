@@ -42,6 +42,7 @@ export const de: FeaturesText = {
   showAll: 'Alle Merkmale auf der Website anzeigen',
   shownCount: (shown, total) => `(${shown} von ${total} angezeigt)`,
   hideEmpty: 'Merkmale mit 0 Immobilien ausblenden',
+  viewProperties: 'Diese Immobilien anzeigen',
   selected: (n) => `${n === 1 ? 'Merkmal' : 'Merkmale'} ausgewählt`,
 
   categoryCount: (category, n) => `${category} (${n})`,

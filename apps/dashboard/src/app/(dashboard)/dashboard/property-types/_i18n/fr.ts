@@ -38,6 +38,7 @@ export const fr: PropertyTypesText = {
 
   searchPlaceholder: 'Rechercher des types de bien...',
   hideEmpty: 'Masquer les types sans bien',
+  viewProperties: 'Voir ces biens',
   selected: (n) => `${n === 1 ? 'type sélectionné' : 'types sélectionnés'}`,
   moveUnderParent: 'Placer sous un parent…',
 

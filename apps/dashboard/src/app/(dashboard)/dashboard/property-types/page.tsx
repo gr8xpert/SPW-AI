@@ -697,7 +697,20 @@ export default function PropertyTypesPage() {
                         </TableCell>
                       )}
                       <TableCell>
-                        <Badge variant="outline">{type.propertyCount ?? 0}</Badge>
+                        {(type.propertyCount ?? 0) > 0 ? (
+                          // Opens Properties filtered to this type and its
+                          // sub-types — the same set this count is made of.
+                          <a
+                            href={`/dashboard/properties?propertyTypeId=${type.id}&propertyTypeName=${encodeURIComponent(type.name.en || Object.values(type.name)[0] || '')}`}
+                            draggable={false}
+                            title={t.viewProperties}
+                            data-testid="type-property-count"
+                          >
+                            <Badge variant="outline" className="cursor-pointer text-primary hover:bg-muted">{type.propertyCount}</Badge>
+                          </a>
+                        ) : (
+                          <Badge variant="outline">0</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div

@@ -38,6 +38,7 @@ export const sv: PropertyTypesText = {
 
   searchPlaceholder: 'Sök objekttyper...',
   hideEmpty: 'Dölj typer med 0 objekt',
+  viewProperties: 'Visa dessa objekt',
   selected: (n) => `${n === 1 ? 'typ' : 'typer'} valda`,
   moveUnderParent: 'Flytta under överordnad…',
 

@@ -38,6 +38,7 @@ export const de: PropertyTypesText = {
 
   searchPlaceholder: 'Immobilientypen suchen...',
   hideEmpty: 'Typen mit 0 Immobilien ausblenden',
+  viewProperties: 'Diese Immobilien anzeigen',
   selected: (n) => `${n === 1 ? 'Typ' : 'Typen'} ausgewählt`,
   moveUnderParent: 'Unter anderen Typ verschieben…',
 

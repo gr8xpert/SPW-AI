@@ -42,6 +42,7 @@ export const es: FeaturesText = {
   showAll: 'Mostrar todas las características en la web',
   shownCount: (shown, total) => `(${shown} de ${total} visibles)`,
   hideEmpty: 'Ocultar características con 0 propiedades',
+  viewProperties: 'Ver estas propiedades',
   selected: (n) => `${n === 1 ? 'característica seleccionada' : 'características seleccionadas'}`,
 
   categoryCount: (category, n) => `${category} (${n})`,

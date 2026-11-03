@@ -42,6 +42,7 @@ export const fr: FeaturesText = {
   showAll: 'Afficher toutes les caractéristiques sur le site',
   shownCount: (shown, total) => `(${shown} sur ${total} affichées)`,
   hideEmpty: 'Masquer les caractéristiques sans bien',
+  viewProperties: 'Voir ces biens',
   selected: (n) => `${n === 1 ? 'caractéristique sélectionnée' : 'caractéristiques sélectionnées'}`,
 
   categoryCount: (category, n) => `${category} (${n})`,

@@ -42,6 +42,7 @@ export const sv: FeaturesText = {
   showAll: 'Visa alla egenskaper på webbplatsen',
   shownCount: (shown, total) => `(${shown} av ${total} visas)`,
   hideEmpty: 'Dölj egenskaper med 0 objekt',
+  viewProperties: 'Visa dessa objekt',
   selected: (n) => `${n === 1 ? 'egenskap' : 'egenskaper'} valda`,
 
   categoryCount: (category, n) => `${category} (${n})`,

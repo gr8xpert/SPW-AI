@@ -41,9 +41,11 @@ export class FeatureService {
         try { ids = JSON.parse(ids); } catch { ids = null; }
       }
       if (!Array.isArray(ids)) continue;
-      for (const id of ids) {
-        const n = Number(id);
-        if (Number.isFinite(n)) countMap.set(n, (countMap.get(n) || 0) + 1);
+      // Whole-number ids, once per property even if the list repeats one: the
+      // count has to equal the property list filtered by this feature, which
+      // matches with JSON_CONTAINS.
+      for (const n of new Set(ids.filter((id) => typeof id === 'number'))) {
+        countMap.set(n as number, (countMap.get(n as number) || 0) + 1);
       }
     }
 

@@ -44,6 +44,7 @@ export const en = {
   // Filters and selection
   searchPlaceholder: 'Search property types...',
   hideEmpty: 'Hide types with 0 properties',
+  viewProperties: 'Show these properties',
   selected: (n: number) => `${n === 1 ? 'type' : 'types'} selected`,
   moveUnderParent: 'Move under parent…',
 
