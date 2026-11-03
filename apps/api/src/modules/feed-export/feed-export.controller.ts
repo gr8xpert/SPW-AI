@@ -61,10 +61,13 @@ export class FeedExportConfigController {
     @CurrentTenant() tenantId: number,
     @Query('days') days?: string,
     @Query('format') format?: string,
+    @Query('apiKeyId') apiKeyId?: string,
   ) {
     const known: ExportLogFormat[] = ['xml', 'json', 'idealista'];
     const f = known.includes(format as ExportLogFormat) ? (format as ExportLogFormat) : undefined;
-    return this.service.getLogs(tenantId, days ? parseInt(days) : 7, f);
+    const d = Math.min(Math.max(parseInt(days || '') || 7, 1), 90);
+    const key = parseInt(apiKeyId || '') || undefined;
+    return this.service.getLogs(tenantId, d, f, key);
   }
 }
 
@@ -85,7 +88,12 @@ export class FeedExportController {
     // A website key's own feed (Settings -> API Keys): only that key's listings.
     const providedKey = headerKey || queryKey || '';
     if (providedKey.startsWith(KEY_FEED_PREFIX)) {
-      const { content, contentType } = await this.service.exportKeyFeed(tenantSlug, providedKey);
+      const { content, contentType } = await this.service.exportKeyFeed(
+        tenantSlug,
+        providedKey,
+        req.ip || req.socket.remoteAddress || '',
+        req.headers['user-agent'] || '',
+      );
       res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', 'private, max-age=900');
       res.setHeader('X-Robots-Tag', 'noindex');

@@ -237,6 +237,13 @@ class SPM_I18n {
         return home_url($this->language_prefix() . '/' . $slug . '/' . $path);
     }
 
+    /** The folder of property pages in the default language; '' when the site has no detail page. */
+    public function detail_base_url() {
+        $lang = $this->default_lang_code();
+        if (!class_exists('SPM_Page_Finder') || !SPM_Page_Finder::page_id('detail', $lang)) return '';
+        return home_url($this->prefix_for($lang) . '/' . SPM_Plugin::slug('detail', $lang) . '/');
+    }
+
     /**
      * Emit <link rel="alternate" hreflang="..."> tags on property detail pages
      * so Google can serve the right language version in search results.

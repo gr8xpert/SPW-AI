@@ -209,6 +209,11 @@ export const fi: PropertiesText = {
     failedDescription: 'Kohdetta ei voitu poistaa.',
   },
   list: {
+    viewOnWebsite: 'Näytä verkkosivuilla',
+    noWebsiteAddress: 'Tälle asiakkaalle ei ole vielä verkkosivun osoitetta',
+    noWebsiteAddressHint: 'Päivitä SPM-lisäosa versioon 2.9.16 ja täytä verkkosivun osoite asetuksissa, tai aseta kohteen URL yhteystietojen asetuksissa.',
+    notOnWebsite: 'Tämä kohde ei ole verkkosivuilla',
+    notOnWebsiteHint: 'Vain aktiiviset, julkaistut kohteet näkyvät verkkosivuilla.',
     title: 'Kohteet',
     description: 'Hallitse kohdeilmoituksiasi',
     translating: (pct) => `Käännetään ${pct} %`,

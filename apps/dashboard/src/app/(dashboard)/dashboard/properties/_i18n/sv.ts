@@ -209,6 +209,11 @@ export const sv: PropertiesText = {
     failedDescription: 'Det gick inte att ta bort objektet.',
   },
   list: {
+    viewOnWebsite: 'Visa på webbplatsen',
+    noWebsiteAddress: 'Ingen webbadress för den här kunden än',
+    noWebsiteAddressHint: 'Uppdatera SPM-tillägget till 2.9.16 och fyll i webbadressen under Inställningar, eller ange objektets URL i inställningarna för Kontakter.',
+    notOnWebsite: 'Det här objektet finns inte på webbplatsen',
+    notOnWebsiteHint: 'Bara aktiva, publicerade objekt visas på webbplatsen.',
     title: 'Objekt',
     description: 'Hantera dina objektsannonser',
     translating: (pct) => `Översätter ${pct} %`,

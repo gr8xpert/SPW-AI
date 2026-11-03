@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { PropertyService } from './property.service';
 import { PropertyTitleService } from './property-title.service';
+import { PropertyWebsiteLinkService } from './property-website-link.service';
 import { CreatePropertyDto, UpdatePropertyDto, SearchPropertyDto, ListPropertyDto, LockFieldsDto, UnlockFieldsDto } from './dto';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
@@ -11,11 +12,13 @@ export class PropertyController {
   constructor(
     private readonly propertyService: PropertyService,
     private readonly propertyTitleService: PropertyTitleService,
+    private readonly websiteLinks: PropertyWebsiteLinkService,
   ) {}
 
   @Get()
   async findAll(@CurrentTenant() tenantId: number, @Query() dto: ListPropertyDto) {
-    return this.propertyService.findAllPaginated(tenantId, dto);
+    const result = await this.propertyService.findAllPaginated(tenantId, dto);
+    return { ...result, data: await this.websiteLinks.attach(tenantId, result.data) };
   }
 
   @Get('search')

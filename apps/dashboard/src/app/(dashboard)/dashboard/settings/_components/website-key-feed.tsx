@@ -1,11 +1,13 @@
 'use client';
 
-import { FileCode, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, FileCode, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardAddons } from '@/hooks/use-dashboard-addons';
 import { API_URL } from '@/components/feed-export/idealista-api';
+import { ExportLogTable } from '@/components/feed-export/export-log-card';
 import { useSettingsText } from '../_i18n';
 import type { WebsiteKeysText } from './website-keys-text';
 import { useSetKeyFeed, type WebsiteKey } from './use-website-keys';
@@ -17,6 +19,7 @@ export function WebsiteKeyFeed({ k, slug, t }: { k: WebsiteKey; slug: string; t:
   const { toast } = useToast();
   const { addons, known } = useDashboardAddons();
   const setFeed = useSetKeyFeed();
+  const [showLog, setShowLog] = useState(false);
   const fail = (err: Error) => toast({ title: t.failed, description: err.message, variant: 'destructive' });
 
   // Not known yet = don't lock (a wrong lock is the worse failure).
@@ -84,6 +87,11 @@ export function WebsiteKeyFeed({ k, slug, t }: { k: WebsiteKey; slug: string; t:
                 ? t.feedLastRead(new Date(k.feedLastUsedAt).toLocaleString())
                 : t.feedNeverRead}
           </p>
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setShowLog(!showLog)}>
+            {showLog ? <ChevronUp className="mr-1 h-4 w-4" /> : <ChevronDown className="mr-1 h-4 w-4" />}
+            {t.feedLog}
+          </Button>
+          {showLog && <ExportLogTable format="xml" apiKeyId={k.id} />}
         </>
       )}
     </div>

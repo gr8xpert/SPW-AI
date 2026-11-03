@@ -31,6 +31,8 @@ class SPM_API_Client {
                 'x-spm-plugin' => SPM_VERSION,
                 // Buyer Match: where buyers' personal links should open ('' = no page).
                 'x-spm-buyer-page' => class_exists('SPM_Buyer_Page') ? SPM_Buyer_Page::url() : '',
+                // Dashboard's "View on website": where property pages live ('' = no page).
+                'x-spm-detail-page' => class_exists('SPM_I18n') ? SPM_I18n::instance()->detail_base_url() : '',
             ]),
         ]);
 

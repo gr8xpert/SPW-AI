@@ -39,6 +39,9 @@ interface ListingRules {
 }
 
 // A website key's XML feed token (Settings -> API Keys). The Kyero export keys start with sk_export_.
+// Rows the dashboard shows per log.
+const LOG_ROWS = 200;
+
 export const KEY_FEED_PREFIX = 'sk_feed_';
 
 // The JSON feed's settings. Rows saved before it had its own fall back to
@@ -184,6 +187,7 @@ export class FeedExportService {
     tenantId: number,
     days: number = 7,
     format?: ExportLogFormat,
+    apiKeyId?: number,
   ): Promise<FeedExportLog[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
@@ -193,7 +197,10 @@ export class FeedExportService {
       .where('log.tenantId = :tenantId', { tenantId })
       .andWhere('log.accessedAt >= :since', { since });
     if (format) query.andWhere('log.format = :format', { format });
-    return query.orderBy('log.accessedAt', 'DESC').limit(100).getMany();
+    // A website key's feed has its own log; the main feeds' logs leave those out.
+    if (apiKeyId) query.andWhere('log.apiKeyId = :apiKeyId', { apiKeyId });
+    else query.andWhere('log.apiKeyId IS NULL');
+    return query.orderBy('log.accessedAt', 'DESC').limit(LOG_ROWS).getMany();
   }
 
   // ============ Feed Export ============
@@ -319,7 +326,13 @@ export class FeedExportService {
   // A website key's own XML feed: Kyero v3, with the same listings the key
   // shows on a website (published, live, inside its scope). Needs the key on
   // and its feed switched on; the client's Kyero feed settings don't apply.
-  async exportKeyFeed(tenantSlug: string, feedKey: string): Promise<{ content: string; contentType: string }> {
+  async exportKeyFeed(
+    tenantSlug: string,
+    feedKey: string,
+    ip: string,
+    userAgent: string,
+  ): Promise<{ content: string; contentType: string }> {
+    const startTime = Date.now();
     const tenant = await this.tenantRepository.findOne({ where: { slug: tenantSlug }, select: ['id'] });
     if (!tenant) throw new NotFoundException('Tenant not found');
     const key = feedKey
@@ -339,6 +352,17 @@ export class FeedExportService {
     ]);
     const result = buildKyeroFeed({ properties, ...lookups });
     await this.apiKeyRepository.update({ id: key.id }, { feedLastUsedAt: new Date() });
+    await this.logRepository.save(
+      this.logRepository.create({
+        tenantId: tenant.id,
+        apiKeyId: key.id,
+        format: 'xml',
+        propertiesCount: result.included,
+        requesterIp: ip.slice(0, 45),
+        userAgent: userAgent.slice(0, 500),
+        responseTimeMs: Date.now() - startTime,
+      }),
+    );
     return { content: result.xml, contentType: 'application/xml; charset=utf-8' };
   }
 

@@ -9,12 +9,11 @@ import { IdealistaCard } from '@/components/feed-export/idealista-card';
 import { RightmoveCard } from '@/components/feed-export/rightmove-card';
 import { API_URL } from '@/components/feed-export/idealista-api';
 import { StatusDot, type ExportStatus } from '@/components/feed-export/export-status';
+import { ExportLogCard } from '@/components/feed-export/export-log-card';
 import {
-  AccessLogCard,
   FeedKeyCard,
   FeedSettingsCard,
   FeedUrlCard,
-  type ExportLog,
   type UrlFeedSettings,
 } from '@/components/feed-export/url-feed-parts';
 import { LockedRouteGuard } from '@/components/locked-route-guard';
@@ -77,7 +76,6 @@ function jsonSettings(c: ExportConfig): UrlFeedSettings {
 function FeedExportPageInner() {
   const [tab, setTab] = useState<Tab>('idealista');
   const [config, setConfig] = useState<ExportConfig | null>(null);
-  const [logs, setLogs] = useState<ExportLog[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [showKey, setShowKey] = useState<UrlFeed | null>(null);
   const [saving, setSaving] = useState<UrlFeed | null>(null);
@@ -115,16 +113,6 @@ function FeedExportPageInner() {
     }
   };
 
-  const fetchLogs = async () => {
-    try {
-      const res = await api.get('/api/dashboard/feed-export/logs?days=7');
-      const body = res?.data || res;
-      setLogs(Array.isArray(body) ? body : body.data || []);
-    } catch {
-      setLogs([]);
-    }
-  };
-
   // Wait for the session to hydrate before firing. With `[]` deps and no guard
   // these ran on mount, before `useApi` had an access token, so both requests
   // went out with no Authorization header and 401'd — and never re-ran once the
@@ -132,7 +120,6 @@ function FeedExportPageInner() {
   useEffect(() => {
     if (!api.isReady) return;
     fetchConfig();
-    fetchLogs();
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (feed: UrlFeed) => {
@@ -248,7 +235,7 @@ function FeedExportPageInner() {
           onCopy={() => copyToClipboard(key, `${name} key`, t.page.keyCopied(name))}
           onRegenerate={() => regenerateKey(feed)}
         />
-        <AccessLogCard feedName={name} logs={logs.filter((l) => l.format === (isKyero ? 'xml' : 'json'))} />
+        <ExportLogCard feedName={name} format={isKyero ? 'xml' : 'json'} />
       </>
     );
   };
@@ -281,6 +268,7 @@ function FeedExportPageInner() {
 
           <TabsContent value="idealista" forceMount className={contentCls}>
             <IdealistaCard onStatus={reportStatus('idealista')} />
+            <ExportLogCard feedName="idealista" format="idealista" />
           </TabsContent>
 
           <TabsContent value="rightmove" forceMount className={contentCls}>

@@ -213,6 +213,11 @@ export const en = {
     failedDescription: 'Could not delete property.',
   },
   list: {
+    viewOnWebsite: 'View on Website',
+    noWebsiteAddress: 'No website address for this client yet',
+    noWebsiteAddressHint: 'Update the SPM plugin to 2.9.16 and fill in the website address in Settings, or set the property URL in Contacts settings.',
+    notOnWebsite: 'This listing is not on the website',
+    notOnWebsiteHint: 'Only active, published listings show on the website.',
     title: 'Properties',
     description: 'Manage your property listings',
     translating: (pct: number) => `Translating ${pct}%`,

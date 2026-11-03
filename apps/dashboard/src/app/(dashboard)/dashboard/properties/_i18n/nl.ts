@@ -209,6 +209,11 @@ export const nl: PropertiesText = {
     failedDescription: 'De woning kon niet worden verwijderd.',
   },
   list: {
+    viewOnWebsite: 'Bekijk op website',
+    noWebsiteAddress: 'Nog geen websiteadres voor deze klant',
+    noWebsiteAddressHint: 'Werk de SPM-plugin bij naar 2.9.16 en vul het websiteadres in bij Instellingen, of stel de woning-URL in bij de instellingen van Contacten.',
+    notOnWebsite: 'Deze woning staat niet op de website',
+    notOnWebsiteHint: 'Alleen actieve, gepubliceerde woningen staan op de website.',
     title: 'Woningen',
     description: 'Beheer je woningaanbod',
     translating: (pct) => `Vertalen ${pct}%`,

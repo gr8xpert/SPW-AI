@@ -27,6 +27,11 @@ export class SiteCheckin {
   @Column({ type: 'varchar', length: 500, nullable: true })
   buyerPageUrl: string | null;
 
+  // Plugin 2.9.16+: the folder its property pages live in, default language
+  // (https://site.com/property/). Dashboard's "View on website" adds the segment.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  detailPageUrl: string | null;
+
   @Column({ type: 'timestamp' })
   firstSeenAt: Date;
 

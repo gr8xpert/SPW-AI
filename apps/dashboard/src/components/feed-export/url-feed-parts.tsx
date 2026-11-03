@@ -9,12 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useLanguage } from '@/i18n/i18n-provider';
 import { useFeedExportText } from './_i18n';
 
 // The parts of the Kyero XML and JSON tabs. Each feed has its own settings,
-// key and access log; these cards render either one.
+// key and export log; these cards render either one.
 
 export interface UrlFeedSettings {
   enabled: boolean;
@@ -23,19 +21,6 @@ export interface UrlFeedSettings {
   listingScope: 'all' | 'own';
   // Kyero XML only.
   cacheTtl?: number;
-}
-
-export interface ExportLog {
-  id: number;
-  format: string;
-  propertiesCount: number;
-  requesterIp: string;
-  responseTimeMs: number;
-  accessedAt: string;
-}
-
-function formatDate(d: string, locale: string): string {
-  try { return new Date(d).toLocaleString(locale); } catch { return d; }
 }
 
 export function FeedUrlCard(props: {
@@ -208,45 +193,6 @@ export function FeedKeyCard(props: {
               curl -H &quot;X-API-Key: {maskedKey}&quot; {props.plainUrl}
             </code>
           </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function AccessLogCard({ feedName, logs }: { feedName: string; logs: ExportLog[] }) {
-  const t = useFeedExportText();
-  const { locale } = useLanguage();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t.url.logTitle}</CardTitle>
-        <CardDescription>{t.url.logDescription(feedName)}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {logs.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">{t.url.noDownloads}</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.url.date}</TableHead>
-                <TableHead>{t.url.properties}</TableHead>
-                <TableHead>{t.url.ipAddress}</TableHead>
-                <TableHead>{t.url.responseTime}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>{formatDate(log.accessedAt, locale)}</TableCell>
-                  <TableCell>{log.propertiesCount.toLocaleString(locale)}</TableCell>
-                  <TableCell className="font-mono text-sm">{log.requesterIp}</TableCell>
-                  <TableCell>{t.url.ms(log.responseTimeMs)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
         )}
       </CardContent>
     </Card>

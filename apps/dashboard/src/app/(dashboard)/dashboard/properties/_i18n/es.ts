@@ -209,6 +209,11 @@ export const es: PropertiesText = {
     failedDescription: 'No se pudo eliminar la propiedad.',
   },
   list: {
+    viewOnWebsite: 'Ver en la web',
+    noWebsiteAddress: 'Aún no hay dirección web para este cliente',
+    noWebsiteAddressHint: 'Actualice el plugin SPM a 2.9.16 e indique la dirección web en Ajustes, o defina la URL de la propiedad en los ajustes de Contactos.',
+    notOnWebsite: 'Esta propiedad no está en la web',
+    notOnWebsiteHint: 'Solo las propiedades activas y publicadas aparecen en la web.',
     title: 'Propiedades',
     description: 'Gestiona tus anuncios de propiedades',
     translating: (pct) => `Traduciendo ${pct}%`,

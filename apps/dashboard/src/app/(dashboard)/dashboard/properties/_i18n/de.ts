@@ -209,6 +209,11 @@ export const de: PropertiesText = {
     failedDescription: 'Die Immobilie konnte nicht gelöscht werden.',
   },
   list: {
+    viewOnWebsite: 'Auf der Website ansehen',
+    noWebsiteAddress: 'Noch keine Website-Adresse für diesen Kunden',
+    noWebsiteAddressHint: 'Aktualisieren Sie das SPM-Plugin auf 2.9.16 und tragen Sie die Website-Adresse in den Einstellungen ein, oder legen Sie die Immobilien-URL in den Kontakt-Einstellungen fest.',
+    notOnWebsite: 'Dieses Inserat ist nicht auf der Website',
+    notOnWebsiteHint: 'Nur aktive, veröffentlichte Inserate erscheinen auf der Website.',
     title: 'Immobilien',
     description: 'Verwalten Sie Ihre Immobilienangebote',
     translating: (pct) => `Übersetzung ${pct} %`,

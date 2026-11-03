@@ -209,6 +209,11 @@ export const fr: PropertiesText = {
     failedDescription: 'Impossible de supprimer le bien.',
   },
   list: {
+    viewOnWebsite: 'Voir sur le site',
+    noWebsiteAddress: 'Pas encore d’adresse de site pour ce client',
+    noWebsiteAddressHint: 'Mettez à jour le plugin SPM en 2.9.16 et indiquez l’adresse du site dans les Paramètres, ou définissez l’URL du bien dans les paramètres des Contacts.',
+    notOnWebsite: 'Ce bien n’est pas sur le site',
+    notOnWebsiteHint: 'Seuls les biens actifs et publiés apparaissent sur le site.',
     title: 'Biens',
     description: 'Gérez vos annonces immobilières',
     translating: (pct) => `Traduction ${pct} %`,

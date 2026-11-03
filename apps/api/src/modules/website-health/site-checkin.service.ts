@@ -31,7 +31,8 @@ export class SiteCheckinService {
   // buyerPageUrl: undefined = not sent (an older plugin: keep what is
   // stored); anything else is stored when it is a page of the same site.
   // apiKeyId: the website key the site uses (null = the main key).
-  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown, buyerPageUrl?: unknown, apiKeyId: number | null = null): void {
+  // detailPageUrl: same rule as buyerPageUrl (plugin 2.9.16+).
+  record(tenantId: number, site: unknown, source: 'plugin' | 'widget', pluginVersion?: unknown, buyerPageUrl?: unknown, apiKeyId: number | null = null, detailPageUrl?: unknown): void {
     const siteUrl = normaliseSiteUrl(site);
     if (!siteUrl) return;
     // Our own pages (template gallery previews, demo) and local test copies are not client sites.
@@ -40,18 +41,21 @@ export class SiteCheckinService {
     const version = typeof pluginVersion === 'string' && /^[\w.-]{1,20}$/.test(pluginVersion) ? pluginVersion : null;
     const sentPage = buyerPageUrl !== undefined;
     const page = sentPage ? sameSitePage(buyerPageUrl, siteUrl) : null;
-    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}|${sentPage ? page ?? '-' : ''}|${apiKeyId ?? ''}`;
+    const sentDetail = detailPageUrl !== undefined;
+    const detail = sentDetail ? sameSitePage(detailPageUrl, siteUrl) : null;
+    const key = `${tenantId}|${siteUrl}|${source}|${version ?? ''}|${sentPage ? page ?? '-' : ''}|${apiKeyId ?? ''}|${sentDetail ? detail ?? '-' : ''}`;
     const now = Date.now();
     if ((this.lastWrite.get(key) ?? 0) > now - WRITE_EVERY_MS) return;
     if (this.lastWrite.size > MAX_TRACKED) this.lastWrite.clear();
     this.lastWrite.set(key, now);
     this.dataSource
       .query(
-        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, buyerPageUrl, apiKeyId, firstSeenAt, lastSeenAt)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `INSERT INTO site_checkins (tenantId, siteUrl, source, pluginVersion, buyerPageUrl, detailPageUrl, apiKeyId, firstSeenAt, lastSeenAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
          ON DUPLICATE KEY UPDATE lastSeenAt = NOW(), pluginVersion = COALESCE(VALUES(pluginVersion), pluginVersion),
-           buyerPageUrl = IF(?, VALUES(buyerPageUrl), buyerPageUrl), apiKeyId = VALUES(apiKeyId)`,
-        [tenantId, siteUrl, source, version, page, apiKeyId, sentPage ? 1 : 0],
+           buyerPageUrl = IF(?, VALUES(buyerPageUrl), buyerPageUrl),
+           detailPageUrl = IF(?, VALUES(detailPageUrl), detailPageUrl), apiKeyId = VALUES(apiKeyId)`,
+        [tenantId, siteUrl, source, version, page, detail, apiKeyId, sentPage ? 1 : 0, sentDetail ? 1 : 0],
       )
       .catch((err: Error) => this.logger.warn(`check-in not saved: ${err.message}`));
   }

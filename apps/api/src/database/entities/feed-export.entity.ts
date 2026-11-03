@@ -143,6 +143,10 @@ export class FeedExportLog {
   })
   format: ExportLogFormat;
 
+  // The website key whose own XML feed this was; null = the client's main feeds.
+  @Column({ type: 'int', nullable: true })
+  apiKeyId: number | null;
+
   @Column({ default: 0 })
   propertiesCount: number;
 

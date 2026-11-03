@@ -174,6 +174,8 @@ export interface Property {
   blogUrl: string | null;
   mapLink: string | null;
   websiteUrl: string | null;
+  // Dashboard list only: this listing's page on the client's website, if known.
+  websiteLink?: string | null;
 
   /** Feature ids (FK to the feature catalog). */
   features: number[] | null;

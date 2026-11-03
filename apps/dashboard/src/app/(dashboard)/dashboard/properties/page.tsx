@@ -30,6 +30,7 @@ import {
   Search,
   MoreHorizontal,
   Eye,
+  ExternalLink,
   Edit,
   Trash2,
   AlertCircle,
@@ -543,6 +544,25 @@ export default function PropertiesPage() {
                       <DropdownMenuItem asChild>
                         <Link href={`/dashboard/properties/${property.id}`}><Eye className="h-4 w-4 mr-2" /> {t.common.view}</Link>
                       </DropdownMenuItem>
+                      {property.status === 'active' && property.isPublished && property.websiteLink ? (
+                        <DropdownMenuItem asChild>
+                          <a href={property.websiteLink} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 mr-2" /> {t.list.viewOnWebsite}</a>
+                        </DropdownMenuItem>
+                      ) : (
+                        // Still offered, so the reason it can't open is one click away.
+                        <DropdownMenuItem
+                          className="text-muted-foreground"
+                          onSelect={() => {
+                            const live = property.status === 'active' && property.isPublished;
+                            toast({
+                              title: live ? t.list.noWebsiteAddress : t.list.notOnWebsite,
+                              description: live ? t.list.noWebsiteAddressHint : t.list.notOnWebsiteHint,
+                            });
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" /> {t.list.viewOnWebsite}
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem asChild>
                         <Link href={`/dashboard/properties/${property.id}/edit`}><Edit className="h-4 w-4 mr-2" /> {t.common.edit}</Link>
                       </DropdownMenuItem>
