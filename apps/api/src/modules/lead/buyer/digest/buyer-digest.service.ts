@@ -109,7 +109,7 @@ export class BuyerDigestService {
     const rows: { name: string | null; email: string | null; n: string }[] = await this.tenants.manager.query(
       `SELECT u.name, u.email, COUNT(*) AS n FROM leads l
          LEFT JOIN users u ON u.id = l.assignedTo LEFT JOIN buyer_stages s ON s.id = l.stageId
-       WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL AND (s.kind IS NULL OR s.kind = 'open') AND l.createdAt <= ?
+       WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL AND (s.kind IS NULL OR s.kind = 'open') AND l.importRef IS NULL AND l.createdAt <= ?
          AND NOT EXISTS (SELECT 1 FROM lead_activities a WHERE a.leadId = l.id AND ${attemptSql('a')})
        GROUP BY l.assignedTo, u.name, u.email ORDER BY n DESC`,
       [tenantId, new Date(now.getTime() - hours * 3_600_000)],

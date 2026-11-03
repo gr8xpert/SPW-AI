@@ -267,6 +267,7 @@ export const fr: GuideTranslation = {
         ['Exporter en CSV', 'Les responsables peuvent télécharger tout le tableau pour l’ouvrir dans Excel.'],
       ),
       tip('Les agents ne voient que leurs propres leads et leur propre ligne. Un lead que personne ne contacte à temps apparaît aussi dans Ma journée et dans l’e-mail quotidien de l’agent.'),
+      tip('Les acheteurs importés depuis Odoo gardent leur date Odoo : les plus anciens sont donc sous "Depuis le début". Le rapport s’ouvre là lorsque les 30 derniers jours sont vides. Ils apparaissent comme "Pas contacté", mais ne passent jamais au rouge et ne figurent pas dans l’e-mail quotidien : cette règle concerne les nouveaux leads.'),
     ],
   },
   board: {
@@ -331,6 +332,7 @@ export const fr: GuideTranslation = {
         ['Entonnoir du pipeline', 'Combien de nouveaux acheteurs ont atteint chaque étape.'],
         ['Par agent', 'Leads, suivi, ventes, valeur gagnée et conversion par agent sont dans le Rapport des leads.'],
       ),
+      tip('La page s’ouvre sur les 24 derniers mois. Vous pouvez aussi choisir 3, 6 ou 12 mois.'),
     ],
   },
   settings: {
@@ -371,6 +373,7 @@ export const fr: GuideTranslation = {
         ['Biens suggérés', 'Cliquez sur la flèche de Linked Properties et ajoutez depuis l’intérieur : Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('N’ajoutez pas Matched Properties. SPM les calcule lui-même, et ils peuvent rendre l’export trop volumineux pour Odoo.'),
+      tip('Un import ne compte pas comme une activité : les acheteurs partent de leur date Odoo, donc ceux sans rien de récent apparaissent sous "Sans activité récente" pour que les agents les reprennent. Réimporter le même fichier ne change pas leur dernière activité.'),
     ],
   },
   privacy: {

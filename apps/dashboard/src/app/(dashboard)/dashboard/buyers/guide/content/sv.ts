@@ -268,6 +268,7 @@ export const sv: GuideTranslation = {
         ['Exportera CSV', 'Chefer kan ladda ner hela tabellen och öppna den i Excel.'],
       ),
       tip('Mäklare ser bara sina egna leads och sin egen rad. En lead som ingen kontaktar i tid hamnar också på Min dag och i mäklarens dagliga mejl.'),
+      tip('Köpare som importerats från Odoo behåller sitt Odoo-datum, så äldre finns under "All tid". Rapporten öppnas där när de senaste 30 dagarna är tomma. De visas som "Inte kontaktad" men blir aldrig röda och hamnar inte i det dagliga mejlet: den regeln gäller nya leads.'),
     ],
   },
   board: {
@@ -332,6 +333,7 @@ export const sv: GuideTranslation = {
         ['Säljtratt', 'Hur många nya köpare som nådde varje steg.'],
         ['Per mäklare', 'Leads, uppföljning, affärer, vunnet värde och konvertering per mäklare finns i Leadrapporten.'],
       ),
+      tip('Sidan öppnas med de senaste 24 månaderna. Du kan också välja 3, 6 eller 12 månader.'),
     ],
   },
   settings: {
@@ -372,6 +374,7 @@ export const sv: GuideTranslation = {
         ['Föreslagna objekt', 'Klicka på pilen vid Linked Properties och lägg till därifrån: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Utelämna Matched Properties. SPM räknar ut dem själv, och de kan göra exporten för stor för Odoo.'),
+      tip('En import räknas inte som aktivitet: köpare börjar på sitt Odoo-datum, så de utan något nyligen visas under "Ingen aktivitet nyligen" så att mäklarna kan ta tag i dem. Att importera samma fil igen ändrar inte deras senaste aktivitet.'),
     ],
   },
   privacy: {

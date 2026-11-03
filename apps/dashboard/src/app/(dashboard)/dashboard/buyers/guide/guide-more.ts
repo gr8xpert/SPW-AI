@@ -56,6 +56,7 @@ export const MORE: GuideSection[] = [
         ['Export CSV', 'Managers can download the whole table to open in Excel.'],
       ),
       tip('Agents see only their own leads and their own line. A lead nobody contacts in time also lands on My day and in the agent\'s daily email.'),
+      tip('Buyers imported from Odoo keep their Odoo date, so older ones are under "All time". The report opens there when the last 30 days are empty. They show as "Not contacted" but never turn red or go on the daily email: that rule is for new leads.'),
     ],
   },
   {
@@ -136,6 +137,7 @@ export const MORE: GuideSection[] = [
         ['Pipeline funnel', 'How many new buyers reached each stage.'],
         ['Per agent', 'Leads, follow-up, wins, won value and conversion per agent are on the Lead Report.'],
       ),
+      tip('The page opens on the last 24 months. You can also choose 3, 6 or 12 months.'),
     ],
   },
   {
@@ -184,6 +186,7 @@ export const MORE: GuideSection[] = [
         ['Suggested properties', 'Click the arrow on Linked Properties and add from inside it: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Leave out Matched Properties. SPM works those out itself, and they can make the export too large for Odoo.'),
+      tip('An import is not activity: buyers start at their Odoo date, so those with nothing recent appear under "No recent activity" for agents to pick up. Importing the same file again does not change their last activity.'),
     ],
   },
   {

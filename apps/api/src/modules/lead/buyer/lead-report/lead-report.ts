@@ -60,7 +60,9 @@ export function isReached(a: ReportActivity): boolean {
 }
 
 // One lead's follow-up, from its activities (any order).
-export function followUp(lead: { createdAt: Date }, activities: ReportActivity[], now: Date, overdueHours: number): FollowUp {
+// The first-contact clock is for new leads: an imported lead shows as not
+// contacted but never turns overdue (its Odoo date can be years old).
+export function followUp(lead: { createdAt: Date; importRef?: string | null }, activities: ReportActivity[], now: Date, overdueHours: number): FollowUp {
   const acts = [...activities].sort((x, y) => +new Date(x.createdAt) - +new Date(y.createdAt));
   const attempts = acts.filter(isAttempt);
   const calls = acts.filter((a) => a.userId !== null && a.type === 'call');
@@ -69,7 +71,7 @@ export function followUp(lead: { createdAt: Date }, activities: ReportActivity[]
   const reached = acts.some(isReached);
 
   let status: FollowUpStatus;
-  if (!attempts.length) status = +now - +new Date(lead.createdAt) >= overdueHours * 3_600_000 ? 'overdue' : 'not_contacted';
+  if (!attempts.length) status = !lead.importRef && +now - +new Date(lead.createdAt) >= overdueHours * 3_600_000 ? 'overdue' : 'not_contacted';
   else if (reached) status = 'reached';
   // Not reached yet: what the last call said decides the colour.
   else if (lastOutcome === 'wrong_number') status = 'wrong_number';
@@ -104,6 +106,7 @@ export function cleanEnquiry(text: string): string {
 export interface AgentSummaryInput {
   agentId: number | null;
   createdAt: Date;
+  imported?: boolean;
   firstContactAt: Date | null;
   reached: boolean;
   won: boolean;
@@ -164,7 +167,7 @@ export function agentSummaries(
       hours.set(l.agentId, [...(hours.get(l.agentId) ?? []), Math.max(0, (+new Date(l.firstContactAt) - +new Date(l.createdAt)) / 3_600_000)]);
     } else {
       r.notContacted++;
-      if (+now - +new Date(l.createdAt) >= overdueHours * 3_600_000) r.overdue++;
+      if (!l.imported && +now - +new Date(l.createdAt) >= overdueHours * 3_600_000) r.overdue++;
     }
     if (l.reached) r.reached++;
     if (l.won) {

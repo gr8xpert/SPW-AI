@@ -20,6 +20,13 @@ export interface AgentDigestData {
   team?: { agent: string; overdue: number }[];
 }
 
+// A DATE column from a raw query: the driver gives a Date at midnight UTC (the
+// connection runs in 'Z'), not 'YYYY-MM-DD'.
+export function dateColumnDay(v: Date | string | null): string | null {
+  if (!v) return null;
+  return v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
+}
+
 // Waiting for a reply: the newest contact came from the buyer and nobody
 // answered since, or the "waiting for reply" date (Odoo) has come. lastBuyer
 // and lastAgent are activity ids (createdAt has second precision, so two

@@ -6,7 +6,7 @@ import { normalizeBuyerSettings } from '../buyer-settings.service';
 import { BuyerHotService } from '../buyer-hot.service';
 import { localDayTime } from '../alerts/alert-rules';
 import { BuyerViewingService, type ViewingItem } from '../viewings/buyer-viewing.service';
-import { waitingForReply } from './agent-digest';
+import { dateColumnDay, waitingForReply } from './agent-digest';
 import { attemptSql } from '../lead-report/lead-report';
 
 export interface HomeData {
@@ -84,7 +84,7 @@ export class BuyerHomeService {
     const viewings = await this.viewingService.items(tenantId, vIds.map((r) => Number(r.id)), true);
 
     // Ordered by activity id: createdAt has second precision.
-    const touch: { id: number; firstName: string | null; lastName: string | null; waitingReplyAt: string | null; lastBuyer: number | null; lastAgent: number | null; lastBuyerAt: Date | null; kind: string | null }[] = await this.db.query(
+    const touch: { id: number; firstName: string | null; lastName: string | null; waitingReplyAt: Date | string | null; lastBuyer: number | null; lastAgent: number | null; lastBuyerAt: Date | null; kind: string | null }[] = await this.db.query(
       `SELECT l.id, l.firstName, l.lastName, l.waitingReplyAt, s.kind,
          (SELECT MAX(a.id) FROM lead_activities a WHERE a.leadId = l.id AND a.type IN (?)) AS lastBuyer,
          (SELECT MAX(a.createdAt) FROM lead_activities a WHERE a.leadId = l.id AND a.type IN (?)) AS lastBuyerAt,
@@ -98,11 +98,11 @@ export class BuyerHomeService {
         waitingForReply({
           lastBuyer: t.lastBuyer ? Number(t.lastBuyer) : null,
           lastAgent: t.lastAgent ? Number(t.lastAgent) : null,
-          waitingReplyAt: t.waitingReplyAt ? String(t.waitingReplyAt).slice(0, 10) : null,
+          waitingReplyAt: dateColumnDay(t.waitingReplyAt),
           today,
         }),
       )
-      .map((t) => ({ buyerId: t.id, buyer: name(t), since: t.lastBuyerAt ? localDayTime(new Date(t.lastBuyerAt), tz).day : t.waitingReplyAt ? String(t.waitingReplyAt).slice(0, 10) : null }))
+      .map((t) => ({ buyerId: t.id, buyer: name(t), since: t.lastBuyerAt ? localDayTime(new Date(t.lastBuyerAt), tz).day : dateColumnDay(t.waitingReplyAt) }))
       .sort((a, b) => String(a.since ?? '').localeCompare(String(b.since ?? '')));
 
     const scores = await this.hot.scores(tenantId, open.map((t) => t.id));
@@ -120,7 +120,7 @@ export class BuyerHomeService {
       `SELECT l.id, l.firstName, l.lastName, c.email, l.createdAt, l.isNewLead FROM leads l
          LEFT JOIN contacts c ON c.id = l.contactId LEFT JOIN buyer_stages s ON s.id = l.stageId
        WHERE l.tenantId = ? AND l.assignedTo = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL
-         AND (s.kind IS NULL OR s.kind = 'open') AND l.createdAt <= ?
+         AND (s.kind IS NULL OR s.kind = 'open') AND l.importRef IS NULL AND l.createdAt <= ?
          AND NOT EXISTS (SELECT 1 FROM lead_activities a WHERE a.leadId = l.id AND ${attemptSql('a')})
        ORDER BY l.createdAt LIMIT 50`,
       [tenantId, agentId, new Date(now.getTime() - bm.firstContactHours * 3_600_000)],

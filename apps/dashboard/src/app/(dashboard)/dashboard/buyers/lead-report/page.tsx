@@ -104,6 +104,18 @@ function LeadReportInner() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtered = ['q', 'agentId', 'stageId', 'source', 'status'].some((k) => get(k));
 
+  // Nothing in the period: are there older leads (imported ones keep their
+  // Odoo date)? With no period picked the report opens on All time; a period
+  // the user picked stays, with a link to the older leads.
+  const periodEmpty = period !== 'all' && !report.isLoading && !report.isError && !report.isPlaceholderData && total === 0;
+  const older = useLeadReport({ ...params, from: undefined, page: 1, limit: 1 }, periodEmpty);
+  const olderTotal = periodEmpty && !older.isPlaceholderData ? older.data?.total ?? 0 : 0;
+  const openAllTime = periodEmpty && !get('period') && !filtered && (older.isLoading || olderTotal > 0);
+  useEffect(() => {
+    if (openAllTime && olderTotal > 0) setQuery({ period: 'all' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAllTime, olderTotal]);
+
   const exportCsv = async () => {
     setExporting(true);
     try {
@@ -152,7 +164,7 @@ function LeadReportInner() {
         </div>
         <FilterSelect
           value={period === 'd30' ? '' : period}
-          onChange={(v) => setQuery({ period: v || undefined })}
+          onChange={(v) => setQuery({ period: v || 'd30' })}
           anyLabel={t.period.d30}
           options={(['d7', 'd90', 'all'] as const).map((p) => ({ value: p, label: t.period[p] }))}
         />
@@ -213,11 +225,16 @@ function LeadReportInner() {
             <Button variant="outline" size="sm" onClick={() => report.refetch()}>{t.retry}</Button>
           </CardContent>
         </Card>
-      ) : report.isLoading ? (
+      ) : report.isLoading || openAllTime ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : rows.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">{filtered ? t.noMatches : t.empty}</CardContent>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            <p>{filtered ? t.noMatches : t.empty}</p>
+            {olderTotal > 0 ? (
+              <Button variant="link" className="mt-1" onClick={() => setQuery({ period: 'all' })} data-testid="lead-report-older">{t.olderLeads(olderTotal)}</Button>
+            ) : null}
+          </CardContent>
         </Card>
       ) : (
         <>

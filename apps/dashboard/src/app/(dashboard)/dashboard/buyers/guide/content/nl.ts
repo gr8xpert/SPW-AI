@@ -267,6 +267,7 @@ export const nl: GuideTranslation = {
         ['CSV exporteren', 'Managers kunnen de hele tabel downloaden en in Excel openen.'],
       ),
       tip('Makelaars zien alleen hun eigen leads en hun eigen regel. Een lead die niemand op tijd benadert, staat ook op Mijn dag en in de dagelijkse e-mail van de makelaar.'),
+      tip('Uit Odoo geïmporteerde kopers houden hun Odoo-datum, dus oudere staan onder "Altijd". Het rapport opent daar als de laatste 30 dagen leeg zijn. Ze staan op "Niet benaderd" maar worden nooit rood en komen niet in de dagelijkse e-mail: die regel is voor nieuwe leads.'),
     ],
   },
   board: {
@@ -331,6 +332,7 @@ export const nl: GuideTranslation = {
         ['Pipeline-trechter', 'Hoeveel nieuwe kopers elke fase bereikten.'],
         ['Per makelaar', 'Leads, opvolging, gewonnen deals, gewonnen waarde en conversie per makelaar staan in het Leadrapport.'],
       ),
+      tip('De pagina opent op de laatste 24 maanden. Je kunt ook 3, 6 of 12 maanden kiezen.'),
     ],
   },
   settings: {
@@ -371,6 +373,7 @@ export const nl: GuideTranslation = {
         ['Voorgestelde woningen', 'Klik op het pijltje bij Linked Properties en voeg van daaruit toe: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Laat Matched Properties weg. SPM berekent die zelf, en ze kunnen de export te groot maken voor Odoo.'),
+      tip('Een import telt niet als activiteit: kopers beginnen op hun Odoo-datum, dus wie al lang niets had, staat onder "Geen recente activiteit" zodat makelaars ze kunnen oppakken. Hetzelfde bestand opnieuw importeren verandert hun laatste activiteit niet.'),
     ],
   },
   privacy: {

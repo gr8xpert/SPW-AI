@@ -123,7 +123,9 @@ function Row({ r, stages, agents, questions, manager, booking }: RowProps) {
         <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
           {counts ? <p>{counts}</p> : null}
           {f.lastOutcome && f.status !== 'call_back' && f.status !== 'wrong_number' ? <p>{t.outcomes[f.lastOutcome]}</p> : null}
-          {f.status === 'overdue' || f.status === 'not_contacted' ? (
+          {f.status === 'not_contacted' && r.imported ? (
+            <p>{t.imported}</p>
+          ) : f.status === 'overdue' || f.status === 'not_contacted' ? (
             <p className={cn(f.status === 'overdue' && 'font-medium text-red-600')}>{t.waiting(duration(waitingHours))}</p>
           ) : f.firstContactHours !== null ? <p>{t.firstAfter(duration(f.firstContactHours))}</p> : null}
         </div>

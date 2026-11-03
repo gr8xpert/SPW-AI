@@ -1,4 +1,4 @@
-import { buildAgentDigest, hasContent, waitingForReply, type AgentDigestData } from './agent-digest';
+import { buildAgentDigest, dateColumnDay, hasContent, waitingForReply, type AgentDigestData } from './agent-digest';
 
 const from = { name: 'Costa Homes', color: '#123456', website: 'https://costa.example', replyTo: 'info@costa.example' };
 
@@ -17,6 +17,18 @@ describe('waitingForReply', () => {
   it('the Odoo "Waiting for reply" date has come', () => {
     expect(waitingForReply({ lastBuyer: null, lastAgent: null, waitingReplyAt: '2026-10-22', today })).toBe(true);
     expect(waitingForReply({ lastBuyer: null, lastAgent: null, waitingReplyAt: '2026-10-25', today })).toBe(false);
+  });
+});
+
+describe('dateColumnDay', () => {
+  it('reads the Date a raw query gives for a DATE column', () => {
+    expect(dateColumnDay(new Date('2025-05-03T00:00:00.000Z'))).toBe('2025-05-03');
+    expect(waitingForReply({ lastBuyer: null, lastAgent: null, waitingReplyAt: dateColumnDay(new Date('2025-05-03T00:00:00.000Z')), today: '2026-10-22' })).toBe(true);
+  });
+
+  it('keeps text and empty values', () => {
+    expect(dateColumnDay('2025-05-03')).toBe('2025-05-03');
+    expect(dateColumnDay(null)).toBeNull();
   });
 });
 

@@ -268,6 +268,7 @@ export const fi: GuideTranslation = {
         ['Vie CSV', 'Esihenkilöt voivat ladata koko taulukon ja avata sen Excelissä.'],
       ),
       tip('Välittäjät näkevät vain omat liidinsä ja oman rivinsä. Liidi, johon kukaan ei ota yhteyttä ajoissa, näkyy myös Oma päivä -sivulla ja välittäjän päivittäisessä sähköpostissa.'),
+      tip('Odoosta tuodut ostajat säilyttävät Odoo-päivämääränsä, joten vanhemmat löytyvät kohdasta "Kaikki". Raportti avautuu siihen, kun viimeiset 30 päivää ovat tyhjät. Niillä näkyy "Ei yhteyttä", mutta ne eivät koskaan muutu punaisiksi eivätkä päädy päivittäiseen sähköpostiin: tämä sääntö koskee uusia liidejä.'),
     ],
   },
   board: {
@@ -332,6 +333,7 @@ export const fi: GuideTranslation = {
         ['Myyntisuppilo', 'Kuinka moni uusi ostaja pääsi kuhunkin vaiheeseen.'],
         ['Välittäjittäin', 'Liidit, seuranta, kaupat, voitettu arvo ja konversio välittäjittäin ovat liidiraportissa.'],
       ),
+      tip('Sivu avautuu viimeisten 24 kuukauden näkymään. Voit valita myös 3, 6 tai 12 kuukautta.'),
     ],
   },
   settings: {
@@ -372,6 +374,7 @@ export const fi: GuideTranslation = {
         ['Ehdotetut kohteet', 'Napsauta Linked Properties -kohdan nuolta ja lisää sen sisältä: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Jätä Matched Properties pois. SPM laskee ne itse, ja ne voivat tehdä viennistä liian suuren Odoolle.'),
+      tip('Tuonti ei ole aktiviteettia: ostajat alkavat Odoo-päivämäärästään, joten ne, joilla ei ole mitään tuoretta, näkyvät kohdassa "Ei viimeaikaista toimintaa", jotta välittäjät voivat ottaa ne hoitoon. Saman tiedoston tuominen uudelleen ei muuta niiden viimeisintä aktiviteettia.'),
     ],
   },
   privacy: {

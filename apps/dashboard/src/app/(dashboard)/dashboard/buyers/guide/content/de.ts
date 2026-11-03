@@ -267,6 +267,7 @@ export const de: GuideTranslation = {
         ['CSV exportieren', 'Manager können die ganze Tabelle herunterladen und in Excel öffnen.'],
       ),
       tip('Makler sehen nur ihre eigenen Leads und ihre eigene Zeile. Ein Lead, den niemand rechtzeitig kontaktiert, erscheint auch auf Mein Tag und in der täglichen E-Mail des Maklers.'),
+      tip('Aus Odoo importierte Käufer behalten ihr Odoo-Datum, ältere stehen also unter "Gesamter Zeitraum". Der Bericht öffnet sich dort, wenn die letzten 30 Tage leer sind. Sie erscheinen als "Nicht kontaktiert", werden aber nie rot und kommen nicht in die tägliche E-Mail: Diese Regel gilt für neue Leads.'),
     ],
   },
   board: {
@@ -331,6 +332,7 @@ export const de: GuideTranslation = {
         ['Pipeline-Trichter', 'Wie viele neue Käufer jede Phase erreicht haben.'],
         ['Pro Makler', 'Leads, Nachverfolgung, Abschlüsse, gewonnener Wert und Konversion pro Makler stehen im Lead-Bericht.'],
       ),
+      tip('Die Seite öffnet mit den letzten 24 Monaten. Sie können auch 3, 6 oder 12 Monate wählen.'),
     ],
   },
   settings: {
@@ -371,6 +373,7 @@ export const de: GuideTranslation = {
         ['Vorgeschlagene Immobilien', 'Klicken Sie auf den Pfeil bei Linked Properties und fügen Sie von dort hinzu: Property Reference, Agent Reference, Visiting Date, Status, Note, Virtual Viewing Appt.'],
       ),
       warn('Lassen Sie Matched Properties weg. SPM ermittelt diese selbst, und sie können den Export für Odoo zu groß machen.'),
+      tip('Ein Import zählt nicht als Aktivität: Käufer starten mit ihrem Odoo-Datum, wer lange nichts hatte, erscheint also unter "Keine aktuelle Aktivität", damit Makler sich darum kümmern. Dieselbe Datei erneut zu importieren ändert ihre letzte Aktivität nicht.'),
     ],
   },
   privacy: {

@@ -26,6 +26,7 @@ export interface LeadReportRow {
   source: string;
   role: string;
   isNewLead: boolean;
+  imported: boolean;
   createdAt: Date;
   stage: { id: number; name: Record<string, string>; color: string | null; kind: string } | null;
   agent: { id: number; name: string | null } | null;
@@ -99,7 +100,7 @@ export class LeadReportService {
     if (withStatus && dto.status) {
       const cutoff = new Date(now.getTime() - settings.firstContactHours * 3_600_000);
       if (dto.status === 'not_contacted') qb.andWhere(`NOT ${ATTEMPT_EXISTS}`);
-      if (dto.status === 'overdue') qb.andWhere(`NOT ${ATTEMPT_EXISTS}`).andWhere('lead.createdAt <= :cutoff', { cutoff });
+      if (dto.status === 'overdue') qb.andWhere(`NOT ${ATTEMPT_EXISTS}`).andWhere('lead.importRef IS NULL').andWhere('lead.createdAt <= :cutoff', { cutoff });
       if (dto.status === 'tried') qb.andWhere(ATTEMPT_EXISTS).andWhere(`NOT ${REACHED_EXISTS}`);
       if (dto.status === 'reached') qb.andWhere(REACHED_EXISTS);
     }
@@ -110,7 +111,7 @@ export class LeadReportService {
     return qb
       .leftJoin('lead.assignedToUser', 'agent')
       .select([
-        'lead.id', 'lead.firstName', 'lead.lastName', 'lead.phone', 'lead.mobile', 'lead.source', 'lead.role', 'lead.isNewLead',
+        'lead.id', 'lead.firstName', 'lead.lastName', 'lead.phone', 'lead.mobile', 'lead.source', 'lead.role', 'lead.isNewLead', 'lead.importRef',
         'lead.createdAt', 'lead.assignedTo', 'lead.stageId', 'lead.budgetMin', 'lead.budgetMax', 'lead.wishlist', 'lead.answers',
         'contact.id', 'contact.email', 'stage.id', 'stage.name', 'stage.color', 'stage.kind', 'agent.id', 'agent.name', 'agent.email',
       ]);
@@ -177,6 +178,7 @@ export class LeadReportService {
       source: l.source,
       role: l.role,
       isNewLead: !!l.isNewLead,
+      imported: !!l.importRef,
       createdAt: l.createdAt,
       stage: l.stage ? { id: l.stage.id, name: json<Record<string, string>>(l.stage.name) ?? {}, color: l.stage.color, kind: l.stage.kind } : null,
       agent: l.assignedToUser ? { id: l.assignedToUser.id, name: l.assignedToUser.name || l.assignedToUser.email } : null,
@@ -212,11 +214,12 @@ export class LeadReportService {
 
   async summary(tenantId: number, viewer: BuyerViewer, dto: LeadReportQueryDto, now = new Date()): Promise<LeadReportSummary> {
     const settings = await this.settingsService.get(tenantId);
-    const raw: { agentId: number | null; createdAt: Date; kind: string | null; firstContactAt: Date | null; reached: string | number; value: string | null }[] = await (
+    const raw: { agentId: number | null; createdAt: Date; importRef: string | null; kind: string | null; firstContactAt: Date | null; reached: string | number; value: string | null }[] = await (
       await this.base(tenantId, viewer, dto, settings, now, false)
     )
       .select('lead.assignedTo', 'agentId')
       .addSelect('lead.createdAt', 'createdAt')
+      .addSelect('lead.importRef', 'importRef')
       .addSelect('stage.kind', 'kind')
       .addSelect('COALESCE(lead.wonAmount, lead.dealValue)', 'value')
       .addSelect(`(SELECT MIN(fa.createdAt) FROM lead_activities fa WHERE fa.leadId = lead.id AND ${attemptSql('fa')})`, 'firstContactAt')
@@ -242,6 +245,7 @@ export class LeadReportService {
     const leads = raw.map((r) => ({
       agentId: r.agentId === null ? null : Number(r.agentId),
       createdAt: r.createdAt,
+      imported: !!r.importRef,
       firstContactAt: r.firstContactAt,
       reached: Number(r.reached) === 1,
       won: r.kind === 'won',

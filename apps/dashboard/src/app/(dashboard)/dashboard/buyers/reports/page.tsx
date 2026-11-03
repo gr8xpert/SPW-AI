@@ -81,7 +81,7 @@ function ReportsInner() {
   const r = t.reports;
   const api = useApi();
   const { scope, ready } = useTenantQueryScope();
-  const [months, setMonths] = useState('12');
+  const [months, setMonths] = useState('24');
   const report = useQuery({
     queryKey: ['buyers', 'reports', ...scope, months] as const,
     queryFn: async () => one<Report>(await api.get(`/api/dashboard/buyers/reports?months=${months}`)),
@@ -102,8 +102,8 @@ function ReportsInner() {
           <h1 className="page-title">{r.title}</h1>
           <p className="page-description mt-1">{r.description}</p>
         </div>
-        <FilterSelect className="w-40" value={months} onChange={(v) => setMonths(v || '12')} anyLabel={r.months(12)}
-          options={[3, 6, 12, 24].map((n) => ({ value: String(n), label: r.months(n) }))} />
+        <FilterSelect className="w-40" value={months === '24' ? '' : months} onChange={(v) => setMonths(v || '24')} anyLabel={r.months(24)}
+          options={[3, 6, 12].map((n) => ({ value: String(n), label: r.months(n) }))} />
       </div>
       <BuyersNav />
 

@@ -272,7 +272,8 @@ export class BuyerImportService {
         stageId: defaultStage,
         importRef: b.odooId,
         budgetCurrency: 'EUR',
-        lastActivityAt: new Date(),
+        // An import isn't activity: the buyer starts at Odoo's date.
+        lastActivityAt: b.createdAt ?? new Date(),
       }),
     );
     // Keep Odoo's creation date (the buyer's real age in the pipeline).
@@ -284,7 +285,7 @@ export class BuyerImportService {
 
   // Only the keys Odoo gave are written (never save() a loaded lead).
   private async update(tenantId: number, lead: Lead, b: MappedBuyer, stages: { id: number; kind: string }[]): Promise<FieldChange[]> {
-    const patch: Partial<Lead> = { ...(b.fields as Partial<Lead>), importRef: b.odooId, lastActivityAt: new Date() };
+    const patch: Partial<Lead> = { ...(b.fields as Partial<Lead>), importRef: b.odooId };
     if (b.wishlist) patch.wishlist = b.wishlist;
     if (Object.keys(b.answers).length) patch.answers = { ...(lead.answers ?? {}), ...b.answers };
     if (b.agentId) patch.assignedTo = b.agentId;

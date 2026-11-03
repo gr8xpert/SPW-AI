@@ -21,6 +21,7 @@ export interface LeadReportRow {
   source: string;
   role: string;
   isNewLead: boolean;
+  imported: boolean;
   createdAt: string;
   stage: Pick<BuyerStage, 'id' | 'name' | 'color' | 'kind'> | null;
   agent: { id: number; name: string | null } | null;
@@ -81,7 +82,7 @@ export function reportQuery(params: LeadReportParams): string {
   return s ? `?${s}` : '';
 }
 
-export function useLeadReport(params: LeadReportParams) {
+export function useLeadReport(params: LeadReportParams, enabled = true) {
   const api = useApi();
   const { scope, ready } = useTenantQueryScope();
   return useQuery({
@@ -95,7 +96,7 @@ export function useLeadReport(params: LeadReportParams) {
       };
       return { data: res?.data ?? [], total: res?.total ?? 0, overdueHours: res?.overdueHours ?? 24, booking: !!res?.booking };
     },
-    enabled: ready && api.isReady,
+    enabled: enabled && ready && api.isReady,
     placeholderData: keepPreviousData,
   });
 }

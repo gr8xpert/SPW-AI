@@ -1,3 +1,10 @@
+deployed_at:   2026-11-03T21:20 UTC (deploy 2026-11-04a-odoo-tabs, by DevOps; 2026-11-04 02:20 in Pakistan)
+git_head:      2e19dda (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out; held mobile-width work not in it)
+dashboard_id:  cwIW9vBUc-AJ6bOWC9hFf
+new_deps:      none
+includes:      Lead Report opens on All time when the last 30 days are empty, imported leads never turn overdue (Lead Report, My day, daily email), Odoo import no longer stamps last activity, My day and daily email read the Waiting for reply date, Pipeline & Revenue opens on 24 months, Guide in 7 languages; data-only migration 1777530000000-ImportedLastActivity (78 Sparkling Homes leads back to their Odoo date, undo only from backups/spw-pre-1104a.sql.gz); also everything in 11-03e
+
 deployed_at:   2026-11-03T18:35 UTC (deploy 2026-11-03e-count-links, by DevOps)
 git_head:      3bf1e5a (feature/plugin-demo) + uncommitted changes of this feature only (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)

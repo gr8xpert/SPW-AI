@@ -12,6 +12,12 @@ describe('followUp', () => {
     expect(followUp({ createdAt: hoursAgo(25) }, [], now, 24).status).toBe('overdue');
   });
 
+  it('never turns an imported lead overdue', () => {
+    expect(followUp({ createdAt: hoursAgo(9000), importRef: '78' }, [], now, 24).status).toBe('not_contacted');
+    const [line] = agentSummaries([{ agentId: 5, createdAt: hoursAgo(9000), imported: true, firstContactAt: null, reached: false, won: false, lost: false, wonValue: 0 }], [], now, 24);
+    expect(line).toMatchObject({ leads: 1, notContacted: 1, overdue: 0 });
+  });
+
   it('ignores website and system entries as contact', () => {
     const f = followUp({ createdAt: hoursAgo(30) }, [act('enquiry', 30, { userId: null, description: 'Hi' }), act('assignment', 29)], now, 24);
     expect(f.status).toBe('overdue');
