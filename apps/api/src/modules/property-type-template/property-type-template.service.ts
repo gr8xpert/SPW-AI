@@ -52,6 +52,11 @@ export interface TypeRunContext {
   rows: Map<number, PropertyType>;
   byTemplateId: Map<number, PropertyType>;
   placed: Map<string, number>;
+  // What the client decided themselves: "Other spellings", and the template
+  // types and feed names a row took over in a merge or rename.
+  aliasRows: Map<string, PropertyType>;
+  mergedNodeRows: Map<number, PropertyType>;
+  feedNameRows: Map<string, PropertyType>;
   unmatched: Map<string, TypeTally>;
   recordUnmatched: boolean;
   stats: { created: number; adopted: number; moved: number; renamed: number };
@@ -104,6 +109,9 @@ export class PropertyTypeTemplateService {
       rows: new Map(),
       byTemplateId: new Map(),
       placed: new Map(),
+      aliasRows: new Map(),
+      mergedNodeRows: new Map(),
+      feedNameRows: new Map(),
       unmatched: new Map(),
       recordUnmatched: options.recordUnmatched !== false,
       stats: { created: 0, adopted: 0, moved: 0, renamed: 0 },
@@ -116,16 +124,40 @@ export class PropertyTypeTemplateService {
     const rows = await this.typeRepository.find({ where: { tenantId: ctx.tenantId } });
     ctx.rows = new Map(rows.map((r) => [r.id, r]));
     ctx.byTemplateId = new Map();
+    ctx.aliasRows = new Map();
+    ctx.mergedNodeRows = new Map();
+    ctx.feedNameRows = new Map();
     for (const r of rows) {
       if (r.templateNodeId != null && !ctx.byTemplateId.has(r.templateNodeId)) ctx.byTemplateId.set(r.templateNodeId, r);
+      for (const alias of r.aliases || []) {
+        const key = locationKey(alias);
+        if (key && !ctx.aliasRows.has(key)) ctx.aliasRows.set(key, r);
+      }
+      for (const key of r.feedKeys || []) {
+        const node = /^t:(\d+)$/.exec(key);
+        if (node) ctx.mergedNodeRows.set(Number(node[1]), r);
+        else if (key.startsWith('n:')) ctx.feedNameRows.set(key.slice(2), r);
+      }
     }
   }
 
   // The tenant type id a listing belongs to. Null when neither the type nor
   // its group is in the template; the caller then keeps the old behaviour.
   async placeListing(ctx: TypeRunContext, input: FeedTypeInput): Promise<number | null> {
-    const memoKey = [input.code, input.parentCode, locationKey(input.name), locationKey(input.parentName)].join('|');
+    const nameKey = locationKey(input.name);
+    const memoKey = [input.code, input.parentCode, nameKey, locationKey(input.parentName)].join('|');
+    // The client's own word beats the template: this name belongs to that type.
+    const aliased = ctx.aliasRows.get(nameKey);
+    if (aliased) return aliased.id;
+
     const resolution = resolveType(ctx.index, input);
+
+    // A name the template doesn't know, which a row took over when it was
+    // renamed or merged. A known name goes through its template type below.
+    if (!resolution || resolution.unmatched) {
+      const claimed = ctx.feedNameRows.get(nameKey);
+      if (claimed) return claimed.id;
+    }
 
     if (ctx.recordUnmatched && (!resolution || resolution.unmatched) && isRealTypeName(input.name)) {
       this.tally(ctx, input, resolution?.node.id ?? null);
@@ -176,6 +208,10 @@ export class PropertyTypeTemplateService {
     let row = ctx.byTemplateId.get(node.id);
     if (row && !ctx.rows.has(row.id)) row = undefined;
     if (!row) {
+      // Merged away by the client: its listings go to the row that took it over,
+      // which keeps its own template link, name and place.
+      const takenOver = ctx.mergedNodeRows.get(node.id);
+      if (takenOver) return takenOver;
       row = this.findAdoptable(ctx, node, expectedParentId);
       if (row) ctx.stats.adopted++;
     }
@@ -442,7 +478,13 @@ Reply ONLY with JSON: { "1": "<group or null>", "2": ..., ... }`;
       const usedIds = new Set(used.map((u) => Number(u.propertyTypeId)));
       const parents = new Set(rows.filter((r) => r.parentId != null).map((r) => r.parentId!));
       const doomed = rows.filter(
-        (r) => r.templateNodeId == null && !r.userLocked && !usedIds.has(r.id) && !parents.has(r.id) && replaced(r),
+        (r) =>
+          r.templateNodeId == null &&
+          !r.userLocked &&
+          !r.aliases?.length &&
+          !usedIds.has(r.id) &&
+          !parents.has(r.id) &&
+          replaced(r),
       );
       if (!doomed.length) return total;
       await this.typeRepository.delete({ tenantId, id: In(doomed.map((r) => r.id)) });

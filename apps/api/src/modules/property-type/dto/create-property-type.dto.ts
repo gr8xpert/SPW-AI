@@ -1,4 +1,4 @@
-import { IsObject, IsString, IsOptional, IsNumber, IsBoolean, MinLength, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsInt, IsObject, IsString, IsOptional, IsNumber, IsBoolean, Min, MinLength, MaxLength } from 'class-validator';
 
 export class CreatePropertyTypeDto {
   @IsNumber()
@@ -25,4 +25,18 @@ export class CreatePropertyTypeDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // "Other spellings": feed names that belong to this type.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  aliases?: string[];
+}
+
+export class MergePropertyTypeDto {
+  @IsInt()
+  @Min(1)
+  targetId: number;
 }

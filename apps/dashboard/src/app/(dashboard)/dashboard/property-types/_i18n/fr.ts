@@ -66,6 +66,27 @@ export const fr: PropertyTypesText = {
   deleteTitle: 'Supprimer le type de bien',
   deleteText: (name) => `Voulez-vous vraiment supprimer « ${name} » ? Cette action est irréversible.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Déplacer vers…',
+  mergeInto: 'Fusionner avec…',
+  otherSpellings: 'Autres orthographes',
+  otherSpellingsHint: '(facultatif, séparées par des virgules)',
+  otherSpellingsHelp: 'Quand un flux envoie l’un de ces noms, ses annonces entrent dans ce type dès le prochain import, au lieu de créer un nouveau type.',
+  alsoFor: (names) => `aussi pour : ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `Fusionner « ${name} » avec…`,
+    moveTitle: (name) => `Déplacer « ${name} » vers…`,
+    mergeText: 'Ses biens et ses sous-types passent dans le type choisi, puis il est supprimé. Les prochains imports de flux y placeront aussi ses annonces.',
+    moveText: 'Il est déplacé avec ses sous-types. Les prochains imports de flux le laisseront là où vous le placez.',
+    searchPlaceholder: 'Rechercher un type de bien…',
+    topLevel: '— Niveau principal (aucun parent) —',
+    noMatch: 'Aucun type trouvé',
+    mergeInto: (name) => `Fusionner avec ${name}`,
+    move: 'Déplacer',
+    moveInto: (name) => `Déplacer vers ${name}`,
+    moveToTop: 'Déplacer au niveau principal',
+  },
+
   toast: {
     loadFailed: 'Impossible de charger les types de bien',
     created: 'Type de bien créé',
@@ -107,5 +128,11 @@ export const fr: PropertyTypesText = {
     bulkStarted: 'Traduction groupée lancée',
     bulkStartedText: 'Vous pouvez quitter cette page — la progression s’affiche sur le bouton.',
     bulkFailed: 'Échec de la traduction groupée',
+    mergedInto: (source, target) => `« ${source} » fusionné avec « ${target} »`,
+    moved: (name) => `« ${name} » déplacé`,
+    nowInside: (path) => `Se trouve maintenant dans ${path}`,
+    nowTopLevel: 'Se trouve maintenant au niveau principal',
+    mergeFailed: 'Impossible de fusionner',
+    moveFailed: 'Impossible de déplacer',
   },
 };

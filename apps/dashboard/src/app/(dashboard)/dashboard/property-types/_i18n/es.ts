@@ -66,6 +66,27 @@ export const es: PropertyTypesText = {
   deleteTitle: 'Eliminar tipo de propiedad',
   deleteText: (name) => `¿Seguro que quieres eliminar "${name}"? Esta acción no se puede deshacer.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Mover a…',
+  mergeInto: 'Fusionar con…',
+  otherSpellings: 'Otras grafías',
+  otherSpellingsHint: '(opcional, separadas por comas)',
+  otherSpellingsHelp: 'Cuando un feed envía cualquiera de estos nombres, sus anuncios entran en este tipo desde la próxima importación, en lugar de crear un tipo nuevo.',
+  alsoFor: (names) => `también para: ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `Fusionar "${name}" con…`,
+    moveTitle: (name) => `Mover "${name}" a…`,
+    mergeText: 'Sus propiedades y subtipos pasan al tipo que elijas, y este se elimina. Las futuras importaciones del feed también pondrán ahí sus anuncios.',
+    moveText: 'Se mueve con sus subtipos. Las futuras importaciones del feed lo mantienen donde lo pongas.',
+    searchPlaceholder: 'Busca un tipo de propiedad…',
+    topLevel: '— Nivel principal (sin superior) —',
+    noMatch: 'Ningún tipo coincide',
+    mergeInto: (name) => `Fusionar con ${name}`,
+    move: 'Mover',
+    moveInto: (name) => `Mover a ${name}`,
+    moveToTop: 'Mover al nivel principal',
+  },
+
   toast: {
     loadFailed: 'No se pudieron cargar los tipos de propiedad',
     created: 'Tipo de propiedad creado',
@@ -107,5 +128,11 @@ export const es: PropertyTypesText = {
     bulkStarted: 'Traducción masiva iniciada',
     bulkStartedText: 'Puedes salir de esta página; el progreso aparece en el botón.',
     bulkFailed: 'Falló la traducción masiva',
+    mergedInto: (source, target) => `"${source}" fusionado con "${target}"`,
+    moved: (name) => `"${name}" movido`,
+    nowInside: (path) => `Ahora está dentro de ${path}`,
+    nowTopLevel: 'Ahora está en el nivel principal',
+    mergeFailed: 'No se pudo fusionar',
+    moveFailed: 'No se pudo mover',
   },
 };

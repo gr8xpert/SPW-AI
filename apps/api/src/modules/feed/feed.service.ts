@@ -23,6 +23,7 @@ import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { isValidCronExpression } from './cron-validator';
 import { LocationTemplateService, TemplateRunContext } from '../location-template/location-template.service';
 import { PropertyTypeTemplateService, TypeRunContext } from '../property-type-template/property-type-template.service';
+import { locationKey } from '../location-template/location-name';
 import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
 
 function sortedJson(value: Record<string, unknown> | null): string {
@@ -1504,6 +1505,15 @@ export class FeedService {
     typeName: string,
   ): Promise<number | null> {
     if (!typeName || typeName === 'Unknown') return null;
+
+    // A name the client gave to a type ("Other spellings"), or one a type took
+    // over when it was renamed or merged.
+    const key = locationKey(typeName);
+    const rows = await this.propertyTypeRepository.find({ where: { tenantId }, select: ['id', 'aliases', 'feedKeys'] });
+    const claimed =
+      rows.find((r) => (r.aliases || []).some((a) => locationKey(a) === key)) ||
+      rows.find((r) => (r.feedKeys || []).includes(`n:${key}`));
+    if (claimed) return claimed.id;
 
     const slug = this.slugify(typeName);
     const existing = await this.propertyTypeRepository.findOne({

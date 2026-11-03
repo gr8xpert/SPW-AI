@@ -5,6 +5,8 @@ import { PropertyType } from '../../database/entities';
 import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
 import { locationKey } from '../location-template/location-name';
+import { cleanAliases } from '../location/location.service';
+import { repointSavedFilters } from '../../common/saved-filters/repoint-saved-filters';
 
 @Injectable()
 export class PropertyTypeService {
@@ -82,7 +84,7 @@ export class PropertyTypeService {
       if (!parent) throw new NotFoundException('Parent property type not found');
     }
 
-    const propertyType = this.propertyTypeRepository.create({ ...dto, tenantId });
+    const propertyType = this.propertyTypeRepository.create({ ...dto, tenantId, aliases: cleanAliases(dto.aliases, dto.name?.en) });
     return this.propertyTypeRepository.save(propertyType);
   }
 
@@ -106,6 +108,7 @@ export class PropertyTypeService {
         where: { id: dto.parentId, tenantId },
       });
       if (!parent) throw new NotFoundException('Parent property type not found');
+      await this.assertNotInside(tenantId, [id], dto.parentId);
     }
 
     // Column-level update bypasses any stale loaded relation, same reason as in LocationService.
@@ -113,6 +116,7 @@ export class PropertyTypeService {
     for (const key of Object.keys(dto) as Array<keyof UpdatePropertyTypeDto>) {
       (updateData as any)[key] = (dto as any)[key];
     }
+    if (dto.aliases !== undefined) updateData.aliases = cleanAliases(dto.aliases, dto.name?.en ?? propertyType.name?.en);
 
     // Moving a type by hand takes it out of AI's control. Without this the row
     // keeps aiAssigned=true and the next AI Organize run is free to move it
@@ -177,6 +181,7 @@ export class PropertyTypeService {
       if (ids.includes(parentId)) throw new ConflictException('A property type cannot be moved into itself');
       const parent = await this.propertyTypeRepository.findOne({ where: { id: parentId, tenantId } });
       if (!parent) throw new NotFoundException('Parent property type not found');
+      await this.assertNotInside(tenantId, ids, parentId);
     }
     // aiAssigned=false for the same reason as in update(): a drag-and-drop or
     // bulk move is the user taking ownership of where this type sits, and a
@@ -189,6 +194,28 @@ export class PropertyTypeService {
       .andWhere('id IN (:...ids)', { ids })
       .execute();
     return { count: ids.length };
+  }
+
+  // A type under one of its own sub-types would be a loop, and the whole branch
+  // would drop out of the tree.
+  private async assertNotInside(tenantId: number, ids: number[], targetId: number): Promise<void> {
+    const all = await this.propertyTypeRepository.find({ where: { tenantId }, select: ['id', 'parentId'] });
+    const parentOf = new Map(all.map((r) => [r.id, r.parentId]));
+    for (let cur: number | null | undefined = targetId, hops = 0; cur != null && hops < 50; cur = parentOf.get(cur), hops++) {
+      if (ids.includes(cur)) throw new ConflictException('A property type cannot go inside one of its own sub-types');
+    }
+  }
+
+  // "Merge into…" from the client's dashboard: the source's listings and
+  // sub-types move into the target and the source is removed. Imports then put
+  // the source's feed listings into the target (see merge).
+  async mergeType(tenantId: number, sourceId: number, targetId: number): Promise<PropertyType> {
+    if (sourceId === targetId) throw new ConflictException('Pick a different property type to merge into');
+    const source = await this.propertyTypeRepository.findOne({ where: { id: sourceId, tenantId } });
+    if (!source) throw new NotFoundException('Property type not found');
+    await this.assertNotInside(tenantId, [sourceId], targetId);
+    await this.merge(tenantId, [sourceId], targetId);
+    return this.findOne(tenantId, targetId);
   }
 
   // Folds duplicate types (e.g. an imported "Apartments" next to "Apartment")
@@ -217,6 +244,19 @@ export class PropertyTypeService {
     });
     if (!sources.length) return { mergedTypes: 0, movedProperties: 0 };
     const ids = sources.map((s) => s.id);
+
+    // The next import sends the sources' listings here instead of re-creating
+    // them: the survivor takes over the template types and feed names they
+    // stood for.
+    const keys = new Set(target.feedKeys || []);
+    for (const s of sources) {
+      for (const k of s.feedKeys || []) keys.add(k);
+      if (s.templateNodeId != null) keys.add(`t:${s.templateNodeId}`);
+      const nameKey = locationKey(s.name?.en);
+      if (nameKey) keys.add(`n:${nameKey}`);
+    }
+    const aliases = cleanAliases([...(target.aliases || []), ...sources.flatMap((s) => s.aliases || [])], target.name?.en);
+    await this.propertyTypeRepository.update({ id: target.id, tenantId }, { feedKeys: [...keys], aliases });
 
     // The survivor must not hang off a row we're about to delete — MySQL's
     // ON DELETE SET NULL would silently un-parent it.
@@ -251,6 +291,7 @@ export class PropertyTypeService {
       .execute();
 
     await this.pruneGroupReferences(tenantId, ids, targetId);
+    await repointSavedFilters(this.propertyTypeRepository.manager, tenantId, 'propertyType', ids, targetId);
 
     return { mergedTypes: ids.length, movedProperties };
   }

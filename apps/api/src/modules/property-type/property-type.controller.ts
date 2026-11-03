@@ -18,7 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PropertyTypeService } from './property-type.service';
 import { PropertyTypeTransferService } from './property-type-transfer.service';
-import { CreatePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
+import { CreatePropertyTypeDto, MergePropertyTypeDto, UpdatePropertyTypeDto } from './dto';
 import { ReorderDto, SortAllDto } from '../reorder/dto';
 import { ReorderService } from '../reorder/reorder.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -141,6 +141,20 @@ export class PropertyTypeController {
     }
     await this.bump(tenantId, 'update');
     return type;
+  }
+
+  // "Merge into…": this type's listings and sub-types move into the target.
+  // Locked, so the template leaves the arrangement the client just made alone.
+  @Post(':id/merge')
+  async merge(
+    @CurrentTenant() tenantId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: MergePropertyTypeDto,
+  ) {
+    const merged = await this.propertyTypeService.mergeType(tenantId, id, dto.targetId);
+    await this.propertyTypeService.markUserLocked(tenantId, [merged.id]);
+    await this.bump(tenantId, 'merge');
+    return { ...merged, userLocked: true };
   }
 
   @Delete(':id')

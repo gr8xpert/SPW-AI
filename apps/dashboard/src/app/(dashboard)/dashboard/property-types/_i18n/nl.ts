@@ -66,6 +66,27 @@ export const nl: PropertyTypesText = {
   deleteTitle: 'Woningtype verwijderen',
   deleteText: (name) => `Weet je zeker dat je "${name}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Verplaatsen naar…',
+  mergeInto: 'Samenvoegen met…',
+  otherSpellings: 'Andere schrijfwijzen',
+  otherSpellingsHint: '(optioneel, gescheiden door komma’s)',
+  otherSpellingsHelp: 'Stuurt een feed een van deze namen, dan komen de woningen vanaf de volgende import in dit type, in plaats van dat er een nieuw type ontstaat.',
+  alsoFor: (names) => `ook voor: ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `"${name}" samenvoegen met…`,
+    moveTitle: (name) => `"${name}" verplaatsen naar…`,
+    mergeText: 'De woningen en subtypes gaan naar het type dat je kiest, en dit type wordt verwijderd. Toekomstige feedimports zetten de woningen ook daar.',
+    moveText: 'Het verhuist met de subtypes. Toekomstige feedimports laten het staan waar jij het zet.',
+    searchPlaceholder: 'Zoek een woningtype…',
+    topLevel: '— Hoofdniveau (geen bovenliggende) —',
+    noMatch: 'Geen woningtype gevonden',
+    mergeInto: (name) => `Samenvoegen met ${name}`,
+    move: 'Verplaatsen',
+    moveInto: (name) => `Verplaatsen naar ${name}`,
+    moveToTop: 'Naar hoofdniveau verplaatsen',
+  },
+
   toast: {
     loadFailed: 'Woningtypes konden niet worden geladen',
     created: 'Woningtype aangemaakt',
@@ -107,5 +128,11 @@ export const nl: PropertyTypesText = {
     bulkStarted: 'Bulkvertaling gestart',
     bulkStartedText: 'Je kunt deze pagina verlaten — de voortgang staat op de knop.',
     bulkFailed: 'Bulkvertaling mislukt',
+    mergedInto: (source, target) => `"${source}" samengevoegd met "${target}"`,
+    moved: (name) => `"${name}" verplaatst`,
+    nowInside: (path) => `Staat nu onder ${path}`,
+    nowTopLevel: 'Staat nu op het hoofdniveau',
+    mergeFailed: 'Samenvoegen mislukt',
+    moveFailed: 'Verplaatsen mislukt',
   },
 };

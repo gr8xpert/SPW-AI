@@ -66,6 +66,27 @@ export const de: PropertyTypesText = {
   deleteTitle: 'Immobilientyp löschen',
   deleteText: (name) => `Möchten Sie „${name}“ wirklich löschen? Dies kann nicht rückgängig gemacht werden.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Verschieben nach…',
+  mergeInto: 'Zusammenführen mit…',
+  otherSpellings: 'Andere Schreibweisen',
+  otherSpellingsHint: '(optional, durch Kommas getrennt)',
+  otherSpellingsHelp: 'Sendet ein Feed einen dieser Namen, landen seine Inserate ab dem nächsten Import in diesem Typ, statt einen neuen Typ anzulegen.',
+  alsoFor: (names) => `auch für: ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `„${name}“ zusammenführen mit…`,
+    moveTitle: (name) => `„${name}“ verschieben nach…`,
+    mergeText: 'Seine Immobilien und Untertypen wandern in den gewählten Typ, danach wird er entfernt. Künftige Feed-Importe legen seine Inserate ebenfalls dort ab.',
+    moveText: 'Er wird mit seinen Untertypen verschoben. Künftige Feed-Importe lassen ihn dort, wo Sie ihn hinlegen.',
+    searchPlaceholder: 'Immobilientyp suchen…',
+    topLevel: '— Oberste Ebene (kein übergeordneter) —',
+    noMatch: 'Kein passender Immobilientyp',
+    mergeInto: (name) => `Mit ${name} zusammenführen`,
+    move: 'Verschieben',
+    moveInto: (name) => `Nach ${name} verschieben`,
+    moveToTop: 'Auf oberste Ebene verschieben',
+  },
+
   toast: {
     loadFailed: 'Immobilientypen konnten nicht geladen werden',
     created: 'Immobilientyp angelegt',
@@ -107,5 +128,11 @@ export const de: PropertyTypesText = {
     bulkStarted: 'Sammelübersetzung gestartet',
     bulkStartedText: 'Sie können diese Seite verlassen — der Fortschritt erscheint auf der Schaltfläche.',
     bulkFailed: 'Sammelübersetzung fehlgeschlagen',
+    mergedInto: (source, target) => `„${source}“ mit „${target}“ zusammengeführt`,
+    moved: (name) => `„${name}“ verschoben`,
+    nowInside: (path) => `Jetzt unter ${path}`,
+    nowTopLevel: 'Jetzt auf der obersten Ebene',
+    mergeFailed: 'Zusammenführen fehlgeschlagen',
+    moveFailed: 'Verschieben fehlgeschlagen',
   },
 };

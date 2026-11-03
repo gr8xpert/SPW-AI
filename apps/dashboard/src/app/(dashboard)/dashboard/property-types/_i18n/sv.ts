@@ -66,6 +66,27 @@ export const sv: PropertyTypesText = {
   deleteTitle: 'Ta bort objekttyp',
   deleteText: (name) => `Vill du verkligen ta bort ”${name}”? Det går inte att ångra.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Flytta till…',
+  mergeInto: 'Slå ihop med…',
+  otherSpellings: 'Andra stavningar',
+  otherSpellingsHint: '(valfritt, kommaseparerat)',
+  otherSpellingsHelp: 'När ett flöde skickar något av de här namnen hamnar dess objekt i den här typen från nästa import, i stället för att en ny typ skapas.',
+  alsoFor: (names) => `även för: ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `Slå ihop ”${name}” med…`,
+    moveTitle: (name) => `Flytta ”${name}” till…`,
+    mergeText: 'Dess objekt och undertyper flyttas till typen du väljer, och den tas bort. Framtida flödesimporter lägger även dess annonser där.',
+    moveText: 'Den flyttas med sina undertyper. Framtida flödesimporter låter den ligga där du lägger den.',
+    searchPlaceholder: 'Sök en objekttyp…',
+    topLevel: '— Översta nivån (ingen överordnad) —',
+    noMatch: 'Ingen matchande objekttyp',
+    mergeInto: (name) => `Slå ihop med ${name}`,
+    move: 'Flytta',
+    moveInto: (name) => `Flytta in i ${name}`,
+    moveToTop: 'Flytta till översta nivån',
+  },
+
   toast: {
     loadFailed: 'Det gick inte att läsa in objekttyperna',
     created: 'Objekttypen har skapats',
@@ -107,5 +128,11 @@ export const sv: PropertyTypesText = {
     bulkStarted: 'Massöversättningen har startat',
     bulkStartedText: 'Du kan lämna sidan — förloppet visas på knappen.',
     bulkFailed: 'Massöversättningen misslyckades',
+    mergedInto: (source, target) => `”${source}” sammanslagen med ”${target}”`,
+    moved: (name) => `”${name}” flyttad`,
+    nowInside: (path) => `Ligger nu under ${path}`,
+    nowTopLevel: 'Ligger nu på översta nivån',
+    mergeFailed: 'Det gick inte att slå ihop',
+    moveFailed: 'Det gick inte att flytta',
   },
 };

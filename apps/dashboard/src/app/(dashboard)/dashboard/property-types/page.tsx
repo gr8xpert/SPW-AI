@@ -65,6 +65,8 @@ import {
   Lock,
   Eye,
   EyeOff,
+  ArrowRight,
+  Merge,
 } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -73,6 +75,7 @@ import { SetupTransferMenu } from '@/components/setup-transfer-menu';
 import { useAiTranslationGuard } from '@/hooks/use-ai-translation-guard';
 import { useBulkJob } from '@/hooks/use-bulk-job';
 import { usePropertyTypesText, nameOf } from './_i18n';
+import { MoveMergeDialog, type PickableType } from './move-merge-dialog';
 
 interface PropertyType {
   id: number;
@@ -83,7 +86,13 @@ interface PropertyType {
   propertyCount?: number;
   sortOrder?: number;
   isActive?: boolean;
+  aliases?: string[] | null;
 }
+
+const emptyForm = { names: {} as Record<string, string>, slug: '', icon: '', parentId: null as number | null, aliases: '' };
+
+const parseAliases = (text: string) =>
+  text.split(',').map((a) => a.trim()).filter(Boolean);
 
 const iconMap: Record<string, React.ReactNode> = {
   castle: <Castle className="h-4 w-4" />,
@@ -102,7 +111,7 @@ export default function PropertyTypesPage() {
   const [languages, setLanguages] = useState<string[]>(['en']);
   const [editingType, setEditingType] = useState<PropertyType | null>(null);
   const [deletingType, setDeletingType] = useState<PropertyType | null>(null);
-  const [form, setForm] = useState({ names: {} as Record<string, string>, slug: '', icon: '', parentId: null as number | null });
+  const [form, setForm] = useState(emptyForm);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
@@ -115,6 +124,7 @@ export default function PropertyTypesPage() {
   const [bulkParentId, setBulkParentId] = useState<number | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isAiOrganizing, setIsAiOrganizing] = useState(false);
+  const [moveMerge, setMoveMerge] = useState<{ mode: 'move' | 'merge'; id: number } | null>(null);
   const t = usePropertyTypesText();
 
   const api = useApi();
@@ -203,10 +213,11 @@ export default function PropertyTypesPage() {
         slug: form.slug,
         parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
+        aliases: parseAliases(form.aliases),
       });
       toast({ title: t.toast.created });
       setIsAddOpen(false);
-      setForm({ names: {}, slug: '', icon: '', parentId: null });
+      setForm(emptyForm);
       fetchTypes();
     } catch (e: any) {
       toast({ title: t.toast.createFailed, description: e.message, variant: 'destructive' });
@@ -221,11 +232,12 @@ export default function PropertyTypesPage() {
         slug: form.slug,
         parentId: form.parentId ?? null,
         ...(form.icon ? { icon: form.icon } : {}),
+        aliases: parseAliases(form.aliases),
       });
       toast({ title: t.toast.updated });
       setIsEditOpen(false);
       setEditingType(null);
-      setForm({ names: {}, slug: '', icon: '', parentId: null });
+      setForm(emptyForm);
       fetchTypes();
     } catch (e: any) {
       toast({ title: t.toast.updateFailed, description: e.message, variant: 'destructive' });
@@ -249,7 +261,7 @@ export default function PropertyTypesPage() {
     setEditingType(type);
     const names: Record<string, string> = {};
     languages.forEach((lang) => { names[lang] = type.name[lang] || ''; });
-    setForm({ names, slug: type.slug, icon: type.icon || '', parentId: type.parentId ?? null });
+    setForm({ names, slug: type.slug, icon: type.icon || '', parentId: type.parentId ?? null, aliases: (type.aliases || []).join(', ') });
     setIsEditOpen(true);
   };
 
@@ -376,6 +388,49 @@ export default function PropertyTypesPage() {
     return true;
   });
 
+  // Every type with its path, for Move to… / Merge into….
+  const pickable: PickableType[] = (() => {
+    const trail: string[] = [];
+    return orderedTypes.map((row) => {
+      const name = row.name.en || Object.values(row.name)[0] || `#${row.id}`;
+      trail.length = row._depth;
+      trail.push(name);
+      return { id: row.id, parentId: row.parentId ?? null, name, path: trail.join(' › ') };
+    });
+  })();
+
+  const confirmMoveMerge = async (targetId: number | null) => {
+    if (!moveMerge) return;
+    const source = pickable.find((row) => row.id === moveMerge.id);
+    const target = targetId != null ? pickable.find((row) => row.id === targetId) : null;
+    try {
+      if (moveMerge.mode === 'merge') {
+        await api.post(`/api/dashboard/property-types/${moveMerge.id}/merge`, { targetId });
+        toast({ title: t.toast.mergedInto(source?.name ?? '', target?.name ?? '') });
+      } else {
+        await api.put(`/api/dashboard/property-types/${moveMerge.id}`, { parentId: targetId });
+        toast({ title: t.toast.moved(source?.name ?? ''), description: target ? t.toast.nowInside(target.path) : t.toast.nowTopLevel });
+      }
+      fetchTypes();
+    } catch (e: any) {
+      toast({ title: moveMerge.mode === 'merge' ? t.toast.mergeFailed : t.toast.moveFailed, description: e.message, variant: 'destructive' });
+      throw e;
+    }
+  };
+
+  const otherSpellingsField = (
+    <div className="space-y-2">
+      <Label>{t.otherSpellings} <span className="text-xs text-muted-foreground font-normal">{t.otherSpellingsHint}</span></Label>
+      <Input
+        placeholder="Semidetached, Semi detached"
+        value={form.aliases}
+        onChange={(e) => setForm({ ...form, aliases: e.target.value })}
+        data-testid="type-aliases"
+      />
+      <p className="text-xs text-muted-foreground">{t.otherSpellingsHelp}</p>
+    </div>
+  );
+
   const handleBulkMove = async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
@@ -469,7 +524,7 @@ export default function PropertyTypesPage() {
               {bulkTranslate.running ? t.translating(bulkTranslate.progress) : t.aiTranslateAll}
             </Button>
           )}
-          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm({ names: {}, slug: '', icon: '', parentId: null }); }}>
+          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) setForm(emptyForm); }}>
             <DialogTrigger asChild>
               <Button className="shadow-sm"><Plus className="h-4 w-4 mr-2" />{t.addType}</Button>
             </DialogTrigger>
@@ -506,6 +561,7 @@ export default function PropertyTypesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {otherSpellingsField}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
@@ -618,7 +674,12 @@ export default function PropertyTypesPage() {
                           <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
                             {iconMap[type.icon || ''] || <Home className="h-4 w-4" />}
                           </div>
-                          <span className="font-medium">{type.name.en || Object.values(type.name)[0]}</span>
+                          <div>
+                            <span className="font-medium">{type.name.en || Object.values(type.name)[0]}</span>
+                            {type.aliases?.length ? (
+                              <p className="text-xs text-muted-foreground">{t.alsoFor(type.aliases.join(', '))}</p>
+                            ) : null}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -666,6 +727,12 @@ export default function PropertyTypesPage() {
                             <DropdownMenuItem onClick={() => openEdit(type)}>
                               <Edit className="h-4 w-4 mr-2" />{t.edit}
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'move', id: type.id })}>
+                              <ArrowRight className="h-4 w-4 mr-2" />{t.moveTo}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMoveMerge({ mode: 'merge', id: type.id })}>
+                              <Merge className="h-4 w-4 mr-2" />{t.mergeInto}
+                            </DropdownMenuItem>
                             {languages.length > 1 && (
                               <DropdownMenuItem onClick={() => handleQuickTranslate(type)}>
                                 {aiTranslation.locked ? <Lock className="h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
@@ -689,7 +756,7 @@ export default function PropertyTypesPage() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm({ names: {}, slug: '', icon: '', parentId: null }); } }}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingType(null); setForm(emptyForm); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.editTitle}</DialogTitle>
@@ -727,6 +794,7 @@ export default function PropertyTypesPage() {
                 </SelectContent>
               </Select>
             </div>
+            {otherSpellingsField}
             {languages.filter(l => l !== 'en').length > 0 && (
               <div className="border rounded-md">
                 <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
@@ -768,6 +836,14 @@ export default function PropertyTypesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MoveMergeDialog
+        mode={moveMerge?.mode ?? null}
+        source={moveMerge ? pickable.find((row) => row.id === moveMerge.id) ?? null : null}
+        types={pickable}
+        onClose={() => setMoveMerge(null)}
+        onConfirm={confirmMoveMerge}
+      />
 
       {/* Bulk Translate Confirmation */}
       <AlertDialog open={isBulkTranslateOpen} onOpenChange={setIsBulkTranslateOpen}>

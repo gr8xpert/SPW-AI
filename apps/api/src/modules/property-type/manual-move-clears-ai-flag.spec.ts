@@ -10,6 +10,7 @@ function makeService(rows: Array<{ id: number; tenantId: number; slug: string; p
   const qbSets: any[] = [];
 
   const repo: any = {
+    find: async () => rows,
     findOne: async ({ where }: any) => rows.find((r) => r.id === where.id) || null,
     update: async (where: any, data: any) => void updates.push({ where, data }),
     createQueryBuilder: () => {

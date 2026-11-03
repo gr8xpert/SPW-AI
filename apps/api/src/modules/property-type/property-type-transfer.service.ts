@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PropertyType } from '../../database/entities';
 import { locationKey } from '../location-template/location-name';
+import { cleanAliases } from '../location/location.service';
 import { PropertyTypeService } from './property-type.service';
 import {
   MAX_TRANSFER_ROWS,
@@ -20,6 +21,8 @@ export const PROPERTY_TYPES_FILE_FORMAT = 'spm-property-types';
 interface FileType extends TransferFileNode {
   name: Record<string, string>;
   sortOrder: number | null;
+  // Missing in files exported before types had "Other spellings".
+  aliases?: string[];
 }
 
 export interface PropertyTypeImportReport {
@@ -67,6 +70,7 @@ export class PropertyTypeTransferService {
         name: r.name,
         slug: r.slug,
         sortOrder: r.sortOrder,
+        aliases: r.aliases,
         templateIds: r.templateNodeId != null ? [r.templateNodeId] : [],
         // Current name, and the feed names it was renamed from (any parent).
         places: [
@@ -183,6 +187,10 @@ export class PropertyTypeTransferService {
       const renamed = !!item.name.en && item.name.en !== row.name?.en;
       if (JSON.stringify(name) !== JSON.stringify(row.name)) patch.name = name;
       if (item.sortOrder != null && item.sortOrder !== row.sortOrder) patch.sortOrder = item.sortOrder;
+      if (item.aliases) {
+        const aliases = cleanAliases(item.aliases, name.en);
+        if (JSON.stringify(aliases) !== JSON.stringify(row.aliases ?? null)) patch.aliases = aliases;
+      }
 
       if (!Object.keys(patch).length) continue;
       report.changed++;
@@ -251,6 +259,7 @@ function parseFile(text: string): FileType[] {
       parentRef: int(raw.parentRef),
       name,
       sortOrder: int(raw.sortOrder),
+      aliases: Array.isArray(raw.aliases) ? raw.aliases.filter((a: unknown): a is string => typeof a === 'string').slice(0, 20) : undefined,
       templateIds: ints(raw.templateIds).slice(0, 50),
       places,
     });

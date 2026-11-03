@@ -76,6 +76,27 @@ export const en = {
   deleteTitle: 'Delete Property Type',
   deleteText: (name: string) => `Are you sure you want to delete "${name}"? This action cannot be undone.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Move to…',
+  mergeInto: 'Merge into…',
+  otherSpellings: 'Other spellings',
+  otherSpellingsHint: '(optional, comma separated)',
+  otherSpellingsHelp: 'When a feed sends any of these names, its listings go into this type from the next import, instead of creating a new type.',
+  alsoFor: (names: string) => `also for: ${names}`,
+  moveMerge: {
+    mergeTitle: (name: string) => `Merge "${name}" into…`,
+    moveTitle: (name: string) => `Move "${name}" to…`,
+    mergeText: 'Its properties and sub-types move into the type you pick, and it is removed. Future feed imports put its listings there too.',
+    moveText: 'It moves with its sub-types. Future feed imports keep it where you put it.',
+    searchPlaceholder: 'Search a property type…',
+    topLevel: '— Top level (no parent) —',
+    noMatch: 'No matching property type',
+    mergeInto: (name: string) => `Merge into ${name}`,
+    move: 'Move',
+    moveInto: (name: string) => `Move into ${name}`,
+    moveToTop: 'Move to top level',
+  },
+
   // Toasts
   toast: {
     loadFailed: 'Failed to load property types',
@@ -119,6 +140,12 @@ export const en = {
     bulkStarted: 'Bulk translation started',
     bulkStartedText: 'You can leave this page — progress shows on the button.',
     bulkFailed: 'Bulk translation failed',
+    mergedInto: (source: string, target: string) => `Merged "${source}" into "${target}"`,
+    moved: (name: string) => `Moved "${name}"`,
+    nowInside: (path: string) => `Now inside ${path}`,
+    nowTopLevel: 'Now at the top level',
+    mergeFailed: 'Could not merge',
+    moveFailed: 'Could not move',
   },
 };
 

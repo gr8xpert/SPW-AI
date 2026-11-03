@@ -6,6 +6,7 @@ import { fenceFor, resolveLocationPoints } from './location-points';
 import { bySortOrderThenName } from '../../common/i18n/sort-by-name';
 import { CreateLocationDto, UpdateLocationDto } from './dto';
 import { extraFeedKey, locationKey } from '../location-template/location-name';
+import { repointSavedFilters } from '../../common/saved-filters/repoint-saved-filters';
 
 export interface LocationTree extends Location {
   children: LocationTree[];
@@ -321,6 +322,7 @@ export class LocationService {
     }
 
     await this.locationRepository.delete({ id: source.id, tenantId });
+    await repointSavedFilters(this.locationRepository.manager, tenantId, 'location', [source.id], target.id);
   }
 
   /**

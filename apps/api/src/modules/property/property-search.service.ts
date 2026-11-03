@@ -309,9 +309,7 @@ export class PropertySearchService {
   ): Promise<number[]> {
     const rows: Array<{ id: number; parentId: number | null; name?: unknown; aliases?: unknown }> =
       await this.propertyRepository.manager.query(
-        table === 'locations'
-          ? 'SELECT id, parentId, name, aliases FROM locations WHERE tenantId = ?'
-          : `SELECT id, parentId FROM ${table} WHERE tenantId = ?`,
+        `SELECT id, parentId, name, aliases FROM ${table} WHERE tenantId = ?`,
         [tenantId],
       );
     const childrenOf = new Map<number, number[]>();
@@ -324,18 +322,16 @@ export class PropertySearchService {
     }
     const result = new Set<number>([rootId]);
     const stack = [rootId];
-    // A location's "Other spellings" (set by the client): picking "Málaga"
-    // also brings in "Centro" when Centro lists Malaga as another name.
-    if (table === 'locations') {
-      const root = rows.find((r) => Number(r.id) === rootId);
-      const rootKeys = new Set(Object.values(jsonOf<Record<string, string>>(root?.name) || {}).map(locationKey).filter(Boolean));
-      for (const r of rows) {
-        const aliases = jsonOf<string[]>(r.aliases);
-        if (!Array.isArray(aliases) || !aliases.some((a) => rootKeys.has(locationKey(a)))) continue;
-        if (!result.has(Number(r.id))) {
-          result.add(Number(r.id));
-          stack.push(Number(r.id));
-        }
+    // "Other spellings" (set by the client): picking "Málaga" also brings in
+    // "Centro" when Centro lists Malaga as another name. Same for a type.
+    const root = rows.find((r) => Number(r.id) === rootId);
+    const rootKeys = new Set(Object.values(jsonOf<Record<string, string>>(root?.name) || {}).map(locationKey).filter(Boolean));
+    for (const r of rows) {
+      const aliases = jsonOf<string[]>(r.aliases);
+      if (!Array.isArray(aliases) || !aliases.some((a) => rootKeys.has(locationKey(a)))) continue;
+      if (!result.has(Number(r.id))) {
+        result.add(Number(r.id));
+        stack.push(Number(r.id));
       }
     }
     while (stack.length) {

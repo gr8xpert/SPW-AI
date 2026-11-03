@@ -66,6 +66,27 @@ export const fi: PropertyTypesText = {
   deleteTitle: 'Poista kohdetyyppi',
   deleteText: (name) => `Haluatko varmasti poistaa tyypin "${name}"? Toimintoa ei voi perua.`,
 
+  // Other spellings, Move to… and Merge into…
+  moveTo: 'Siirrä…',
+  mergeInto: 'Yhdistä…',
+  otherSpellings: 'Muut kirjoitusasut',
+  otherSpellingsHint: '(valinnainen, pilkuilla eroteltuna)',
+  otherSpellingsHelp: 'Kun syöte lähettää jonkin näistä nimistä, sen kohteet tulevat tähän tyyppiin seuraavasta tuonnista alkaen, eikä uutta tyyppiä luoda.',
+  alsoFor: (names) => `myös nimelle: ${names}`,
+  moveMerge: {
+    mergeTitle: (name) => `Yhdistä "${name}" tyyppiin…`,
+    moveTitle: (name) => `Siirrä "${name}" uuteen paikkaan…`,
+    mergeText: 'Sen kohteet ja alatyypit siirtyvät valitsemaasi tyyppiin, ja se poistetaan. Myös tulevat syötetuonnit vievät sen ilmoitukset sinne.',
+    moveText: 'Se siirtyy alatyyppiensä kanssa. Tulevat syötetuonnit pitävät sen siellä, minne sen siirrät.',
+    searchPlaceholder: 'Hae kohdetyyppiä…',
+    topLevel: '— Ylin taso (ei ylätyyppiä) —',
+    noMatch: 'Ei vastaavaa kohdetyyppiä',
+    mergeInto: (name) => `Yhdistä tyyppiin ${name}`,
+    move: 'Siirrä',
+    moveInto: (name) => `Siirrä tyypin ${name} alle`,
+    moveToTop: 'Siirrä ylimmälle tasolle',
+  },
+
   toast: {
     loadFailed: 'Kohdetyyppien lataus epäonnistui',
     created: 'Kohdetyyppi luotu',
@@ -107,5 +128,11 @@ export const fi: PropertyTypesText = {
     bulkStarted: 'Joukkokäännös käynnistetty',
     bulkStartedText: 'Voit poistua sivulta — edistyminen näkyy painikkeessa.',
     bulkFailed: 'Joukkokäännös epäonnistui',
+    mergedInto: (source, target) => `"${source}" yhdistetty tyyppiin "${target}"`,
+    moved: (name) => `"${name}" siirretty`,
+    nowInside: (path) => `Nyt kohdassa ${path}`,
+    nowTopLevel: 'Nyt ylimmällä tasolla',
+    mergeFailed: 'Yhdistäminen epäonnistui',
+    moveFailed: 'Siirto epäonnistui',
   },
 };
