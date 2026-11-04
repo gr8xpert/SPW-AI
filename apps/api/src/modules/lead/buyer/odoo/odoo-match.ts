@@ -425,7 +425,7 @@ export function mapOdooBuyer(b: OdooBuyer, m: OdooMatchers, mapping: ImportMappi
   };
 }
 
-export const NOT_MATCHED_HEADING = 'Not matched in SPM (Odoo import):';
+export const NOT_MATCHED_HEADING = 'Not matched in SPM (from Odoo):';
 
 export const ODOO_NOTES_START = '[From Odoo]';
 export const ODOO_NOTES_END = '[/From Odoo]';

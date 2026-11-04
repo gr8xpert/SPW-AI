@@ -177,6 +177,8 @@ export function agentSummaries(
     if (l.lost) r.lost++;
   }
   for (const a of actions) {
+    // Imports and other entries count as nothing: no row for someone with no leads.
+    if (!Number(a.calls) && !Number(a.whatsapps) && !Number(a.emails) && !Number(a.viewings)) continue;
     const r = row(a.userId);
     r.calls += Number(a.calls);
     r.whatsapps += Number(a.whatsapps);

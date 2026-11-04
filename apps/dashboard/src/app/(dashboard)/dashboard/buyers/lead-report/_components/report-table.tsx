@@ -82,7 +82,7 @@ function Row({ r, stages, agents, questions, manager, booking }: RowProps) {
           {r.isNewLead ? <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{t.newLead}</Badge> : null}
         </div>
       </TableCell>
-      <DateCell iso={r.createdAt} />
+      <DateCell iso={r.createdAt} dateOnly={r.imported} />
       <TableCell className="align-top text-xs">
         {phone ? <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="block whitespace-nowrap hover:text-primary hover:underline">{phone}</a> : null}
         {r.email ? <a href={`mailto:${r.email}`} className="block max-w-[200px] truncate text-muted-foreground hover:text-primary hover:underline" title={r.email}>{r.email}</a> : null}
@@ -123,9 +123,7 @@ function Row({ r, stages, agents, questions, manager, booking }: RowProps) {
         <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
           {counts ? <p>{counts}</p> : null}
           {f.lastOutcome && f.status !== 'call_back' && f.status !== 'wrong_number' ? <p>{t.outcomes[f.lastOutcome]}</p> : null}
-          {f.status === 'not_contacted' && r.imported ? (
-            <p>{t.imported}</p>
-          ) : f.status === 'overdue' || f.status === 'not_contacted' ? (
+          {f.status === 'overdue' || (f.status === 'not_contacted' && !r.imported) ? (
             <p className={cn(f.status === 'overdue' && 'font-medium text-red-600')}>{t.waiting(duration(waitingHours))}</p>
           ) : f.firstContactHours !== null ? <p>{t.firstAfter(duration(f.firstContactHours))}</p> : null}
         </div>

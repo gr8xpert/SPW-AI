@@ -21,11 +21,13 @@ import { useSetRowAnswer, type LeadReportRow } from '../use-lead-report';
 
 const NONE = '__none__';
 const dayTime = (iso: string) => new Date(iso).toLocaleString(dashboardLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const dayOnly = (iso: string) => new Date(iso).toLocaleDateString(dashboardLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 const name = (n: Record<string, string> | null | undefined) => textOf(n, dashboardLanguage());
 const muted = <span className="text-xs text-muted-foreground">—</span>;
 
-export function DateCell({ iso }: { iso: string | null }) {
-  return <TableCell className="whitespace-nowrap align-top text-xs">{iso ? dayTime(iso) : muted}</TableCell>;
+// `dateOnly`: an imported date has no real hour (stored at 12:00 UTC).
+export function DateCell({ iso, dateOnly }: { iso: string | null; dateOnly?: boolean }) {
+  return <TableCell className="whitespace-nowrap align-top text-xs">{iso ? (dateOnly ? dayOnly(iso) : dayTime(iso)) : muted}</TableCell>;
 }
 
 export function AppointmentCell({ r }: { r: LeadReportRow }) {

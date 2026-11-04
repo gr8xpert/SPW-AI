@@ -63,7 +63,7 @@ export class BuyerReportsService {
       await this.db.query(
         `SELECT l.id, l.source, l.createdAt, l.stageId
          FROM leads l
-         WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.contactId IS NOT NULL AND l.createdAt >= ?`,
+         WHERE l.tenantId = ? AND l.mergedIntoId IS NULL AND l.erasedAt IS NULL AND l.contactId IS NOT NULL AND l.createdAt >= ?`,
         [tenantId, since],
       );
     const inWindow = buyers.filter((b) => keys.includes(monthOf(new Date(b.createdAt))));

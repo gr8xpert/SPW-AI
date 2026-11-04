@@ -309,7 +309,7 @@ export class LeadReportService {
       r.id, r.name, r.mobile || r.phone, r.email, r.agent?.name ?? '', r.stage ? en(r.stage.name) : '',
       STATUS[r.followUp.status], r.followUp.calls, r.followUp.whatsapps, r.followUp.emails, r.followUp.lastOutcome?.replace('_', ' ') ?? '',
       r.followUp.lastNote?.text ?? '', r.followUp.enquiry ?? '', r.budgetMin ?? '', r.budgetMax ?? '', r.source, r.isNewLead ? 'yes' : '',
-      time(r.createdAt), time(r.followUp.firstContactAt), r.followUp.firstContactHours ?? '', time(r.followUp.lastContactAt),
+      r.imported ? time(r.createdAt).slice(0, 10) : time(r.createdAt), time(r.followUp.firstContactAt), r.followUp.firstContactHours ?? '', time(r.followUp.lastContactAt),
       r.appointment ? `${time(r.appointment.at)}${r.appointment.status === 'planned' ? '' : ` (${r.appointment.status.replace('_', ' ')})`}` : '',
       r.propertyTypes.map((n) => en(n)).join(', '), ...questions.map((q) => answerText(q, r)),
     ]);

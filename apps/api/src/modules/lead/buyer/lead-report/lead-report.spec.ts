@@ -18,6 +18,13 @@ describe('followUp', () => {
     expect(line).toMatchObject({ leads: 1, notContacted: 1, overdue: 0 });
   });
 
+  it('gives no Per agent row to someone whose entries count as nothing', () => {
+    const lead = { agentId: 5, createdAt: hoursAgo(3), firstContactAt: null, reached: false, won: false, lost: false, wonValue: 0 };
+    const zero = { calls: 0, whatsapps: 0, emails: 0, viewings: 0 };
+    const lines = agentSummaries([lead], [{ userId: 9, ...zero }, { userId: 7, ...zero, calls: 1 }], now, 24);
+    expect(lines.map((l) => l.agentId).sort()).toEqual([5, 7]);
+  });
+
   it('ignores website and system entries as contact', () => {
     const f = followUp({ createdAt: hoursAgo(30) }, [act('enquiry', 30, { userId: null, description: 'Hi' }), act('assignment', 29)], now, 24);
     expect(f.status).toBe('overdue');
