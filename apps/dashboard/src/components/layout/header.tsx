@@ -11,23 +11,36 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bell, LogOut, Settings, User } from 'lucide-react';
+import { Bell, LogOut, Menu, Settings, User } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import Link from 'next/link';
 import { CreditBalanceBadge } from './credit-balance-badge';
 import { LanguageSwitcher } from './language-switcher';
+import { useSidebarStore } from './sidebar';
 import { useCommonText } from '@/i18n/common';
 import { AGENT_ROLE } from '@/lib/agent-access';
 
 export function Header() {
   const { data: session } = useSession();
   const t = useCommonText();
+  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
 
   return (
-    <header className="sticky top-0 z-40 h-14 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-6">
-      <div />
+    <header className="sticky top-0 z-40 h-14 border-b border-border/60 bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6">
+      <div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-lg text-muted-foreground hover:text-foreground lg:hidden"
+          onClick={() => setMobileOpen(true)}
+          aria-label={t.openMenu}
+          title={t.openMenu}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <CreditBalanceBadge />
 
         <LanguageSwitcher />
@@ -36,7 +49,7 @@ export function Header() {
           <Bell className="h-[18px] w-[18px]" />
         </Button>
 
-        <div className="mx-1 h-6 w-px bg-border/60" />
+        <div className="mx-1 hidden h-6 w-px bg-border/60 sm:block" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

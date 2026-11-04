@@ -1,3 +1,38 @@
+deployed_at:   2026-11-04T10:48 UTC (deploy 2026-11-04i-log-wording, run from the FullStack session at the owner's request; DASHBOARD ONLY)
+git_head:      7492dd6 (worktree release-1104h) + live.patch from cool-shaw-bcc169 + Push Now, all uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  mJQurDurbVpOE1z08TzNu
+new_deps:      none; no migration
+includes:      Export Log line for Push Now reworded in 7 languages. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1104i
+
+deployed_at:   2026-11-04T10:25 UTC (deploy 2026-11-04h-push-now, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      7492dd6 (worktree release-1104h) + live.patch from cool-shaw-bcc169 + Push Now, all uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  2UpZPH0n-aJZAQNiYP6Zq
+new_deps:      none; migration 1777540000000-ExportRunTrigger
+includes:      Push Now on idealista, Kyero, JSON, Rightmove; Source column and Spain time in Export Log. Deployed with 3 imports running, owner's call. Backup /var/www/vhosts/spw-ai.com/httpdocs/spw/backups/code-pre-1104h
+
+deployed_at:   2026-11-04T09:31 UTC (deploy 2026-11-04g-no-import-word, run from the FullStack session at the owner's request; DASHBOARD ONLY)
+git_head:      7492dd6 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  -IFelKuUZBtoK4tSNmRzO
+new_deps:      none; no migration
+includes:      buyer page in 7 languages: History event says Created, who says Odoo, "by the Odoo import" says "from Odoo", source says Odoo. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1104g
+
+deployed_at:   2026-11-04T09:19 UTC (deploy 2026-11-04f-feed-retry-api, run from the FullStack session at the owner's request; API ONLY)
+git_head:      7492dd6 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  unchanged (j9g03xG9zxpQinuKVViEo)
+new_deps:      none; no migration
+includes:      feed runs checked against the queue instead of a 2-hour clock, closed runs skipped, 403/429 retried after 30/60/120 min; Lead Report API half (imported CSV date only, no empty Per agent row, reports exclude erased leads). Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1104f
+
+deployed_at:   2026-11-04T08:25 UTC (deploy 2026-11-04e-narrow-lead-report, run from the FullStack session; DASHBOARD ONLY, because feed imports were running)
+git_head:      7492dd6 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  j9g03xG9zxpQinuKVViEo
+new_deps:      none
+includes:      narrow widths from compassionate-bardeen-3ea011 (Super Admin drawer, page overflow, client drawer, tabs); Lead Report: word Imported removed, imported Came in shows date only, no waiting time on imported not-contacted rows. NOT YET LIVE: the API half of 11-04d (empty Per agent row, CSV date only, erased leads out of reports), needs an spm-api reload when no import runs
+
 deployed_at:   2026-11-03T22:41 UTC (deploy 2026-11-04c-created-label, run from the FullStack session at the owner's request after the permission check refused the DevOps agent; 2026-11-04 03:41 in Pakistan)
 git_head:      3f1ad09 (worktree cool-shaw-bcc169) + uncommitted changes (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out; held mobile-width work not in it)

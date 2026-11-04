@@ -30,6 +30,7 @@ export const sv: CommonText = {
   collapse: 'Fäll ihop',
   collapseSidebar: 'Fäll ihop menyn',
   expandSidebar: 'Fäll ut menyn',
+  openMenu: 'Öppna menyn',
   profile: 'Profil',
   settings: 'Inställningar',
   logOut: 'Logga ut',

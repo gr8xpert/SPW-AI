@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,6 +33,9 @@ import { persist } from 'zustand/middleware';
 interface AdminSidebarState {
   collapsed: boolean;
   toggle: () => void;
+  // Below the lg breakpoint the sidebar is a drawer over the page.
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
 }
 
 export const useAdminSidebarStore = create<AdminSidebarState>()(
@@ -39,8 +43,13 @@ export const useAdminSidebarStore = create<AdminSidebarState>()(
     (set) => ({
       collapsed: false,
       toggle: () => set((state) => ({ collapsed: !state.collapsed })),
+      mobileOpen: false,
+      setMobileOpen: (mobileOpen) => set({ mobileOpen }),
     }),
-    { name: 'admin-sidebar-collapsed' }
+    {
+      name: 'admin-sidebar-collapsed',
+      partialize: (state) => ({ collapsed: state.collapsed }),
+    }
   )
 );
 
@@ -152,12 +161,52 @@ function NavSection({
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { collapsed, toggle } = useAdminSidebarStore();
+  const { collapsed: collapsedSetting, toggle, mobileOpen, setMobileOpen } = useAdminSidebarStore();
+  // The icon-only rail is desktop only: the drawer always shows the labels.
+  const [isDesktop, setIsDesktop] = useState(true);
+  const collapsed = collapsedSetting && isDesktop;
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  // Moving to another page, or pressing Esc, closes the drawer.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen, setMobileOpen]);
 
   return (
+    <>
+    {mobileOpen && (
+      <div
+        className="fixed inset-0 z-[45] bg-black/50 lg:hidden"
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+      />
+    )}
     <aside
-      style={{ width: collapsed ? 64 : 256 }}
-      className="fixed inset-y-0 left-0 z-50 bg-card border-r border-border/60 flex flex-col overflow-hidden transition-[width] duration-200 ease-out-expo"
+      style={{ '--sidebar-w': `${collapsed ? 64 : 256}px` } as React.CSSProperties}
+      className={cn(
+        'fixed inset-y-0 left-0 z-50 w-64 lg:w-[var(--sidebar-w)] bg-card border-r border-border/60 flex flex-col overflow-hidden transition-[width,transform,visibility] duration-200 ease-out-expo',
+        !mobileOpen && 'max-lg:invisible max-lg:-translate-x-full'
+      )}
+      // A link to the page you are already on does not change the pathname.
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('a')) setMobileOpen(false);
+      }}
     >
       {/* Logo */}
       <div className="h-14 flex items-center px-4 border-b border-border/60">
@@ -190,7 +239,7 @@ export function AdminSidebar() {
       </nav>
 
       {/* Collapse Toggle */}
-      <div className="border-t border-border/60 px-2 py-2">
+      <div className="hidden lg:block border-t border-border/60 px-2 py-2">
         <button
           onClick={toggle}
           className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -207,5 +256,6 @@ export function AdminSidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

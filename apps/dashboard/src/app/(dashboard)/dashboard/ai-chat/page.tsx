@@ -315,6 +315,7 @@ function AiChatPageInner() {
             <CardContent>
               {conversations.length > 0 ? (
                 <>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left">
@@ -363,6 +364,7 @@ function AiChatPageInner() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
 
                   {convMeta && convMeta.pages > 1 && (
                     <div className="flex items-center justify-between mt-4">

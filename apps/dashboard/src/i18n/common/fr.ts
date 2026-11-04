@@ -30,6 +30,7 @@ export const fr: CommonText = {
   collapse: 'Réduire',
   collapseSidebar: 'Réduire le menu',
   expandSidebar: 'Déplier le menu',
+  openMenu: 'Ouvrir le menu',
   profile: 'Profil',
   settings: 'Paramètres',
   logOut: 'Se déconnecter',

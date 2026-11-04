@@ -59,7 +59,7 @@ export function CreditBalanceBadge() {
         <Link href="/dashboard/billing">
           <Button size="sm" variant="default" className="h-8 gap-1.5 text-xs">
             <ShoppingCart className="h-3.5 w-3.5" />
-            {t.buyCredits}
+            <span className="max-sm:sr-only">{t.buyCredits}</span>
           </Button>
         </Link>
       </div>
@@ -71,7 +71,7 @@ export function CreditBalanceBadge() {
       <Link href="/dashboard/billing">
         <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
           <ShoppingCart className="h-3.5 w-3.5" />
-          {t.buyCredits}
+          <span className="max-sm:sr-only">{t.buyCredits}</span>
         </Button>
       </Link>
     );
@@ -101,7 +101,7 @@ export function CreditBalanceBadge() {
           className="h-8 gap-1.5 text-xs"
         >
           <ShoppingCart className="h-3.5 w-3.5" />
-          {t.buyCredits}
+          <span className="max-sm:sr-only">{t.buyCredits}</span>
         </Button>
       </Link>
     </div>

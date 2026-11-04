@@ -27,7 +27,7 @@ export default async function AdminLayout({
       <AdminSidebar />
       <AdminShell>
         <AdminHeader />
-        <main className="p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">
+        <main className="p-4 sm:p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">
           <SessionGate>{children}</SessionGate>
         </main>
       </AdminShell>

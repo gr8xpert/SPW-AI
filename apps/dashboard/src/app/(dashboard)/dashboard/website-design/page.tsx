@@ -247,7 +247,7 @@ export default function WebsiteDesignPage() {
                 {t.mapOff}
               </p>
             )}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {k.templates.map((tpl) => {
                 const active = current(k.kind) === tpl.id;
                 const name = templateName(t, tpl.id);

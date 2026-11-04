@@ -56,7 +56,7 @@ export function SeoTab({
               <CardTitle>{t.form.seoSettings}</CardTitle>
               <CardDescription>{t.form.seoDescription}</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <LanguageSelect value={seoLang} onChange={onSeoLangChange} />
               <Button
                 variant="outline"

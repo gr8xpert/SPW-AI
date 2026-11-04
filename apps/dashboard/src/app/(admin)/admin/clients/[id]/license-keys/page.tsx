@@ -131,10 +131,10 @@ export default function LicenseKeysPage() {
           ) : (
             <div className="space-y-4">
               {keys.map((key) => (
-                <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={key.id} className="flex flex-wrap items-center justify-between gap-2 p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <code className="font-mono font-bold">{key.key}</code>
+                      <code className="font-mono font-bold break-all">{key.key}</code>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -154,7 +154,7 @@ export default function LicenseKeysPage() {
                       {key.lastUsedAt && ` · Last used: ${format(new Date(key.lastUsedAt), 'PP')}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {key.status === 'active' && (
                       <>
                         <Button variant="outline" size="sm" onClick={() => handleRegenerate(key.id)}>

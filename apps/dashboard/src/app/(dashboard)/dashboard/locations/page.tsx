@@ -563,7 +563,7 @@ export default function LocationsPage() {
             } catch { /* ignore invalid drag data */ }
           }}
           className={cn(
-            'flex items-center justify-between py-3 px-4 hover:bg-muted/50 rounded-md transition-colors',
+            'flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-2 py-3 px-4 hover:bg-muted/50 rounded-md transition-colors',
             depth > 0 && 'border-l-2 border-muted ml-4',
             dragOverThis && 'ring-2 ring-primary',
             isSelected && 'bg-primary/5',
@@ -571,7 +571,7 @@ export default function LocationsPage() {
           )}
           style={{ paddingLeft: `${depth * 16 + 16}px` }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 max-sm:w-full">
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => {
@@ -605,7 +605,7 @@ export default function LocationsPage() {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2 sm:gap-4 max-sm:ml-auto">
             <Badge variant="outline" className={levelColors[location.level]}>
               {nameOf(t.levels, location.level)}
             </Badge>
@@ -810,7 +810,7 @@ export default function LocationsPage() {
           <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">{t.description}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:mt-2">
           <SortOrderMenu endpoint="/api/dashboard/locations/sort" onSorted={() => fetchLocations()} />
           <SetupTransferMenu kind="locations" onImported={() => fetchLocations()} />
           <Button variant="outline" size="sm" onClick={placeOnMap} disabled={isPlacingOnMap} title={t.checkMapHint}>
@@ -828,7 +828,7 @@ export default function LocationsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-7">
         {[
           [t.stats.total, stats.total],
           [t.stats.regions, stats.regions],
@@ -839,13 +839,13 @@ export default function LocationsPage() {
           [t.stats.urbanizations, stats.urbanizations],
         ].map(([label, value]) => (
           <Card key={label as string}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-xl:gap-2 max-sm:px-4">
               <CardTitle className="text-sm font-medium">{label}</CardTitle>
-              <div className="stat-card-icon">
+              <div className="stat-card-icon max-xl:shrink-0">
                 <MapPin className="h-4 w-4" />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-sm:px-4">
               <div className="text-2xl font-bold tracking-tight">{value}</div>
             </CardContent>
           </Card>
@@ -867,11 +867,11 @@ export default function LocationsPage() {
 
       {selectedIds.size > 0 && (
         <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="py-3 flex items-center justify-between gap-4">
+          <CardContent className="py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="text-sm">
               <strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
               <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>
                 {t.moveUnderParent}

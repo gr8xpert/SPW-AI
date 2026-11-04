@@ -30,6 +30,7 @@ export const fi: CommonText = {
   collapse: 'Pienennä',
   collapseSidebar: 'Pienennä valikko',
   expandSidebar: 'Laajenna valikko',
+  openMenu: 'Avaa valikko',
   profile: 'Profiili',
   settings: 'Asetukset',
   logOut: 'Kirjaudu ulos',

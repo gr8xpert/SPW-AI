@@ -56,7 +56,7 @@ export default async function DashboardLayout({
       <Sidebar userRole={userRole} />
       <DashboardShell>
         <Header />
-        <main className="p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">{children}</main>
+        <main className="p-4 sm:p-6 lg:p-8 page-gradient min-h-[calc(100vh-4rem)]">{children}</main>
       </DashboardShell>
     </div>
     </I18nProvider>

@@ -259,7 +259,7 @@ export default function ClientDetailPage() {
             <p className="page-description mt-1">{client.slug}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
           <Link href={`/admin/clients/${clientId}/edit`}>
             <Button variant="outline">
               <Edit className="mr-2 h-4 w-4" />
@@ -568,7 +568,7 @@ export default function ClientDetailPage() {
 
         <TabsContent value="license" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
               <div>
                 <CardTitle>Widget API Key</CardTitle>
                 <CardDescription>
@@ -584,7 +584,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <code className="font-mono font-bold">{client.apiKey || '— not generated —'}</code>
+                    <code className="font-mono font-bold break-all">{client.apiKey || '— not generated —'}</code>
                     <Badge variant="default">active</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">

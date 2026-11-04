@@ -402,7 +402,7 @@ export default function AnalyticsPage() {
           {/* Property Analytics Table */}
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Home className="h-4 w-4 text-muted-foreground" />
                   <CardTitle className="text-base">{t.propertyTitle}</CardTitle>

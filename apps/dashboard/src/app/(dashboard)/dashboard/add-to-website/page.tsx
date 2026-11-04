@@ -152,7 +152,7 @@ export default function AddToWebsitePage() {
         <p className="text-muted-foreground">{t.description}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">{t.step1}</CardTitle></CardHeader>
@@ -194,7 +194,7 @@ export default function AddToWebsitePage() {
                 <CardDescription>{t.step2Description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Picker label={t.location} any={t.any} value={f.location} rows={locations} onChange={(v) => setF({ ...f, location: v })} testid="filter-location" />
                   <Picker label={t.propertyType} any={t.any} value={f.type} rows={types} onChange={(v) => setF({ ...f, type: v })} testid="filter-type" />
                   <div className="space-y-1">

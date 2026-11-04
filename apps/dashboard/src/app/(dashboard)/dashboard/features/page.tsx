@@ -441,7 +441,7 @@ export default function FeaturesPage() {
           <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">{t.description}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:mt-2">
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
             {isAiOrganizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             {t.aiOrganize}
@@ -511,9 +511,9 @@ export default function FeaturesPage() {
 
       {selectedIds.size > 0 && (
         <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="py-3 flex items-center justify-between gap-4">
+          <CardContent className="py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="text-sm"><strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
               <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>
                 <Trash2 className="h-4 w-4 mr-1" /> {t.delete}
@@ -557,9 +557,9 @@ export default function FeaturesPage() {
                         onDragLeave={() => setDragOverIndex(null)}
                         onDrop={() => handleDrop(i)}
                         onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''} ${selectedIds.has(feature.id) ? 'bg-primary/5 border-primary/40' : ''} ${feature.isActive === false ? 'opacity-50' : ''}`}
+                        className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-2 p-4 border rounded-lg hover:bg-muted/50 transition-colors ${dragOverIndex === i ? 'ring-2 ring-primary' : ''} ${selectedIds.has(feature.id) ? 'bg-primary/5 border-primary/40' : ''} ${feature.isActive === false ? 'opacity-50' : ''}`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 max-sm:w-full">
                           <Checkbox
                             checked={selectedIds.has(feature.id)}
                             onCheckedChange={() => {
@@ -591,7 +591,7 @@ export default function FeaturesPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 max-sm:ml-auto">
                           {(feature.propertyCount ?? 0) > 0 ? (
                             // Opens Properties filtered to this feature — the
                             // same set this count is made of.

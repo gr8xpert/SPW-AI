@@ -511,7 +511,7 @@ export default function PropertyTypesPage() {
           <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">{t.description}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:mt-2 lg:max-w-[80%] lg:shrink-0">
           <SortOrderMenu endpoint="/api/dashboard/property-types/sort" onSorted={() => fetchTypes()} />
           <SetupTransferMenu kind="property-types" onImported={() => fetchTypes()} />
           <Button variant="outline" size="sm" onClick={runAiOrganize} disabled={isAiOrganizing}>
@@ -592,9 +592,9 @@ export default function PropertyTypesPage() {
 
       {selectedIds.size > 0 && (
         <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="py-3 flex items-center justify-between gap-4">
+          <CardContent className="py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="text-sm"><strong>{selectedIds.size}</strong> {t.selected(selectedIds.size)}</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>{t.clear}</Button>
               <Button size="sm" onClick={() => { setBulkParentId(null); setIsBulkMoveOpen(true); }}>{t.moveUnderParent}</Button>
               <Button size="sm" variant="destructive" onClick={() => setIsBulkDeleteOpen(true)}>

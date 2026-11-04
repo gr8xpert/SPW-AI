@@ -31,6 +31,7 @@ export const en = {
   collapse: 'Collapse',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
+  openMenu: 'Open menu',
   profile: 'Profile',
   settings: 'Settings',
   logOut: 'Log out',

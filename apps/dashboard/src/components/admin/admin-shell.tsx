@@ -13,8 +13,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      style={{ paddingLeft: mounted ? (collapsed ? 64 : 256) : 256 }}
-      className="transition-[padding-left] duration-200 ease-out-expo"
+      style={{ '--sidebar-w': `${mounted && collapsed ? 64 : 256}px` } as React.CSSProperties}
+      className="lg:pl-[var(--sidebar-w)] transition-[padding-left] duration-200 ease-out-expo"
     >
       {children}
     </div>

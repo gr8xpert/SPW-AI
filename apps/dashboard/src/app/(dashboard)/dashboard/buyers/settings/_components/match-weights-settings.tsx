@@ -60,8 +60,8 @@ export function MatchWeightsSettings({ canEdit }: { canEdit: boolean }) {
         <CardDescription>{w.description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <fieldset disabled={!canEdit} className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <fieldset disabled={!canEdit} className="min-w-0 space-y-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {BASE.map((k) => (
               <div key={k} className="flex items-center justify-between gap-3 rounded-md border p-3">
                 <Label htmlFor={`w-${k}`}>{w[k]}</Label>
@@ -70,7 +70,7 @@ export function MatchWeightsSettings({ canEdit }: { canEdit: boolean }) {
                   type="number"
                   min={0}
                   max={10}
-                  className="h-8 w-20"
+                  className="h-8 w-20 shrink-0"
                   value={draft[k]}
                   onChange={(e) => setDraft((d) => (d ? { ...d, [k]: clamp(e.target.value) } : d))}
                 />
@@ -82,17 +82,17 @@ export function MatchWeightsSettings({ canEdit }: { canEdit: boolean }) {
             <Label>{w.overrides}</Label>
             <p className="text-xs text-muted-foreground">{w.overridesHelp}</p>
             {overrides.map(([id, v]) => (
-              <div key={id} className="flex items-center gap-3">
-                <span className="min-w-[180px] text-sm">{nameOf(features.data?.find((f) => String(f.id) === id)?.name) || `#${id}`}</span>
+              <div key={id} className="flex flex-wrap items-center gap-3">
+                <span className="text-sm max-sm:w-full sm:min-w-[180px]">{nameOf(features.data?.find((f) => String(f.id) === id)?.name) || `#${id}`}</span>
                 <Input type="number" min={0} max={10} className="h-8 w-20" value={v} onChange={(e) => setOverride(id, clamp(e.target.value))} aria-label={`weight ${id}`} />
                 <Button type="button" variant="ghost" size="sm" onClick={() => setOverride(id, null)} aria-label={w.remove}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ))}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <FilterSelect
-                className="w-[240px]"
+                className="w-[240px] max-w-full"
                 value={pick}
                 onChange={setPick}
                 anyLabel={w.pickFeature}

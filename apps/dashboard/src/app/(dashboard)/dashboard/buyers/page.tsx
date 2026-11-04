@@ -66,7 +66,7 @@ function BuyersPageInner() {
           <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">{t.description}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-md border p-0.5">
             {(['cards', 'list'] as const).map((v) => (
               <Button
@@ -123,7 +123,7 @@ function BuyersPageInner() {
         <>
           <p className="text-sm text-muted-foreground">{t.total(total)}</p>
           {view === 'cards' ? (
-            <div className={cn('grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', buyers.isFetching && 'opacity-70')}>
+            <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', buyers.isFetching && 'opacity-70')}>
               {rows.map((b) => (
                 <BuyerCard key={b.id} buyer={b} staleDays={staleDays} />
               ))}

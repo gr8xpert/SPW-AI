@@ -365,7 +365,7 @@ export default function WebmasterTicketDetailPage() {
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h1 className="text-xl font-bold tracking-tight line-clamp-1">{ticket.subject}</h1>
               <Badge variant={status.variant} className="gap-1">
                 <StatusIcon className="h-3 w-3" />
@@ -380,8 +380,8 @@ export default function WebmasterTicketDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="md:col-span-3 space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+        <div className="xl:col-span-3 space-y-6">
           <Card>
             <CardContent className="p-0">
               {messages.length === 0 ? (
@@ -399,7 +399,7 @@ export default function WebmasterTicketDetailPage() {
                             {initials(msg.isStaff ? STAFF_AUTHOR_NAME : msg.user?.name, 'U')}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">

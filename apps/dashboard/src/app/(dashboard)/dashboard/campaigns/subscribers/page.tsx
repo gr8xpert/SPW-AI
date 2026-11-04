@@ -336,7 +336,7 @@ export default function SubscribersPage() {
           <h1 className="page-title">{t.title}</h1>
           <p className="page-description mt-1">{s.description}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:mt-2 lg:max-w-[80%] lg:shrink-0">
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4 mr-2" />
             {s.importCsv}
