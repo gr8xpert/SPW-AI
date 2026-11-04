@@ -1,3 +1,10 @@
+deployed_at:   2026-11-04T22:05 UTC (deploy 2026-11-05b-lead-report-scroll, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
+git_head:      6843e61
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  JG3Pab25hOaxUHhVxpGkS
+new_deps:      none; no migration
+includes:      Lead Report pinned sideways scrollbar, sticky header and Lead column, closable Per agent card; dashboard-wide scrollbar style; made-up @no-email.invalid addresses hidden and never mailed. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1105b
+
 deployed_at:   2026-11-04T19:39 UTC (deploy 2026-11-05a-feed-picks, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
 git_head:      1961a39 + feed picks, uncommitted (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
