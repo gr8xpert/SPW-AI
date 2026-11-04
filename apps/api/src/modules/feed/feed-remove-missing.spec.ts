@@ -45,7 +45,7 @@ function harness(opts: {
     protectedFields: [],
     ...opts.config,
   };
-  const importLog: any = { id: 1 };
+  const importLog: any = { id: 1, status: 'running' };
   svc.feedConfigRepository = {
     findOne: jest.fn().mockResolvedValue(config),
     find: jest.fn().mockResolvedValue([config]),

@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { FeedRetryLaterError, isProviderRefusal } from './feed-retry-later';
 import { FeedConfig, FeedImportLog, ImportError } from '../../database/entities';
 import type { FeedCredentials } from '../../database/entities/feed-config.entity';
 import { Property, PropertyImage, Location, PropertyType, Feature, Tenant } from '../../database/entities';
@@ -38,6 +39,10 @@ const FEED_COMPLETE_RUN_RATIO = 0.95;
 // properties (and more than FEED_MASS_REMOVAL_MIN of them).
 const FEED_MASS_REMOVAL_RATIO = 0.3;
 const FEED_MASS_REMOVAL_MIN = 20;
+// How long a worker may stay on one import before it counts as hung.
+const MAX_ACTIVE_RUN_MS = 24 * 60 * 60 * 1000;
+// How long a new run log may go without a job in the queue.
+const NEW_RUN_GRACE_MS = 10 * 60 * 1000;
 
 interface FeedOwnershipContext {
   liveFeedIds: Set<number>;
@@ -259,6 +264,29 @@ export class FeedService {
     return released;
   }
 
+  // A log row says "running" from the moment its job is queued, so its age
+  // can't tell a job waiting its turn from a dead one. Only the queue can.
+  // A worker that crashes is handled by BullMQ: the job goes back to waiting,
+  // or out of the queue once it has stalled too often.
+  private async isRunStillAlive(log: FeedImportLog): Promise<boolean> {
+    const isThisRun = (job: { data?: { importLogId?: number } } | undefined) =>
+      job?.data?.importLogId === log.id;
+
+    const queued = await this.feedImportQueue.getJobs(['waiting', 'delayed', 'prioritized']);
+    if (queued.some(isThisRun)) return true;
+
+    // Read after the waiting list, so a job picked up in between is still seen.
+    const active = (await this.feedImportQueue.getJobs(['active'])).find(isThisRun);
+    if (active) {
+      // The worker is alive but this import has hung (feeds run daily, so a
+      // day means it will never finish).
+      return Date.now() - (active.processedOn ?? Date.now()) < MAX_ACTIVE_RUN_MS;
+    }
+
+    // triggerSync saves the row just before adding the job.
+    return Date.now() - new Date(log.startedAt).getTime() < NEW_RUN_GRACE_MS;
+  }
+
   // `scheduledWindow` is supplied by the scheduler (hour bucket like 2026051310).
   // When present, the BullMQ jobId is deterministic — duplicate scheduler ticks
   // across replicas collapse to a single queued job. When absent (manual
@@ -283,23 +311,18 @@ export class FeedService {
       order: { id: 'DESC' },
     });
     if (running) {
-      const ageMs = Date.now() - new Date(running.startedAt).getTime();
-      // A run that's been "running" for >2h is almost certainly a worker that
-      // died without writing back. We surface that as a regular start so a
-      // jammed import isn't permanent — the scheduler/operator can move forward.
-      const STALE_MS = 2 * 60 * 60 * 1000;
-      if (ageMs < STALE_MS) {
+      if (await this.isRunStillAlive(running)) {
         this.logger.log(
-          `Refusing duplicate triggerSync for config=${config.id} (existing running log #${running.id}, age=${ageMs}ms)`,
+          `Refusing duplicate triggerSync for config=${config.id} (run log #${running.id} is still queued or working)`,
         );
         return running;
       }
       this.logger.warn(
-        `Found stale running log #${running.id} for config=${config.id} (age=${ageMs}ms); marking failed and continuing`,
+        `Run log #${running.id} for config=${config.id} has no live job; marking failed and starting again`,
       );
       running.status = 'failed';
       running.completedAt = new Date();
-      running.errors = [{ ref: 'system', error: 'stale running log — superseded' }];
+      running.errors = [{ ref: 'system', error: 'Import stopped before finishing — started again' }];
       await this.importLogRepository.save(running);
     }
 
@@ -499,7 +522,11 @@ export class FeedService {
     return { propertiesDeleted, locationsDeleted, propertyTypesDeleted, featuresDeleted };
   }
 
-  async processImport(configId: number, importLogId: number, opts: { confirmRemoval?: boolean } = {}): Promise<void> {
+  async processImport(
+    configId: number,
+    importLogId: number,
+    opts: { confirmRemoval?: boolean; retryIfRefused?: boolean } = {},
+  ): Promise<void> {
     const config = await this.feedConfigRepository.findOne({ where: { id: configId } });
     if (!config) {
       throw new NotFoundException('Feed config not found');
@@ -508,6 +535,12 @@ export class FeedService {
     const importLog = await this.importLogRepository.findOne({ where: { id: importLogId } });
     if (!importLog) {
       throw new NotFoundException('Import log not found');
+    }
+    // triggerSync gave up on this run and started another, or it already
+    // finished before a worker restart. Don't repeat the import or rewrite the row.
+    if (importLog.status !== 'running') {
+      this.logger.log(`Skipping import for config ${configId}: run log #${importLogId} is ${importLog.status}`);
+      return;
     }
 
     const adapter = this.getAdapter(config.provider);
@@ -741,6 +774,14 @@ export class FeedService {
         }
       }
     } catch (error) {
+      // Keep the run open and leave lastSyncAt alone: the processor puts the
+      // job back to try later, and nothing was removed from a partial run.
+      if (opts.retryIfRefused && isProviderRefusal(error)) {
+        importLog.errors = [{ ref: 'system', error: `${String(error)} — will try again later` }];
+        await this.importLogRepository.save(importLog);
+        throw new FeedRetryLaterError(error);
+      }
+
       this.logger.error(`Feed import failed for config ${configId}`, error);
 
       importLog.status = 'failed';

@@ -159,7 +159,7 @@ describe('unfeaturing listings that left the feed', () => {
       removeMissing: false,
       protectedFields: [],
     };
-    const importLog = { id: 1 };
+    const importLog = { id: 1, status: 'running' };
     svc.feedConfigRepository = { findOne: jest.fn().mockResolvedValue(config), find: jest.fn().mockResolvedValue([config]), save: jest.fn() };
     svc.importLogRepository = { findOne: jest.fn().mockResolvedValue(importLog), save: jest.fn() };
     svc.tenantRepository = { findOne: jest.fn().mockResolvedValue({ id: TENANT_ID, settings: {} }) };
