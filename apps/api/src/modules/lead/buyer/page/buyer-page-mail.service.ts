@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
@@ -81,7 +82,7 @@ export class BuyerPageMailService {
       }`,
     );
     const text = [...lines, ...(message ? ['', message] : []), ...(url ? ['', url] : [])].join('\n');
-    const replyTo = validEmail(lead.contact?.email) || from.replyTo;
+    const replyTo = validEmail(realEmail(lead.contact?.email)) || from.replyTo;
     for (const address of to) {
       const res = await this.mailer.send({ to: address, subject, html, text, replyTo, fromName: from.name, fromEmail: from.fromEmail });
       if (!res.delivered && res.skippedReason !== 'no-transport') this.logger.warn(`Buyer page notice to ${address} failed: ${res.error}`);
@@ -90,5 +91,5 @@ export class BuyerPageMailService {
 }
 
 function buyerName(lead: Pick<Lead, 'firstName' | 'lastName' | 'contact'>): string {
-  return [lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.contact?.email || 'A buyer';
+  return [lead.firstName, lead.lastName].filter(Boolean).join(' ') || realEmail(lead.contact?.email) || 'A buyer';
 }

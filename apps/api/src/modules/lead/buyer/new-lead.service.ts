@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { realEmail } from './real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { BuyerRole } from '@spm/shared';
@@ -95,7 +96,7 @@ export class NewLeadService {
       id: l.id,
       firstName: l.firstName,
       lastName: l.lastName,
-      email: l.contact?.email ?? null,
+      email: realEmail(l.contact?.email),
       phone: l.phone ?? l.mobile ?? null,
       source: l.source,
       createdAt: l.createdAt,

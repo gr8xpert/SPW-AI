@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -7,6 +9,8 @@ import { dashboardLocale } from '@/i18n/i18n-provider';
 import { useLeadReportText } from '../_i18n';
 import { useLeadReportColumnsText } from '../_i18n/columns';
 import { duration, type AgentLine } from '../use-lead-report';
+
+const CLOSED_KEY = 'spm.leadReport.summaryClosed';
 
 // One line per agent (managers see everyone plus a total; an agent sees
 // their own line). A click on a name or the overdue count filters the table.
@@ -25,6 +29,23 @@ export function AgentSummary({
 }) {
   const t = useLeadReportText();
   const s = t.summary;
+  // Closed gives the leads table more of the screen; remembered per browser.
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    try {
+      setClosed(localStorage.getItem(CLOSED_KEY) === '1');
+    } catch {
+      // No storage: it just opens every time.
+    }
+  }, []);
+  const toggle = () => {
+    setClosed(!closed);
+    try {
+      localStorage.setItem(CLOSED_KEY, closed ? '0' : '1');
+    } catch {
+      // Still toggles for this visit.
+    }
+  };
   const x = useLeadReportColumnsText();
   const money = (n: number) => new Intl.NumberFormat(dashboardLocale(), { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 }).format(n);
   const lines = manager && totals && agents.length > 1 ? [...agents, { ...totals, agentId: -1 as number | null }] : agents;
@@ -32,11 +53,16 @@ export function AgentSummary({
 
   return (
     <Card data-testid="lead-report-summary">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">{s.title}</CardTitle>
-        <CardDescription>{s.hint(overdueHours)}</CardDescription>
+      <CardHeader className={closed ? 'py-3' : 'pb-2'}>
+        <CardTitle className="text-base">
+          <button type="button" className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={!closed} onClick={toggle} data-testid="summary-toggle">
+            {s.title}
+            <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', closed && '-rotate-90')} aria-hidden />
+          </button>
+        </CardTitle>
+        {closed ? null : <CardDescription>{s.hint(overdueHours)}</CardDescription>}
       </CardHeader>
-      <CardContent className="overflow-x-auto p-0 pb-2">
+      {closed ? null : <CardContent className="overflow-x-auto p-0 pb-2">
         <Table>
           <TableHeader>
             <TableRow>
@@ -94,7 +120,7 @@ export function AgentSummary({
             })}
           </TableBody>
         </Table>
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }

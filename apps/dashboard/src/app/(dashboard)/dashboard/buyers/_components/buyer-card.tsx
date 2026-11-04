@@ -5,7 +5,7 @@ import { Mail, MapPin, Clock, UserRound } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName, daysSince, importedDay, type BuyerListItem } from '../use-buyers';
+import { buyerName, daysSince, importedDay, realEmail, type BuyerListItem } from '../use-buyers';
 import { BuyerAvatar, HotBadge, PriorityStars, StageBadge } from './buyer-bits';
 
 export function BuyerCard({ buyer, staleDays }: { buyer: BuyerListItem; staleDays: number }) {
@@ -29,10 +29,10 @@ export function BuyerCard({ buyer, staleDays }: { buyer: BuyerListItem; staleDay
           </div>
 
           <div className="space-y-1 text-xs text-muted-foreground">
-            {buyer.contact?.email ? (
+            {realEmail(buyer.contact?.email) ? (
               <p className="flex items-center gap-1.5 truncate">
                 <Mail className="h-3 w-3 shrink-0" />
-                <span className="truncate">{buyer.contact.email}</span>
+                <span className="truncate">{buyer.contact?.email}</span>
               </p>
             ) : null}
             {buyer.country ? (

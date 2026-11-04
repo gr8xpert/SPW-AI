@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { realEmail } from './real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { BuyerStage, Lead, LeadActivity, LeadActivityType, LeadAgent, User } from '../../../database/entities';
@@ -265,7 +266,7 @@ export class BuyerService {
     }
 
     const changes: FieldChange[] = diffFields(lead as unknown as Record<string, unknown>, patch as Record<string, unknown>, [...PLAIN_FIELDS, 'assignedTo']);
-    if (patch.contactId !== undefined) changes.push({ field: 'email', from: lead.contact?.email ?? null, to: dto.email });
+    if (patch.contactId !== undefined) changes.push({ field: 'email', from: realEmail(lead.contact?.email), to: dto.email });
 
     if (dto.agentIds !== undefined) {
       const mainAgent = patch.assignedTo !== undefined ? patch.assignedTo : lead.assignedTo;

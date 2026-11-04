@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { FileText, Phone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { dashboardLanguage, dashboardLocale } from '@/i18n/i18n-provider';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,67 @@ const STATUS_STYLE: Record<FollowUpStatus, string> = {
 };
 
 const NOBODY = '__nobody__';
+
+// Room left under the table for the page numbers and the page padding.
+const BELOW_TABLE = 72;
+const MIN_TABLE_HEIGHT = 420;
+
+// The table ends at the bottom of the screen when there is room. Measured from
+// the page top: scrolling doesn't change it, but the filters or the Per agent
+// card changing size above do.
+function useFitToScreen() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+  useEffect(() => {
+    const measure = () => {
+      const box = ref.current;
+      if (!box) return;
+      const top = box.getBoundingClientRect().top + window.scrollY;
+      setHeight(Math.max(MIN_TABLE_HEIGHT, window.innerHeight - top - BELOW_TABLE));
+    };
+    measure();
+    const seen = new ResizeObserver(measure);
+    seen.observe(document.body);
+    window.addEventListener('resize', measure);
+    return () => {
+      seen.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+  return { ref, height };
+}
+
+// A sideways scrollbar pinned to the bottom of the screen, because the table can
+// start too far down for its own scrollbar to show. It moves with the table.
+function useSideBar(box: RefObject<HTMLDivElement>) {
+  const bar = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ content: 0, view: 0 });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () =>
+      setSize((now) => (now.content === el.scrollWidth && now.view === el.clientWidth ? now : { content: el.scrollWidth, view: el.clientWidth }));
+    measure();
+    const seen = new ResizeObserver(measure);
+    seen.observe(el);
+    if (el.firstElementChild) seen.observe(el.firstElementChild);
+    const follow = () => {
+      if (bar.current && bar.current.scrollLeft !== el.scrollLeft) bar.current.scrollLeft = el.scrollLeft;
+    };
+    el.addEventListener('scroll', follow, { passive: true });
+    return () => {
+      seen.disconnect();
+      el.removeEventListener('scroll', follow);
+    };
+  }, [box]);
+  const lead = () => {
+    if (box.current && bar.current && box.current.scrollLeft !== bar.current.scrollLeft) box.current.scrollLeft = bar.current.scrollLeft;
+  };
+  return { bar, size, lead };
+}
+
+// The lead's name stays in view while the table scrolls sideways (not on phones, where it would fill the screen).
+const STICKY_LEAD = 'sm:sticky sm:left-0 sm:shadow-[1px_0_0_hsl(var(--border))]';
 
 const money = (n: number) => (n >= 1_000_000 ? `€${Math.round(n / 100_000) / 10}M` : n >= 1000 ? `€${Math.round(n / 1000)}k` : `€${n}`);
 function budget(r: LeadReportRow): string {
@@ -75,7 +136,7 @@ function Row({ r, stages, agents, questions, manager, booking }: RowProps) {
 
   return (
     <TableRow data-testid={`lead-row-${r.id}`} className={cn(f.status === 'overdue' && 'bg-red-50/40 dark:bg-red-950/10')}>
-      <TableCell className="min-w-[180px] align-top">
+      <TableCell className={cn('min-w-[180px] bg-card align-top sm:z-10', STICKY_LEAD, f.status === 'overdue' && 'bg-red-50 dark:bg-red-950')}>
         <Link href={`/dashboard/buyers/${r.id}`} className="font-medium hover:text-primary hover:underline">{name}</Link>
         <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{bt.sources[r.source as keyof typeof bt.sources] ?? r.source}</span>
@@ -174,31 +235,42 @@ export function ReportTable({ rows, ...rest }: Omit<RowProps, 'r'> & { rows: Lea
   const x = useLeadReportColumnsText();
   const c = t.columns;
   const lang = dashboardLanguage();
+  const fit = useFitToScreen();
+  const side = useSideBar(fit.ref);
+  // The table scrolls inside the screen; its sideways bar is pinned to the screen.
+  // Not the Table component: its own scrolling box would stop the header sticking.
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{c.lead}</TableHead>
-            <TableHead>{x.cameIn}</TableHead>
-            <TableHead>{c.contact}</TableHead>
-            <TableHead>{c.agent}</TableHead>
-            <TableHead>{c.stage}</TableHead>
-            <TableHead>{c.followUp}</TableHead>
-            <TableHead>{x.firstContact}</TableHead>
-            <TableHead>{x.appointment}</TableHead>
-            <TableHead>{c.notes}</TableHead>
-            <TableHead>{c.enquiry}</TableHead>
-            <TableHead>{c.budget}</TableHead>
-            <TableHead>{x.propertyType}</TableHead>
-            {rest.questions.map((q) => <TableHead key={q.qkey} className="min-w-[150px]">{textOf(q.label, lang)}</TableHead>)}
-            <TableHead>{c.actions}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => <Row key={r.id} r={r} {...rest} />)}
-        </TableBody>
-      </Table>
+    <div>
+      <div ref={fit.ref} style={{ maxHeight: fit.height }} className="scroll-box-y sm:rounded-b-none max-h-[calc(100vh-6rem)] overflow-auto rounded-md border bg-card" data-testid="lead-report-scroll">
+        <table className="w-full caption-bottom text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:h-10 [&_th]:px-3">
+          <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_hsl(var(--border))]">
+            <TableRow>
+              <TableHead className={cn('bg-card sm:z-30', STICKY_LEAD)}>{c.lead}</TableHead>
+              <TableHead>{x.cameIn}</TableHead>
+              <TableHead>{c.contact}</TableHead>
+              <TableHead>{c.agent}</TableHead>
+              <TableHead>{c.stage}</TableHead>
+              <TableHead>{c.followUp}</TableHead>
+              <TableHead>{x.firstContact}</TableHead>
+              <TableHead>{x.appointment}</TableHead>
+              <TableHead>{c.notes}</TableHead>
+              <TableHead>{c.enquiry}</TableHead>
+              <TableHead>{c.budget}</TableHead>
+              <TableHead>{x.propertyType}</TableHead>
+              {rest.questions.map((q) => <TableHead key={q.qkey} className="min-w-[150px]">{textOf(q.label, lang)}</TableHead>)}
+              <TableHead>{c.actions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => <Row key={r.id} r={r} {...rest} />)}
+          </TableBody>
+        </table>
+      </div>
+      {side.size.content > side.size.view ? (
+        <div ref={side.bar} onScroll={side.lead} style={{ width: side.size.view }} className="sticky bottom-0 z-30 hidden overflow-x-auto bg-muted sm:block" data-testid="lead-report-sidebar">
+          <div style={{ width: side.size.content, height: 1 }} />
+        </div>
+      ) : null}
     </div>
   );
 }

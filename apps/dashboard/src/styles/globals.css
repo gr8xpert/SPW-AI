@@ -126,3 +126,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Every scrollbar in the dashboard: easy to see and easy to grab. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: hsl(var(--muted)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.45); border: 2px solid hsl(var(--muted)); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.7); }
+::-webkit-scrollbar-corner { background: hsl(var(--muted)); }
+/* Its sideways bar lives elsewhere (pinned to the screen): only the up-down one here. */
+@media (min-width: 640px) { .scroll-box-y::-webkit-scrollbar { height: 0; } }
+@supports not selector(::-webkit-scrollbar) {
+  html { scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted)); }
+}

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { formatDate } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
-import { useTenantLanguages, type Buyer } from '../../use-buyers';
+import { realEmail, useTenantLanguages, type Buyer } from '../../use-buyers';
 import { FilterSelect } from '../../_components/filter-select';
 import { PhotoUpload } from '@/components/photo-upload';
 import { FieldCard, type FieldDef } from './field-card';
@@ -127,7 +127,7 @@ export function DetailsTab({ buyer }: { buyer: Buyer }) {
     [p, t],
   );
 
-  const initialContact = useMemo(() => ({ email: buyer.contact?.email ?? '' }), [buyer.contact?.email]);
+  const initialContact = useMemo(() => ({ email: realEmail(buyer.contact?.email) ?? '' }), [buyer.contact?.email]);
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">

@@ -367,6 +367,11 @@ export function daysSince(date: string | null | undefined): number | null {
 
 // An imported buyer nobody has worked on: their last activity is still the date
 // from the import, so it is shown as that date and not as days without activity.
+// Buyers with no email have a made-up address on their contact: never show it.
+export function realEmail(email: string | null | undefined): string | null {
+  return email && !email.toLowerCase().endsWith('@no-email.invalid') ? email : null;
+}
+
 export function importedDay(buyer: Pick<BuyerListItem, 'importRef' | 'lastActivityAt' | 'createdAt'>): string | null {
   if (!buyer.importRef || !buyer.lastActivityAt) return null;
   if (new Date(buyer.lastActivityAt).getTime() !== new Date(buyer.createdAt).getTime()) return null;

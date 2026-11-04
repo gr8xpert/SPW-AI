@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { NO_EMAIL_DOMAIN } from '../lead/buyer/real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { Contact } from '../../database/entities';
@@ -68,6 +69,9 @@ export class ContactService {
     const query = this.contactRepository
       .createQueryBuilder('contact')
       .where('contact.tenantId = :tenantId', { tenantId });
+
+    // Buyers with no email have a made-up address; they are not contacts to mail.
+    query.andWhere('contact.email NOT LIKE :noEmail', { noEmail: `%${NO_EMAIL_DOMAIN}` });
 
     if (search) {
       query.andWhere(

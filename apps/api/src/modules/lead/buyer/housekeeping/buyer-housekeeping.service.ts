@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { BuyerService } from '../buyer.service';
@@ -123,7 +124,7 @@ export class BuyerHousekeepingService {
     });
 
     const name = (l: { firstName: string | null; lastName: string | null; contact?: { email: string } | null; id: number }) =>
-      [l.firstName, l.lastName].filter(Boolean).join(' ') || l.contact?.email || `#${l.id}`;
+      [l.firstName, l.lastName].filter(Boolean).join(' ') || realEmail(l.contact?.email) || `#${l.id}`;
     await this.buyers.log(keepId, viewer.id, 'merge', `Merged ${name(source)} (#${sourceId}) into this buyer`, { sourceId }, false);
     await this.buyers.log(sourceId, viewer.id, 'merge', `Merged into ${name(keep)} (#${keepId})`, { keepId }, false);
     await this.changeLog.record(tenantId, keepId, viewer.id, 'dashboard', [{ field: 'merged', from: null, to: `#${sourceId} ${name(source)}` }]);
@@ -162,7 +163,7 @@ export class BuyerHousekeepingService {
     ];
     const day = (d: Date | string | null) => (d ? new Date(d).toISOString().slice(0, 10) : '');
     const rows = leads.map((l) => [
-      l.id, l.firstName, l.lastName, l.contact?.email, l.phone, l.mobile, l.role, l.stage ? en(l.stage.name) : '',
+      l.id, l.firstName, l.lastName, realEmail(l.contact?.email), l.phone, l.mobile, l.role, l.stage ? en(l.stage.name) : '',
       l.assignedToUser ? l.assignedToUser.name || l.assignedToUser.email : '', l.source, l.priority,
       l.wishlist?.budgetMin ?? '', l.wishlist?.budgetMax ?? '',
       (l.wishlist?.locationIds ?? []).map((id) => locs.get(id)).filter(Boolean).join('; '),

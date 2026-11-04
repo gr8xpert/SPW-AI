@@ -1,4 +1,5 @@
 import { BadGatewayException, BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
@@ -246,7 +247,7 @@ export class CalendlyService {
     if (!member?.schedulingUrl) return null;
     const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
     return {
-      url: bookingLink(member.schedulingUrl, { name, email: lead.contact?.email ?? null, token: bookingToken(c.signingKey, tenantId, lead.id) }),
+      url: bookingLink(member.schedulingUrl, { name, email: realEmail(lead.contact?.email), token: bookingToken(c.signingKey, tenantId, lead.id) }),
       agent: member.name,
     };
   }

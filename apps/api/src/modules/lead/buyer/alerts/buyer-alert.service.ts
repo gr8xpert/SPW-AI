@@ -1,4 +1,5 @@
 import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { TenantSettings } from '@spm/shared';
@@ -191,7 +192,7 @@ export class BuyerAlertService {
         buyer: {
           id: a.leadId,
           name: [a.lead?.firstName, a.lead?.lastName].filter(Boolean).join(' ') || null,
-          email: a.lead?.contact?.email ?? null,
+          email: realEmail(a.lead?.contact?.email),
           agent: a.lead?.assignedToUser?.name ?? null,
         },
         property: cards.get(a.propertyId) ?? null,

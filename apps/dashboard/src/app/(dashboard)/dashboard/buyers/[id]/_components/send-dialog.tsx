@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
-import { useBuyerSettings, useTenantLanguages, type Buyer } from '../../use-buyers';
+import { realEmail, useBuyerSettings, useTenantLanguages, type Buyer } from '../../use-buyers';
 import { useSendPreview, useSendProperties } from '../../use-buyer-match';
 import { FilterSelect } from '../../_components/filter-select';
 import { useEmailIntro } from '../../use-buyer-ai';
@@ -44,7 +44,7 @@ export function SendDialog({
   const failure = useAiFailure();
   const ai = useBuyerText().ai.intro;
 
-  const buyerEmail = buyer.contact?.email ?? null;
+  const buyerEmail = realEmail(buyer.contact?.email);
   const agentEmail = buyer.assignedToUser?.email ?? null;
   const defaults = (): ('buyer' | 'agent')[] => {
     const to = buyer.wishlist?.sendMatchesTo ?? 'buyer';

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../../_i18n/use-buyer-text';
-import { buyerName, useBuyerAgents, type Buyer } from '../../use-buyers';
+import { buyerName, realEmail, useBuyerAgents, type Buyer } from '../../use-buyers';
 import { WhatsAppButton, hasPhoneNumber } from '../../_components/whatsapp-button';
 import { buyerWhatsAppBase } from '../../use-whatsapp';
 import { nameOf, useBuyerSuggestions } from '../../use-buyer-match';
@@ -329,7 +329,7 @@ function ViewingRow({ v, buyer }: { v: Viewing; buyer: Buyer }) {
           <AddToCalendar
             viewing={v}
             title={`${cal.viewingWith(buyerName(buyer))}${label && label !== '—' ? ` · ${label}` : ''}`}
-            details={[buyer.mobile || buyer.phone, buyer.contact?.email].filter(Boolean).join('\n') || null}
+            details={[buyer.mobile || buyer.phone, realEmail(buyer.contact?.email)].filter(Boolean).join('\n') || null}
           />
         ) : null}
         <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setOpen((o) => !o)} data-testid="viewing-open">…</Button>

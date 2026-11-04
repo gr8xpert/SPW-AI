@@ -1,4 +1,5 @@
 import { BadRequestException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
+import { realEmail } from './real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { TenantSettings } from '@spm/shared';
@@ -106,7 +107,7 @@ export class BuyerReverseService {
       matched.push({
         id: b.id,
         name: [b.firstName, b.lastName].filter(Boolean).join(' ') || null,
-        email: b.contact?.email ?? null,
+        email: realEmail(b.contact?.email),
         agent: b.assignedToUser ? { id: b.assignedToUser.id, name: b.assignedToUser.name } : null,
         score: s.score,
         missed: s.missed,

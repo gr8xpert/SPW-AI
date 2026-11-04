@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useBuyerText } from '../_i18n/use-buyer-text';
-import { buyerName, daysSince, importedDay, type BuyerListItem } from '../use-buyers';
+import { buyerName, daysSince, importedDay, realEmail, type BuyerListItem } from '../use-buyers';
 import { BuyerAvatar, HotBadge, PriorityStars, StageBadge } from './buyer-bits';
 
 export function BuyerTable({ buyers, staleDays }: { buyers: BuyerListItem[]; staleDays: number }) {
@@ -40,7 +40,7 @@ export function BuyerTable({ buyers, staleDays }: { buyers: BuyerListItem[]; sta
                     <HotBadge hot={b.hot} title={t.hotTitle} />
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{b.contact?.email}</TableCell>
+                <TableCell className="text-muted-foreground">{realEmail(b.contact?.email)}</TableCell>
                 <TableCell className="text-muted-foreground">{b.mobile || b.phone || ''}</TableCell>
                 <TableCell>{t.roles[b.role] ?? b.role}</TableCell>
                 <TableCell><StageBadge stage={b.stage} /></TableCell>

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -152,7 +153,7 @@ export class BuyerViewingMailService {
         const what = card ? `${card.reference} — ${titleOf(card.title, 'en') || ''}`.replace(/ — $/, '') : v.title || 'a viewing';
         const settings = (tenant.settings || {}) as TenantSettings;
         const { time } = localDayTime(new Date(v.startsAt), settings.timezone || 'UTC');
-        const buyer = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.contact?.email || 'the buyer';
+        const buyer = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || realEmail(lead.contact?.email) || 'the buyer';
         const phone = lead.mobile || lead.phone;
         const dashboard = (this.config.get<string>('DASHBOARD_URL') || '').replace(/\/$/, '');
         const from = this.formMail.sender(tenant);

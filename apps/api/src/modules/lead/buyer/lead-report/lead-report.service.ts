@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { realEmail } from '../real-email';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import type { BuyerMatchSettings } from '@spm/shared';
@@ -60,7 +61,7 @@ const json = <T>(v: unknown): T | null => {
 };
 
 const fullName = (l: { firstName: string | null; lastName: string | null; contact?: { email: string } | null }) =>
-  [l.firstName, l.lastName].filter(Boolean).join(' ') || l.contact?.email || '—';
+  [l.firstName, l.lastName].filter(Boolean).join(' ') || realEmail(l.contact?.email) || '—';
 
 @Injectable()
 export class LeadReportService {
@@ -172,7 +173,7 @@ export class LeadReportService {
     return leads.map((l) => ({
       id: l.id,
       name: fullName(l),
-      email: l.contact?.email ?? null,
+      email: realEmail(l.contact?.email),
       phone: l.phone,
       mobile: l.mobile,
       source: l.source,

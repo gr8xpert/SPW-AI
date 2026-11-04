@@ -13,6 +13,7 @@ import { useBuyerText } from '../../_i18n/use-buyer-text';
 import {
   BUYER_ROLES, buyerName, daysSince, importedDay, stageName, useBuyerAgents, useBuyerSettings, useBuyerStages, useSetBuyerStage,
   useUpdateBuyer, type Buyer, type UpdateBuyerInput,
+  realEmail,
 } from '../../use-buyers';
 import { BuyerAvatar, PriorityStars } from '../../_components/buyer-bits';
 import { FilterSelect } from '../../_components/filter-select';
@@ -88,10 +89,10 @@ export function BuyerHeader({ buyer }: { buyer: Buyer }) {
               <p className="rounded-md border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground" data-testid="erased-notice">{t.privacy.erasedNotice}</p>
             ) : null}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {buyer.contact?.email && !buyer.erasedAt ? (
-                <a className="flex items-center gap-1.5 hover:text-foreground" href={`mailto:${buyer.contact.email}`}>
+              {realEmail(buyer.contact?.email) && !buyer.erasedAt ? (
+                <a className="flex items-center gap-1.5 hover:text-foreground" href={`mailto:${buyer.contact?.email}`}>
                   <Mail className="h-3.5 w-3.5" />
-                  {buyer.contact.email}
+                  {buyer.contact?.email}
                 </a>
               ) : null}
               {phone ? (

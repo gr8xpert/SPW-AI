@@ -1,4 +1,5 @@
 import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { realEmail } from './real-email';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { TenantSettings } from '@spm/shared';
@@ -127,7 +128,7 @@ export class BuyerSendService {
     for (const kind of (to === 'both' ? ['buyer', 'agent'] : [to]) as ('buyer' | 'agent')[]) {
       // An unsubscribed or erased buyer gets no alerts (their agent still can).
       if (kind === 'buyer' && (lead.unsubscribedAt || lead.erasedAt)) continue;
-      const email = kind === 'buyer' ? lead.contact?.email : lead.assignedToUser?.email;
+      const email = kind === 'buyer' ? realEmail(lead.contact?.email) : lead.assignedToUser?.email;
       if (email && !recipients.some((r) => r.email.toLowerCase() === email.toLowerCase())) recipients.push({ kind, email });
     }
     if (!recipients.length && (lead.unsubscribedAt || lead.erasedAt)) return { sendId: null, propertyIds: [] };
@@ -157,7 +158,7 @@ export class BuyerSendService {
     if (!picked.length) throw new BadRequestException({ code: 'NO_SUGGESTIONS', message: 'There are no suggested properties to print' });
     const lang = this.langOf(lead, tenant, langParam);
     const labels = await this.mail.labels(tenantId, lang);
-    const name = buyerName(lead) || lead.contact?.email || '';
+    const name = buyerName(lead) || realEmail(lead.contact?.email) || '';
     const agent = lead.assignedToUser?.name || null;
     const ids = picked.slice(0, MAX_PDF).map((s) => s.propertyId);
     const date = new Date();
@@ -228,7 +229,7 @@ export class BuyerSendService {
         }
         continue;
       }
-      const email = kind === 'buyer' ? lead.contact?.email : lead.assignedToUser?.email;
+      const email = kind === 'buyer' ? realEmail(lead.contact?.email) : lead.assignedToUser?.email;
       if (!email) {
         if (strict) throw new BadRequestException({ code: 'NO_RECIPIENT', details: { recipient: kind }, message: `The ${kind} has no email address` });
         continue;
