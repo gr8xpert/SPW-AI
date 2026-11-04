@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -19,6 +20,7 @@ import {
   Tenant,
   ExportFormat,
   ExportLogFormat,
+  ExportLogTrigger,
   JsonFeedSettings,
 } from '../../database/entities';
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
@@ -26,6 +28,8 @@ import { PropertySearchService } from '../property/property-search.service';
 import { cleanKeyScope } from '../property/key-scope';
 import { KYERO_CHECK_COLUMNS, KyeroFeedWriter, kyeroSkipReason } from './kyero/kyero-builder';
 import { ExportLookups, joinJsonFeedRows, jsonFeedRow, toExportProperty } from './export-rows';
+import { RedisLockService } from '../../common/redis/redis-lock.service';
+import { UrlFeedRunResult, runUrlFeedOnce } from './manual-run';
 
 // Which listings a URL feed sends. The Kyero XML feed reads these from the
 // config's top-level columns, the JSON feed from config.jsonFeed.
@@ -91,6 +95,7 @@ export class FeedExportService {
     private apiKeyRepository: Repository<ApiKey>,
     private configService: ConfigService,
     private propertySearch: PropertySearchService,
+    private lock: RedisLockService,
   ) {}
 
   // Feed builds wait their turn in each process: a batch is small, but several
@@ -270,13 +275,29 @@ export class FeedExportService {
     return { config, tenantId: tenant.id, tenant };
   }
 
+  // The dashboard's button: generates the feed exactly as a reader would get it
+  // and logs it as manual. A URL feed is built fresh on every read, so this
+  // sends nothing and the reader still comes on its own schedule.
+  async runNow(tenantId: number, format: ExportFormat, ip: string, userAgent: string): Promise<UrlFeedRunResult> {
+    const config = await this.configRepository.findOne({ where: { tenantId } });
+    const enabled = config && (format === 'json' ? jsonFeedOf(config).enabled : config.isEnabled);
+    if (!config || !enabled) throw new BadRequestException('This feed is switched off. Turn it on and press Save first.');
+    // exportProperties answers 401 here, which the dashboard takes as a dead session.
+    if (!config.allowedFormats.includes(format)) throw new BadRequestException(`Format ${format} not allowed`);
+    return runUrlFeedOnce(this.lock, format, tenantId, async () => {
+      const { count, skipped } = await this.exportProperties(tenantId, config, format, ip, userAgent, 'manual');
+      return { listings: count, skipped };
+    });
+  }
+
   async exportProperties(
     tenantId: number,
     config: FeedExportConfig,
     format: ExportFormat,
     ip: string,
     userAgent: string,
-  ): Promise<{ content: string; contentType: string }> {
+    trigger: ExportLogTrigger = 'read',
+  ): Promise<{ content: string; contentType: string; count: number; skipped: number }> {
     const startTime = Date.now();
 
     // Check if format is allowed
@@ -286,7 +307,7 @@ export class FeedExportService {
 
     const rules: ListingRules =
       format === 'json' ? { ...jsonFeedOf(config), propertyFilter: config.propertyFilter } : config;
-    const { content, contentType, count } = await this.oneBuildAtATime(() =>
+    const { content, contentType, count, skipped } = await this.oneBuildAtATime(() =>
       format === 'xml' ? this.buildXml(tenantId, rules) : this.buildJson(tenantId, rules),
     );
 
@@ -299,13 +320,14 @@ export class FeedExportService {
       tenantId,
       format,
       propertiesCount: count,
+      trigger,
       requesterIp: ip.slice(0, 45),
       userAgent: userAgent.slice(0, 500),
       responseTimeMs: Date.now() - startTime,
     });
     await this.logRepository.save(log);
 
-    return { content, contentType };
+    return { content, contentType, count, skipped };
   }
 
   // A website key's own XML feed: Kyero v3, with the same listings the key

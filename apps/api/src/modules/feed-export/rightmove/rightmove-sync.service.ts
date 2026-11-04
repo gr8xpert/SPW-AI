@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, LessThan, Repository } from 'typeorm';
@@ -12,6 +12,7 @@ import {
   RightmoveListing,
   RightmoveLocation,
   RightmovePushLog,
+  RightmoveRunTrigger,
 } from '../../../database/entities';
 import { RedisLockService } from '../../../common/redis/redis-lock.service';
 import { RightmoveClient, RmResponse } from './rightmove-client';
@@ -26,6 +27,7 @@ import {
   isSkipped,
 } from './rightmove-builder';
 import { CHANNEL_SALES, REMOVAL_REASON } from './rightmove-catalog';
+import { assertLockAcquired } from '../manual-run';
 
 export const DEFAULT_RIGHTMOVE: RightmoveExportSettings = {
   enabled: false,
@@ -44,6 +46,8 @@ export function rightmoveSettings(config: FeedExportConfig | null): RightmoveExp
 const LISTING_TYPES = ['sale', 'development'];
 const MAX_LISTINGS = 2000;
 const LOG_DAYS = 30;
+const PUSH_LOCK_TTL_MS = 30 * 60_000;
+const pushLockKey = (tenantId: number) => `rightmove:push:${tenantId}`;
 
 export interface BuildResult {
   settings: RightmoveExportSettings;
@@ -129,14 +133,66 @@ export class RightmoveSyncService {
   // Sends what changed since the last push and takes off what left. One run
   // per client at a time; a second call while one runs returns at once.
   async pushTenant(tenantId: number): Promise<PushSummary> {
-    const outcome = await this.lock.withLock(`rightmove:push:${tenantId}`, 30 * 60_000, () => this.runPush(tenantId));
+    const outcome = await this.lock.withLock(pushLockKey(tenantId), PUSH_LOCK_TTL_MS, () => this.runPush(tenantId, 'auto'));
     if (!outcome.acquired) {
       return { dryRun: !this.client.isLive, sent: 0, unchanged: 0, removed: 0, failed: 0, skipped: 0, message: 'A push is already running' };
     }
     return outcome.result as PushSummary;
   }
 
-  private async runPush(tenantId: number): Promise<PushSummary> {
+  // The dashboard's button: the same run as the schedule, started in the
+  // background. Resolves once this run holds the lock; rejects if the feed
+  // can't run or one is already going. The result lands in the push log.
+  async startManualPush(tenantId: number): Promise<{ started: true; dryRun: boolean }> {
+    const settings = rightmoveSettings(await this.configRepository.findOne({ where: { tenantId } }));
+    if (!settings.enabled) throw new BadRequestException('Rightmove is switched off. Turn it on and press Save first.');
+    if (!settings.networkId || !settings.branchId) throw new BadRequestException('Add the Rightmove network and branch ID first');
+    const dryRun = !this.client.isLive;
+    return new Promise((resolve, reject) => {
+      this.lock
+        .withLock(pushLockKey(tenantId), PUSH_LOCK_TTL_MS, async () => {
+          resolve({ started: true, dryRun });
+          await this.runManualPush(tenantId, dryRun);
+        })
+        .then(assertLockAcquired)
+        .catch(reject);
+    });
+  }
+
+  private async runManualPush(tenantId: number, dryRun: boolean): Promise<void> {
+    const started = Date.now();
+    try {
+      await this.runPush(tenantId, 'manual');
+    } catch (err) {
+      this.logger.error(`Manual Rightmove push failed for tenant ${tenantId}`, err as Error);
+      await this.logRun(tenantId, 'manual', { ...EMPTY_COUNTS, dryRun }, started, `The push stopped: ${(err as Error).message}`).catch((e) =>
+        this.logger.error(`Could not log the failed push for tenant ${tenantId}`, e as Error),
+      );
+    }
+  }
+
+  // Whether a push is going (by hand or by the schedule), and how the last one ended.
+  async pushStatus(tenantId: number) {
+    const [running, lastRun] = await Promise.all([
+      this.lock.isHeld(pushLockKey(tenantId)),
+      this.logRepository.findOne({ where: { tenantId, action: 'run' }, order: { id: 'DESC' } }),
+    ]);
+    return {
+      running,
+      lastRun: lastRun && {
+        id: lastRun.id,
+        trigger: lastRun.trigger,
+        success: lastRun.success,
+        dryRun: lastRun.dryRun,
+        summary: lastRun.summary,
+        message: lastRun.message,
+        createdAt: lastRun.createdAt,
+      },
+    };
+  }
+
+  private async runPush(tenantId: number, trigger: RightmoveRunTrigger): Promise<PushSummary> {
+    const started = Date.now();
     const { settings, built, skipped } = await this.build(tenantId);
     const dryRun = !this.client.isLive;
     const summary: PushSummary = { dryRun, sent: 0, unchanged: 0, removed: 0, failed: 0, skipped: skipped.length };
@@ -194,18 +250,28 @@ export class RightmoveSyncService {
       await this.listingRepository.save(row);
     }
 
-    if (dryRun) {
-      await this.logRepository.save(
-        this.logRepository.create({
-          tenantId,
-          action: 'send',
-          success: true,
-          dryRun: true,
-          message: `Dry run (no Rightmove certificate yet): would send ${summary.sent}, remove ${summary.removed}; ${summary.unchanged} unchanged, ${summary.skipped} left out`,
-        }),
-      );
-    }
+    await this.logRun(tenantId, trigger, summary, started);
     return summary;
+  }
+
+  // One row per run. A scheduled run that changed nothing leaves no row, or
+  // they would push every real entry out of the log within days.
+  private async logRun(tenantId: number, trigger: RightmoveRunTrigger, summary: PushSummary, started: number, error?: string) {
+    const { dryRun, sent, removed, unchanged, failed, skipped } = summary;
+    if (trigger === 'auto' && !error && !sent && !removed && !failed) return;
+    const counts = `${sent} sent, ${removed} removed, ${unchanged} unchanged, ${failed} failed, ${skipped} left out`;
+    await this.logRepository.save(
+      this.logRepository.create({
+        tenantId,
+        action: 'run',
+        trigger,
+        summary: { sent, removed, unchanged, failed, skipped },
+        success: !error && !failed,
+        dryRun,
+        message: (error ?? (dryRun ? `Dry run (no Rightmove certificate yet), nothing reached Rightmove: ${counts}` : counts)).slice(0, 1000),
+        responseTimeMs: Date.now() - started,
+      }),
+    );
   }
 
   // What Rightmove holds for the branch versus what SPM thinks is live.
@@ -336,6 +402,8 @@ export class RightmoveSyncService {
     );
   }
 }
+
+const EMPTY_COUNTS = { sent: 0, unchanged: 0, removed: 0, failed: 0, skipped: 0 };
 
 function errorText(res: RmResponse): string {
   const details = res.errors.map((e) => `${e.code}: ${e.description}`).join('; ');

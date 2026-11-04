@@ -13,11 +13,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtPayload, UserRole } from '@spm/shared';
 import { CurrentTenant, CurrentUser, RequiresAddon } from '../../../common/decorators';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { DashboardAddonGuard, JwtAuthGuard, RolesGuard, TenantGuard } from '../../../common/guards';
 import { SetRightmoveTownDto, UpdateRightmoveSettingsDto, UpdateRightmoveTypesDto } from '../dto';
+import { MANUAL_RUN_THROTTLE } from '../manual-run';
 import { RightmoveFeedService } from './rightmove-feed.service';
 
 // Dashboard: the client's Rightmove card on the Feed Export page.
@@ -67,10 +69,20 @@ export class RightmoveConfigController {
     return this.service.logs(tenantId);
   }
 
+  // Starts the push and answers at once: a big one outlasts the web server's
+  // timeout. The page follows it with push/status.
   @Post('push')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Throttle(MANUAL_RUN_THROTTLE)
   push(@CurrentTenant() tenantId: number) {
     return this.service.pushNow(tenantId);
+  }
+
+  @Get('push/status')
+  pushStatus(@CurrentTenant() tenantId: number) {
+    return this.service.pushStatus(tenantId);
   }
 
   @Post('reconcile')

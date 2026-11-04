@@ -1,7 +1,10 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
-import { DashboardAddonGuard, JwtAuthGuard, TenantGuard } from '../../common/guards';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { DashboardAddonGuard, JwtAuthGuard, RolesGuard, TenantGuard } from '../../common/guards';
+import { MANUAL_RUN_THROTTLE } from './manual-run';
 import { UpdateIdealistaSettingsDto, UpdateIdealistaTypesDto } from './dto';
 import { IdealistaFeedService } from './idealista-feed.service';
 
@@ -35,6 +38,16 @@ export class IdealistaConfigController {
   @Get('check')
   check(@CurrentTenant() tenantId: number) {
     return this.service.check(tenantId);
+  }
+
+  // Generates the feed now and logs it. idealista still fetches the URL itself.
+  @Post('run')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Throttle(MANUAL_RUN_THROTTLE)
+  run(@CurrentTenant() tenantId: number, @Req() req: Request) {
+    return this.service.runNow(tenantId, req.ip || '', String(req.headers['user-agent'] || ''));
   }
 
   // ?search=CH201 for the picker, or ?ids=1,2,3 for the picked listings.

@@ -33,18 +33,27 @@ export function FeedUrlCard(props: {
   enabled: boolean;
   copied: boolean;
   onCopy: () => void;
+  // The Push Now button and the line that goes with it.
+  action?: ReactNode;
+  note?: ReactNode;
   children?: ReactNode;
 }) {
   const t = useFeedExportText();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {props.icon}
-          {props.title}
-          <Badge variant={props.enabled ? 'default' : 'secondary'}>{props.enabled ? t.common.on : t.common.off}</Badge>
-        </CardTitle>
-        <CardDescription>{props.description}</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center gap-2">
+              {props.icon}
+              {props.title}
+              <Badge variant={props.enabled ? 'default' : 'secondary'}>{props.enabled ? t.common.on : t.common.off}</Badge>
+            </CardTitle>
+            <CardDescription>{props.description}</CardDescription>
+            {props.note}
+          </div>
+          {props.action}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

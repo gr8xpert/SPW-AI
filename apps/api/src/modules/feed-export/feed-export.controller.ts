@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Post,
   Put,
   Body,
@@ -12,11 +14,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { FeedExportService, KEY_FEED_PREFIX } from './feed-export.service';
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
 import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
 import { ExportFormat, ExportLogFormat } from '../../database/entities';
-import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard, RolesGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
+import { MANUAL_RUN_THROTTLE } from './manual-run';
 
 // Dashboard controller for managing feed export config
 @Controller('api/dashboard/feed-export')
@@ -54,6 +59,25 @@ export class FeedExportConfigController {
   @Post('json/regenerate-key')
   regenerateJsonKey(@CurrentTenant() tenantId: number) {
     return this.service.regenerateJsonKey(tenantId);
+  }
+
+  // Generates the feed now and logs it. Readers still fetch the URL themselves.
+  @Post('run')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Throttle(MANUAL_RUN_THROTTLE)
+  runKyero(@CurrentTenant() tenantId: number, @Req() req: Request) {
+    return this.service.runNow(tenantId, 'xml', req.ip || '', String(req.headers['user-agent'] || ''));
+  }
+
+  @Post('json/run')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @Throttle(MANUAL_RUN_THROTTLE)
+  runJson(@CurrentTenant() tenantId: number, @Req() req: Request) {
+    return this.service.runNow(tenantId, 'json', req.ip || '', String(req.headers['user-agent'] || ''));
   }
 
   @Get('logs')

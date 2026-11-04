@@ -227,7 +227,11 @@ export class RightmoveFeedService {
   }
 
   pushNow(tenantId: number) {
-    return this.sync.pushTenant(tenantId);
+    return this.sync.startManualPush(tenantId);
+  }
+
+  pushStatus(tenantId: number) {
+    return this.sync.pushStatus(tenantId);
   }
 
   reconcile(tenantId: number) {

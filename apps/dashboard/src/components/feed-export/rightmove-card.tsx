@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, Save, Send, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { errorText, unwrap } from './idealista-api';
-import type { RightmoveCheck, RightmoveOverview, RightmovePushSummary, RightmoveSettings } from './rightmove-api';
+import type { RightmoveCheck, RightmoveOverview, RightmovePushStatus, RightmoveSettings } from './rightmove-api';
 import type { ExportStatus } from './export-status';
 import { IdealistaListingPicker } from './idealista-listing-picker';
 import { IdealistaTypesTable } from './idealista-types-table';
 import { RightmoveLog } from './rightmove-log';
 import { RightmoveTowns } from './rightmove-towns';
+import { runErrorText } from './feed-run-button';
+import { spainDateTime } from './spain-time';
 import { useLanguage } from '@/i18n/i18n-provider';
 import { useFeedExportText } from './_i18n';
 
@@ -38,7 +40,10 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
   const [check, setCheck] = useState<RightmoveCheck | null>(null);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // A push runs in the background, and the schedule's own runs count too.
   const [pushing, setPushing] = useState(false);
+  const announceResult = useRef(false);
   const [logKey, setLogKey] = useState(0);
 
   const load = async () => {
@@ -66,7 +71,36 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
     if (!session?.accessToken) return;
     load();
     runCheck();
+    apiGet(`${BASE}/push/status`)
+      .then((res) => setPushing(unwrap<RightmovePushStatus>(res).running))
+      .catch(() => undefined);
   }, [session?.accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Follows a running push until it ends, then shows how it went.
+  useEffect(() => {
+    if (!pushing) return;
+    let busy = false;
+    const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const status = unwrap<RightmovePushStatus>(await apiGet(`${BASE}/push/status`));
+        if (status.running) return;
+        clearInterval(timer);
+        setPushing(false);
+        if (announceResult.current) showResult(status.lastRun);
+        announceResult.current = false;
+        setLogKey((k) => k + 1);
+        await load();
+        runCheck();
+      } catch {
+        // A failed check is not a failed push: try again on the next tick.
+      } finally {
+        busy = false;
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [pushing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!overview) return;
@@ -91,23 +125,31 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
     }
   };
 
+  const showResult = (run: RightmovePushStatus['lastRun']) => {
+    if (!run) return;
+    const c = run.summary;
+    const counts = c ? t.rightmove.pushCounts(c.sent, c.removed, c.unchanged, c.failed) : '';
+    if (!run.success && !c?.failed) {
+      toast({ title: t.rightmove.pushFailed, description: run.message ?? undefined, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: run.dryRun ? t.rightmove.dryRunDone : run.success ? t.rightmove.pushed : t.rightmove.pushFailed,
+      description: run.dryRun ? t.rightmove.wouldBe(counts) : counts,
+      variant: run.success ? undefined : 'destructive',
+    });
+  };
+
   const push = async () => {
-    setPushing(true);
+    setStarting(true);
     try {
-      const r = unwrap<RightmovePushSummary>(await apiPost(`${BASE}/push`));
-      const counts = t.rightmove.pushCounts(r.sent, r.removed, r.unchanged, r.failed);
-      toast({
-        title: r.message || (r.dryRun ? t.rightmove.dryRunDone : t.rightmove.pushed),
-        description: r.message ? undefined : r.dryRun ? t.rightmove.wouldBe(counts) : counts,
-        variant: r.failed ? 'destructive' : undefined,
-      });
-      await load();
-      runCheck();
-      setLogKey((k) => k + 1);
+      await apiPost(`${BASE}/push`);
+      announceResult.current = true;
+      setPushing(true);
     } catch (err) {
-      toast({ title: t.rightmove.pushFailed, description: fail(err), variant: 'destructive' });
+      toast({ title: t.rightmove.pushFailed, description: runErrorText(err, t), variant: 'destructive' });
     } finally {
-      setPushing(false);
+      setStarting(false);
     }
   };
 
@@ -128,21 +170,31 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
     return Number.isFinite(n) && n > 0 ? n : null;
   };
   const problems = (check?.skipped.length ?? 0) + (check?.issues.length ?? 0);
+  // Saved state only: the run uses what is saved, not unsaved edits.
+  const saved = overview.settings;
+  const canPush = saved.enabled && !!saved.networkId && !!saved.branchId;
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2">
               Rightmove
               <Badge variant={settings.enabled ? 'default' : 'secondary'}>{settings.enabled ? t.common.on : t.common.off}</Badge>
               {!overview.live && <Badge variant="outline">{t.common.testMode}</Badge>}
             </CardTitle>
             <CardDescription>{t.rightmove.description}</CardDescription>
+            {!canPush && (
+              <p className="text-xs text-muted-foreground mt-1">{saved.enabled ? t.run.needIds : t.run.offHint}</p>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Switch checked={settings.enabled} onCheckedChange={(v) => set({ enabled: v })} />
+            <Button variant="outline" onClick={push} disabled={starting || pushing || !canPush}>
+              {starting || pushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              {t.rightmove.pushNow}
+            </Button>
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               {t.common.save}
@@ -203,20 +255,16 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
               </div>
               <Switch checked={settings.includeSpanish} onCheckedChange={(v) => set({ includeSpanish: v })} />
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+            <div className="rounded-md border p-3">
               <div className="text-sm space-y-0.5">
                 <div><strong>{overview.onRightmove}</strong> {t.rightmove.onRightmove}{overview.withErrors ? t.rightmove.withErrors(overview.withErrors) : ''}</div>
                 {check && <div className="text-muted-foreground">{t.rightmove.waiting(check.pending)}</div>}
                 {overview.lastActivity && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {t.rightmove.lastActivity(new Date(overview.lastActivity).toLocaleString(locale))}
+                    <Clock className="h-3 w-3" /> {t.rightmove.lastActivity(spainDateTime(overview.lastActivity, locale))}
                   </div>
                 )}
               </div>
-              <Button variant="outline" onClick={push} disabled={pushing || !settings.enabled}>
-                {pushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                {t.rightmove.pushNow}
-              </Button>
             </div>
           </TabsContent>
 

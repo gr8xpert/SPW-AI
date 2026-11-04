@@ -10,6 +10,7 @@ import { RightmoveCard } from '@/components/feed-export/rightmove-card';
 import { API_URL } from '@/components/feed-export/idealista-api';
 import { StatusDot, type ExportStatus } from '@/components/feed-export/export-status';
 import { ExportLogCard } from '@/components/feed-export/export-log-card';
+import { FeedRunButton, FeedRunNote } from '@/components/feed-export/feed-run-button';
 import {
   FeedKeyCard,
   FeedSettingsCard,
@@ -95,8 +96,9 @@ function FeedExportPageInner() {
     window.history.replaceState(null, '', url.toString());
   };
 
-  // `only` refreshes one feed's form and leaves unsaved edits on the other.
-  const fetchConfig = async (only?: UrlFeed) => {
+  // `only` refreshes one feed's form and leaves unsaved edits on the other;
+  // 'counts' refreshes the numbers and leaves every form alone.
+  const fetchConfig = async (only?: UrlFeed | 'counts') => {
     try {
       const res = await api.get('/api/dashboard/feed-export');
       const body: ExportConfig | null = res?.data || res;
@@ -105,6 +107,7 @@ function FeedExportPageInner() {
         setEdits((prev) => {
           const fresh = { kyero: kyeroSettings(body), json: jsonSettings(body) };
           if (!prev || !only) return fresh;
+          if (only === 'counts') return prev;
           return { ...prev, [only]: fresh[only] };
         });
       }
@@ -202,6 +205,15 @@ function FeedExportPageInner() {
           url={feedUrl(file, key)}
           propertyCount={(isKyero ? config?.propertyCount : config?.json?.propertyCount) ?? 0}
           enabled={isKyero ? kyeroOn : jsonOn}
+          note={<FeedRunNote portal={isKyero ? 'Kyero' : undefined} enabled={isKyero ? kyeroOn : jsonOn} />}
+          action={
+            <FeedRunButton
+              url={isKyero ? '/api/dashboard/feed-export/run' : '/api/dashboard/feed-export/json/run'}
+              portal={isKyero ? 'Kyero' : undefined}
+              enabled={isKyero ? kyeroOn : jsonOn}
+              onDone={() => fetchConfig('counts')}
+            />
+          }
           copied={copied === `${name} URL`}
           onCopy={() => copyToClipboard(feedUrl(file, key), `${name} URL`, t.page.urlCopied(name))}
         >

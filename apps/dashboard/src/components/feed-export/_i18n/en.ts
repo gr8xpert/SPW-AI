@@ -74,7 +74,7 @@ export const en = {
     logDescription: (name: string) => `Every export of the ${name} feed in the last 30 days: when it ran and how many listings went out`,
     logFailed: 'The log could not be loaded',
     noDownloads: 'No exports yet',
-    date: 'Timestamp',
+    date: 'Timestamp (Spain time)',
     logEntry: 'Description',
     exported: (n: string) => `Exported ${n} properties`,
     ipAddress: 'IP Address',
@@ -163,7 +163,7 @@ export const en = {
     askSupport:
       'To go live on Rightmove, ask SPM support to add your Rightmove network and branch ID. Until then you can set everything else up and use the Check tab to see what Rightmove would receive.',
     testModeNote:
-      'Test mode: the Rightmove certificate isn’t installed on the server yet. “Push now” shows what would be sent, but nothing reaches Rightmove.',
+      'Test mode: the Rightmove certificate isn’t installed on the server yet. “Push Now” shows what would be sent, but nothing reaches Rightmove.',
     networkId: 'Rightmove network ID',
     branchId: 'Rightmove branch ID',
     idsHelp:
@@ -176,7 +176,7 @@ export const en = {
     withErrors: (n: number) => `, ${n} with errors`,
     waiting: (n: number) => `${n} waiting to be sent`,
     lastActivity: (when: string) => `Last activity ${when}`,
-    pushNow: 'Push now',
+    pushNow: 'Push Now',
     allOwnSale: 'All my own live sale listings',
     listingsHelp:
       'Only your own listings (and ones added by hand) are ever sent. Rightmove Overseas takes sales only — rentals are never sent. A listing that is sold, unpublished or unpicked is taken off Rightmove at the next push.',
@@ -186,13 +186,34 @@ export const en = {
     sample: 'What Rightmove receives (first listing)',
   },
 
+  run: {
+    generated: 'Feed generated',
+    generatedText: (n: number, skipped: number) =>
+      `${n} ${n === 1 ? 'listing' : 'listings'} in the feed${skipped ? `, ${skipped} left out` : ''}.`,
+    next: (portal: string) => `Nothing was sent: ${portal} gets this the next time it reads your feed.`,
+    nextJson: 'Nothing was sent: whoever uses this feed gets this the next time they read it.',
+    note: (portal: string) =>
+      `${portal} reads your feed on its own schedule. Push Now generates the feed and logs it, but can’t make ${portal} read it sooner.`,
+    noteJson: 'Whoever uses this feed reads it when they choose. Push Now generates the feed and logs it, but can’t make them read it sooner.',
+    failed: 'Could not generate the feed',
+    alreadyRunning: 'A run is already going. Try again in a moment.',
+    tooSoon: 'Too many runs in a short time. Wait a minute and try again.',
+    offHint: 'To use Push Now, switch this feed on and press Save.',
+    needIds: 'To use Push Now, ask SPM support to add your Rightmove network and branch ID.',
+    source: 'Source',
+    sourceRead: 'URL read',
+    generatedEntry: (n: string) => `Feed rebuilt with ${n} properties. The portal picks it up on its next read.`,
+    triggerManual: 'Manual',
+    triggerAuto: 'Automatic',
+  },
+
   rmLog: {
     loadFailed: 'Could not load the log',
     intro: 'Last 100 calls to Rightmove (kept 30 days).',
     refresh: 'Refresh',
     nothingSent: 'Nothing sent yet.',
     dryRun: 'Dry run',
-    actions: { send: 'Sent', remove: 'Removed', list: 'Checked list' } as Record<string, string>,
+    actions: { send: 'Sent', remove: 'Removed', list: 'Checked list', run: 'Push run' } as Record<string, string>,
     onRightmove: (n: number) => `On Rightmove (${n})`,
     openOnRightmove: 'Open on Rightmove',
   },

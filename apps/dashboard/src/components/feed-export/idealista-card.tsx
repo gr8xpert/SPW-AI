@@ -24,6 +24,7 @@ import {
 import type { ExportStatus } from './export-status';
 import { IdealistaListingPicker } from './idealista-listing-picker';
 import { IdealistaTypesTable } from './idealista-types-table';
+import { FeedRunButton, FeedRunNote } from './feed-run-button';
 import { useFeedExportText } from './_i18n';
 
 // Feed Export → idealista: the client's own idealista feed (customer JSON v6).
@@ -125,6 +126,8 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
   };
   const codeOk = /^ilc[a-z0-9]{40}$/.test(settings.customerCode.trim());
   const problems = (check?.skipped.length ?? 0) + (check?.issues?.length ?? 0);
+  // Saved state only: the run uses what is saved, not unsaved edits.
+  const canRun = overview.settings.enabled && !!overview.feedKey;
 
   const copy = () => {
     navigator.clipboard.writeText(feedUrl);
@@ -135,16 +138,18 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2">
               idealista
               <Badge variant={settings.enabled ? 'default' : 'secondary'}>{settings.enabled ? t.common.on : t.common.off}</Badge>
             </CardTitle>
             <CardDescription>{t.idealista.description}</CardDescription>
+            <FeedRunNote portal="idealista" enabled={canRun} />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Switch checked={settings.enabled} onCheckedChange={(v) => set({ enabled: v })} />
+            <FeedRunButton url="/api/dashboard/feed-export/idealista/run" portal="idealista" enabled={canRun} onDone={runCheck} />
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               {t.common.save}

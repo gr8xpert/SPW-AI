@@ -9,6 +9,7 @@ import { useTenantQueryScope } from '@/hooks/use-tenant-query-scope';
 import { useLanguage } from '@/i18n/i18n-provider';
 import { apiGet } from '@/lib/api';
 import { unwrap } from './idealista-api';
+import { spainDateTime } from './spain-time';
 import { useFeedExportText } from './_i18n';
 
 // One row per export run: when a portal read the feed and how many listings
@@ -17,6 +18,7 @@ import { useFeedExportText } from './_i18n';
 interface ExportLog {
   id: number;
   propertiesCount: number;
+  trigger: 'read' | 'manual';
   requesterIp: string | null;
   responseTimeMs: number | null;
   accessedAt: string;
@@ -61,6 +63,7 @@ export function ExportLogTable({ format, apiKeyId }: { format: 'xml' | 'json' | 
               <TableRow>
                 <TableHead>{t.url.date}</TableHead>
                 <TableHead>{t.url.logEntry}</TableHead>
+                <TableHead>{t.run.source}</TableHead>
                 <TableHead>{t.url.ipAddress}</TableHead>
                 <TableHead>{t.url.responseTime}</TableHead>
               </TableRow>
@@ -68,8 +71,13 @@ export function ExportLogTable({ format, apiKeyId }: { format: 'xml' | 'json' | 
             <TableBody>
               {logs.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell className="whitespace-nowrap">{new Date(log.accessedAt).toLocaleString(locale)}</TableCell>
-                  <TableCell>{t.url.exported(log.propertiesCount.toLocaleString(locale))}</TableCell>
+                  <TableCell className="whitespace-nowrap">{spainDateTime(log.accessedAt, locale)}</TableCell>
+                  <TableCell>
+                    {log.trigger === 'manual'
+                      ? t.run.generatedEntry(log.propertiesCount.toLocaleString(locale))
+                      : t.url.exported(log.propertiesCount.toLocaleString(locale))}
+                  </TableCell>
+                  <TableCell>{log.trigger === 'manual' ? t.rightmove.pushNow : t.run.sourceRead}</TableCell>
                   <TableCell className="font-mono text-sm">{log.requesterIp}</TableCell>
                   <TableCell>{log.responseTimeMs === null ? '' : t.url.ms(log.responseTimeMs)}</TableCell>
                 </TableRow>

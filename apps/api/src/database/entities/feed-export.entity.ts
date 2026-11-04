@@ -14,6 +14,8 @@ export type XmlFormat = 'kyero' | 'idealista' | 'generic';
 export type ExportFormat = 'xml' | 'json';
 // What an access-log row records: one of the URL feeds, or idealista's.
 export type ExportLogFormat = ExportFormat | 'idealista';
+// 'read' = someone fetched the URL; 'manual' = run with the dashboard button.
+export type ExportLogTrigger = 'read' | 'manual';
 export type ExportListingScope = 'all' | 'own';
 
 // The client's idealista feed (customer JSON, v6). One per client.
@@ -149,6 +151,9 @@ export class FeedExportLog {
 
   @Column({ default: 0 })
   propertiesCount: number;
+
+  @Column({ type: 'varchar', length: 10, default: 'read' })
+  trigger: ExportLogTrigger;
 
   @Column({ length: 45, nullable: true })
   requesterIp: string;

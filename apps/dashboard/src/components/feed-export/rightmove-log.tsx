@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api';
 import { errorText, unwrap } from './idealista-api';
+import { spainDate, spainDateTime } from './spain-time';
 import type { RightmoveLogs } from './rightmove-api';
 import { useLanguage } from '@/i18n/i18n-provider';
 import { useFeedExportText } from './_i18n';
@@ -61,10 +62,19 @@ export function RightmoveLog({ refreshKey }: { refreshKey: number }) {
                 <div className="flex justify-between gap-3">
                   <span className="font-medium">
                     {l.dryRun ? t.rmLog.dryRun : t.rmLog.actions[l.action] ?? l.action} {l.agentRef}
+                    {l.trigger && (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {l.trigger === 'manual' ? t.run.triggerManual : t.run.triggerAuto}
+                      </span>
+                    )}
                   </span>
-                  <span className="text-xs text-muted-foreground shrink-0">{new Date(l.createdAt).toLocaleString(locale)}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{spainDateTime(l.createdAt, locale)}</span>
                 </div>
-                <p className="text-muted-foreground break-words">{l.message}</p>
+                <p className="text-muted-foreground break-words">
+                  {l.summary && l.success
+                    ? t.rightmove.pushCounts(l.summary.sent, l.summary.removed, l.summary.unchanged, l.summary.failed)
+                    : l.message}
+                </p>
                 {[...(l.errors || []), ...(l.warnings || [])].map((m, i) => (
                   <p key={i} className="text-xs text-muted-foreground">
                     {m.code}: {m.description}
@@ -88,7 +98,7 @@ export function RightmoveLog({ refreshKey }: { refreshKey: number }) {
                   <span className="font-medium">{l.agentRef}</span>
                 )}
                 <span className="flex items-center gap-2 text-muted-foreground">
-                  {l.lastPushedAt && new Date(l.lastPushedAt).toLocaleDateString(locale)}
+                  {l.lastPushedAt && spainDate(l.lastPushedAt, locale)}
                   {l.rightmoveUrl && (
                     <a href={l.rightmoveUrl} target="_blank" rel="noopener noreferrer" title={t.rmLog.openOnRightmove}>
                       <ExternalLink className="h-3.5 w-3.5" />

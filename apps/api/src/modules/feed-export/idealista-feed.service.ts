@@ -4,6 +4,7 @@ import { Brackets, In, Repository } from 'typeorm';
 import {
   Feature,
   FeedExportConfig,
+  ExportLogTrigger,
   FeedExportLog,
   IdealistaExportSettings,
   Location,
@@ -23,6 +24,8 @@ import {
   displayName,
   resolveIdealistaType,
 } from './idealista/idealista-builder';
+import { RedisLockService } from '../../common/redis/redis-lock.service';
+import { UrlFeedRunResult, runUrlFeedOnce } from './manual-run';
 
 const DEFAULT_SETTINGS: IdealistaExportSettings = {
   enabled: false,
@@ -60,6 +63,7 @@ export class IdealistaFeedService {
     private readonly featureRepository: Repository<Feature>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    private readonly lock: RedisLockService,
   ) {}
 
   // ============ Dashboard ============
@@ -191,17 +195,38 @@ export class IdealistaFeedService {
     if (!settings.enabled) throw new NotFoundException('idealista feed is not enabled');
 
     const result = await this.build(tenantId, settings, tenant);
+    await this.logRun(tenantId, result.included, ip, userAgent, started, 'read');
+    return result.feed;
+  }
+
+  // The dashboard's button: generates the feed as idealista would get it and
+  // logs it as manual. idealista still fetches the URL on its own schedule.
+  async runNow(tenantId: number, ip: string, userAgent: string): Promise<UrlFeedRunResult & { issues: number }> {
+    const config = await this.configRepository.findOne({ where: { tenantId } });
+    const settings = settingsOf(config);
+    if (!settings.enabled || !config?.idealista?.feedKey) {
+      throw new BadRequestException('The idealista feed is switched off. Turn it on and press Save first.');
+    }
+    return runUrlFeedOnce(this.lock, 'idealista', tenantId, async () => {
+      const started = Date.now();
+      const result = await this.build(tenantId, settings);
+      await this.logRun(tenantId, result.included, ip, userAgent, started, 'manual');
+      return { listings: result.included, skipped: result.skipped.length, issues: result.issues.length };
+    });
+  }
+
+  private async logRun(tenantId: number, count: number, ip: string, userAgent: string, started: number, trigger: ExportLogTrigger) {
     await this.logRepository.save(
       this.logRepository.create({
         tenantId,
         format: 'idealista',
-        propertiesCount: result.included,
+        propertiesCount: count,
+        trigger,
         requesterIp: ip.slice(0, 45),
         userAgent: userAgent.slice(0, 500),
         responseTimeMs: Date.now() - started,
       }),
     );
-    return result.feed;
   }
 
   // ============ Internals ============

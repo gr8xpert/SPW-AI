@@ -90,7 +90,16 @@ export class RightmoveListing {
   updatedAt: Date;
 }
 
-export type RightmovePushAction = 'send' | 'remove' | 'list';
+// 'run' = the summary of one whole push; the others are single Rightmove calls.
+export type RightmovePushAction = 'send' | 'remove' | 'list' | 'run';
+export type RightmoveRunTrigger = 'auto' | 'manual';
+export interface RightmoveRunSummary {
+  sent: number;
+  removed: number;
+  unchanged: number;
+  failed: number;
+  skipped: number;
+}
 
 // One Rightmove call. Kept for the dashboard's push log; old rows are pruned.
 @Entity('rightmove_push_logs')
@@ -129,6 +138,13 @@ export class RightmovePushLog {
 
   @Column({ type: 'int', nullable: true })
   responseTimeMs: number | null;
+
+  // Summary rows only.
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  trigger: RightmoveRunTrigger | null;
+
+  @Column({ type: 'json', nullable: true })
+  summary: RightmoveRunSummary | null;
 
   @CreateDateColumn()
   createdAt: Date;

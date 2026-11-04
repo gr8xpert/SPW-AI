@@ -42,19 +42,33 @@ export interface RightmoveTown {
   place: { id: number; label: string } | null;
 }
 
-export interface RightmovePushSummary {
-  dryRun: boolean;
+export interface RightmoveRunCounts {
   sent: number;
-  unchanged: number;
   removed: number;
+  unchanged: number;
   failed: number;
   skipped: number;
-  message?: string;
+}
+
+// The last whole push, and whether one is going now.
+export interface RightmovePushStatus {
+  running: boolean;
+  lastRun: {
+    id: number;
+    trigger: 'auto' | 'manual' | null;
+    success: boolean;
+    dryRun: boolean;
+    summary: RightmoveRunCounts | null;
+    message: string | null;
+    createdAt: string;
+  } | null;
 }
 
 export interface RightmoveLogRow {
   id: number;
-  action: 'send' | 'remove' | 'list';
+  action: 'send' | 'remove' | 'list' | 'run';
+  trigger: 'auto' | 'manual' | null;
+  summary: RightmoveRunCounts | null;
   agentRef: string | null;
   success: boolean;
   dryRun: boolean;

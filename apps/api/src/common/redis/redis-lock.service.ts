@@ -71,6 +71,12 @@ export class RedisLockService implements OnModuleDestroy {
     }
   }
 
+  // Whether someone holds `key` right now. For showing state, not for deciding
+  // to run: only withLock can claim the lock.
+  async isHeld(key: string): Promise<boolean> {
+    return (await this.redis.exists(`lock:${key}`)) === 1;
+  }
+
   onModuleDestroy(): void {
     void this.redis.quit().catch(() => {});
   }
