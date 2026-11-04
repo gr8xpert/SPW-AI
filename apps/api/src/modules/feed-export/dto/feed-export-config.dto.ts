@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  ArrayMaxSize,
   IsInt,
   Min,
   Max,
@@ -31,9 +32,15 @@ export class UpdateFeedExportConfigDto {
   @IsOptional()
   includeSold?: boolean;
 
-  @IsIn(['all', 'own'])
+  @IsIn(['all', 'own', 'selected'])
   @IsOptional()
   listingScope?: ExportListingScope;
+
+  @IsArray()
+  @ArrayMaxSize(5000)
+  @IsInt({ each: true })
+  @IsOptional()
+  propertyIds?: number[];
 
   @IsEnum(['kyero', 'idealista', 'generic'])
   @IsOptional()
@@ -60,7 +67,13 @@ export class UpdateJsonFeedDto {
   @IsOptional()
   includeSold?: boolean;
 
-  @IsIn(['all', 'own'])
+  @IsIn(['all', 'own', 'selected'])
   @IsOptional()
   listingScope?: ExportListingScope;
+
+  @IsArray()
+  @ArrayMaxSize(5000)
+  @IsInt({ each: true })
+  @IsOptional()
+  propertyIds?: number[];
 }

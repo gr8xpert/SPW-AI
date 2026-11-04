@@ -288,7 +288,7 @@ export function IdealistaCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
               <p className="text-xs text-muted-foreground">{t.idealista.listingsHelp}</p>
             </div>
             {settings.mode === 'selected' && (
-              <IdealistaListingPicker ids={settings.propertyIds} onChange={(propertyIds) => set({ propertyIds })} />
+              <IdealistaListingPicker portal="idealista" ids={settings.propertyIds} onChange={(propertyIds) => set({ propertyIds })} />
             )}
             <p className="text-xs text-muted-foreground">{t.common.pressSave}</p>
           </TabsContent>

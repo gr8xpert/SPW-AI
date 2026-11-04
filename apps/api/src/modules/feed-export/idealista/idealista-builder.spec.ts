@@ -131,9 +131,9 @@ describe('idealista builder', () => {
 
   it('flags listings that are sent but incomplete', () => {
     const { included, issues } = run([
-      prop({ id: 1, reference: 'OK', images: Array.from({ length: 6 }, (_, i) => ({ url: `https://x.com/${i}.jpg`, order: i })) }),
-      prop({ id: 2, reference: 'BARE', images: [], description: { en: 'Only English' }, energyRating: null, videoUrl: null }),
-      prop({ id: 3, reference: 'FEW', images: [{ url: '/rel.jpg', order: 1 }, { url: 'https://x.com/a.jpg', order: 2 }] }),
+      prop({ id: 1, reference: 'OK', agentReference: null, images: Array.from({ length: 6 }, (_, i) => ({ url: `https://x.com/${i}.jpg`, order: i })) }),
+      prop({ id: 2, reference: 'BARE', agentReference: null, images: [], description: { en: 'Only English' }, energyRating: null, videoUrl: null }),
+      prop({ id: 3, reference: 'FEW', agentReference: null, images: [{ url: '/rel.jpg', order: 1 }, { url: 'https://x.com/a.jpg', order: 2 }] }),
     ]);
     expect(included).toBe(3);
     const byRef = Object.fromEntries(issues.map((i) => [i.reference, i.issues]));
@@ -187,6 +187,17 @@ describe('idealista builder', () => {
     expect(guessIdealistaType('Garage')).toBe('garage');
     expect(guessIdealistaType('Duplex Apartment')).toBe('flat');
     expect(guessIdealistaType('Detached Villa')).toBe('house_independent');
+  });
+
+  it('sends one listing per reference and says why the other is left out', () => {
+    const manual = prop({ id: 1, reference: 'CH20120', agentReference: null });
+    const resales = prop({ id: 2, reference: 'R5520895', agentReference: 'CH20120' });
+    const other = prop({ id: 3, reference: 'CH20117', agentReference: null });
+    const out = run([manual, resales, other]);
+    expect(out.included).toBe(2);
+    expect(out.skipped).toEqual([
+      { id: 2, reference: 'R5520895', reason: 'Same reference (CH20120) as CH20120, which is already sent' },
+    ]);
   });
 
   it('parses helpers', () => {

@@ -83,7 +83,7 @@ export const de: FeedExportText = {
   },
 
   idealista: {
-    description: 'Ihre eigenen Angebote als idealista-Feed (JSON v6). Geben Sie idealista die Feed-URL; idealista importiert sie nach eigenem Zeitplan.',
+    description: 'Ihre Angebote als idealista-Feed (JSON v6). Geben Sie idealista die Feed-URL; idealista importiert sie nach eigenem Zeitplan.',
     loadFailed: 'Die idealista-Einstellungen konnten nicht geladen werden',
     checkFailed: 'Der Feed konnte nicht geprüft werden',
     saved: 'idealista-Einstellungen gespeichert',
@@ -112,7 +112,7 @@ export const de: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} wird zur selben Seitenadresse, die Ihre Website verwendet (z. B. sea-view-penthouse_R123); ${ref} wird zur Referenz.`,
     allOwnLive: 'Alle meine eigenen Live-Angebote',
-    listingsHelp: 'Es werden nur Ihre eigenen Angebote (und von Hand hinzugefügte) gesendet, nie die anderer Agenturen. Ferienvermietungen werden nicht auf idealista veröffentlicht.',
+    listingsHelp: '„Alle eigenen“ sendet Ihre eigenen und von Hand hinzugefügten Angebote. „Nur die Angebote, die ich auswähle“ kann jedes aktive Angebot senden, auch von anderen Agenturen. Ferienvermietungen werden nicht auf idealista veröffentlicht.',
     inFeed: 'Angebote im Feed',
     leftOutTitle: 'Ausgelassen — idealista würde diese ablehnen',
     issuesTitle: 'Gesendet, aber mit Handlungsbedarf — beheben Sie dies, bevor idealista sie anzeigt',
@@ -139,15 +139,16 @@ export const de: FeedExportText = {
   picker: {
     notLive: 'nicht live',
     untitled: 'Ohne Titel',
-    search: 'Ihre Angebote nach Referenz oder Titel suchen',
-    noneFound: 'Keine eigenen Angebote gefunden.',
-    sentTo: (n) => `An idealista gesendet (${n})`,
+    search: 'Alle Angebote nach Referenz oder Titel suchen',
+    noneFound: 'Keine Angebote gefunden.',
+    sentTo: (n, portal) => `An ${portal} gesendet (${n})`,
+    network: 'Netzwerk',
     nothingPicked: 'Noch nichts ausgewählt.',
     listingN: (id) => `Angebot #${id}`,
   },
 
   rightmove: {
-    description: 'Ihre eigenen Verkaufsangebote auf Rightmove Overseas. SPM sendet jede Änderung selbst an Rightmove, alle 30 Minuten.',
+    description: 'Ihre Verkaufsangebote auf Rightmove Overseas. SPM sendet jede Änderung selbst an Rightmove, alle 30 Minuten.',
     loadFailed: 'Die Rightmove-Einstellungen konnten nicht geladen werden',
     checkFailed: 'Die Angebote konnten nicht geprüft werden',
     saved: 'Rightmove-Einstellungen gespeichert',
@@ -179,7 +180,7 @@ export const de: FeedExportText = {
     pushNow: 'Jetzt senden',
     allOwnSale: 'Alle meine eigenen Live-Verkaufsangebote',
     listingsHelp:
-      'Es werden nur Ihre eigenen Angebote (und von Hand hinzugefügte) gesendet. Rightmove Overseas nimmt nur Verkäufe — Mietangebote werden nie gesendet. Ein Angebot, das verkauft, unveröffentlicht oder abgewählt ist, wird beim nächsten Senden von Rightmove entfernt.',
+      '„Alle eigenen“ sendet Ihre eigenen und von Hand hinzugefügten Angebote. „Nur die Angebote, die ich auswähle“ kann jedes aktive Angebot senden, auch von anderen Agenturen. Rightmove Overseas nimmt nur Verkäufe — Mietangebote werden nie gesendet. Ein Angebot, das verkauft, unveröffentlicht oder abgewählt ist, wird beim nächsten Senden von Rightmove entfernt.',
     ready: 'bereit',
     leftOutTitle: 'Ausgelassen — Rightmove würde diese ablehnen',
     issuesTitle: 'Gesendet, aber mit Handlungsbedarf',

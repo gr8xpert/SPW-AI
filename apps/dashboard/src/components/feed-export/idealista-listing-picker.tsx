@@ -10,20 +10,27 @@ import { useLanguage } from '@/i18n/i18n-provider';
 import { unwrap, type IdealistaListing } from './idealista-api';
 import { useFeedExportText } from './_i18n';
 
-// Hand-picked mode: search the client's own listings and tick the ones to send.
-export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onChange: (ids: number[]) => void }) {
+// Hand-picked mode: search any of the client's listings and tick the ones to
+// send. `allTypes` is for feeds that also take holiday rentals.
+export function IdealistaListingPicker({ ids, onChange, portal, allTypes }: {
+  ids: number[];
+  onChange: (ids: number[]) => void;
+  portal: string;
+  allTypes?: boolean;
+}) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<IdealistaListing[]>([]);
   const [picked, setPicked] = useState<IdealistaListing[]>([]);
   const [loading, setLoading] = useState(false);
   const t = useFeedExportText();
   const { locale } = useLanguage();
+  const types = allTypes ? '&allTypes=1' : '';
 
   // Load the picked listings' details once (and when ids arrive from the server).
   useEffect(() => {
     const missing = ids.filter((id) => !picked.some((p) => p.id === id));
     if (!missing.length) return;
-    apiGet(`/api/dashboard/feed-export/idealista/listings?ids=${ids.join(',')}`)
+    apiGet(`/api/dashboard/feed-export/idealista/listings?ids=${ids.join(',')}${types}`)
       .then((res) => setPicked(unwrap<IdealistaListing[]>(res) || []))
       .catch(() => {});
   }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -31,13 +38,13 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(true);
-      apiGet(`/api/dashboard/feed-export/idealista/listings?search=${encodeURIComponent(search)}`)
+      apiGet(`/api/dashboard/feed-export/idealista/listings?search=${encodeURIComponent(search)}${types}`)
         .then((res) => setResults(unwrap<IdealistaListing[]>(res) || []))
         .catch(() => setResults([]))
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, types]);
 
   const add = (l: IdealistaListing) => {
     if (ids.includes(l.id)) return;
@@ -54,6 +61,7 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
       <div className="text-sm font-medium truncate">
         {l.agentReference || l.reference}
         {l.agentReference && <span className="text-muted-foreground font-normal"> · {l.reference}</span>}
+        {!l.own && <Badge variant="secondary" className="ml-2">{t.picker.network}</Badge>}
         {!l.live && <Badge variant="outline" className="ml-2">{t.picker.notLive}</Badge>}
       </div>
       <div className="text-xs text-muted-foreground truncate">
@@ -89,7 +97,7 @@ export function IdealistaListingPicker({ ids, onChange }: { ids: number[]; onCha
         </div>
       </div>
       <div className="space-y-2">
-        <p className="text-sm font-medium">{t.picker.sentTo(ids.length)}</p>
+        <p className="text-sm font-medium">{t.picker.sentTo(ids.length, portal)}</p>
         <div className="border rounded-md max-h-[360px] overflow-y-auto divide-y">
           {ids.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">{t.picker.nothingPicked}</p>

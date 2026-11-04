@@ -83,7 +83,7 @@ export const nl: FeedExportText = {
   },
 
   idealista: {
-    description: 'Je eigen woningen als idealista-feed (JSON v6). Geef de feed-URL aan idealista; zij importeren hem volgens hun eigen schema.',
+    description: 'Je woningen als idealista-feed (JSON v6). Geef de feed-URL aan idealista; zij importeren hem volgens hun eigen schema.',
     loadFailed: 'De idealista-instellingen konden niet worden geladen',
     checkFailed: 'De feed kon niet worden gecontroleerd',
     saved: 'idealista-instellingen opgeslagen',
@@ -112,7 +112,7 @@ export const nl: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} wordt hetzelfde paginaadres dat je website gebruikt (bijv. sea-view-penthouse_R123); ${ref} wordt de referentie.`,
     allOwnLive: 'Al mijn eigen live woningen',
-    listingsHelp: 'Alleen je eigen woningen (en handmatig toegevoegde) worden verstuurd, nooit die van andere kantoren. Vakantieverhuur wordt niet op idealista gepubliceerd.',
+    listingsHelp: '“Al mijn eigen” verstuurt je eigen en handmatig toegevoegde woningen. “Alleen de woningen die ik kies” kan elke actieve woning versturen, ook van andere kantoren. Vakantieverhuur wordt niet op idealista gepubliceerd.',
     inFeed: 'woningen in de feed',
     leftOutTitle: 'Niet opgenomen — idealista zou deze weigeren',
     issuesTitle: 'Verstuurd, maar vragen aandacht — los dit op voordat idealista ze toont',
@@ -139,15 +139,16 @@ export const nl: FeedExportText = {
   picker: {
     notLive: 'niet live',
     untitled: 'Zonder titel',
-    search: 'Zoek je woningen op referentie of titel',
-    noneFound: 'Geen eigen woningen gevonden.',
-    sentTo: (n) => `Naar idealista (${n})`,
+    search: 'Zoek alle woningen op referentie of titel',
+    noneFound: 'Geen woningen gevonden.',
+    sentTo: (n, portal) => `Naar ${portal} (${n})`,
+    network: 'netwerk',
     nothingPicked: 'Nog niets gekozen.',
     listingN: (id) => `Woning #${id}`,
   },
 
   rightmove: {
-    description: 'Je eigen koopwoningen op Rightmove Overseas. SPM stuurt elke wijziging zelf naar Rightmove, elke 30 minuten.',
+    description: 'Je koopwoningen op Rightmove Overseas. SPM stuurt elke wijziging zelf naar Rightmove, elke 30 minuten.',
     loadFailed: 'De Rightmove-instellingen konden niet worden geladen',
     checkFailed: 'De woningen konden niet worden gecontroleerd',
     saved: 'Rightmove-instellingen opgeslagen',
@@ -179,7 +180,7 @@ export const nl: FeedExportText = {
     pushNow: 'Nu versturen',
     allOwnSale: 'Al mijn eigen live koopwoningen',
     listingsHelp:
-      'Alleen je eigen woningen (en handmatig toegevoegde) worden verstuurd. Rightmove Overseas neemt alleen koopwoningen — huurwoningen worden nooit verstuurd. Een woning die verkocht, ongepubliceerd of niet meer gekozen is, wordt bij de volgende verzending van Rightmove gehaald.',
+      '“Al mijn eigen” verstuurt je eigen en handmatig toegevoegde woningen. “Alleen de woningen die ik kies” kan elke actieve woning versturen, ook van andere kantoren. Rightmove Overseas neemt alleen koopwoningen — huurwoningen worden nooit verstuurd. Een woning die verkocht, ongepubliceerd of niet meer gekozen is, wordt bij de volgende verzending van Rightmove gehaald.',
     ready: 'klaar',
     leftOutTitle: 'Niet opgenomen — Rightmove zou deze weigeren',
     issuesTitle: 'Verstuurd, maar vragen aandacht',

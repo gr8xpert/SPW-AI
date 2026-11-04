@@ -16,7 +16,7 @@ export type ExportFormat = 'xml' | 'json';
 export type ExportLogFormat = ExportFormat | 'idealista';
 // 'read' = someone fetched the URL; 'manual' = run with the dashboard button.
 export type ExportLogTrigger = 'read' | 'manual';
-export type ExportListingScope = 'all' | 'own';
+export type ExportListingScope = 'all' | 'own' | 'selected';
 
 // The client's idealista feed (customer JSON, v6). One per client.
 export interface IdealistaExportSettings {
@@ -28,7 +28,8 @@ export interface IdealistaExportSettings {
   contactEmail: string;
   contactPhone: string;
   addressVisibility: 'full' | 'street' | 'hidden';
-  // 'own' = every active published own listing; 'selected' = only propertyIds.
+  // 'own' = every active published own listing; 'selected' = only propertyIds,
+  // which can be any of the client's live listings (other agencies' too).
   mode: 'own' | 'selected';
   propertyIds: number[];
   // "https://site.com/en/property/{segment}" — {segment} or {ref}. Empty = no link.
@@ -45,7 +46,8 @@ export interface RightmoveExportSettings {
   // Issued by Rightmove for the agent's branch.
   networkId: number | null;
   branchId: number | null;
-  // 'own' = every live own sale listing; 'selected' = only propertyIds.
+  // 'own' = every live own sale listing; 'selected' = only propertyIds, which
+  // can be any of the client's live sale listings (other agencies' too).
   mode: 'own' | 'selected';
   propertyIds: number[];
   // Spanish text after the English (Rightmove wants English first).
@@ -59,6 +61,8 @@ export interface JsonFeedSettings {
   includeUnpublished: boolean;
   includeSold: boolean;
   listingScope: ExportListingScope;
+  // The hand-picked listings when listingScope is 'selected'.
+  propertyIds?: number[];
   feedKey?: string;
 }
 
@@ -93,9 +97,14 @@ export class FeedExportConfig {
   includeSold: boolean;
 
   // 'all' = every live listing (network ones too); 'own' = the client's own
-  // (Resales OwnProperty or added by hand), like the idealista feed.
+  // (Resales OwnProperty or added by hand), like the idealista feed;
+  // 'selected' = only propertyIds.
   @Column({ type: 'varchar', length: 8, default: 'all' })
   listingScope: ExportListingScope;
+
+  // The Kyero XML feed's hand-picked listings.
+  @Column({ type: 'json', nullable: true })
+  propertyIds: number[] | null;
 
   @Column({
     type: 'enum',

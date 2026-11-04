@@ -19,6 +19,7 @@ import { IDEALISTA_TYPES } from './idealista/idealista-catalog';
 import {
   BuilderResult,
   LocationRow,
+  SkippedListing,
   TypeRow,
   buildIdealistaFeed,
   displayName,
@@ -141,21 +142,27 @@ export class IdealistaFeedService {
     if (!settings.contactEmail) warnings.push('No contact email — idealista sends leads to it.');
     if (!settings.enabled) warnings.push('The idealista feed is switched off — the URL answers 404 until it is on.');
     if (settings.mode === 'selected' && !settings.propertyIds.length) warnings.push('No listings picked yet.');
+    const notLive = settings.mode === 'selected' ? await this.pickedNotLive(tenantId, settings.propertyIds) : [];
     return {
       included: result.included,
-      skipped: result.skipped,
+      skipped: [...result.skipped, ...notLive],
       issues: result.issues,
       warnings,
       sample: (result.feed.customerProperties as unknown[])[0] ?? null,
     };
   }
 
-  // Own listings for the picker: search by reference / title.
-  async searchListings(tenantId: number, search: string, onlyIds?: number[]) {
-    const q = this.ownListingsQuery(tenantId)
-      .select(['p.id', 'p.reference', 'p.agentReference', 'p.title', 'p.price', 'p.listingType', 'p.status', 'p.isPublished'])
-      .orderBy('p.updatedAt', 'DESC')
+  // Any of the client's listings for the picker, own ones first: search by
+  // reference / title.
+  async searchListings(tenantId: number, search: string, onlyIds?: number[], allTypes = false) {
+    const q = this.propertyRepository
+      .createQueryBuilder('p')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .select(['p.id', 'p.reference', 'p.agentReference', 'p.title', 'p.price', 'p.listingType', 'p.status', 'p.isPublished', 'p.isOwnProperty', 'p.source'])
+      .orderBy("(p.isOwnProperty = 1 OR p.source = 'manual')", 'DESC')
+      .addOrderBy('p.updatedAt', 'DESC')
       .take(onlyIds ? 500 : 30);
+    if (!allTypes) q.andWhere('p.listingType IN (:...listingTypes)', { listingTypes: LISTING_TYPES });
     if (onlyIds) {
       if (!onlyIds.length) return [];
       q.andWhere('p.id IN (:...onlyIds)', { onlyIds });
@@ -179,6 +186,7 @@ export class IdealistaFeedService {
       price: p.price,
       listingType: p.listingType,
       live: p.status === 'active' && p.isPublished,
+      own: p.isOwnProperty || p.source === 'manual',
     }));
   }
 
@@ -231,23 +239,37 @@ export class IdealistaFeedService {
 
   // ============ Internals ============
 
-  private ownListingsQuery(tenantId: number) {
-    // Own = flagged own by the feed (Resales OwnProperty) or added by hand.
-    return this.propertyRepository
-      .createQueryBuilder('p')
-      .where('p.tenantId = :tenantId', { tenantId })
-      .andWhere('p.listingType IN (:...listingTypes)', { listingTypes: LISTING_TYPES })
-      .andWhere(new Brackets((b) => b.where('p.isOwnProperty = 1').orWhere("p.source = 'manual'")));
+  // Picked listings the feed can't send, so the Feed check tab can say why.
+  private async pickedNotLive(tenantId: number, ids: number[]): Promise<SkippedListing[]> {
+    if (!ids.length) return [];
+    const rows = await this.propertyRepository.find({
+      where: { tenantId, id: In(ids) },
+      select: ['id', 'reference', 'status', 'isPublished'],
+    });
+    return rows
+      .filter((p) => p.status !== 'active' || !p.isPublished)
+      .map((p) => ({
+        id: p.id,
+        reference: p.reference,
+        reason: p.status !== 'active' ? `Not live (status: ${p.status}), so it is not sent` : 'Not published, so it is not sent',
+      }));
   }
 
   private async build(tenantId: number, settings: IdealistaExportSettings, tenant?: Tenant): Promise<BuilderResult> {
-    const q = this.ownListingsQuery(tenantId)
+    const q = this.propertyRepository
+      .createQueryBuilder('p')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .andWhere('p.listingType IN (:...listingTypes)', { listingTypes: LISTING_TYPES })
       .andWhere("p.status = 'active'")
       .andWhere('p.isPublished = 1')
       .orderBy('p.id', 'ASC');
     if (settings.mode === 'selected') {
+      // Hand-picked: any live listing, other agencies' too.
       if (!settings.propertyIds.length) q.andWhere('1 = 0');
       else q.andWhere('p.id IN (:...ids)', { ids: settings.propertyIds });
+    } else {
+      // Own = flagged own by the feed (Resales OwnProperty) or added by hand.
+      q.andWhere(new Brackets((b) => b.where('p.isOwnProperty = 1').orWhere("p.source = 'manual'")));
     }
 
     const [properties, types, locations, features, tenantRow] = await Promise.all([

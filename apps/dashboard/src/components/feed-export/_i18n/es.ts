@@ -83,7 +83,7 @@ export const es: FeedExportText = {
   },
 
   idealista: {
-    description: 'Tus propiedades propias como feed de idealista (JSON v6). Da la URL del feed a idealista y lo importarán según su calendario.',
+    description: 'Tus propiedades como feed de idealista (JSON v6). Da la URL del feed a idealista y lo importarán según su calendario.',
     loadFailed: 'No se pudieron cargar los ajustes de idealista',
     checkFailed: 'No se pudo comprobar el feed',
     saved: 'Ajustes de idealista guardados',
@@ -112,7 +112,7 @@ export const es: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} se convierte en la misma dirección de página que usa tu web (p. ej. sea-view-penthouse_R123); ${ref} se convierte en la referencia.`,
     allOwnLive: 'Todas mis propiedades propias publicadas',
-    listingsHelp: 'Solo se envían tus propiedades propias (y las añadidas a mano), nunca las de otras agencias. Los alquileres vacacionales no se publican en idealista.',
+    listingsHelp: '«Todas mis propiedades» envía las propias y las añadidas a mano. «Solo las propiedades que elijo» puede enviar cualquier propiedad activa, también de otras agencias. Los alquileres vacacionales no se publican en idealista.',
     inFeed: 'propiedades en el feed',
     leftOutTitle: 'Excluidas — idealista las rechazaría',
     issuesTitle: 'Enviadas, pero requieren atención — corrígelas antes de que idealista las muestre',
@@ -139,15 +139,16 @@ export const es: FeedExportText = {
   picker: {
     notLive: 'no publicada',
     untitled: 'Sin título',
-    search: 'Busca tus propiedades por referencia o título',
-    noneFound: 'No se encontraron propiedades propias.',
-    sentTo: (n) => `Enviadas a idealista (${n})`,
+    search: 'Busca en todas las propiedades por referencia o título',
+    noneFound: 'No se encontraron propiedades.',
+    sentTo: (n, portal) => `Enviadas a ${portal} (${n})`,
+    network: 'red',
     nothingPicked: 'Aún no has elegido ninguna.',
     listingN: (id) => `Propiedad #${id}`,
   },
 
   rightmove: {
-    description: 'Tus propiedades propias en venta en Rightmove Overseas. SPM envía cada cambio a Rightmove por sí mismo, cada 30 minutos.',
+    description: 'Tus propiedades en venta en Rightmove Overseas. SPM envía cada cambio a Rightmove por sí mismo, cada 30 minutos.',
     loadFailed: 'No se pudieron cargar los ajustes de Rightmove',
     checkFailed: 'No se pudieron comprobar las propiedades',
     saved: 'Ajustes de Rightmove guardados',
@@ -179,7 +180,7 @@ export const es: FeedExportText = {
     pushNow: 'Enviar ahora',
     allOwnSale: 'Todas mis propiedades propias en venta publicadas',
     listingsHelp:
-      'Solo se envían tus propiedades propias (y las añadidas a mano). Rightmove Overseas solo acepta ventas — los alquileres nunca se envían. Una propiedad vendida, despublicada o quitada de la selección se retira de Rightmove en el siguiente envío.',
+      '«Todas mis propiedades» envía las propias y las añadidas a mano. «Solo las propiedades que elijo» puede enviar cualquier propiedad activa, también de otras agencias. Rightmove Overseas solo acepta ventas — los alquileres nunca se envían. Una propiedad vendida, despublicada o quitada de la selección se retira de Rightmove en el siguiente envío.',
     ready: 'listas',
     leftOutTitle: 'Excluidas — Rightmove las rechazaría',
     issuesTitle: 'Enviadas, pero requieren atención',

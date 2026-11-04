@@ -51,17 +51,19 @@ export class IdealistaConfigController {
   }
 
   // ?search=CH201 for the picker, or ?ids=1,2,3 for the picked listings.
+  // ?allTypes=1 for a feed that also takes holiday rentals (Kyero, JSON).
   @Get('listings')
   listings(
     @CurrentTenant() tenantId: number,
     @Query('search') search?: string,
     @Query('ids') ids?: string,
+    @Query('allTypes') allTypes?: string,
   ) {
     const onlyIds =
       ids !== undefined
         ? ids.split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500)
         : undefined;
-    return this.service.searchListings(tenantId, (search || '').slice(0, 100), onlyIds);
+    return this.service.searchListings(tenantId, (search || '').slice(0, 100), onlyIds, allTypes === '1');
   }
 }
 

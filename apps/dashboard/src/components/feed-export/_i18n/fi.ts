@@ -83,7 +83,7 @@ export const fi: FeedExportText = {
   },
 
   idealista: {
-    description: 'Omat kohteesi idealista-syötteenä (JSON v6). Anna syötteen URL idealistalle, niin he tuovat sen omalla aikataulullaan.',
+    description: 'Kohteesi idealista-syötteenä (JSON v6). Anna syötteen URL idealistalle, niin he tuovat sen omalla aikataulullaan.',
     loadFailed: 'idealista-asetusten lataus epäonnistui',
     checkFailed: 'Syötteen tarkistus epäonnistui',
     saved: 'idealista-asetukset tallennettu',
@@ -112,7 +112,7 @@ export const fi: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} korvautuu samalla sivuosoitteella, jota sivustosi käyttää (esim. sea-view-penthouse_R123); ${ref} korvautuu viitteellä.`,
     allOwnLive: 'Kaikki omat julkaistut kohteeni',
-    listingsHelp: 'Vain omat kohteesi (ja käsin lisätyt) lähetetään, ei koskaan muiden toimistojen kohteita. Lomavuokrauksia ei julkaista idealistassa.',
+    listingsHelp: '”Kaikki omat” lähettää omat ja käsin lisätyt kohteesi. ”Vain itse valitsemani kohteet” voi lähettää minkä tahansa aktiivisen kohteen, myös muiden toimistojen. Lomavuokrauksia ei julkaista idealistassa.',
     inFeed: 'kohdetta syötteessä',
     leftOutTitle: 'Jätetty pois — idealista hylkäisi nämä',
     issuesTitle: 'Lähetetty, mutta vaatii huomiota — korjaa nämä ennen kuin idealista näyttää ne',
@@ -139,15 +139,16 @@ export const fi: FeedExportText = {
   picker: {
     notLive: 'ei julkaistu',
     untitled: 'Nimetön',
-    search: 'Hae kohteitasi viitteellä tai otsikolla',
-    noneFound: 'Omia kohteita ei löytynyt.',
-    sentTo: (n) => `Lähetetään idealistaan (${n})`,
+    search: 'Hae kaikista kohteista viitteellä tai otsikolla',
+    noneFound: 'Kohteita ei löytynyt.',
+    sentTo: (n, portal) => `Lähetetään: ${portal} (${n})`,
+    network: 'verkosto',
     nothingPicked: 'Mitään ei ole vielä valittu.',
     listingN: (id) => `Kohde #${id}`,
   },
 
   rightmove: {
-    description: 'Omat myyntikohteesi Rightmove Overseasissa. SPM lähettää jokaisen muutoksen itse Rightmoveen 30 minuutin välein.',
+    description: 'Myyntikohteesi Rightmove Overseasissa. SPM lähettää jokaisen muutoksen itse Rightmoveen 30 minuutin välein.',
     loadFailed: 'Rightmove-asetusten lataus epäonnistui',
     checkFailed: 'Kohteiden tarkistus epäonnistui',
     saved: 'Rightmove-asetukset tallennettu',
@@ -179,7 +180,7 @@ export const fi: FeedExportText = {
     pushNow: 'Lähetä nyt',
     allOwnSale: 'Kaikki omat julkaistut myyntikohteeni',
     listingsHelp:
-      'Vain omat kohteesi (ja käsin lisätyt) lähetetään. Rightmove Overseas ottaa vain myyntikohteita — vuokrakohteita ei koskaan lähetetä. Myyty, julkaisematon tai valinnasta poistettu kohde poistetaan Rightmovesta seuraavassa lähetyksessä.',
+      '”Kaikki omat” lähettää omat ja käsin lisätyt kohteesi. ”Vain itse valitsemani kohteet” voi lähettää minkä tahansa aktiivisen kohteen, myös muiden toimistojen. Rightmove Overseas ottaa vain myyntikohteita — vuokrakohteita ei koskaan lähetetä. Myyty, julkaisematon tai valinnasta poistettu kohde poistetaan Rightmovesta seuraavassa lähetyksessä.',
     ready: 'valmiina',
     leftOutTitle: 'Jätetty pois — Rightmove hylkäisi nämä',
     issuesTitle: 'Lähetetty, mutta vaatii huomiota',

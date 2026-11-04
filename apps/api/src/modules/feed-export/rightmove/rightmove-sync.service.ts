@@ -353,13 +353,13 @@ export class RightmoveSyncService {
     return new Map(rows.map((r) => [r.id, r.status]));
   }
 
-  // Own (Resales OwnProperty or added by hand), live, for sale.
+  // Live, for sale, and either own (Resales OwnProperty or added by hand) or
+  // hand-picked (any listing, other agencies' too).
   private loadListings(tenantId: number, settings: RightmoveExportSettings): Promise<Property[]> {
     const q = this.propertyRepository
       .createQueryBuilder('p')
       .where('p.tenantId = :tenantId', { tenantId })
       .andWhere('p.listingType IN (:...listingTypes)', { listingTypes: LISTING_TYPES })
-      .andWhere(new Brackets((b) => b.where('p.isOwnProperty = 1').orWhere("p.source = 'manual'")))
       .andWhere("p.status = 'active'")
       .andWhere('p.isPublished = 1')
       .orderBy('p.id', 'ASC')
@@ -367,6 +367,8 @@ export class RightmoveSyncService {
     if (settings.mode === 'selected') {
       if (!settings.propertyIds.length) q.andWhere('1 = 0');
       else q.andWhere('p.id IN (:...ids)', { ids: settings.propertyIds });
+    } else {
+      q.andWhere(new Brackets((b) => b.where('p.isOwnProperty = 1').orWhere("p.source = 'manual'")));
     }
     return q.getMany();
   }

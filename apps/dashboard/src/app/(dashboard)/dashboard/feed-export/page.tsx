@@ -20,12 +20,15 @@ import {
 import { LockedRouteGuard } from '@/components/locked-route-guard';
 import { useFeedExportText } from '@/components/feed-export/_i18n';
 
+type ListingScope = UrlFeedSettings['listingScope'];
+
 // GET /api/dashboard/feed-export: the top-level fields are the Kyero XML
 // feed's; `json` is the JSON feed's own settings and key.
 interface ExportConfig {
   isEnabled: boolean;
   includeUnpublished: boolean;
-  listingScope?: 'all' | 'own';
+  listingScope?: ListingScope;
+  propertyIds?: number[] | null;
   cacheTtl: number;
   apiKey: string;
   tenantSlug?: string;
@@ -36,7 +39,8 @@ interface ExportConfig {
     enabled: boolean;
     includeUnpublished: boolean;
     includeSold: boolean;
-    listingScope: 'all' | 'own';
+    listingScope: ListingScope;
+    propertyIds?: number[];
     apiKey: string;
     propertyCount: number;
   };
@@ -60,7 +64,8 @@ function kyeroSettings(c: ExportConfig): UrlFeedSettings {
     enabled: !!c.isEnabled,
     includeUnpublished: !!c.includeUnpublished,
     includeSold: false,
-    listingScope: c.listingScope === 'own' ? 'own' : 'all',
+    listingScope: c.listingScope || 'all',
+    propertyIds: c.propertyIds || [],
     cacheTtl: c.cacheTtl || 3600,
   };
 }
@@ -70,7 +75,8 @@ function jsonSettings(c: ExportConfig): UrlFeedSettings {
     enabled: !!c.json?.enabled,
     includeUnpublished: !!c.json?.includeUnpublished,
     includeSold: !!c.json?.includeSold,
-    listingScope: c.json?.listingScope === 'own' ? 'own' : 'all',
+    listingScope: c.json?.listingScope || 'all',
+    propertyIds: c.json?.propertyIds || [],
   };
 }
 
@@ -135,6 +141,7 @@ function FeedExportPageInner() {
           isEnabled: s.enabled,
           includeUnpublished: s.includeUnpublished,
           listingScope: s.listingScope,
+          propertyIds: s.propertyIds,
           cacheTtl: s.cacheTtl,
         });
       } else {
@@ -143,6 +150,7 @@ function FeedExportPageInner() {
           includeUnpublished: s.includeUnpublished,
           includeSold: s.includeSold,
           listingScope: s.listingScope,
+          propertyIds: s.propertyIds,
         });
       }
       toast({ title: t.page.settingsSaved(feed === 'kyero' ? 'Kyero XML' : 'JSON') });

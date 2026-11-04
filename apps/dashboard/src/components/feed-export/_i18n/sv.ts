@@ -83,7 +83,7 @@ export const sv: FeedExportText = {
   },
 
   idealista: {
-    description: 'Dina egna objekt som ett idealista-flöde (JSON v6). Ge flödes-URL:en till idealista så importerar de den enligt sitt eget schema.',
+    description: 'Dina objekt som ett idealista-flöde (JSON v6). Ge flödes-URL:en till idealista så importerar de den enligt sitt eget schema.',
     loadFailed: 'Det gick inte att läsa in idealista-inställningarna',
     checkFailed: 'Det gick inte att kontrollera flödet',
     saved: 'idealista-inställningar sparade',
@@ -112,7 +112,7 @@ export const sv: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} blir samma sidadress som din webbplats använder (t.ex. sea-view-penthouse_R123); ${ref} blir referensen.`,
     allOwnLive: 'Alla mina egna publicerade objekt',
-    listingsHelp: 'Bara dina egna objekt (och de som lagts till för hand) skickas, aldrig andra byråers. Semesteruthyrning publiceras inte på idealista.',
+    listingsHelp: '”Alla mina egna” skickar dina egna objekt och de som lagts till för hand. ”Bara de objekt jag väljer” kan skicka alla aktiva objekt, även andra byråers. Semesteruthyrning publiceras inte på idealista.',
     inFeed: 'objekt i flödet',
     leftOutTitle: 'Utelämnade — idealista skulle avvisa dessa',
     issuesTitle: 'Skickade, men behöver åtgärdas — rätta dem innan idealista visar dem',
@@ -139,15 +139,16 @@ export const sv: FeedExportText = {
   picker: {
     notLive: 'inte publicerat',
     untitled: 'Utan titel',
-    search: 'Sök bland dina objekt på referens eller titel',
-    noneFound: 'Inga egna objekt hittades.',
-    sentTo: (n) => `Skickas till idealista (${n})`,
+    search: 'Sök bland alla objekt på referens eller titel',
+    noneFound: 'Inga objekt hittades.',
+    sentTo: (n, portal) => `Skickas till ${portal} (${n})`,
+    network: 'nätverk',
     nothingPicked: 'Inget valt än.',
     listingN: (id) => `Objekt #${id}`,
   },
 
   rightmove: {
-    description: 'Dina egna objekt till salu på Rightmove Overseas. SPM skickar själv varje ändring till Rightmove, var 30:e minut.',
+    description: 'Dina objekt till salu på Rightmove Overseas. SPM skickar själv varje ändring till Rightmove, var 30:e minut.',
     loadFailed: 'Det gick inte att läsa in Rightmove-inställningarna',
     checkFailed: 'Det gick inte att kontrollera objekten',
     saved: 'Rightmove-inställningar sparade',
@@ -179,7 +180,7 @@ export const sv: FeedExportText = {
     pushNow: 'Skicka nu',
     allOwnSale: 'Alla mina egna publicerade objekt till salu',
     listingsHelp:
-      'Bara dina egna objekt (och de som lagts till för hand) skickas. Rightmove Overseas tar bara försäljningar — hyresobjekt skickas aldrig. Ett objekt som är sålt, opublicerat eller bortvalt tas bort från Rightmove vid nästa sändning.',
+      '”Alla mina egna” skickar dina egna objekt och de som lagts till för hand. ”Bara de objekt jag väljer” kan skicka alla aktiva objekt, även andra byråers. Rightmove Overseas tar bara försäljningar — hyresobjekt skickas aldrig. Ett objekt som är sålt, opublicerat eller bortvalt tas bort från Rightmove vid nästa sändning.',
     ready: 'klara',
     leftOutTitle: 'Utelämnade — Rightmove skulle avvisa dessa',
     issuesTitle: 'Skickade, men behöver åtgärdas',

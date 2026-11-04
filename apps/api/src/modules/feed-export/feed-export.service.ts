@@ -19,6 +19,7 @@ import {
   Feature,
   Tenant,
   ExportFormat,
+  ExportListingScope,
   ExportLogFormat,
   ExportLogTrigger,
   JsonFeedSettings,
@@ -43,7 +44,9 @@ interface BuiltFeed {
 interface ListingRules {
   includeUnpublished: boolean;
   includeSold: boolean;
-  listingScope: 'all' | 'own';
+  listingScope: ExportListingScope;
+  // The hand-picked listings when listingScope is 'selected'.
+  propertyIds?: number[] | null;
   propertyFilter?: Record<string, any> | null;
   // A website key's scope, for that key's own XML feed.
   keyScope?: ApiKeyScope | null;
@@ -70,6 +73,7 @@ export function jsonFeedOf(config: FeedExportConfig): JsonFeedSettings {
     includeUnpublished: config.jsonFeed?.includeUnpublished ?? config.includeUnpublished,
     includeSold: config.jsonFeed?.includeSold ?? config.includeSold,
     listingScope: config.jsonFeed?.listingScope ?? config.listingScope ?? 'all',
+    propertyIds: config.jsonFeed?.propertyIds ?? [],
     feedKey: config.jsonFeed?.feedKey || config.exportKey,
   };
 }
@@ -130,6 +134,7 @@ export class FeedExportService {
         includeUnpublished: json.includeUnpublished,
         includeSold: json.includeSold,
         listingScope: json.listingScope,
+        propertyIds: json.propertyIds,
         apiKey: json.feedKey,
         propertyCount: jsonCount,
       },
@@ -459,6 +464,12 @@ export class FeedExportService {
       query.andWhere(
         new Brackets((b) => b.where('property.isOwnProperty = 1').orWhere("property.source = 'manual'")),
       );
+    }
+
+    // Hand-picked: any of the client's listings, other agencies' too.
+    if (config.listingScope === 'selected') {
+      if (!config.propertyIds?.length) query.andWhere('1 = 0');
+      else query.andWhere('property.id IN (:...pickedIds)', { pickedIds: config.propertyIds });
     }
 
     // Same rule as a website key's scope: a picked place or type brings

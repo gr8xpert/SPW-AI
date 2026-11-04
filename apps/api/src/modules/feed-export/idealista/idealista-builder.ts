@@ -105,6 +105,9 @@ export function buildIdealistaFeed(input: BuilderInput): BuilderResult {
   const skipped: SkippedListing[] = [];
   const issues: ListingIssues[] = [];
   const customerProperties: Record<string, unknown>[] = [];
+  // propertyCode -> the listing already using it. idealista holds one listing
+  // per code, so a second one would replace the first or get refused.
+  const codes = new Map<string, Property>();
 
   for (const p of input.properties) {
     const result = buildProperty(p, input);
@@ -112,6 +115,13 @@ export function buildIdealistaFeed(input: BuilderInput): BuilderResult {
       skipped.push({ id: p.id, reference: p.reference, reason: result });
       continue;
     }
+    const code = String(result.propertyCode);
+    const first = codes.get(code);
+    if (first) {
+      skipped.push({ id: p.id, reference: p.reference, reason: `Same reference (${code}) as ${first.reference}, which is already sent` });
+      continue;
+    }
+    codes.set(code, p);
     customerProperties.push(result);
     const found = listingIssues(p, result, settings.country || 'Spain');
     if (found.length) issues.push({ id: p.id, reference: p.reference, issues: found });

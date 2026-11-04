@@ -83,7 +83,7 @@ export const en = {
   },
 
   idealista: {
-    description: 'Your own listings as an idealista feed (JSON v6). Give the feed URL to idealista and they import it on their schedule.',
+    description: 'Your listings as an idealista feed (JSON v6). Give the feed URL to idealista and they import it on their schedule.',
     loadFailed: 'Could not load the idealista settings',
     checkFailed: 'Could not check the feed',
     saved: 'idealista settings saved',
@@ -112,7 +112,7 @@ export const en = {
     pageLinkHelp: (segment: string, ref: string) =>
       `${segment} becomes the same page address your website uses (e.g. sea-view-penthouse_R123); ${ref} becomes the reference.`,
     allOwnLive: 'All my own live listings',
-    listingsHelp: 'Only your own listings (and ones added by hand) are ever sent, never other agencies’. Holiday rentals are not published on idealista.',
+    listingsHelp: '“All my own” sends your own listings and ones added by hand. “Only the listings I pick” can send any live listing, other agencies’ too. Holiday rentals are not published on idealista.',
     inFeed: 'listings in the feed',
     leftOutTitle: 'Left out — idealista would reject these',
     issuesTitle: 'Sent, but need attention — fix these before idealista shows them',
@@ -139,15 +139,16 @@ export const en = {
   picker: {
     notLive: 'not live',
     untitled: 'Untitled',
-    search: 'Search your listings by reference or title',
-    noneFound: 'No own listings found.',
-    sentTo: (n: number) => `Sent to idealista (${n})`,
+    search: 'Search all listings by reference or title',
+    noneFound: 'No listings found.',
+    sentTo: (n: number, portal: string) => `Sent to ${portal} (${n})`,
+    network: 'network',
     nothingPicked: 'Nothing picked yet.',
     listingN: (id: number) => `Listing #${id}`,
   },
 
   rightmove: {
-    description: 'Your own sale listings on Rightmove Overseas. SPM sends every change to Rightmove itself, every 30 minutes.',
+    description: 'Your sale listings on Rightmove Overseas. SPM sends every change to Rightmove itself, every 30 minutes.',
     loadFailed: 'Could not load the Rightmove settings',
     checkFailed: 'Could not check the listings',
     saved: 'Rightmove settings saved',
@@ -179,7 +180,7 @@ export const en = {
     pushNow: 'Push Now',
     allOwnSale: 'All my own live sale listings',
     listingsHelp:
-      'Only your own listings (and ones added by hand) are ever sent. Rightmove Overseas takes sales only — rentals are never sent. A listing that is sold, unpublished or unpicked is taken off Rightmove at the next push.',
+      '“All my own” sends your own listings and ones added by hand. “Only the listings I pick” can send any live listing, other agencies’ too. Rightmove Overseas takes sales only — rentals are never sent. A listing that is sold, unpublished or unpicked is taken off Rightmove at the next push.',
     ready: 'ready',
     leftOutTitle: 'Left out — Rightmove would reject these',
     issuesTitle: 'Sent, but need attention',

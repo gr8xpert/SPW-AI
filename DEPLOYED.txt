@@ -1,3 +1,10 @@
+deployed_at:   2026-11-04T19:39 UTC (deploy 2026-11-05a-feed-picks, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      1961a39 + feed picks, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  yapeF8JMYI30e3JsoIAWc
+new_deps:      none; migration 1777550000000-FeedExportPickedListings
+includes:      Pick any listing on idealista, Rightmove, Kyero XML and JSON; one idealista listing per reference; Feed check lists picked listings that aren't live. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1105a
+
 deployed_at:   2026-11-04T10:48 UTC (deploy 2026-11-04i-log-wording, run from the FullStack session at the owner's request; DASHBOARD ONLY)
 git_head:      7492dd6 (worktree release-1104h) + live.patch from cool-shaw-bcc169 + Push Now, all uncommitted (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)

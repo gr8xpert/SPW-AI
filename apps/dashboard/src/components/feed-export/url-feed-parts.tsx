@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { IdealistaListingPicker } from './idealista-listing-picker';
 import { useFeedExportText } from './_i18n';
 
 // The parts of the Kyero XML and JSON tabs. Each feed has its own settings,
@@ -18,7 +19,8 @@ export interface UrlFeedSettings {
   enabled: boolean;
   includeUnpublished: boolean;
   includeSold: boolean;
-  listingScope: 'all' | 'own';
+  listingScope: 'all' | 'own' | 'selected';
+  propertyIds: number[];
   // Kyero XML only.
   cacheTtl?: number;
 }
@@ -133,11 +135,12 @@ export function FeedSettingsCard(props: {
             </SettingRow>
           )}
           <SettingRow title={t.url.whichListings} hint={t.url.whichListingsHint}>
-            <Select value={settings.listingScope} onValueChange={(v) => set({ listingScope: v as 'all' | 'own' })}>
+            <Select value={settings.listingScope} onValueChange={(v) => set({ listingScope: v as UrlFeedSettings['listingScope'] })}>
               <SelectTrigger className="w-full sm:w-[260px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.url.allListings}</SelectItem>
                 <SelectItem value="own">{t.url.ownOnly}</SelectItem>
+                <SelectItem value="selected">{t.common.onlyPicked}</SelectItem>
               </SelectContent>
             </Select>
           </SettingRow>
@@ -157,6 +160,17 @@ export function FeedSettingsCard(props: {
             </SettingRow>
           )}
         </div>
+        {settings.listingScope === 'selected' && (
+          <div className="mt-4 space-y-2">
+            <IdealistaListingPicker
+              allTypes
+              portal={props.feedName}
+              ids={settings.propertyIds}
+              onChange={(propertyIds) => set({ propertyIds })}
+            />
+            <p className="text-xs text-muted-foreground">{t.common.pressSave}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -296,7 +296,7 @@ export function RightmoveCard({ onStatus }: { onStatus?: (s: ExportStatus) => vo
               <p className="text-xs text-muted-foreground">{t.rightmove.listingsHelp}</p>
             </div>
             {settings.mode === 'selected' && (
-              <IdealistaListingPicker ids={settings.propertyIds} onChange={(propertyIds) => set({ propertyIds })} />
+              <IdealistaListingPicker portal="Rightmove" ids={settings.propertyIds} onChange={(propertyIds) => set({ propertyIds })} />
             )}
             <p className="text-xs text-muted-foreground">{t.common.pressSave}</p>
           </TabsContent>

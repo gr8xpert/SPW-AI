@@ -83,7 +83,7 @@ export const fr: FeedExportText = {
   },
 
   idealista: {
-    description: 'Vos propres biens sous forme de flux idealista (JSON v6). Donnez l’URL du flux à idealista, qui l’importe selon son propre calendrier.',
+    description: 'Vos biens sous forme de flux idealista (JSON v6). Donnez l’URL du flux à idealista, qui l’importe selon son propre calendrier.',
     loadFailed: 'Impossible de charger les paramètres idealista',
     checkFailed: 'Impossible de vérifier le flux',
     saved: 'Paramètres idealista enregistrés',
@@ -112,7 +112,7 @@ export const fr: FeedExportText = {
     pageLinkHelp: (segment, ref) =>
       `${segment} devient la même adresse de page que celle de votre site (ex. sea-view-penthouse_R123) ; ${ref} devient la référence.`,
     allOwnLive: 'Tous mes biens en ligne',
-    listingsHelp: 'Seuls vos propres biens (et ceux ajoutés à la main) sont envoyés, jamais ceux d’autres agences. Les locations de vacances ne sont pas publiées sur idealista.',
+    listingsHelp: '« Tous mes biens » envoie vos propres biens et ceux ajoutés à la main. « Uniquement les biens que je choisis » peut envoyer tout bien actif, y compris ceux d’autres agences. Les locations de vacances ne sont pas publiées sur idealista.',
     inFeed: 'biens dans le flux',
     leftOutTitle: 'Exclus — idealista les refuserait',
     issuesTitle: 'Envoyés, mais à vérifier — corrigez-les avant qu’idealista ne les affiche',
@@ -139,15 +139,16 @@ export const fr: FeedExportText = {
   picker: {
     notLive: 'pas en ligne',
     untitled: 'Sans titre',
-    search: 'Recherchez vos biens par référence ou titre',
-    noneFound: 'Aucun bien propre trouvé.',
-    sentTo: (n) => `Envoyés à idealista (${n})`,
+    search: 'Recherchez dans tous les biens par référence ou titre',
+    noneFound: 'Aucun bien trouvé.',
+    sentTo: (n, portal) => `Envoyés à ${portal} (${n})`,
+    network: 'réseau',
     nothingPicked: 'Aucun bien choisi pour l’instant.',
     listingN: (id) => `Bien n° ${id}`,
   },
 
   rightmove: {
-    description: 'Vos propres biens à vendre sur Rightmove Overseas. SPM envoie lui-même chaque modification à Rightmove, toutes les 30 minutes.',
+    description: 'Vos biens à vendre sur Rightmove Overseas. SPM envoie lui-même chaque modification à Rightmove, toutes les 30 minutes.',
     loadFailed: 'Impossible de charger les paramètres Rightmove',
     checkFailed: 'Impossible de vérifier les biens',
     saved: 'Paramètres Rightmove enregistrés',
@@ -179,7 +180,7 @@ export const fr: FeedExportText = {
     pushNow: 'Envoyer maintenant',
     allOwnSale: 'Tous mes biens à vendre en ligne',
     listingsHelp:
-      'Seuls vos propres biens (et ceux ajoutés à la main) sont envoyés. Rightmove Overseas n’accepte que des ventes — les locations ne sont jamais envoyées. Un bien vendu, dépublié ou retiré de la sélection est retiré de Rightmove au prochain envoi.',
+      '« Tous mes biens » envoie vos propres biens et ceux ajoutés à la main. « Uniquement les biens que je choisis » peut envoyer tout bien actif, y compris ceux d’autres agences. Rightmove Overseas n’accepte que des ventes — les locations ne sont jamais envoyées. Un bien vendu, dépublié ou retiré de la sélection est retiré de Rightmove au prochain envoi.',
     ready: 'prêts',
     leftOutTitle: 'Exclus — Rightmove les refuserait',
     issuesTitle: 'Envoyés, mais à vérifier',
