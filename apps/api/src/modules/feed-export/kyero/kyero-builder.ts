@@ -29,24 +29,63 @@ const LANGUAGES = ['en', 'es', 'de', 'fr', 'nl', 'it', 'pt', 'ru', 'sv', 'no', '
 const MAX_IMAGES = 50;
 const ENERGY = /^[A-G]$/;
 
-export function buildKyeroFeed(input: KyeroInput): KyeroResult {
-  const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<root>', '  <kyero>', '    <feed_version>3</feed_version>', '  </kyero>'];
-  const skipped: KyeroResult['skipped'] = [];
-  let included = 0;
-  for (const p of input.properties) {
-    const out = buildProperty(p, input);
-    if (typeof out === 'string') {
-      skipped.push({ reference: p.reference, reason: out });
-      continue;
+type KyeroLookups = Omit<KyeroInput, 'properties'>;
+
+// The columns kyeroSkipReason reads. The Feed Export page checks a client's
+// whole list with only these: images and descriptions are most of a listing's
+// size, and loading them all to show a count restarted the API on large clients.
+export const KYERO_CHECK_COLUMNS = [
+  'id',
+  'reference',
+  'price',
+  'listingType',
+  'rentalPeriod',
+  'propertyTypeId',
+  'feedType',
+  'locationId',
+  'feedLocation',
+] as const;
+
+type KyeroCheckFields = Pick<Property, (typeof KYERO_CHECK_COLUMNS)[number]>;
+
+// Takes listings a batch at a time, so a large feed never holds them all at once.
+export class KyeroFeedWriter {
+  private readonly parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<root>\n  <kyero>\n    <feed_version>3</feed_version>\n  </kyero>'];
+  private readonly skipped: KyeroResult['skipped'] = [];
+  private included = 0;
+
+  constructor(private readonly lookups: KyeroLookups) {}
+
+  add(properties: Property[]): void {
+    for (const p of properties) {
+      const out = buildProperty(p, this.lookups);
+      if (typeof out === 'string') {
+        this.skipped.push({ reference: p.reference, reason: out });
+        continue;
+      }
+      this.parts.push(out.join('\n'));
+      this.included++;
     }
-    lines.push(...out);
-    included++;
   }
-  lines.push('</root>');
-  return { xml: lines.join('\n'), included, skipped };
+
+  finish(): KyeroResult {
+    return { xml: [...this.parts, '</root>'].join('\n'), included: this.included, skipped: this.skipped };
+  }
 }
 
-function buildProperty(p: Property, input: KyeroInput): string[] | string {
+export function buildKyeroFeed(input: KyeroInput): KyeroResult {
+  const writer = new KyeroFeedWriter(input);
+  writer.add(input.properties);
+  return writer.finish();
+}
+
+// Why Kyero can't take this listing, or null when it can.
+export function kyeroSkipReason(p: KyeroCheckFields, lookups: KyeroLookups): string | null {
+  const required = requiredFields(p, lookups);
+  return typeof required === 'string' ? required : null;
+}
+
+function requiredFields(p: KyeroCheckFields, input: KyeroLookups) {
   const price = toInt(p.price);
   if (!price) return 'No price';
 
@@ -69,6 +108,13 @@ function buildProperty(p: Property, input: KyeroInput): string[] | string {
     '';
   if (!town) return 'No town';
   if (!province) return 'No province';
+  return { price, freq, type, chain, town, province };
+}
+
+function buildProperty(p: Property, input: KyeroLookups): string[] | string {
+  const required = requiredFields(p, input);
+  if (typeof required === 'string') return required;
+  const { price, freq, type, chain, town, province } = required;
 
   const featureNames = [...new Set(
     (p.features || [])
@@ -161,7 +207,7 @@ function buildProperty(p: Property, input: KyeroInput): string[] | string {
 }
 
 // sale | week | month. Holiday rents default to weekly, long-term to monthly.
-function priceFreq(p: Property): 'sale' | 'week' | 'month' | null {
+function priceFreq(p: Pick<Property, 'listingType' | 'rentalPeriod'>): 'sale' | 'week' | 'month' | null {
   if (p.listingType === 'sale' || p.listingType === 'development') return 'sale';
   const period = p.rentalPeriod ?? (p.listingType === 'holiday_rent' ? 'week' : 'month');
   if (period === 'night') return null;
