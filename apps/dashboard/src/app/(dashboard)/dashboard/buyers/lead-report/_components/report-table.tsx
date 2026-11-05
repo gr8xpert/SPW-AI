@@ -64,7 +64,7 @@ function useFitToScreen() {
 
 // A sideways scrollbar pinned to the bottom of the screen, because the table can
 // start too far down for its own scrollbar to show. It moves with the table.
-function useSideBar(box: RefObject<HTMLDivElement>) {
+function useSideBar(box: RefObject<HTMLDivElement | null>) {
   const bar = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ content: 0, view: 0 });
   useEffect(() => {

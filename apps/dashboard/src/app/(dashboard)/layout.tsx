@@ -33,7 +33,7 @@ export default async function DashboardLayout({
   // setImpersonationSession() in lib/impersonation.ts. localStorage
   // still holds the actual scoped JWT (sent as Bearer header); the
   // cookie is just a boolean flag the server can read.
-  const isImpersonating = cookies().get('spm.impersonating')?.value === '1';
+  const isImpersonating = (await cookies()).get('spm.impersonating')?.value === '1';
   if (session.user.role === 'super_admin' && !isImpersonating) {
     redirect('/admin');
   }

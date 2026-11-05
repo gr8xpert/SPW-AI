@@ -39,14 +39,14 @@ interface Report {
   leads: { new7d: number; waiting: number };
 }
 
-const ICON: Record<Status, JSX.Element> = {
+const ICON: Record<Status, React.JSX.Element> = {
   ok: <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />,
   warning: <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />,
   error: <XCircle className="h-5 w-5 shrink-0 text-red-600" />,
   info: <Info className="h-5 w-5 shrink-0 text-sky-600" />,
 };
 // Titles are looked up in the page text by id.
-const AREAS: Array<{ id: Check['area']; icon: JSX.Element }> = [
+const AREAS: Array<{ id: Check['area']; icon: React.JSX.Element }> = [
   { id: 'website', icon: <Globe className="h-4 w-4" /> },
   { id: 'feeds', icon: <Upload className="h-4 w-4" /> },
   { id: 'listings', icon: <Building2 className="h-4 w-4" /> },

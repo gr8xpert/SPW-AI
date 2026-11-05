@@ -24,7 +24,7 @@ interface PlatformState {
   checks: Record<string, { label: string; ok: boolean; detail: string; failingSince: string | null }>;
 }
 
-const ICON: Record<Status, JSX.Element> = {
+const ICON: Record<Status, React.JSX.Element> = {
   ok: <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />,
   warning: <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />,
   error: <XCircle className="h-4 w-4 shrink-0 text-red-600" />,

@@ -17,6 +17,7 @@
         "name": "next"
       }
     ],
+    "target": "ES2017",
     "paths": {
       "@/*": ["./src/*"],
       "@/components/*": ["./src/components/*"],
