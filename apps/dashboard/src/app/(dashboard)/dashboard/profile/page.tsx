@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChangePasswordCard } from './change-password-card';
 import { TwoFactorCard } from './two-factor-card';
 import { useProfileText } from './_i18n';
 
@@ -28,6 +29,8 @@ export default function ProfilePage() {
           <span>{session?.user?.email}</span>
         </CardContent>
       </Card>
+
+      <ChangePasswordCard />
 
       <TwoFactorCard />
     </div>

@@ -41,6 +41,16 @@ export const en = {
     'Everyone who logs in to your dashboard must use two-factor login. Users without it are asked to set it up at their next login.',
   requireForEveryone: 'Require two-factor login for everyone',
   turnOnYourselfFirst: 'Turn it on for yourself first.',
+  changePassword: "Change password",
+  changePasswordHelp: "You will be logged out everywhere and log in again with the new password.",
+  currentPassword: "Current password",
+  newPassword: "New password",
+  confirmPassword: "Repeat new password",
+  passwordTooShort: "Use at least 8 characters.",
+  passwordsDontMatch: "The two new passwords don't match.",
+  wrongPassword: "Your current password is not correct.",
+  samePassword: "The new password must be different from the current one.",
+  passwordChanged: "Password changed. Please log in again.",
 };
 
 export type ProfileText = typeof en;

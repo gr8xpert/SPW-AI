@@ -20,3 +20,17 @@ export class ResetPasswordWithTokenDto {
   @MaxLength(128)
   password: string;
 }
+
+export class ChangeOwnPasswordDto {
+  // No minimum beyond empty: older accounts may have a shorter password.
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  currentPassword: string;
+
+  // Min 8 matches LoginDto — anything shorter could never be used to sign in.
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  newPassword: string;
+}

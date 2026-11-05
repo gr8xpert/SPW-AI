@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, Tenant, Plan } from '../../database/entities';
-import { ChangePasswordDto, ResetPasswordDto } from './dto';
+import { ResetPasswordDto } from './dto';
 import { AgentsService } from './agents.service';
 import { agentCard } from './agent-profile';
 import { UserRole, hasPermission } from '@spm/shared';
@@ -113,33 +113,6 @@ export class TeamService {
     const wasOnWebsite = !!agentCard(user);
     await this.userRepository.delete(userId);
     if (wasOnWebsite) await this.agents.websiteChanged(tenantId, userId, null);
-  }
-
-  /**
-   * Change own password
-   */
-  async changePassword(
-    tenantId: number,
-    userId: number,
-    dto: ChangePasswordDto,
-  ): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId, tenantId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Verify current password
-    const isValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-    if (!isValid) {
-      throw new BadRequestException('Current password is incorrect');
-    }
-
-    // Hash and save new password
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 13);
-    await this.userRepository.save(user);
   }
 
   /**

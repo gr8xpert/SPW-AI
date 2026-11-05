@@ -114,16 +114,6 @@ export class AgentDto {
   isActive?: boolean;
 }
 
-export class ChangePasswordDto {
-  @IsString()
-  @MinLength(8)
-  currentPassword: string;
-
-  @IsString()
-  @MinLength(8)
-  newPassword: string;
-}
-
 export class ResetPasswordDto {
   @IsString()
   @MinLength(8)

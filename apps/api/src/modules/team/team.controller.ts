@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { TeamService } from './team.service';
 import { AgentsService } from './agents.service';
-import { InviteUserDto, AgentDto, ChangePasswordDto, ResetPasswordDto } from './dto';
+import { InviteUserDto, AgentDto, ResetPasswordDto } from './dto';
 import { JwtAuthGuard, TenantGuard, DashboardAddonGuard } from '../../common/guards';
 import { CurrentTenant, CurrentUser, RequiresAddon } from '../../common/decorators';
 import { JwtPayload } from '@spm/shared';
@@ -87,16 +87,6 @@ export class TeamController {
     @CurrentUser() user: JwtPayload,
   ) {
     await this.teamService.removeUser(tenantId, userId, user.sub);
-  }
-
-  @Post('change-password')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async changePassword(
-    @CurrentTenant() tenantId: number,
-    @Body() dto: ChangePasswordDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    await this.teamService.changePassword(tenantId, user.sub, dto);
   }
 
   @Post(':id/reset-password')

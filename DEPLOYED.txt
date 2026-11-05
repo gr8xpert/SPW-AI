@@ -1,3 +1,10 @@
+deployed_at:   2026-11-04T23:00 UTC (deploy 2026-11-05c-change-password, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
+git_head:      cc78547 + change password, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  3kidTSuJHKn2-VpDaCK2-
+new_deps:      none; no migration
+includes:      Change password card on Profile for managers and agents; POST /api/auth/change-password ends all sessions; old unused team route removed. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1105c
+
 deployed_at:   2026-11-04T22:05 UTC (deploy 2026-11-05b-lead-report-scroll, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
 git_head:      6843e61
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)

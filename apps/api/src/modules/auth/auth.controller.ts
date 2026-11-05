@@ -14,7 +14,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { DashboardLanguageDto, LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordWithTokenDto } from './dto';
+import { DashboardLanguageDto, LoginDto, RegisterDto, ForgotPasswordDto, ResetPasswordWithTokenDto, ChangeOwnPasswordDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser, Public } from '../../common/decorators';
 import { JwtPayload } from '@spm/shared';
@@ -106,6 +106,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resendVerification(@Body('email') email: string) {
     return this.authService.resendVerification(email ?? '');
+  }
+
+  // Here and not on the Team routes: those need the team add-on, and every
+  // manager and agent must be able to change their own password.
+  @UseGuards(JwtAuthGuard)
+  // Each try checks the current password, so keep guessing slow.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangeOwnPasswordDto) {
+    await this.authService.changePassword(user, dto);
   }
 
   @UseGuards(JwtAuthGuard)

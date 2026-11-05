@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
   Logger,
@@ -341,6 +342,29 @@ export class AuthService {
     this.logger.log(`password reset completed for user=${user.id}`);
 
     return { reset: true };
+  }
+
+  // A user changing their own password. Every session ends, including this one,
+  // so a stolen login stops working as soon as the password changes.
+  async changePassword(viewer: JwtPayload, dto: { currentPassword: string; newPassword: string }): Promise<void> {
+    // A Super Admin viewing as a client is not that person.
+    if (viewer.originalRole) {
+      throw new ForbiddenException({ message: 'Not available while viewing as a client', code: 'IMPERSONATING' });
+    }
+    const user = await this.userRepository.findOne({ where: { id: viewer.sub } });
+    if (!user || !user.isActive || !user.canLogin) {
+      throw new NotFoundException('User not found');
+    }
+    // Not 401: the dashboard treats that as an expired session.
+    if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new BadRequestException({ message: 'Your current password is not correct', code: 'WRONG_PASSWORD' });
+    }
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException({ message: 'The new password must be different from the current one', code: 'SAME_PASSWORD' });
+    }
+    await this.userRepository.update(user.id, { passwordHash: await bcrypt.hash(dto.newPassword, 13) });
+    await this.refreshTokenService.revokeAllForUser(user.id);
+    this.logger.log(`password changed by user=${user.id}`);
   }
 
   private dashboardBaseUrl(): string {
