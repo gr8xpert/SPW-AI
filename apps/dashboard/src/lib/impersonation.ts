@@ -1,5 +1,7 @@
 'use client';
 
+import { readServerSession } from './session-check';
+
 // Client-side impersonation session state. Uses localStorage as a sidecar
 // so we don't have to reach into NextAuth's signed JWT session cookie to
 // swap the access token — that would require a bespoke provider and a full
@@ -73,6 +75,84 @@ export function clearImpersonationSession(): void {
   window.localStorage.removeItem(IMPERSONATION_STORAGE_KEY);
   writeImpersonationCookie(false);
   window.dispatchEvent(new Event(IMPERSONATION_EVENT));
+}
+
+// ── Renewal ───────────────────────────────────────────────────────────────
+// The API issues impersonation tokens for 1 hour. Without renewal, a client
+// dashboard left idle past that point got 401 on every call and pages kept
+// spinning until the super-admin clicked Return to admin and started again.
+// We now swap in a new token (same audit session) a couple of minutes before
+// expiry, and once more after any 401, using the super-admin's own NextAuth
+// token — which /api/auth/session refreshes on read.
+
+const RENEW_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
+let inFlightRenewal: Promise<string | null> | null = null;
+
+function tokenExpiryMs(token: string): number | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = (JSON.parse(json) as { exp?: number }).exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask the API for a new impersonation token for the same client and audit
+ * session. Concurrent callers share one request. Resolves the new token, or
+ * null when it couldn't be renewed (the caller then fails as before).
+ */
+export function renewImpersonationToken(): Promise<string | null> {
+  if (inFlightRenewal) return inFlightRenewal;
+  inFlightRenewal = (async () => {
+    const current = getImpersonationSession();
+    if (!current) return null;
+    try {
+      const adminSession = await readServerSession();
+      const adminToken = adminSession?.accessToken;
+      if (!adminToken) return null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/super-admin/impersonate/${current.tenant.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ continueSessionId: current.sessionId }),
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { accessToken?: string; sessionId?: string };
+      if (!body?.accessToken) return null;
+      // The super-admin may have returned to admin while this was in flight.
+      const latest = getImpersonationSession();
+      if (!latest || latest.tenant.id !== current.tenant.id) return null;
+      setImpersonationSession({
+        ...latest,
+        accessToken: body.accessToken,
+        sessionId: body.sessionId ?? latest.sessionId,
+      });
+      return body.accessToken;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    inFlightRenewal = null;
+  });
+  return inFlightRenewal;
+}
+
+/**
+ * The impersonation token to send now, renewed first when it is about to
+ * expire. Null when not impersonating.
+ */
+export async function getFreshImpersonationToken(): Promise<string | null> {
+  const current = getImpersonationSession();
+  if (!current) return null;
+  const exp = tokenExpiryMs(current.accessToken);
+  if (exp !== null && exp - Date.now() < RENEW_BEFORE_EXPIRY_MS) {
+    return (await renewImpersonationToken()) ?? current.accessToken;
+  }
+  return current.accessToken;
 }
 
 // Subscribe to impersonation state changes (start + end). Returns an

@@ -39,11 +39,23 @@ export class ImpersonationController {
     @Param('tenantId', ParseIntPipe) tenantId: number,
     @CurrentUser() user: JwtPayload,
     @Req() req: any,
+    // The dashboard renews a 1-hour token by sending the session it is
+    // already in; anything that isn't a session id is ignored.
+    @Body('continueSessionId') continueSessionId?: unknown,
   ) {
-    return this.impersonationService.startImpersonation(user, tenantId, {
-      ip: req?.ip,
-      userAgent: (req?.headers?.['user-agent'] ?? '').toString(),
-    });
+    const continueId =
+      typeof continueSessionId === 'string' && /^[0-9a-f]{32}$/.test(continueSessionId)
+        ? continueSessionId
+        : undefined;
+    return this.impersonationService.startImpersonation(
+      user,
+      tenantId,
+      {
+        ip: req?.ip,
+        userAgent: (req?.headers?.['user-agent'] ?? '').toString(),
+      },
+      continueId,
+    );
   }
 
   // Return to the super-admin's own session. Must be called with the

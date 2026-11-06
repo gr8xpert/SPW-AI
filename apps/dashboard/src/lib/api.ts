@@ -1,6 +1,10 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { signOut } from 'next-auth/react';
-import { getImpersonationSession } from './impersonation';
+import {
+  getFreshImpersonationToken,
+  getImpersonationSession,
+  renewImpersonationToken,
+} from './impersonation';
 import { readServerSession } from './session-check';
 
 declare module 'axios' {
@@ -78,7 +82,8 @@ async function resolveSessionToken(): Promise<string | null> {
 api.interceptors.request.use(
   async (config) => {
     if (typeof window !== 'undefined') {
-      const impersonationToken = getImpersonationSession()?.accessToken;
+      // Renewed first when within 2 min of its 1-hour expiry.
+      const impersonationToken = await getFreshImpersonationToken();
       // An unanswered session read sends the request without a token; the
       // 401 path below then decides without signing anyone out over it.
       const token = impersonationToken ?? (await resolveSessionToken().catch(() => null));
@@ -123,6 +128,22 @@ api.interceptors.response.use(
       if (attempt < delays.length) {
         original._networkRetries = attempt + 1;
         await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+        return api.request(original);
+      }
+    }
+
+    // Impersonating: renew the client token once and replay, never sign out.
+    if (
+      original &&
+      error.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      getImpersonationSession() &&
+      !original._authRetry
+    ) {
+      const renewed = await renewImpersonationToken();
+      if (renewed) {
+        original._authRetry = true;
+        original.headers.Authorization = `Bearer ${renewed}`;
         return api.request(original);
       }
     }

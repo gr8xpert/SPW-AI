@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { Tenant, User, ImpersonationAudit } from '../../database/entities';
 import { JwtPayload, UserRole } from '@spm/shared';
@@ -59,6 +59,7 @@ export class ImpersonationService {
     superAdmin: JwtPayload,
     tenantId: number,
     request: { ip?: string; userAgent?: string },
+    continueSessionId?: string,
   ): Promise<ImpersonationStartResult> {
     if (superAdmin.role !== UserRole.SUPER_ADMIN) {
       throw new ForbiddenException('Only super admins can impersonate clients');
@@ -102,7 +103,25 @@ export class ImpersonationService {
       );
     }
 
-    const sessionId = randomBytes(16).toString('hex');
+    // Renewal: keep the same audit session when this super-admin already has
+    // an open one for this tenant, so an idle hour doesn't split it in two.
+    let sessionId: string | null = null;
+    if (continueSessionId) {
+      const open = await this.auditRepository.findOne({
+        where: {
+          sessionId: continueSessionId,
+          superAdminUserId: superAdmin.sub,
+          tenantId: tenant.id,
+          action: 'start',
+          endedAt: IsNull(),
+        },
+        select: ['id'],
+      });
+      if (open) sessionId = continueSessionId;
+    }
+    const renewing = sessionId !== null;
+    if (!sessionId) sessionId = randomBytes(16).toString('hex');
+
     const payload: JwtPayload = {
       sub: superAdmin.sub, // keep original identity so audit stays honest
       email: impersonatedUser.email,
@@ -128,22 +147,24 @@ export class ImpersonationService {
       expiresIn,
     });
 
-    await this.auditRepository.save(
-      this.auditRepository.create({
-        sessionId,
-        superAdminUserId: superAdmin.sub,
-        tenantId: tenant.id,
-        impersonatedUserId: impersonatedUser.id,
-        action: 'start',
-        method: null,
-        path: null,
-        ipAddress: request.ip ?? null,
-        userAgent: request.userAgent ?? null,
-      }),
-    );
+    if (!renewing) {
+      await this.auditRepository.save(
+        this.auditRepository.create({
+          sessionId,
+          superAdminUserId: superAdmin.sub,
+          tenantId: tenant.id,
+          impersonatedUserId: impersonatedUser.id,
+          action: 'start',
+          method: null,
+          path: null,
+          ipAddress: request.ip ?? null,
+          userAgent: request.userAgent ?? null,
+        }),
+      );
+    }
 
     this.logger.log(
-      `Impersonation started: superAdmin=${superAdmin.sub} tenant=${tenant.id} session=${sessionId}`,
+      `Impersonation ${renewing ? 'renewed' : 'started'}: superAdmin=${superAdmin.sub} tenant=${tenant.id} session=${sessionId}`,
     );
 
     return {

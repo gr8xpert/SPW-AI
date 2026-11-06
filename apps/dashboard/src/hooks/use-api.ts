@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useImpersonation } from './use-impersonation';
 import { readServerSession } from '@/lib/session-check';
+import { getFreshImpersonationToken, renewImpersonationToken } from '@/lib/impersonation';
 
 // A read that fails before any response arrives ("Failed to fetch") is retried
 // twice with a short backoff. Browsers silently retry page navigations when a
@@ -75,8 +76,13 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
     ): Promise<T | null> => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      const { effectiveAccessToken, sessionToken, update, impersonation } = auth.current;
+      const { sessionToken, update, impersonation } = auth.current;
+      let { effectiveAccessToken } = auth.current;
       try {
+        // Impersonation tokens last 1 hour; swap in a new one before it lapses.
+        if (impersonation) {
+          effectiveAccessToken = (await getFreshImpersonationToken()) ?? effectiveAccessToken;
+        }
         const isFormData = requestOptions.body instanceof FormData;
         const headers: HeadersInit = {
           ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -99,6 +105,16 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
         // Skip the refresh-and-bounce dance when running as an impersonation
         // session — impersonation tokens can't be refreshed via NextAuth,
         // and signing out here would kill the super-admin's real session.
+        // Impersonating: renew the client token once (e.g. the tab slept past
+        // its expiry) instead of signing the super-admin out.
+        if (response.status === 401 && impersonation) {
+          const renewed = await renewImpersonationToken();
+          if (renewed) {
+            (headers as Record<string, string>)['Authorization'] = `Bearer ${renewed}`;
+            response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { ...requestOptions, headers });
+          }
+        }
+
         if (response.status === 401 && sessionToken && !impersonation) {
           try {
             const refreshed = await update();
@@ -195,17 +211,26 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
   const getRaw = useCallback(
     async (endpoint: string): Promise<Response> => {
       const headers: HeadersInit = {};
-      if (effectiveAccessToken) {
-        (headers as Record<string, string>)['Authorization'] =
-          `Bearer ${effectiveAccessToken}`;
+      const token = impersonation
+        ? (await getFreshImpersonationToken()) ?? effectiveAccessToken
+        : effectiveAccessToken;
+      if (token) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { headers });
+      let response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { headers });
+      if (response.status === 401 && impersonation) {
+        const renewed = await renewImpersonationToken();
+        if (renewed) {
+          (headers as Record<string, string>)['Authorization'] = `Bearer ${renewed}`;
+          response = await fetchWithReadRetry(`${apiUrl}${endpoint}`, { headers });
+        }
+      }
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
       return response;
     },
-    [apiUrl, effectiveAccessToken]
+    [apiUrl, effectiveAccessToken, impersonation]
   );
 
   return {
