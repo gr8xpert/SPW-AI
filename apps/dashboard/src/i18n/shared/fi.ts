@@ -40,7 +40,7 @@ export const fi: SharedText = {
     button: 'Kopioi asetelma',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Kopioi tämä sijaintien järjestys toiselle asiakkaalle. Vain molemmilla asiakkailla olevat sijainnit muuttuvat — mitään ei lisätä eikä poisteta.'
+        ? 'Kopioi tämä sijaintien järjestys toiselle asiakkaalle. Vain molemmilla asiakkailla olevat sijainnit muuttuvat, ellei puuttuvia valita lisättäviksi. Mitään ei poisteta.'
         : 'Kopioi tämä kohdetyyppien järjestys toiselle asiakkaalle. Vain molemmilla asiakkailla olevat kohdetyypit muuttuvat — mitään ei lisätä eikä poisteta.',
     export: 'Vie asetelma',
     import: 'Tuo asetelma…',
@@ -59,7 +59,11 @@ export const fi: SharedText = {
     untouched: (n, kind) => `${noun(kind)}: ${n} ei ole tiedostossa, ja ne pysyvät ennallaan.`,
     notInAccount: (n, kind) => `${noun(kind)}: tiedostossa on ${n}, joita ei ole tällä tilillä, eikä niitä lisätä`,
     example: (list) => `(esim. ${list})`,
+    createMissing: (n) => `Lisää myös ${n} sijaintia, joita tällä tilillä ei ole`,
+    createMissingHelp: 'Uudelle asiakkaalle: lisää tiedoston maat, alueet ja paikkakunnat. Syötteen kohteet näillä paikkakunnilla sijoitetaan niiden alle.',
+    added: (n) => `${n} sijaintia lisätty.`,
     rows: {
+      created: 'Lisätty (uudet sijainnit)',
       moved: 'Siirretty toisen ylätason alle',
       renamed: 'Nimetty uudelleen',
       reordered: 'Uusi järjestys',

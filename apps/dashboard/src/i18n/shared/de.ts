@@ -41,7 +41,7 @@ export const de: SharedText = {
     button: 'Einrichtung kopieren',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Kopieren Sie diese Anordnung der Standorte zu einem anderen Kunden. Nur Standorte, die beide Kunden haben, werden geändert — nichts wird hinzugefügt oder gelöscht.'
+        ? 'Kopieren Sie diese Anordnung der Standorte zu einem anderen Kunden. Nur Standorte, die beide Kunden haben, werden geändert, außer Sie fügen die fehlenden hinzu. Nichts wird gelöscht.'
         : 'Kopieren Sie diese Anordnung der Immobilientypen zu einem anderen Kunden. Nur Typen, die beide Kunden haben, werden geändert — nichts wird hinzugefügt oder gelöscht.',
     export: 'Einrichtung exportieren',
     import: 'Einrichtung importieren…',
@@ -67,7 +67,11 @@ export const de: SharedText = {
     notInAccount: (n, kind) =>
       `${n} ${kind === 'locations' ? loc(n) : typ(n)} aus der Datei ${n === 1 ? 'ist' : 'sind'} nicht in diesem Konto und ${n === 1 ? 'wird' : 'werden'} nicht hinzugefügt`,
     example: (list) => `(z. B. ${list})`,
+    createMissing: (n) => `Auch die ${n} ${n === 1 ? 'Standort' : 'Standorte'} hinzufügen, die dieses Konto nicht hat`,
+    createMissingHelp: 'Für einen neuen Kunden: fügt die Länder, Gebiete und Orte aus der Datei hinzu. Feed-Objekte in diesen Orten werden darunter eingeordnet.',
+    added: (n) => `${n} ${n === 1 ? 'Standort' : 'Standorte'} hinzugefügt.`,
     rows: {
+      created: 'Hinzugefügt (neue Standorte)',
       moved: 'Unter ein anderes übergeordnetes Element verschoben',
       renamed: 'Umbenannt',
       reordered: 'Neue Reihenfolge',

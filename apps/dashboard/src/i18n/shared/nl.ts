@@ -41,7 +41,7 @@ export const nl: SharedText = {
     button: 'Opzet kopiëren',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Kopieer deze indeling van locaties naar een andere klant. Alleen locaties die beide klanten hebben worden gewijzigd — er wordt niets toegevoegd of verwijderd.'
+        ? 'Kopieer deze indeling van locaties naar een andere klant. Alleen locaties die beide klanten hebben worden gewijzigd, tenzij u kiest om de ontbrekende toe te voegen. Er wordt niets verwijderd.'
         : 'Kopieer deze indeling van woningtypes naar een andere klant. Alleen woningtypes die beide klanten hebben worden gewijzigd — er wordt niets toegevoegd of verwijderd.',
     export: 'Opzet exporteren',
     import: 'Opzet importeren…',
@@ -67,7 +67,11 @@ export const nl: SharedText = {
     notInAccount: (n, kind) =>
       `${n} ${kind === 'locations' ? loc(n) : typ(n)} in het bestand ${n === 1 ? 'bestaat' : 'bestaan'} niet in dit account en ${n === 1 ? 'wordt' : 'worden'} niet toegevoegd`,
     example: (list) => `(bijv. ${list})`,
+    createMissing: (n) => `Ook de ${n} ${n === 1 ? 'locatie' : 'locaties'} toevoegen die dit account niet heeft`,
+    createMissingHelp: 'Voor een nieuwe klant: voegt de landen, gebieden en plaatsen uit het bestand toe. Feedwoningen in die plaatsen komen eronder.',
+    added: (n) => `${n} ${n === 1 ? 'locatie' : 'locaties'} toegevoegd.`,
     rows: {
+      created: 'Toegevoegd (nieuwe locaties)',
       moved: 'Verplaatst naar een andere bovenliggende',
       renamed: 'Hernoemd',
       reordered: 'Nieuwe volgorde',

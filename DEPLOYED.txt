@@ -1,3 +1,10 @@
+deployed_at:   2026-11-06T15:57 UTC (deploy 2026-11-06c-terranova, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
+git_head:      f9804e9 + live 11-05d work + location import/feed fix; owner test passed (Terra Nova imported), committed after it
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  0BcEneMIYbdcTHM5wTTL1
+new_deps:      none; no migration
+includes:      Locations Import setup "Also add" tick box (?create=true) creates places the client doesn't have; feed imports find a town the client moved instead of creating a top-level twin. For Terra Nova (Kyero town-only feed + Odoo CSV tree). Waited for feed 101 first import to finish before the reload. Health 31/31, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1106c
+
 deployed_at:   2026-11-06T13:26 UTC (deploy 2026-11-06b-feed-queue, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
 git_head:      7f8cfae + live 11-05d work + feed queue, uncommitted (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)

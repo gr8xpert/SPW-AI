@@ -24,7 +24,7 @@ import { AiEnrichmentService } from '../ai-enrichment/ai-enrichment.service';
 import { isValidCronExpression } from './cron-validator';
 import { LocationTemplateService, TemplateRunContext } from '../location-template/location-template.service';
 import { PropertyTypeTemplateService, TypeRunContext } from '../property-type-template/property-type-template.service';
-import { locationKey } from '../location-template/location-name';
+import { extraFeedKey, locationKey } from '../location-template/location-name';
 import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
 import { dailyAt, nightLoad, quietestHour } from './feed-stagger';
 
@@ -1538,6 +1538,18 @@ export class FeedService {
       let node = await this.locationRepository.findOne({
         where: { tenantId, slug, parentId: parentId as any },
       });
+
+      // The place the feed put here before the client moved it (or that an
+      // Import setup created for this name): reuse it instead of a twin.
+      if (!node) {
+        const moved = await this.locationRepository
+          .createQueryBuilder('l')
+          .where('l.tenantId = :tenantId', { tenantId })
+          .andWhere('JSON_CONTAINS(l.feedKeys, :key)', { key: JSON.stringify(extraFeedKey(parentId, step.name)) })
+          .orderBy('l.id', 'ASC')
+          .getMany();
+        node = moved.find((r) => r.level === step.level) ?? moved[0] ?? null;
+      }
 
       if (!node) {
         node = await this.locationRepository.save(

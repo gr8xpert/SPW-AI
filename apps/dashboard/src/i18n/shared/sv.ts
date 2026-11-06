@@ -41,7 +41,7 @@ export const sv: SharedText = {
     button: 'Kopiera upplägg',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Kopiera den här ordningen av platser till en annan kund. Bara platser som båda kunderna har ändras — inget läggs till eller tas bort.'
+        ? 'Kopiera den här ordningen av platser till en annan kund. Bara platser som båda kunderna har ändras, om du inte väljer att lägga till de som saknas. Inget tas bort.'
         : 'Kopiera den här ordningen av objekttyper till en annan kund. Bara objekttyper som båda kunderna har ändras — inget läggs till eller tas bort.',
     export: 'Exportera upplägg',
     import: 'Importera upplägg…',
@@ -67,7 +67,11 @@ export const sv: SharedText = {
     notInAccount: (n, kind) =>
       `${n} ${kind === 'locations' ? loc(n) : typ(n)} i filen finns inte i det här kontot och läggs inte till`,
     example: (list) => `(t.ex. ${list})`,
+    createMissing: (n) => `Lägg också till ${n === 1 ? 'platsen' : `de ${n} platserna`} som det här kontot inte har`,
+    createMissingHelp: 'För en ny kund: lägger till länder, områden och orter från filen. Flödets objekt i de orterna placeras under dem.',
+    added: (n) => `${n} ${n === 1 ? 'plats' : 'platser'} tillagda.`,
     rows: {
+      created: 'Tillagda (nya platser)',
       moved: 'Flyttade till en annan överordnad',
       renamed: 'Bytt namn',
       reordered: 'Ny ordning',

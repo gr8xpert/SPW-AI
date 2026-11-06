@@ -41,7 +41,7 @@ export const fr: SharedText = {
     button: 'Copier la configuration',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Copiez cette organisation des localisations vers un autre client. Seules les localisations que les deux clients ont sont modifiées — rien n’est ajouté ni supprimé.'
+        ? 'Copiez cette organisation des localisations vers un autre client. Seules les localisations que les deux clients ont sont modifiées, sauf si vous choisissez d’ajouter celles qui manquent. Rien n’est supprimé.'
         : 'Copiez cette organisation des types de bien vers un autre client. Seuls les types que les deux clients ont sont modifiés — rien n’est ajouté ni supprimé.',
     export: 'Exporter la configuration',
     import: 'Importer la configuration…',
@@ -68,7 +68,11 @@ export const fr: SharedText = {
     notInAccount: (n, kind) =>
       `${n} ${kind === 'locations' ? loc(n) : typ(n)} du fichier ${n === 1 ? 'n’existe' : 'n’existent'} pas dans ce compte et ne ${n === 1 ? 'sera' : 'seront'} pas ${kind === 'locations' ? (n === 1 ? 'ajoutée' : 'ajoutées') : n === 1 ? 'ajouté' : 'ajoutés'}`,
     example: (list) => `(p. ex. ${list})`,
+    createMissing: (n) => `Ajouter aussi ${n === 1 ? 'la localisation' : `les ${n} localisations`} que ce compte n’a pas`,
+    createMissingHelp: 'Pour un nouveau client : ajoute les pays, zones et villes du fichier. Les biens du flux dans ces villes y sont rangés.',
+    added: (n) => `${n} ${n === 1 ? 'localisation ajoutée' : 'localisations ajoutées'}.`,
     rows: {
+      created: 'Ajoutées (nouvelles localisations)',
       moved: 'Déplacés sous un autre parent',
       renamed: 'Renommés',
       reordered: 'Nouvel ordre',

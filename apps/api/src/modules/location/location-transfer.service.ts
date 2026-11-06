@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Location, LocationLevel } from '../../database/entities';
-import { LOCATION_LEVELS, locationKey } from '../location-template/location-name';
+import { LOCATION_LEVELS, extraFeedKey, locationKey } from '../location-template/location-name';
 import { LocationService, cleanAliases } from './location.service';
 import {
   MAX_TRANSFER_ROWS,
@@ -49,8 +49,11 @@ export interface LocationImportReport {
   /** moves skipped: a same-named place already sits there, or it would loop */
   clashes: number;
   ambiguous: number;
-  /** file rows this account doesn't have — never created */
+  /** file rows this account doesn't have — created only with createMissing */
   notInAccount: number;
+  /** file rows added because createMissing was asked for */
+  created: number;
+  createdSample: string[];
   notInAccountSample: string[];
   /** account rows the file doesn't mention — left as they are */
   untouched: number;
@@ -59,8 +62,10 @@ export interface LocationImportReport {
 /**
  * Locations "Export setup" / "Import setup": copies one client's arrangement
  * (nesting, order, names and translations, other spellings, map points) onto
- * the matching rows of another client. Never creates or deletes a place the
- * importing client doesn't have; see common/setup-transfer/match-tree.
+ * the matching rows of another client. Never deletes a place, and only creates
+ * the ones the importing client doesn't have when asked to (createMissing): a
+ * new client whose feed sends bare town names gets its countries and areas
+ * from a file built from its old CRM. See common/setup-transfer/match-tree.
  */
 @Injectable()
 export class LocationTransferService {
@@ -94,7 +99,7 @@ export class LocationTransferService {
     };
   }
 
-  async import(tenantId: number, text: string, apply: boolean): Promise<LocationImportReport> {
+  async import(tenantId: number, text: string, apply: boolean, createMissing = false): Promise<LocationImportReport> {
     const file = parseFile(text);
     const rows = await this.locationRepository.find({ where: { tenantId } });
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -127,7 +132,10 @@ export class LocationTransferService {
           a.id - b.id,
       );
     }
-    const keptRowFor = (ref: number) => rowsFor.get(ref)?.[0];
+    // Rows this import adds (createMissing); in a dry run they get stand-in ids.
+    const createdFor = new Map<number, Location>();
+    let standInId = 0;
+    const keptRowFor = (ref: number) => rowsFor.get(ref)?.[0] ?? createdFor.get(ref);
 
     const report: LocationImportReport = {
       applied: apply,
@@ -146,6 +154,8 @@ export class LocationTransferService {
       ambiguous,
       notInAccount: 0,
       notInAccountSample: [],
+      created: 0,
+      createdSample: [],
       untouched: rows.length - refFor.size,
     };
 
@@ -158,6 +168,41 @@ export class LocationTransferService {
     for (const item of topDown(file.map((f) => ({ ...f, id: f.ref, parentId: f.parentRef })))) {
       const matchedRows = (rowsFor.get(item.ref) ?? []).filter((r) => !gone.has(r.id));
       if (!matchedRows.length) {
+        const parentRow = item.parentRef == null ? null : keptRowFor(item.parentRef);
+        if (createMissing && item.name.en && (item.parentRef == null || parentRow)) {
+          const parentId = parentRow?.id ?? null;
+          const slug = feedSlug(item.name.en);
+          if (slugAt.has(`${parentId ?? 0}|${slug}`)) {
+            report.clashes++;
+            continue;
+          }
+          const row = apply
+            ? await this.locationRepository.save(
+                this.locationRepository.create({
+                  tenantId,
+                  name: { ...item.name },
+                  slug,
+                  level: item.level ?? 'town',
+                  parentId,
+                  sortOrder: item.sortOrder ?? 0,
+                  lat: item.lat,
+                  lng: item.lng,
+                  coordsLocked: item.coordsLocked,
+                  aliases: cleanAliases(item.aliases, item.name.en),
+                  // A feed that sends only this name (no parent) finds this row
+                  // instead of creating a twin at the top level.
+                  feedKeys: [extraFeedKey(null, item.name.en)],
+                  userLocked: true,
+                }),
+              )
+            : ({ id: --standInId, parentId, slug } as Location);
+          createdFor.set(item.ref, row);
+          slugAt.set(`${parentId ?? 0}|${slug}`, row.id);
+          parentOf.set(row.id, parentId);
+          report.created++;
+          if (report.createdSample.length < 20) report.createdSample.push(item.name.en);
+          continue;
+        }
         report.notInAccount++;
         if (report.notInAccountSample.length < 20) report.notInAccountSample.push(item.name.en || `#${item.ref}`);
         continue;
@@ -261,6 +306,17 @@ function placesOf(r: Location): Array<{ parentRef: number | null; key: string }>
 
 function originNames(r: Location): string[] {
   return (r.feedKeys || []).map((k) => /^x:\d+:(.+)$/.exec(k)?.[1]).filter((k): k is string => !!k);
+}
+
+// Same slug the feed import gives a place, so it finds the row by slug too.
+function feedSlug(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 100) || 'location'
+  );
 }
 
 function fixed(v: unknown): string | null {

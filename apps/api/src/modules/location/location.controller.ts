@@ -99,8 +99,9 @@ export class LocationController {
   }
 
   // "Import setup": arranges this client's own locations like the file's.
-  // Without ?apply=true it only reports what would change. Multipart, as a
-  // big tree is over the 100 KB JSON body limit.
+  // Without ?apply=true it only reports what would change; ?create=true also
+  // adds the file's places this client doesn't have. Multipart, as a big tree
+  // is over the 100 KB JSON body limit.
   @Post('import')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
@@ -108,10 +109,11 @@ export class LocationController {
     @CurrentTenant() tenantId: number,
     @UploadedFile() file?: Express.Multer.File,
     @Query('apply') apply?: string,
+    @Query('create') create?: string,
   ) {
     if (!file?.buffer?.length) throw new BadRequestException('Attach a Locations export file');
-    const report = await this.transferService.import(tenantId, file.buffer.toString('utf8'), apply === 'true');
-    if (report.applied && (report.changed > 0 || report.merged > 0)) await this.bump(tenantId, 'import setup');
+    const report = await this.transferService.import(tenantId, file.buffer.toString('utf8'), apply === 'true', create === 'true');
+    if (report.applied && (report.changed > 0 || report.merged > 0 || report.created > 0)) await this.bump(tenantId, 'import setup');
     return report;
   }
 

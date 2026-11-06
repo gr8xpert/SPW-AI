@@ -41,7 +41,7 @@ export const es: SharedText = {
     button: 'Copiar configuración',
     menuHelp: (kind) =>
       kind === 'locations'
-        ? 'Copia esta organización de ubicaciones a otro cliente. Solo cambian las ubicaciones que tienen ambos clientes; no se añade ni se elimina nada.'
+        ? 'Copia esta organización de ubicaciones a otro cliente. Solo cambian las ubicaciones que tienen ambos clientes, salvo que elija añadir las que faltan. No se elimina nada.'
         : 'Copia esta organización de tipos de propiedad a otro cliente. Solo cambian los tipos que tienen ambos clientes; no se añade ni se elimina nada.',
     export: 'Exportar configuración',
     import: 'Importar configuración…',
@@ -68,7 +68,11 @@ export const es: SharedText = {
     notInAccount: (n, kind) =>
       `${n} ${kind === 'locations' ? loc(n) : typ(n)} del archivo no ${n === 1 ? 'existe' : 'existen'} en esta cuenta y no se ${n === 1 ? 'añadirá' : 'añadirán'}`,
     example: (list) => `(p. ej. ${list})`,
+    createMissing: (n) => `Añadir también ${n === 1 ? 'la ubicación' : `las ${n} ubicaciones`} que esta cuenta no tiene`,
+    createMissingHelp: 'Para un cliente nuevo: añade los países, zonas y poblaciones del archivo. Los inmuebles del feed en esas poblaciones se colocan dentro.',
+    added: (n) => `${n} ${n === 1 ? 'ubicación añadida' : 'ubicaciones añadidas'}.`,
     rows: {
+      created: 'Añadidas (ubicaciones nuevas)',
       moved: 'Movidos a otro elemento superior',
       renamed: 'Renombrados',
       reordered: 'Nuevo orden',

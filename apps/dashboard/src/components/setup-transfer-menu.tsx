@@ -40,6 +40,8 @@ interface ImportReport {
   ambiguous: number;
   notInAccount: number;
   notInAccountSample: string[];
+  created?: number;
+  createdSample?: string[];
   untouched: number;
 }
 
@@ -50,8 +52,10 @@ const unwrap = <T,>(res: any): T => res?.data ?? res;
  * Copy the Locations or Property Types arrangement from one client to another.
  * Export saves this client's nesting, order, names and translations (plus
  * other spellings and map points for locations) to a file. Import arranges
- * this client's own rows the same way: rows the file has but this client
- * doesn't are never created, and rows only this client has stay as they are.
+ * this client's own rows the same way. Rows the file has but this client
+ * doesn't are only created when the manager ticks "Also add" (locations only:
+ * a new client whose feed sends bare towns), and rows only this client has
+ * stay as they are.
  */
 export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported: () => void }) {
   const api = useApi();
@@ -60,6 +64,7 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportReport | null>(null);
+  const [createMissing, setCreateMissing] = useState(false);
   const t = useSharedText().setupTransfer;
   const base = `/api/dashboard/${kind}`;
 
@@ -82,10 +87,17 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
     }
   };
 
-  const send = async (f: File, apply: boolean): Promise<ImportReport> => {
+  const send = async (f: File, apply: boolean, create: boolean): Promise<ImportReport> => {
     const fd = new FormData();
     fd.append('file', f);
-    return unwrap<ImportReport>(await api.post(`${base}/import${apply ? '?apply=true' : ''}`, fd));
+    const query = [apply && 'apply=true', create && kind === 'locations' && 'create=true'].filter(Boolean).join('&');
+    return unwrap<ImportReport>(await api.post(`${base}/import${query ? `?${query}` : ''}`, fd));
+  };
+
+  const close = () => {
+    setPreview(null);
+    setFile(null);
+    setCreateMissing(false);
   };
 
   const pickFile = async (f: File | undefined) => {
@@ -93,8 +105,23 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
     if (!f) return;
     setBusy(true);
     try {
-      setPreview(await send(f, false));
+      setCreateMissing(false);
+      setPreview(await send(f, false, false));
       setFile(f);
+    } catch (e) {
+      toast({ title: t.readFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The preview counts change with the option, so it is asked for again.
+  const toggleCreate = async (on: boolean) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      setPreview(await send(file, false, on));
+      setCreateMissing(on);
     } catch (e) {
       toast({ title: t.readFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
     } finally {
@@ -106,13 +133,12 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
     if (!file) return;
     setBusy(true);
     try {
-      const r = await send(file, true);
+      const r = await send(file, true, createMissing);
       toast({
         title: t.imported,
-        description: t.importedText(r.changed, r.merged, kind),
+        description: `${r.created ? `${t.added(r.created)} ` : ''}${t.importedText(r.changed, r.merged, kind)}`,
       });
-      setPreview(null);
-      setFile(null);
+      close();
       onImported();
     } catch (e) {
       toast({ title: t.importFailed, description: e instanceof Error ? e.message : t.tryAgain, variant: 'destructive' });
@@ -123,6 +149,7 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
 
   const rows: Array<[string, number | undefined]> = preview
     ? [
+        [t.rows.created, preview.created],
         [t.rows.moved, preview.moved],
         [t.rows.renamed, preview.renamed],
         [t.rows.reordered, preview.reordered],
@@ -167,7 +194,7 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
         onChange={(e) => pickFile(e.target.files?.[0])}
       />
 
-      <Dialog open={!!preview} onOpenChange={(open) => { if (!open && !busy) { setPreview(null); setFile(null); } }}>
+      <Dialog open={!!preview} onOpenChange={(open) => { if (!open && !busy) close(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.dialogTitle(kind)}</DialogTitle>
@@ -194,11 +221,28 @@ export function SetupTransferMenu({ kind, onImported }: { kind: Kind; onImported
                     {preview.notInAccountSample.length > 0 && <> {t.example(preview.notInAccountSample.slice(0, 5).join(', '))}</>}.</>
                 )}
               </p>
+              {kind === 'locations' && (createMissing || preview.notInAccount > 0) && (
+                <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4"
+                    checked={createMissing}
+                    disabled={busy}
+                    onChange={(e) => toggleCreate(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">
+                      {t.createMissing(createMissing ? preview.created ?? 0 : preview.notInAccount)}
+                    </span>
+                    <span className="block text-muted-foreground">{t.createMissingHelp}</span>
+                  </span>
+                </label>
+              )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" disabled={busy} onClick={() => { setPreview(null); setFile(null); }}>{t.cancel}</Button>
-            <Button disabled={busy || !preview || (preview.changed === 0 && preview.merged === 0)} onClick={apply}>
+            <Button variant="outline" disabled={busy} onClick={close}>{t.cancel}</Button>
+            <Button disabled={busy || !preview || (preview.changed === 0 && preview.merged === 0 && !preview.created)} onClick={apply}>
               {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t.apply}
             </Button>

@@ -43,7 +43,7 @@ export const en = {
     button: 'Copy setup',
     menuHelp: (kind: SetupKind): string =>
       kind === 'locations'
-        ? 'Copy this location arrangement to another client. Only locations both clients have are changed — nothing is added or deleted.'
+        ? 'Copy this location arrangement to another client. Only locations both clients have are changed, unless you choose to add the missing ones. Nothing is deleted.'
         : 'Copy this property type arrangement to another client. Only property types both clients have are changed — nothing is added or deleted.',
     export: 'Export setup',
     import: 'Import setup…',
@@ -69,7 +69,11 @@ export const en = {
     notInAccount: (n: number, kind: SetupKind) =>
       `${n} ${kind === 'locations' ? (n === 1 ? 'location' : 'locations') : n === 1 ? 'property type' : 'property types'} in the file ${n === 1 ? 'is' : 'are'} not in this account and will not be added`,
     example: (list: string) => `(e.g. ${list})`,
+    createMissing: (n: number) => `Also add the ${n} ${n === 1 ? 'location' : 'locations'} this account doesn't have`,
+    createMissingHelp: 'For a new client: adds the countries, areas and towns from the file. Feed listings in those towns are placed under them.',
+    added: (n: number) => `${n} ${n === 1 ? 'location' : 'locations'} added.`,
     rows: {
+      created: 'Added (new locations)',
       moved: 'Moved to a different parent',
       renamed: 'Renamed',
       reordered: 'New order',
