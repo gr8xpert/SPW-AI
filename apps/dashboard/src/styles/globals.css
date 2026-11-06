@@ -138,3 +138,10 @@
 @supports not selector(::-webkit-scrollbar) {
   html { scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted)); }
 }
+
+/* Cards that hold a text box stay still on hover. The 2 px lift moved the box under the
+   cursor and closed spell-check / Grammarly suggestion popups (ticket reply, property description). */
+.card-gradient:has(textarea, [contenteditable='true'], [contenteditable='']) {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
