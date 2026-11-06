@@ -135,7 +135,8 @@ const emptyForm = {
   username: '',
   password: '',
   endpoint: '',
-  syncSchedule: '0 6 * * *',
+  // Empty = the API picks a quiet night hour.
+  syncSchedule: '',
   protectedFields: [] as string[],
   markAsFeatured: false,
   removeMissing: true,
@@ -147,6 +148,9 @@ function formatDate(d: string, locale: string): string {
 
 interface SyncStatus {
   isRunning: boolean;
+  // Set while isRunning: waiting for a free slot, waiting to retry, or importing.
+  phase?: 'queued' | 'retrying' | 'running' | null;
+  queuePosition?: number | null;
   totalFetched: number;
   targetCount: number;
   createdCount?: number;
@@ -236,7 +240,7 @@ export default function FeedsPage() {
           ...(form.password ? { password: form.password } : {}),
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
         },
-        syncSchedule: form.syncSchedule || '0 6 * * *',
+        ...(form.syncSchedule.trim() ? { syncSchedule: form.syncSchedule.trim() } : {}),
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
         removeMissing: form.removeMissing,
@@ -265,7 +269,7 @@ export default function FeedsPage() {
           ...(form.password ? { password: form.password } : {}),
           ...(form.endpoint ? { endpoint: form.endpoint } : {}),
         },
-        syncSchedule: form.syncSchedule || '0 6 * * *',
+        ...(form.syncSchedule.trim() ? { syncSchedule: form.syncSchedule.trim() } : {}),
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
         removeMissing: form.removeMissing,
@@ -378,7 +382,7 @@ export default function FeedsPage() {
       username: feed.credentials?.username || '',
       password: feed.credentials?.password || '',
       endpoint: feed.credentials?.endpoint || '',
-      syncSchedule: feed.syncSchedule || '0 6 * * *',
+      syncSchedule: feed.syncSchedule || '',
       protectedFields: feed.protectedFields || [],
       markAsFeatured: feed.markAsFeatured === true,
       removeMissing: feed.removeMissing !== false,
@@ -472,7 +476,7 @@ export default function FeedsPage() {
       )}
       <div className="space-y-2">
         <Label>{t.form.syncSchedule}</Label>
-        <Input placeholder="0 6 * * *" value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />
+        <Input placeholder={t.form.syncSchedulePlaceholder} value={form.syncSchedule} onChange={(e) => setForm({ ...form, syncSchedule: e.target.value })} />
         <p className="text-xs text-muted-foreground">{t.form.syncScheduleHelp}</p>
       </div>
       <div className="flex items-start justify-between gap-4 border-t pt-4">
@@ -599,13 +603,14 @@ export default function FeedsPage() {
               : 'text-muted-foreground';
             const sync = syncStatuses[feed.id];
             const isSyncing = sync?.isRunning;
+            const isWaiting = isSyncing && (sync.phase === 'queued' || sync.phase === 'retrying');
             const progressPct = isSyncing && sync.targetCount > 0
               ? Math.min(100, Math.round((sync.totalFetched / sync.targetCount) * 100))
               : 0;
 
             return (
-              <Card key={feed.id} className={isSyncing ? 'ring-2 ring-primary/50 ring-offset-2 transition-all' : ''}>
-                {isSyncing && (
+              <Card key={feed.id} className={isSyncing && !isWaiting ? 'ring-2 ring-primary/50 ring-offset-2 transition-all' : ''}>
+                {isSyncing && !isWaiting && (
                   <div className="h-1.5 w-full bg-primary/10 rounded-t-lg overflow-hidden">
                     <div
                       className="h-full bg-primary transition-all duration-500"
@@ -672,7 +677,12 @@ export default function FeedsPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">{t.card.status}</span>
-                    {isSyncing ? (
+                    {isWaiting ? (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {sync.phase === 'retrying' ? t.card.retrying : t.card.queued}
+                      </Badge>
+                    ) : isSyncing ? (
                       <Badge variant="default" className="bg-primary/10 text-primary hover:bg-primary/20">
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         {t.card.syncing}
@@ -691,7 +701,14 @@ export default function FeedsPage() {
                     </div>
                   )}
 
-                  {isSyncing && (
+                  {isWaiting && sync.phase === 'queued' && sync.queuePosition ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">{t.card.queuePlace}</span>
+                      <span className="text-sm font-medium">{t.card.queuePlaceValue(sync.queuePosition)}</span>
+                    </div>
+                  ) : null}
+
+                  {isSyncing && !isWaiting && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">{t.card.progress}</span>
                       <span className="text-sm font-medium">
@@ -754,7 +771,9 @@ export default function FeedsPage() {
 
                   <div className="pt-2 border-t">
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handleSync(feed)} disabled={isSyncing}>
-                      {isSyncing ? (
+                      {isWaiting ? (
+                        <><Clock className="h-4 w-4 mr-2" />{sync.phase === 'retrying' ? t.card.retrying : t.card.queuedDots}</>
+                      ) : isSyncing ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.card.syncingDots}</>
                       ) : (
                         <><RefreshCw className="h-4 w-4 mr-2" />{t.menu.syncNow}</>

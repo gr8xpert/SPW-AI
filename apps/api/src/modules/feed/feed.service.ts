@@ -26,6 +26,7 @@ import { LocationTemplateService, TemplateRunContext } from '../location-templat
 import { PropertyTypeTemplateService, TypeRunContext } from '../property-type-template/property-type-template.service';
 import { locationKey } from '../location-template/location-name';
 import { DEFAULT_AREA_PROVINCE } from '@spm/shared';
+import { dailyAt, nightLoad, quietestHour } from './feed-stagger';
 
 function sortedJson(value: Record<string, unknown> | null): string {
   if (!value) return 'null';
@@ -43,6 +44,8 @@ const FEED_MASS_REMOVAL_MIN = 20;
 const MAX_ACTIVE_RUN_MS = 24 * 60 * 60 * 1000;
 // How long a new run log may go without a job in the queue.
 const NEW_RUN_GRACE_MS = 10 * 60 * 1000;
+// BullMQ runs jobs without a priority first, then prioritized ones by number.
+const SCHEDULED_RUN_PRIORITY = 10;
 
 interface FeedOwnershipContext {
   liveFeedIds: Set<number>;
@@ -173,13 +176,25 @@ export class FeedService {
       });
     }
 
+    // No time chosen: the night hour with the fewest listings so far.
+    const syncSchedule = dto.syncSchedule?.trim() || (await this.nightSlotForNewFeed());
+
     const config = this.feedConfigRepository.create({
       ...dto,
+      syncSchedule,
       tenantId,
     });
 
     const saved = await this.feedConfigRepository.save(config);
     return maskedFeedConfig(saved);
+  }
+
+  private async nightSlotForNewFeed(): Promise<string> {
+    const active = await this.feedConfigRepository.find({
+      where: { isActive: true },
+      select: ['id', 'syncSchedule', 'lastSyncCount'],
+    });
+    return dailyAt(quietestHour(nightLoad(active)));
   }
 
   async updateConfig(
@@ -216,6 +231,9 @@ export class FeedService {
         value: dto.syncSchedule,
       });
     }
+
+    // An emptied box keeps the time the feed has.
+    if (dto.syncSchedule !== undefined && !dto.syncSchedule.trim()) delete dto.syncSchedule;
 
     const featuredSwitchedOff = config.markAsFeatured && dto.markAsFeatured === false;
 
@@ -347,7 +365,9 @@ export class FeedService {
         tenantId,
         confirmRemoval: options?.confirmRemoval === true,
       },
-      { jobId },
+      // Daily runs go after everything else waiting: a manual sync or a new
+      // feed's first import (no priority) never waits behind the night queue.
+      options?.scheduledWindow && config.lastSyncAt ? { jobId, priority: SCHEDULED_RUN_PRIORITY } : { jobId },
     );
 
     return importLog;
@@ -1657,6 +1677,34 @@ export class FeedService {
     });
   }
 
+  // Where a run log's job is in the queue. Position counts from 1 = next.
+  private async queueState(
+    importLogId: number,
+  ): Promise<{ phase: 'queued' | 'retrying' | 'running'; queuePosition: number | null }> {
+    const isThisRun = (job: { data?: { importLogId?: number } } | undefined) =>
+      job?.data?.importLogId === importLogId;
+    try {
+      if ((await this.feedImportQueue.getJobs(['active'])).some(isThisRun)) {
+        return { phase: 'running', queuePosition: null };
+      }
+      if ((await this.feedImportQueue.getJobs(['delayed'])).some(isThisRun)) {
+        return { phase: 'retrying', queuePosition: null };
+      }
+      // Workers take the plain waiting list first (oldest first), then the
+      // prioritized set (lowest number, then oldest).
+      const waiting = (await this.feedImportQueue.getJobs(['waiting'])).sort((a, b) => a.timestamp - b.timestamp);
+      const prioritized = (await this.feedImportQueue.getJobs(['prioritized'])).sort(
+        (a, b) => (a.opts?.priority ?? 0) - (b.opts?.priority ?? 0) || a.timestamp - b.timestamp,
+      );
+      const index = [...waiting, ...prioritized].findIndex(isThisRun);
+      if (index >= 0) return { phase: 'queued', queuePosition: index + 1 };
+    } catch (err) {
+      this.logger.warn(`Queue state for run log #${importLogId} unavailable: ${(err as Error).message}`);
+    }
+    // Just added, or picked up between two reads.
+    return { phase: 'running', queuePosition: null };
+  }
+
   async getSyncStatus(tenantId: number, configId: number) {
     const config = await this.findConfigById(tenantId, configId);
     const latest = await this.importLogRepository.findOne({
@@ -1668,8 +1716,15 @@ export class FeedService {
       return { isRunning: false, totalFetched: 0, targetCount: 0, status: null, startedAt: null };
     }
 
+    const isRunning = latest.status === 'running';
+    const queue = isRunning ? await this.queueState(latest.id) : { phase: null, queuePosition: null };
+
     return {
-      isRunning: latest.status === 'running',
+      isRunning,
+      // 'queued' = waiting for a free import slot, 'retrying' = the provider
+      // refused it and it tries again later, 'running' = importing now.
+      phase: queue.phase,
+      queuePosition: queue.queuePosition,
       status: latest.status,
       totalFetched: latest.totalFetched,
       createdCount: latest.createdCount,

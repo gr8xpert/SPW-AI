@@ -1,3 +1,10 @@
+deployed_at:   2026-11-06T13:26 UTC (deploy 2026-11-06b-feed-queue, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      7f8cfae + live 11-05d work + feed queue, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  wRrmupQDsplkAs9oupEE8
+new_deps:      none; migration 1777570000000-StaggerFeedSchedules (88 feeds moved from 06:00 to 00-05 UTC; old values in /root/spw-1106b-schedules-before.tsv)
+includes:      Feed cards show Queued / Retrying later + place in queue; manual syncs and first imports run before daily runs (BullMQ priority 10 on daily); daily feed runs spread over 00:00-05:00 UTC by listing count; new feeds get the quietest night hour. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1106b
+
 deployed_at:   2026-11-04T23:00 UTC (deploy 2026-11-05c-change-password, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
 git_head:      cc78547 + change password, uncommitted (commit after the owner's live test)
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
