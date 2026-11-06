@@ -157,12 +157,12 @@ function LeadCard({
                   </a>
                 )}
               </div>
-              <p className="whitespace-pre-line">{latest.message || <span className="text-muted-foreground">{text.noMessage}</span>}</p>
+              <p className="whitespace-pre-line [overflow-wrap:anywhere]">{latest.message || <span className="text-muted-foreground">{text.noMessage}</span>}</p>
               {earlier.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{text.moreForms(earlier.length)}</p>}
             </div>
           )}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:w-[180px] lg:flex-col lg:items-stretch">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:w-auto lg:min-w-[180px] lg:flex-col lg:items-stretch">
           {!inbox && (
             <>
               <FilterSelect
@@ -170,7 +170,7 @@ function LeadCard({
                 onChange={(v) => setRole(v as BuyerRole | '')}
                 anyLabel={text.chooseRole}
                 options={BUYER_ROLES.map((r) => ({ value: r, label: bt.roles[r] }))}
-                className="w-[180px]"
+                className="w-[180px] lg:w-full"
               />
               <Button size="sm" onClick={save} disabled={!role || assign.isPending} data-testid="new-lead-add">
                 {assign.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <UserPlus className="mr-1.5 h-4 w-4" />}

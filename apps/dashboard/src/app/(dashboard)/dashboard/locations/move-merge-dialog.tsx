@@ -127,7 +127,7 @@ export function MoveMergeDialog({
                 onClick={() => setTargetId(l.id)}
                 data-testid="move-merge-option"
               >
-                <span className="text-sm font-medium">{l.name}</span>{' '}
+                <span className="text-sm font-medium [overflow-wrap:anywhere]">{l.name}</span>{' '}
                 <span className="text-xs capitalize text-muted-foreground">{nameOf(t.levels, l.level)}</span>
                 <span className="block truncate text-xs text-muted-foreground">{l.path}</span>
               </button>

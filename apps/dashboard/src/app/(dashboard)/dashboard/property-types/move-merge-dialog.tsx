@@ -123,7 +123,7 @@ export function MoveMergeDialog({
                 onClick={() => setTargetId(row.id)}
                 data-testid="type-move-merge-option"
               >
-                <span className="text-sm font-medium">{row.name}</span>
+                <span className="text-sm font-medium [overflow-wrap:anywhere]">{row.name}</span>
                 {row.path !== row.name && <span className="block truncate text-xs text-muted-foreground">{row.path}</span>}
               </button>
             ))}
