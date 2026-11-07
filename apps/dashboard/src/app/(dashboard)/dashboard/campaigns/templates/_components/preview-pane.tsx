@@ -5,6 +5,7 @@ import { Loader2, Monitor, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Preview } from './use-template-editor';
 import { useEditorText } from '../_i18n';
+import { inertPreviewHtml } from '@/lib/preview-html';
 
 export function PreviewPane({ preview, loading, failed = false }: { preview: Preview | null; loading: boolean; failed?: boolean }) {
   const t = useEditorText();
@@ -37,7 +38,7 @@ export function PreviewPane({ preview, loading, failed = false }: { preview: Pre
           title="preview"
           data-testid="template-preview"
           sandbox=""
-          srcDoc={preview?.html ?? ''}
+          srcDoc={inertPreviewHtml(preview?.html)}
           className="h-[calc(100vh-300px)] min-h-[480px] rounded bg-white shadow-sm transition-[width]"
           style={{ width: phone ? 390 : 680, maxWidth: '100%' }}
         />

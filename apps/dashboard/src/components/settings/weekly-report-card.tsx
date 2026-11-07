@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { useSharedText } from '@/i18n/shared';
+import { inertPreviewHtml } from '@/lib/preview-html';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -155,7 +156,7 @@ export function WeeklyReportCard() {
             <>
               <p className="text-sm text-muted-foreground">{t.to(preview.recipients.join(', ') || t.nobody)}</p>
               {/* sandboxed: the email HTML is ours, but it holds listing titles from feeds */}
-              <iframe title={t.frameTitle} srcDoc={preview.html} sandbox="" className="h-[70vh] w-full rounded border" />
+              <iframe title={t.frameTitle} srcDoc={inertPreviewHtml(preview.html)} sandbox="" className="h-[70vh] w-full rounded border" />
             </>
           )}
         </DialogContent>

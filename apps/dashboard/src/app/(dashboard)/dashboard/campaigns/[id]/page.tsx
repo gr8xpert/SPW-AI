@@ -52,6 +52,7 @@ import { useCampaignsMoreText } from '../_i18n/more';
 import { EmailSetupNotice, campaignBody, useEmailSetup, type CampaignFormValues, type TemplateOption } from '../_components/campaign-form';
 import { CampaignRecipients } from './_components/campaign-recipients';
 import { EditCampaignDialog, ScheduleDialog, TestEmailDialog } from './_components/campaign-dialogs';
+import { inertPreviewHtml } from '@/lib/preview-html';
 
 interface CampaignDetail {
   id: number;
@@ -385,7 +386,7 @@ function CampaignDetailInner() {
                     <p className="font-medium">{preview.subject}</p>
                   </div>
                   {/* sandbox="" : no scripts, no forms, no navigation from the client's HTML. */}
-                  <iframe title={t.detail.emailPreview} sandbox="" srcDoc={preview.html} className="h-[640px] w-full rounded-b-lg bg-white" />
+                  <iframe title={t.detail.emailPreview} sandbox="" srcDoc={inertPreviewHtml(preview.html)} className="h-[640px] w-full rounded-b-lg bg-white" />
                 </div>
               )}
             </CardContent>

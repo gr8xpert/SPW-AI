@@ -14,6 +14,7 @@ import { useSendPreview, useSendProperties } from '../../use-buyer-match';
 import { FilterSelect } from '../../_components/filter-select';
 import { useEmailIntro } from '../../use-buyer-ai';
 import { AiButton, useAiFailure } from './ai/ai-gate';
+import { inertPreviewHtml } from '@/lib/preview-html';
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English', es: 'Español', nl: 'Nederlands', de: 'Deutsch', fr: 'Français', it: 'Italiano', pt: 'Português',
@@ -197,7 +198,7 @@ export function SendDialog({
             ) : preview.isError ? (
               <p className="p-4 text-sm text-destructive">{t.previewFailed}</p>
             ) : preview.data ? (
-              <iframe title={t.preview} sandbox="" srcDoc={preview.data.html} className="h-full w-full bg-white" data-testid="preview-frame" />
+              <iframe title={t.preview} sandbox="" srcDoc={inertPreviewHtml(preview.data.html)} className="h-full w-full bg-white" data-testid="preview-frame" />
             ) : null}
           </div>
         </div>
