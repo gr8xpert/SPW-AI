@@ -720,10 +720,18 @@ button.rs-more-filters-btn--active:hover {
   overflow: hidden;
 }
 
+/* The chip row carries rs_property_type too, so it needs the stronger selector:
+   overflow: hidden from the rule above left nothing for a finger to swipe
+   (mouse drag still worked because it moves scrollLeft in code). */
+.rs-search-template-05 .rs-t05-body .rs_property_type.rs-type-icons,
 .rs-search-template-05 .rs-type-icons {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   gap: 6px;
   padding: 8px 8px 0 0;
@@ -1312,12 +1320,7 @@ button.rs-more-filters-btn--active:hover {
     align-items: center;
     justify-content: center;
   }
-
-  /* Template 05 responsive */
-  .rs-search-template-05 .rs-t05-row {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
+  /* Template 05: Beds + Baths stay side by side on phones (more compact). */
 }
 
 /* ── Listing template 14: Location-First (ported from V3 rs-template-card-01) ── */
