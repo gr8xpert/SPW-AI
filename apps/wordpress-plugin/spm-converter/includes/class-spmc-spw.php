@@ -80,7 +80,7 @@ class SPMC_Spw {
         $attrs = self::parse_attrs($attrsRaw);
         $classes = preg_split('/\s+/', trim($attrs['class'] ?? ''), -1, PREG_SPLIT_NO_EMPTY);
         $id = trim($attrs['id'] ?? '');
-        [$f, $leftover] = self::filters($attrs);
+        [$f, $leftover] = self::filters($attrs, $r);
 
         $widget = '';
         $allowFilters = true;
@@ -197,11 +197,13 @@ class SPMC_Spw {
         return preg_match('/^[a-z][a-z0-9_-]{1,60}$/', $v) ? $v : $default;
     }
 
+    // A filter named inside another value → the data-rs-* name it stands for.
+    const NESTED_SPW = ['location' => 'location', 'type' => 'property-type', 'features' => 'features', 'for' => 'listing-type'];
+
     /** data-rs-* → the plain filter shape SPMC_Output takes. */
-    private static function filters(array $attrs) {
+    private static function filters(array $attrs, SPMC_Report $r) {
         $f = [];
         $left = [];
-        $yes = function ($v) { return $v === null || in_array(strtolower(trim((string) $v)), ['', '1', 'true', 'yes', 'on'], true); };
         foreach ($attrs as $name => $v) {
             if (strpos($name, 'data-rs-') !== 0) continue;
             $k = substr($name, 8);
@@ -209,39 +211,77 @@ class SPMC_Spw {
                 $f['fixed'] = true;
                 $k = substr($k, 5);
             }
-            $v = $v === null ? '' : trim($v);
-            switch ($k) {
-                case 'location': $f['location'][] = $v; break;
-                case 'property-type': case 'type-id': $f['type'][] = $v; break;
-                case 'features': $f['features'][] = $v; break;
-                case 'listing-type': $f['for'] = $v; break;
-                case 'beds-min': case 'min-beds': $f['beds'][0] = (int) $v; break;
-                case 'beds-max': case 'max-beds': $f['beds'][1] = (int) $v; break;
-                case 'baths-min': $f['baths'][0] = (int) $v; break;
-                case 'baths-max': $f['baths'][1] = (int) $v; break;
-                case 'price-min': case 'min-price': $f['price'][0] = (int) $v; break;
-                case 'price-max': case 'max-price': $f['price'][1] = (int) $v; break;
-                case 'built-min': $f['built'][0] = (int) $v; break;
-                case 'built-max': $f['built'][1] = (int) $v; break;
-                case 'plot-min': $f['plot'][0] = (int) $v; break;
-                case 'plot-max': $f['plot'][1] = (int) $v; break;
-                case 'ref': $f['ref'] = $v; break;
-                case 'featured': if ($yes($v)) $f['featured'] = true; break;
-                case 'own': if ($yes($v)) $f['own'] = true; break;
-                case 'own-first': if ($yes($v)) $f['own_first'] = true; break;
-                case 'standalone': if ($yes($v)) $f['standalone'] = true; break;
-                case 'autoplay': if ($yes($v)) $f['autoplay'] = true; break;
-                case 'sort': case 'order': $f['sort'] = $v; break;
-                case 'limit': $f['limit'] = (int) $v; break;
-                case 'columns': $f['columns'] = (int) $v; break;
-                case 'interval': $f['interval'] = (int) $v; break;
-                case 'variation': $f['variation'] = (int) $v; break;
-                case 'template': $f['template'] = (int) $v; break;
-                case 'type': break; // rs_price min/max, handled by the caller
-                default: $left[] = $k;
+            $v = $v === null ? null : trim($v);
+            // data-rs-location="features=163": the value names other filters.
+            if ($v !== null && strpos($v, '=') !== false && !in_array($k, self::QUIET, true) && $k !== 'type') {
+                self::put_pairs($f, $k, $v, $r);
+                continue;
             }
+            if (!self::put($f, $k, $v)) $left[] = $k;
         }
         return [$f, $left];
+    }
+
+    /** Each filter named inside one attribute's value goes where its name says. */
+    private static function put_pairs(array &$f, $k, $v, SPMC_Report $r) {
+        $read = [];
+        foreach (SPMC_Output::pairs($v) as $name => $values) {
+            $joined = implode(',', $values);
+            if ($name === '') {
+                $target = $k;
+            } else {
+                $kind = SPMC_Output::NESTED[$name] ?? '';
+                $target = $kind ? self::NESTED_SPW[$kind] : $name;
+            }
+            if (self::put($f, $target, $joined)) {
+                $read[] = ($name === '' ? $k : $target) . '=' . $joined;
+            } else {
+                $r->note(sprintf('data-rs-%s="%s": "%s" is not a filter SPM knows — dropped.', $k, $v, ($name === '' ? $k : $name) . '=' . $joined));
+            }
+        }
+        $own = array_filter($read, function ($p) use ($k) { return strpos($p, $k . '=') === 0; });
+        $r->note(sprintf(
+            'data-rs-%s="%s" holds other filters — read as %s.%s Check this page\'s filters.',
+            $k, $v, $read ? implode(' + ', $read) : 'nothing usable',
+            $own ? '' : sprintf(' It sets no %s, so this block has none.', $k)
+        ));
+    }
+
+    /** One old filter into $f; false when the name is not one SPM takes. */
+    private static function put(array &$f, $k, $v) {
+        $yes = function ($v) { return $v === null || in_array(strtolower(trim((string) $v)), ['', '1', 'true', 'yes', 'on'], true); };
+        $v = $v === null ? '' : trim($v);
+        switch ($k) {
+            case 'location': $f['location'][] = $v; break;
+            case 'property-type': case 'type-id': $f['type'][] = $v; break;
+            case 'features': $f['features'][] = $v; break;
+            case 'listing-type': $f['for'] = $v; break;
+            case 'beds-min': case 'min-beds': $f['beds'][0] = (int) $v; break;
+            case 'beds-max': case 'max-beds': $f['beds'][1] = (int) $v; break;
+            case 'baths-min': $f['baths'][0] = (int) $v; break;
+            case 'baths-max': $f['baths'][1] = (int) $v; break;
+            case 'price-min': case 'min-price': $f['price'][0] = (int) $v; break;
+            case 'price-max': case 'max-price': $f['price'][1] = (int) $v; break;
+            case 'built-min': $f['built'][0] = (int) $v; break;
+            case 'built-max': $f['built'][1] = (int) $v; break;
+            case 'plot-min': $f['plot'][0] = (int) $v; break;
+            case 'plot-max': $f['plot'][1] = (int) $v; break;
+            case 'ref': $f['ref'] = $v; break;
+            case 'featured': if ($yes($v)) $f['featured'] = true; break;
+            case 'own': if ($yes($v)) $f['own'] = true; break;
+            case 'own-first': if ($yes($v)) $f['own_first'] = true; break;
+            case 'standalone': if ($yes($v)) $f['standalone'] = true; break;
+            case 'autoplay': if ($yes($v)) $f['autoplay'] = true; break;
+            case 'sort': case 'order': $f['sort'] = $v; break;
+            case 'limit': $f['limit'] = (int) $v; break;
+            case 'columns': $f['columns'] = (int) $v; break;
+            case 'interval': $f['interval'] = (int) $v; break;
+            case 'variation': $f['variation'] = (int) $v; break;
+            case 'template': $f['template'] = (int) $v; break;
+            case 'type': break; // rs_price min/max, handled by the caller
+            default: return false;
+        }
+        return true;
     }
 
     /** name => value (null for a bare attribute), names lower-cased. */

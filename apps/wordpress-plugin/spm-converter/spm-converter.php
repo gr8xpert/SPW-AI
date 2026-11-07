@@ -3,7 +3,7 @@
  * Plugin Name: SPM Converter
  * Plugin URI:  https://spw-ai.com
  * Description: Moves a website to Smart Property Manager: rewrites Inmotech shortcodes and the old Smart Property Widget (SPW / RealtySoft V3) codes in pages, Elementor and widgets into SPM blocks. Shows every change first, and every run can be undone.
- * Version:     1.0.2
+ * Version:     1.0.3
  * Author:      RealtySoft
  * License:     GPL v2 or later
  * Text Domain: spm-converter
@@ -13,7 +13,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('SPMC_VERSION', '1.0.2');
+define('SPMC_VERSION', '1.0.3');
 define('SPMC_FILE', __FILE__);
 define('SPMC_DIR', plugin_dir_path(__FILE__));
 define('SPMC_URL', plugin_dir_url(__FILE__));
@@ -27,6 +27,7 @@ require_once SPMC_DIR . 'includes/class-spmc-output.php';
 require_once SPMC_DIR . 'includes/class-spmc-inmotech.php';
 require_once SPMC_DIR . 'includes/class-spmc-spw.php';
 require_once SPMC_DIR . 'includes/class-spmc-store.php';
+require_once SPMC_DIR . 'includes/class-spmc-log.php';
 require_once SPMC_DIR . 'includes/class-spmc-admin.php';
 
 register_activation_hook(__FILE__, function () {
@@ -40,6 +41,11 @@ add_action('plugins_loaded', function () {
     if ((int) get_option('spmc_db_version', 0) < SPMC_DB_VERSION) SPMC_Store::install();
     if (is_admin()) SPMC_Admin::instance();
 });
+
+if (defined('WP_CLI') && WP_CLI) {
+    require_once SPMC_DIR . 'includes/class-spmc-cli.php';
+    SPMC_CLI::register();
+}
 
 /** Old codes + converted text, used by the scanner and the "Try it" box. */
 function spmc_convert($text, SPMC_Report $report) {

@@ -2,7 +2,7 @@
 Contributors: realtysoft
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 
 Moves a website to Smart Property Manager: rewrites Inmotech shortcodes and old Smart Property Widget (SPW / RealtySoft V3) codes into SPM blocks.
@@ -30,8 +30,21 @@ Things to know:
 * SPM search forms take no preset filters; they move to the page's results block when the page has exactly one.
 * A per-page count on a main results page is left out (in SPM it would turn off paging); SPM uses the dashboard's results-per-page.
 * Old designs with an SPM port keep their look (SPW listing 01, 07–11 → SPM 12–17; carousels 1–6; search 01–06). Others use the design picked in the SPM dashboard.
+* Every run is also written to uploads/spm-converter-logs/ (what changed, by code, with notes). The log stays when the history table is gone or the plugin is deleted.
+
+WP-CLI (`wp spm-converter …`):
+
+* `scan [--codes]` — what would change, writes nothing. `ids` — old IDs in use and their SPM match. `match <location|type|feature> <old-id>…`.
+* `try [<file>]` — convert pasted code (file or STDIN) and show the notes.
+* `convert [--yes] [--exclude=<ids or paths>] [--exclude-file=<file>] [--only=<ids or paths>]` — a dry run unless `--yes`.
+* `runs`, `log <run-id>`, `undo <run-id> --yes`.
 
 == Changelog ==
+
+= 1.0.3 =
+* A filter value that names other filters is read by name: `data-rs-location="features=163"` (a typo on old sites) becomes a features filter, `"72&features=163"` a location and a feature, `"?locationId=72&type=5"` a location and a type. Before, the whole value went to the location, matched nothing, and the block lost both filters. Each such block gets a note to check its filters. Same for Inmotech `filter="location=…"`.
+* Run log in uploads/spm-converter-logs/ that survives the history table.
+* WP-CLI commands: scan, ids, match, try, convert (dry run by default; --exclude / --only by post ID or path), runs, log, undo.
 
 = 1.0.2 =
 * Divi 5 and other block builders: codes kept inside block settings (Divi 5 Text and Code modules) are converted and written back correctly. Before, SPW codes there were found but left as they were.

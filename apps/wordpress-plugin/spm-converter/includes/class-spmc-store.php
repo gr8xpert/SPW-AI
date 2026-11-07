@@ -195,9 +195,20 @@ class SPMC_Store {
     /** @return array{status:string, label?:string} */
     public static function apply($runId, $kind, $id, $label) {
         $p = self::preview($kind, $id);
-        if (!$p) return ['status' => 'gone'];
-        if ($p['new'] === $p['raw']) return ['status' => 'unchanged'];
-        if (!self::write($kind, $id, $p['new'])) return ['status' => 'failed'];
+        if (!$p) {
+            SPMC_Log::item($runId, $kind, $id, $label, 'gone');
+            return ['status' => 'gone'];
+        }
+        if ($p['new'] === $p['raw']) {
+            SPMC_Log::item($runId, $kind, $id, $label, 'unchanged');
+            return ['status' => 'unchanged'];
+        }
+        if (!self::write($kind, $id, $p['new'])) {
+            SPMC_Log::item($runId, $kind, $id, $label, 'failed', $p['raw'], $p['new'], $p['report']);
+            return ['status' => 'failed'];
+        }
+        // The file log first: it survives the table (see SPMC_Log).
+        SPMC_Log::item($runId, $kind, $id, $label, 'done', $p['raw'], $p['new'], $p['report']);
 
         global $wpdb;
         $wpdb->insert(self::table(), [
@@ -282,11 +293,13 @@ class SPMC_Store {
             if ($now !== $row->after_value) {
                 $wpdb->update($t, ['status' => 'kept'], ['id' => $row->id]);
                 $out['kept'][] = $row->label;
+                SPMC_Log::write($runId, ['type' => 'undo', 'kind' => $row->kind, 'id' => $row->object_id, 'label' => $row->label, 'status' => 'kept (edited since)']);
                 continue;
             }
             if (self::write($row->kind, $row->object_id, $row->before_value)) {
                 $wpdb->update($t, ['status' => 'undone'], ['id' => $row->id]);
                 $out['undone']++;
+                SPMC_Log::write($runId, ['type' => 'undo', 'kind' => $row->kind, 'id' => $row->object_id, 'label' => $row->label, 'status' => 'undone']);
             }
         }
         return $out;

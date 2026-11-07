@@ -160,6 +160,56 @@ class SPMC_Output {
         elseif ($max) $out[$maxAttr] = (string) $max;
     }
 
+    // Names an old value may use for the three ID lists and the listing type,
+    // after name() — the old widget's, Inmotech's and the SPM API's spellings.
+    const NESTED = [
+        'location' => 'location', 'locations' => 'location', 'location-id' => 'location', 'location-ids' => 'location',
+        'area' => 'location', 'town' => 'location',
+        'type' => 'type', 'types' => 'type', 'type-id' => 'type', 'type-ids' => 'type', 'property-type' => 'type',
+        'property-types' => 'type', 'property-type-id' => 'type', 'property-type-ids' => 'type',
+        'features' => 'features', 'feature' => 'features', 'feature-id' => 'features', 'feature-ids' => 'features',
+        'for' => 'for', 'listing-type' => 'for', 'listing-types' => 'for',
+    ];
+
+    /**
+     * A filter value that names other filters inside it: a typo on the old
+     * site (data-rs-location="features=163"), several filters run together
+     * ("72&features=163") or a pasted search address ("?locationId=72&type=5").
+     * Before 1.0.3 such a value went whole into the attribute it was written
+     * on, matched nothing, and the block lost both filters.
+     *
+     * @return array<string, string[]> name => values, in order; '' holds the
+     *   values that belong to the attribute itself. A value without "=" comes
+     *   back as ['' => [value]].
+     */
+    public static function pairs($value) {
+        $value = trim(str_ireplace('&amp;', '&', (string) $value));
+        if (strpos($value, '=') === false) return ['' => [$value]];
+        $q = strpos($value, '?');
+        if ($q !== false) $value = substr($value, $q + 1);
+        $out = [];
+        $name = '';
+        foreach (preg_split('/[&;,\s]+/', $value, -1, PREG_SPLIT_NO_EMPTY) as $tok) {
+            $tok = rawurldecode($tok);
+            if (strpos($tok, '=') !== false) {
+                [$k, $tok] = explode('=', $tok, 2);
+                $name = self::name($k);
+            }
+            $tok = trim($tok, "\"' ");
+            if ($tok === '') continue;
+            $out[$name][] = $tok;
+        }
+        return $out;
+    }
+
+    /** "propertyTypeIds" / "property_type_ids" / "features[]" → "property-type-ids" / "features". */
+    public static function name($raw) {
+        $k = preg_replace('/\[\]$/', '', trim((string) $raw));
+        $k = preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $k);
+        $k = strtolower(str_replace('_', '-', $k));
+        return preg_replace('/^data-(?:rs|spm)-/', '', $k);
+    }
+
     public static function present($v) {
         return !($v === null || $v === '' || $v === false || $v === [] || $v === [0, 0]);
     }

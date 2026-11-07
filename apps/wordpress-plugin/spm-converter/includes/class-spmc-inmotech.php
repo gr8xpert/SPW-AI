@@ -94,8 +94,41 @@ class SPMC_Inmotech {
         return $out;
     }
 
+    // A filter named inside another value → the Inmotech name it stands for.
+    const NESTED_INMOTECH = ['location' => 'location', 'type' => 'type', 'features' => 'features', 'for' => 'listing_type'];
+    const LIST_PARAMS = ['type', 'property_type', 'location', 'locations', 'features', 'feature'];
+
+    /**
+     * location="features=163" (or "72&features=163"): each filter named inside
+     * a value goes where its name says, as on the SPW side. ID lists named
+     * twice are joined.
+     */
+    private static function split_nested(array $p, SPMC_Report $r) {
+        $out = [];
+        $nested = [];
+        foreach ($p as $k => $v) {
+            if (strpos((string) $v, '=') === false || in_array($k, ['template', 'status'], true)) $out[$k] = (string) $v;
+            else $nested[$k] = (string) $v;
+        }
+        // Plain values first, so a nested ID list adds to them, never loses to them.
+        foreach ($nested as $k => $v) {
+            $read = [];
+            foreach (SPMC_Output::pairs($v) as $name => $values) {
+                $kind = $name === '' ? '' : (SPMC_Output::NESTED[$name] ?? '');
+                $target = $name === '' ? $k : ($kind ? self::NESTED_INMOTECH[$kind] : str_replace('-', '_', $name));
+                $joined = implode(',', $values);
+                $list = in_array($target, self::LIST_PARAMS, true);
+                $out[$target] = $list && ($out[$target] ?? '') !== '' ? $out[$target] . ',' . $joined : $joined;
+                $read[] = $target . '=' . $joined;
+            }
+            $r->note(sprintf('%s="%s" holds other filters — read as %s. Check this page\'s filters.', $k, $v, $read ? implode(' + ', $read) : 'nothing usable'));
+        }
+        return $out;
+    }
+
     private static function filters(array $p, SPMC_Report $r) {
         $yes = function ($v) { return in_array(strtolower(trim((string) $v)), ['1', 'true', 'yes', 'on'], true); };
+        $p = self::split_nested($p, $r);
         $f = [];
         foreach ($p as $k => $v) {
             switch ($k) {
