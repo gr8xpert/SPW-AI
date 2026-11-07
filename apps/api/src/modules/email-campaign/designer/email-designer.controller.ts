@@ -1,13 +1,16 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { CurrentTenant, RequiresAddon } from '../../../common/decorators';
-import { DashboardAddonGuard, JwtAuthGuard, TenantGuard } from '../../../common/guards';
+import { UserRole } from '@spm/shared';
+import { CurrentTenant, RequiresAddon, Roles } from '../../../common/decorators';
+import { DashboardAddonGuard, JwtAuthGuard, RolesGuard, TenantGuard } from '../../../common/guards';
 import { TemplateVersionService } from './template-version.service';
 import { EmailImageService, MAX_INPUT_BYTES } from './email-image.service';
 import { EmailDesignerService } from './email-designer.service';
 import { BrandMemoryService } from './brand-memory.service';
 import { LAYOUTS } from './layouts';
-import { BrandMemoryDto, DesignerMessageDto } from '../dto/designer.dto';
+import { BrandLogoImageDto, BrandMemoryDto, DesignDirectionsDto, DesignerMessageDto } from '../dto/designer.dto';
+import { BrandLogoService } from './brand-logo.service';
+import { DesignDirectionsService } from './design-directions.service';
 
 @Controller('api/dashboard/email-templates/:id')
 @UseGuards(JwtAuthGuard, TenantGuard, DashboardAddonGuard)
@@ -51,7 +54,13 @@ export class EmailDesignerController {
   constructor(
     private readonly designer: EmailDesignerService,
     private readonly memory: BrandMemoryService,
+    private readonly directions: DesignDirectionsService,
   ) {}
+
+  @Post('directions')
+  propose(@CurrentTenant() tenantId: number, @Body() dto: DesignDirectionsDto) {
+    return this.directions.propose(tenantId, dto.brief);
+  }
 
   @Get('status')
   status(@CurrentTenant() tenantId: number) {
@@ -71,6 +80,30 @@ export class EmailDesignerController {
   @Get('layouts')
   layouts() {
     return LAYOUTS.map((l) => ({ name: l.name, subject: l.subject, html: l.html }));
+  }
+}
+
+// Outside the Email Campaigns add-on on purpose: PDFs and buyer pages use the logo too.
+@Controller('api/dashboard/brand-logo')
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+export class BrandLogoController {
+  constructor(private readonly logo: BrandLogoService) {}
+
+  @Post()
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_INPUT_BYTES } }))
+  upload(@CurrentTenant() tenantId: number, @UploadedFile() file: Express.Multer.File) {
+    return this.logo.upload(tenantId, file ? { buffer: file.buffer, mimetype: file.mimetype } : undefined);
+  }
+
+  @Put()
+  useImage(@CurrentTenant() tenantId: number, @Body() dto: BrandLogoImageDto) {
+    return this.logo.useImage(tenantId, dto.imageId);
+  }
+
+  @Delete()
+  clear(@CurrentTenant() tenantId: number) {
+    return this.logo.clear(tenantId);
   }
 }
 

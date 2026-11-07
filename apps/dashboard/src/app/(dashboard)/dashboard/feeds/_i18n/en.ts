@@ -57,6 +57,9 @@ export const en = {
     markFeatured: 'Mark imported properties as Featured',
     markFeaturedHelp:
       'For a feed that is your featured list (e.g. a Resales filter of featured listings). Properties are flagged Featured on sync and unflagged when they leave this feed. Featured flags you set or clear by hand are left alone.',
+    markArchived: 'Mark imported properties as Archived',
+    markArchivedHelp:
+      'For a feed of archived listings (e.g. Odoo\'s archived properties as a Kyero feed). Everything it imports is archived and unpublished, kept for later. Archived wins if another feed has the same property. A property you take out of the archive by hand stays out, and this feed never removes anything.',
     removeMissing: 'Remove properties that leave this feed',
     removeMissingHelp:
       'After each complete sync, properties no longer in the feed (sold, withdrawn) are deleted, so your site matches the source. Turn off to keep them. A single property is always kept when its “Enable Feed Sync” is off.',
@@ -89,6 +92,7 @@ export const en = {
     paused: 'Paused',
     importsAs: 'Imports as',
     featured: 'Featured',
+    archived: 'Archived',
     progress: 'Progress',
     lastSync: 'Last Sync',
     properties: 'Properties',

@@ -83,8 +83,13 @@ export const de: SettingsText = {
       description:
         'Kontaktdaten in Kopf- und Fußzeile des Exposés mit Ihrem Branding sowie das Standardlayout des Exposés für neue Immobilien.',
       logoUrl: 'Logo-URL',
-      logoHelp:
-        'Öffentliche URL Ihres Logos (PNG/JPG/SVG). Erscheint im Kopf des PDFs mit Branding. Laden Sie Ihr Logo zuerst auf Ihre Website oder einen Bilderhost hoch und fügen Sie die URL hier ein.',
+      logoHelp: 'Laden Sie Ihr Logo hoch oder fügen Sie die Adresse eines anderswo gehosteten Logos ein. Es erscheint auf Ihren PDFs, E-Mails und Käuferseiten. PNG oder JPG funktionieren überall; SVG wird in vielen E-Mail-Programmen nicht angezeigt.',
+      logoUpload: 'Logo hochladen',
+      logoRemove: 'Logo entfernen',
+      logoSaved: 'Logo gespeichert',
+      logoRemoved: 'Logo entfernt',
+      logoFailed: 'Das Logo konnte nicht gespeichert werden',
+      logoFileRule: 'Verwenden Sie ein JPEG-, PNG-, GIF- oder WebP-Bild (max. 10 MB).',
       logoPreview: 'Logo-Vorschau',
       contactEmail: 'Kontakt-E-Mail',
       contactPhone: 'Kontakttelefon',

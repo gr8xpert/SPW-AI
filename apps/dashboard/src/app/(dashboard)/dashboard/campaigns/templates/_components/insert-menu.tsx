@@ -17,10 +17,30 @@ export const LOOP_SNIPPET = `{{#properties}}
 </table>
 {{/properties}}`;
 
+export const LEAD_SNIPPET = `{{#lead_property}}
+<a href="{{property.url}}"><img src="{{property.image}}" alt="{{property.title}}" width="600" style="display:block;width:100%;height:auto;border:0"></a>
+<h2 style="margin:16px 0 6px;font-family:Georgia,serif;font-size:26px;line-height:32px">{{property.title}}</h2>
+<p style="margin:0 0 6px;font-family:Arial,sans-serif;color:#64748b">{{property.location}} · {{property.facts}}</p>
+<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:22px;font-weight:bold">{{property.price}}</p>
+{{/lead_property}}`;
+
+export const OTHERS_SNIPPET = `{{#has_other_properties}}
+<h3 style="margin:24px 0 12px;font-family:Georgia,serif;font-size:20px">More homes</h3>
+{{#other_properties}}
+<p style="margin:0 0 12px;font-family:Arial,sans-serif"><a href="{{property.url}}" style="font-weight:bold">{{property.title}}</a><br>{{property.location}} · {{property.price}}</p>
+{{/other_properties}}
+{{/has_other_properties}}`;
+
+const LABELS: Record<string, string> = {
+  loop: '{{#properties}} … {{/properties}}',
+  lead: '{{#lead_property}} … {{/lead_property}}',
+  others: '{{#other_properties}} … {{/other_properties}}',
+};
+
 const GROUPS: { key: 'contact' | 'agency' | 'listings' | 'other'; items: { id: string; snippet: string }[] }[] = [
   { key: 'contact', items: ['contact.first_name', 'contact.name', 'contact.email'].map((id) => ({ id, snippet: `{{${id}}}` })) },
-  { key: 'agency', items: ['agency.name', 'agency.logo', 'agency.phone', 'agency.email', 'agency.website', 'agency.color'].map((id) => ({ id, snippet: `{{${id}}}` })) },
-  { key: 'listings', items: [{ id: 'loop', snippet: LOOP_SNIPPET }, { id: 'properties', snippet: '{{properties}}' }] },
+  { key: 'agency', items: ['agency.name', 'agency.logo', 'agency.phone', 'agency.email', 'agency.website', 'agency.color', 'agency.on_color', 'agency.color_soft'].map((id) => ({ id, snippet: `{{${id}}}` })) },
+  { key: 'listings', items: [{ id: 'loop', snippet: LOOP_SNIPPET }, { id: 'lead', snippet: LEAD_SNIPPET }, { id: 'others', snippet: OTHERS_SNIPPET }, { id: 'properties', snippet: '{{properties}}' }] },
   { key: 'other', items: [{ id: 'unsubscribe_link', snippet: '<a href="{{unsubscribe_link}}">Unsubscribe</a>' }] },
 ];
 
@@ -38,7 +58,7 @@ export function InsertMenu({ onInsert, disabled = false }: { onInsert: (snippet:
             <DropdownMenuLabel>{t.insert[g.key]}</DropdownMenuLabel>
             {g.items.map((item) => (
               <DropdownMenuItem key={item.id} onSelect={() => onInsert(item.snippet)} className="flex flex-col items-start gap-0.5">
-                <code className="text-xs">{item.id === 'loop' ? '{{#properties}} … {{/properties}}' : `{{${item.id}}}`}</code>
+                <code className="text-xs">{LABELS[item.id] ?? `{{${item.id}}}`}</code>
                 <span className="text-xs text-muted-foreground">{t.insert.items[item.id]}</span>
               </DropdownMenuItem>
             ))}

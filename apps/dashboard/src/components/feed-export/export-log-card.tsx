@@ -26,17 +26,24 @@ interface ExportLog {
 
 const LOG_DAYS = 30;
 
-export function ExportLogTable({ format, apiKeyId }: { format: 'xml' | 'json' | 'idealista'; apiKeyId?: number }) {
+// exportFeedId: one of the extra feeds (Feeds tab), which has its own log route.
+export function ExportLogTable({ format, apiKeyId, exportFeedId }: {
+  format: 'xml' | 'json' | 'idealista';
+  apiKeyId?: number;
+  exportFeedId?: number;
+}) {
   const t = useFeedExportText();
   const { locale } = useLanguage();
   const { scope, ready } = useTenantQueryScope();
   const { data, isPending, isError, isFetching, refetch } = useQuery({
-    queryKey: ['feed-export-logs', ...scope, format, apiKeyId ?? null],
+    queryKey: ['feed-export-logs', ...scope, format, apiKeyId ?? null, exportFeedId ?? null],
     queryFn: async () =>
       unwrap<ExportLog[]>(
-        await apiGet('/api/dashboard/feed-export/logs', {
-          params: { format, days: LOG_DAYS, ...(apiKeyId ? { apiKeyId } : {}) },
-        }),
+        exportFeedId
+          ? await apiGet(`/api/dashboard/feed-export/feeds/${exportFeedId}/logs`, { params: { days: LOG_DAYS } })
+          : await apiGet('/api/dashboard/feed-export/logs', {
+              params: { format, days: LOG_DAYS, ...(apiKeyId ? { apiKeyId } : {}) },
+            }),
       ),
     enabled: ready,
   });

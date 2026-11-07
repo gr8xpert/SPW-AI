@@ -27,7 +27,7 @@ import {
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
 import { PropertySearchService } from '../property/property-search.service';
 import { cleanKeyScope } from '../property/key-scope';
-import { KYERO_CHECK_COLUMNS, KyeroFeedWriter, kyeroSkipReason } from './kyero/kyero-builder';
+import { KyeroFeedWriter } from './kyero/kyero-builder';
 import { ExportLookups, joinJsonFeedRows, jsonFeedRow, toExportProperty } from './export-rows';
 import { RedisLockService } from '../../common/redis/redis-lock.service';
 import { UrlFeedRunResult, runUrlFeedOnce } from './manual-run';
@@ -41,7 +41,7 @@ interface BuiltFeed {
   skipped: number;
 }
 
-interface ListingRules {
+export interface ListingRules {
   includeUnpublished: boolean;
   includeSold: boolean;
   listingScope: ExportListingScope;
@@ -61,9 +61,6 @@ export const KEY_FEED_PREFIX = 'sk_feed_';
 // Listings read per query. A large client has over 11,000, and loading them in
 // one go took a process past 1.9 GB, so builds hold one batch at a time.
 const FULL_BATCH = 200;
-const CHECK_BATCH = 2000;
-// Reasons the Feed Export page lists.
-const SKIPPED_SHOWN = 50;
 
 // The JSON feed's settings. Rows saved before it had its own fall back to
 // the shared values (the migration copies them; this covers a missed row).
@@ -106,7 +103,7 @@ export class FeedExportService {
   // finished feeds in memory at once are not.
   private buildTail: Promise<unknown> = Promise.resolve();
 
-  private oneBuildAtATime<T>(build: () => Promise<T>): Promise<T> {
+  oneBuildAtATime<T>(build: () => Promise<T>): Promise<T> {
     const run = this.buildTail.then(build);
     this.buildTail = run.catch(() => undefined);
     return run;
@@ -120,9 +117,9 @@ export class FeedExportService {
     const config = await this.ensureConfig(tenantId);
     const json = jsonFeedOf(config);
     const jsonRules = { ...json, propertyFilter: config.propertyFilter };
-    const [tenant, kyero, jsonCount] = await Promise.all([
+    // The Kyero XML feed lives in Feed Export -> Feeds now (export_feeds).
+    const [tenant, jsonCount] = await Promise.all([
       this.tenantRepository.findOne({ where: { id: tenantId }, select: ['id', 'slug'] }),
-      this.checkKyeroListings(tenantId, config),
       this.listingQuery(tenantId, jsonRules, 'json').then((q) => q.getCount()),
     ]);
     const { jsonFeed: _stored, ...rest } = config;
@@ -139,10 +136,6 @@ export class FeedExportService {
         propertyCount: jsonCount,
       },
       tenantSlug: tenant?.slug ?? '',
-      propertyCount: kyero.included,
-      // Listings Kyero would reject, and why (first 50 for the page).
-      skippedCount: kyero.skippedCount,
-      skipped: kyero.skipped,
     };
   }
 
@@ -200,6 +193,7 @@ export class FeedExportService {
     days: number = 7,
     format?: ExportLogFormat,
     apiKeyId?: number,
+    exportFeedId?: number,
   ): Promise<FeedExportLog[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
@@ -212,6 +206,9 @@ export class FeedExportService {
     // A website key's feed has its own log; the main feeds' logs leave those out.
     if (apiKeyId) query.andWhere('log.apiKeyId = :apiKeyId', { apiKeyId });
     else query.andWhere('log.apiKeyId IS NULL');
+    // Same for an extra export feed (Feeds tab).
+    if (exportFeedId) query.andWhere('log.exportFeedId = :exportFeedId', { exportFeedId });
+    else query.andWhere('log.exportFeedId IS NULL');
     return query.orderBy('log.accessedAt', 'DESC').limit(LOG_ROWS).getMany();
   }
 
@@ -399,24 +396,6 @@ export class FeedExportService {
     return { content: joinJsonFeedRows(rows), contentType: 'application/json; charset=utf-8', count: rows.length, skipped: 0 };
   }
 
-  // What the Feed Export page shows for Kyero, without building the feed.
-  private async checkKyeroListings(tenantId: number, rules: ListingRules) {
-    const lookups = await this.loadLookups(tenantId);
-    const query = await this.listingQuery(tenantId, rules, 'xml');
-    query.select(KYERO_CHECK_COLUMNS.map((column) => `property.${column}`));
-    let included = 0;
-    let skippedCount = 0;
-    const skipped: Array<{ reference: string; reason: string }> = [];
-    for await (const batch of this.batches(query, CHECK_BATCH)) {
-      for (const p of batch) {
-        const reason = kyeroSkipReason(p, lookups);
-        if (!reason) included++;
-        else if (++skippedCount <= SKIPPED_SHOWN) skipped.push({ reference: p.reference, reason });
-      }
-    }
-    return { included, skippedCount, skipped };
-  }
-
   private async *fullListingBatches(tenantId: number, rules: ListingRules, format: ExportFormat) {
     const query = await this.listingQuery(tenantId, rules, format);
     query
@@ -426,7 +405,7 @@ export class FeedExportService {
   }
 
   // In id order, each batch picking up after the last id of the one before.
-  private async *batches(query: SelectQueryBuilder<Property>, size: number) {
+  async *batches(query: SelectQueryBuilder<Property>, size: number) {
     let afterId = 0;
     for (;;) {
       const batch = await query
@@ -441,7 +420,7 @@ export class FeedExportService {
     }
   }
 
-  private async listingQuery(
+  async listingQuery(
     tenantId: number,
     config: ListingRules,
     format: ExportFormat,
@@ -453,6 +432,8 @@ export class FeedExportService {
     if (!config.includeUnpublished) {
       query.andWhere('property.isPublished = true');
     }
+    // Archived listings never leave the dashboard, unpublished option or not.
+    query.andWhere('property.isArchived = 0');
 
     // Kyero has no "sold" marker, so the XML only ever carries live listings.
     const statuses = config.includeSold && format === 'json' ? ['active', 'sold'] : ['active'];
@@ -490,17 +471,17 @@ export class FeedExportService {
     return query;
   }
 
-  private async loadLookups(tenantId: number): Promise<ExportLookups> {
+  async loadLookups(tenantId: number): Promise<ExportLookups> {
     const [locations, types, features] = await Promise.all([
       this.locationRepository.find({ where: { tenantId }, select: ['id', 'parentId', 'level', 'name'] }),
-      this.typeRepository.find({ where: { tenantId }, select: ['id', 'name'] }),
+      this.typeRepository.find({ where: { tenantId }, select: ['id', 'name', 'parentId'] }),
       this.featureRepository.find({ where: { tenantId }, select: ['id', 'name'] }),
     ]);
     return {
       locations: new Map(
         locations.map((l) => [l.id, { id: l.id, parentId: l.parentId, level: l.level, name: l.name }]),
       ),
-      types: new Map(types.map((t) => [t.id, { name: t.name }])),
+      types: new Map(types.map((t) => [t.id, { name: t.name, parentId: t.parentId }])),
       features: new Map(features.map((f) => [f.id, { name: f.name }])),
     };
   }

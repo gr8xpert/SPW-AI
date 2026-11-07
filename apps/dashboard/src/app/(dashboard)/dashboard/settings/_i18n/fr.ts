@@ -83,8 +83,13 @@ export const fr: SettingsText = {
       description:
         'Coordonnées affichées dans l’en-tête et le pied de page de la brochure à votre marque, ainsi que la mise en page par défaut des brochures des nouveaux biens.',
       logoUrl: 'URL du logo',
-      logoHelp:
-        'URL publique de votre logo (PNG/JPG/SVG). Affiché dans l’en-tête du PDF à votre marque. Mettez d’abord votre logo en ligne sur votre site ou un hébergeur d’images, puis collez l’URL ici.',
+      logoHelp: 'Importez votre logo ou collez l’adresse d’un logo hébergé ailleurs. Il apparaît sur vos PDF, e-mails et pages acheteurs. PNG ou JPG fonctionnent partout ; le SVG ne s’affiche pas dans beaucoup de messageries.',
+      logoUpload: 'Importer le logo',
+      logoRemove: 'Retirer le logo',
+      logoSaved: 'Logo enregistré',
+      logoRemoved: 'Logo retiré',
+      logoFailed: 'Le logo n’a pas pu être enregistré',
+      logoFileRule: 'Utilisez une image JPEG, PNG, GIF ou WebP (10 Mo max.).',
       logoPreview: 'Aperçu du logo',
       contactEmail: 'E-mail de contact',
       contactPhone: 'Téléphone de contact',

@@ -17,7 +17,7 @@ const TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 export const imageTag = (url: string) => `<img src="${url}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0">`;
 
-export function ImageLibrary({ open, onOpenChange, onPick }: { open: boolean; onOpenChange: (o: boolean) => void; onPick: (url: string) => void }) {
+export function ImageLibrary({ open, onOpenChange, onPick, onUseAsLogo }: { open: boolean; onOpenChange: (o: boolean) => void; onPick: (url: string) => void; onUseAsLogo?: (imageId: number) => void }) {
   const api = useApi();
   const t = useEditorText();
   const { toast } = useToast();
@@ -115,6 +115,7 @@ export function ImageLibrary({ open, onOpenChange, onPick }: { open: boolean; on
               <div className="flex items-center justify-between gap-1 p-1.5">
                 <span className="text-xs text-muted-foreground">{img.width}×{img.height}</span>
                 <span className="flex gap-1">
+                  {onUseAsLogo && <Button size="sm" variant="outline" onClick={() => { onUseAsLogo(img.id); onOpenChange(false); }} title={t.images.useAsLogo} data-testid="image-as-logo">{t.images.logoShort}</Button>}
                   <Button size="sm" variant="secondary" onClick={() => { onPick(img.url); onOpenChange(false); }} data-testid="image-insert">{t.images.pick}</Button>
                   <Button size="sm" variant="ghost" onClick={() => remove(img.id)} disabled={deleting !== null} aria-label={t.images.remove} title={t.images.remove} data-testid="image-delete">{deleting === img.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button>
                 </span>

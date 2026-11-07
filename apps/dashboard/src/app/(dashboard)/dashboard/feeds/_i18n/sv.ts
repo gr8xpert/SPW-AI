@@ -58,6 +58,9 @@ export const sv: FeedsText = {
     markFeatured: 'Markera importerade objekt som Utvalda',
     markFeaturedHelp:
       'För ett flöde som är din lista med utvalda objekt (t.ex. ett Resales-filter med utvalda objekt). Objekten markeras som Utvalda vid synk och avmarkeras när de lämnar flödet. Markeringar du själv sätter eller tar bort lämnas orörda.',
+    markArchived: 'Markera importerade objekt som Arkiverade',
+    markArchivedHelp:
+      'För ett flöde med arkiverade objekt (t.ex. Odoos arkiverade objekt som Kyero-flöde). Allt det importerar arkiveras och avpubliceras, sparat till senare. Arkiverad vinner om ett annat flöde har samma objekt. Ett objekt du själv tar ur arkivet förblir ute, och det här flödet tar aldrig bort något.',
     removeMissing: 'Ta bort objekt som lämnar flödet',
     removeMissingHelp:
       'Efter varje fullständig synk tas objekt som inte längre finns i flödet (sålda, tillbakadragna) bort, så att din webbplats stämmer med källan. Stäng av för att behålla dem. Ett enskilt objekt behålls alltid om dess ”Aktivera flödessynk” är avstängt.',
@@ -90,6 +93,7 @@ export const sv: FeedsText = {
     paused: 'Pausad',
     importsAs: 'Importeras som',
     featured: 'Utvalda',
+    archived: 'Arkiverade',
     progress: 'Förlopp',
     lastSync: 'Senaste synk',
     properties: 'Objekt',

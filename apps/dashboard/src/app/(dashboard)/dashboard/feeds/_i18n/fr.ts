@@ -58,6 +58,9 @@ export const fr: FeedsText = {
     markFeatured: 'Marquer les biens importés comme En vedette',
     markFeaturedHelp:
       'Pour un flux qui constitue votre liste de biens en vedette (ex. un filtre Resales de biens en vedette). Les biens sont marqués En vedette à la synchro et démarqués lorsqu’ils quittent ce flux. Les marques que vous ajoutez ou retirez à la main ne sont pas modifiées.',
+    markArchived: 'Marquer les biens importés comme Archivés',
+    markArchivedHelp:
+      'Pour un flux de biens archivés (ex. les biens archivés d’Odoo en flux Kyero). Tout ce qu’il importe est archivé et non publié, gardé pour plus tard. Archivé l’emporte si un autre flux a le même bien. Un bien que vous sortez de l’archive à la main reste dehors, et ce flux ne supprime jamais rien.',
     removeMissing: 'Supprimer les biens qui quittent ce flux',
     removeMissingHelp:
       'Après chaque synchro complète, les biens qui ne sont plus dans le flux (vendus, retirés) sont supprimés, afin que votre site corresponde à la source. Désactivez pour les conserver. Un bien est toujours conservé si son option « Activer la synchro du flux » est désactivée.',
@@ -90,6 +93,7 @@ export const fr: FeedsText = {
     paused: 'En pause',
     importsAs: 'Importe comme',
     featured: 'En vedette',
+    archived: 'Archivé',
     progress: 'Progression',
     lastSync: 'Dernière synchro',
     properties: 'Biens',

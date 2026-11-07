@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import sanitizeHtml = require('sanitize-html');
 import juice = require('juice');
-import { KNOWN_PLACEHOLDERS, LOOP_RE, PROPERTY_PLACEHOLDERS } from './campaign-render';
+import { BLOCK_NAMES, KNOWN_PLACEHOLDERS, LOOP_NAMES, LOOP_RE, PROPERTY_PLACEHOLDERS } from './campaign-render';
 
 // Every template is cleaned before it is saved (by hand or by the AI): no
 // scripts, forms or javascript: links, and the placeholders checked. Styles
@@ -128,11 +128,13 @@ export function checkTemplate(input: string): TemplateCheck {
   html = dropDangerousStyles(html);
   if (hadDoctype) html = `<!DOCTYPE html>\n${html}`;
 
-  const opens = (html.match(/\{\{\s*#properties\s*\}\}/gi) || []).length;
-  const closes = (html.match(/\{\{\s*\/properties\s*\}\}/gi) || []).length;
+  const count = (re: RegExp) => (html.match(re) || []).length;
+  const unbalanced = BLOCK_NAMES.some((n) => count(new RegExp(`\\{\\{\\s*#${n}\\s*\\}\\}`, 'gi')) !== count(new RegExp(`\\{\\{\\s*/${n}\\s*\\}\\}`, 'gi')));
   const loops = html.match(LOOP_RE) || [];
-  const nested = loops.some((l) => /\{\{\s*#properties/i.test(l.replace(/^\{\{\s*#properties\s*\}\}/i, '')));
-  if (opens !== closes || loops.length !== opens || nested) errors.push('LOOP_UNBALANCED');
+  const loopOpens = count(new RegExp(`\\{\\{\\s*#(${LOOP_NAMES.join('|')})\\s*\\}\\}`, 'gi'));
+  const anyOpen = new RegExp(`\\{\\{\\s*#(${LOOP_NAMES.join('|')})`, 'i');
+  const nested = loops.some((l) => anyOpen.test(l.replace(/^\{\{\s*#[a-z_]+\s*\}\}/i, '')));
+  if (unbalanced || loops.length !== loopOpens || nested) errors.push('LOOP_UNBALANCED');
 
   const known = new Set<string>(KNOWN_PLACEHOLDERS);
   const inLoop = new Set<string>([...KNOWN_PLACEHOLDERS, ...PROPERTY_PLACEHOLDERS]);
@@ -147,18 +149,16 @@ export function checkTemplate(input: string): TemplateCheck {
 
 // The loop markers become comments while juice parses the HTML: plain text
 // between table rows would otherwise be moved out of the table.
-const OPEN_COMMENT = '<!--spm-loop-open-->';
-const CLOSE_COMMENT = '<!--spm-loop-close-->';
+const MARKER = new RegExp(`\\{\\{\\s*([#/])(${BLOCK_NAMES.join('|')})\\s*\\}\\}`, 'gi');
+const MARKER_COMMENT = /<!--spm-block-(open|close)-([a-z_]+)-->/g;
 
 export function inlineCss(html: string): string {
   const isDocument = /<html[\s>]/i.test(html);
-  const marked = html
-    .replace(/\{\{\s*#properties\s*\}\}/gi, OPEN_COMMENT)
-    .replace(/\{\{\s*\/properties\s*\}\}/gi, CLOSE_COMMENT);
+  const marked = html.replace(MARKER, (_m, mark: string, name: string) => `<!--spm-block-${mark === '#' ? 'open' : 'close'}-${name.toLowerCase()}-->`);
   let out = juice(marked, { preserveMediaQueries: true, removeStyleTags: true, applyWidthAttributes: true, applyHeightAttributes: true });
   if (!isDocument) {
     const body = out.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (body) out = body[1];
   }
-  return out.split(OPEN_COMMENT).join('{{#properties}}').split(CLOSE_COMMENT).join('{{/properties}}');
+  return out.replace(MARKER_COMMENT, (_m, kind: string, name: string) => `{{${kind === 'open' ? '#' : '/'}${name}}}`);
 }

@@ -251,6 +251,15 @@ export class EmailImageService {
     }
   }
 
+  // Keeps one image for good (the client's logo), whatever the templates use.
+  async pinUrl(tenantId: number, url: string): Promise<void> {
+    const row = await this.images.findOne({ where: { tenantId, url } });
+    if (!row || row.pinned) return;
+    row.pinned = true;
+    row.lastUsedAt = new Date();
+    await this.images.save(row);
+  }
+
   async cleanup(now = new Date()): Promise<number> {
     const cutoff = now.getTime() - UNUSED_DAYS * 24 * 3600 * 1000;
     const candidates = (await this.images.find({ where: { pinned: false } })).filter(

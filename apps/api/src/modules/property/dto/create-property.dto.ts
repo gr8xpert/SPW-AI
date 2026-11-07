@@ -377,6 +377,12 @@ export class CreatePropertyDto {
   @IsOptional()
   isPublished?: boolean;
 
+  // Archived = kept for later, never public. Archiving unpublishes; publishing
+  // (or unticking it) brings it back.
+  @IsBoolean()
+  @IsOptional()
+  isArchived?: boolean;
+
   // Off = the feed leaves this listing alone (no updates, never removed).
   @IsBoolean()
   @IsOptional()

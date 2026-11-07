@@ -644,6 +644,7 @@ export class FeedService {
               ownership,
               templateCtx,
               typeCtx,
+              config.markAsArchived === true,
             );
 
             if (outcome === 'created') {
@@ -712,7 +713,10 @@ export class FeedService {
       const removalHandledElsewhere =
         config.markAsFeatured &&
         tenantFeeds.some((f) => f.id !== config.id && !f.markAsFeatured && f.provider === config.provider);
-      if (config.removeMissing !== false && !removalHandledElsewhere) {
+      // An archive feed never removes: a listing leaving Odoo's archive was
+      // usually reactivated there, and stays archived here until a user
+      // takes it out by hand.
+      if (config.removeMissing !== false && !removalHandledElsewhere && !config.markAsArchived) {
         const removal = await this.removeListingsNoLongerInFeed(config, seenExternalIds, reportedTotal, opts.confirmRemoval === true);
         removedCount = removal.removed;
         if (removal.skippedReason) {
@@ -850,10 +854,11 @@ export class FeedService {
 
     const owned = await this.propertyRepository.find({
       where: { tenantId: config.tenantId, feedConfigId: config.id, source: config.provider as any },
-      select: ['id', 'externalId', 'images', 'syncEnabled'],
+      select: ['id', 'externalId', 'images', 'syncEnabled', 'isArchived'],
     });
+    // Archived listings are kept until a user takes them out of the archive.
     const departed = owned.filter(
-      (p) => p.syncEnabled !== false && !!p.externalId && !seenExternalIds.has(String(p.externalId)),
+      (p) => p.syncEnabled !== false && !p.isArchived && !!p.externalId && !seenExternalIds.has(String(p.externalId)),
     );
     if (departed.length === 0) return { removed: 0 };
 
@@ -917,6 +922,7 @@ export class FeedService {
     ownership?: FeedOwnershipContext,
     templateCtx?: TemplateRunContext | null,
     typeCtx?: TypeRunContext | null,
+    markAsArchived = false,
   ): Promise<'created' | 'updated' | 'skipped'> {
     const existing = await this.propertyRepository.findOne({
       where: {
@@ -958,7 +964,12 @@ export class FeedService {
         existing.images,
       );
       const promoteFromDraft = existing.status === 'draft';
-      const neverPublished = !existing.isPublished && !existing.publishedAt;
+      // An archive feed archives what it lists, unless a user took the listing
+      // out of the archive by hand. Archived wins over any other feed: nothing
+      // here ever un-archives or publishes it.
+      const claimArchive = markAsArchived && !existing.isArchived && !existing.unarchivedByHand;
+      const neverPublished =
+        !existing.isPublished && !existing.publishedAt && !existing.isArchived && !claimArchive;
       const missingPropertyType = !existing.propertyTypeId && !!feedProperty.propertyType && feedProperty.propertyType !== 'Unknown';
       const missingFeatures = (!existing.features || existing.features.length === 0) && feedProperty.features.length > 0;
       const hasIncomingLocation = !!(
@@ -993,7 +1004,7 @@ export class FeedService {
           !ownership.liveFeedIds.has(currentOwner) ||
           (ownership.featuredFeedIds.has(currentOwner) && !markAsFeatured));
 
-      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured && !claimOwnership && !locationMoved && !feedLocationChanged && !typeMoved && !feedTypeChanged) return 'skipped';
+      if (!dataChanged && !imagesChanged && !promoteFromDraft && !neverPublished && !missingPropertyType && !missingFeatures && !missingLocation && !claimFeatured && !claimArchive && !claimOwnership && !locationMoved && !feedLocationChanged && !typeMoved && !feedTypeChanged) return 'skipped';
 
       // Per-property locks (user-edited fields) merged with per-feed protected
       // fields (tenant-wide setting on FeedConfig). Union wins: any field named
@@ -1006,6 +1017,11 @@ export class FeedService {
       if (claimFeatured) {
         updateData.isFeatured = true;
         updateData.featuredByFeedId = feedConfigId;
+      }
+
+      if (claimArchive) {
+        updateData.isArchived = true;
+        updateData.isPublished = false;
       }
 
       if (promoteFromDraft && !lockedFields.includes('status')) {
@@ -1204,8 +1220,9 @@ export class FeedService {
         feedType,
         importedAt: new Date(),
         status: 'active',
-        isPublished: true,
-        publishedAt: new Date(),
+        isPublished: !markAsArchived,
+        publishedAt: markAsArchived ? null : new Date(),
+        isArchived: markAsArchived,
         isFeatured: markAsFeatured,
         featuredByFeedId: markAsFeatured ? feedConfigId : null,
       });

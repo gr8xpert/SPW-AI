@@ -2,24 +2,32 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, Users } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { Mail, RefreshCw, Users } from 'lucide-react';
+import { AGENT_ROLE } from '@/lib/agent-access';
 import { cn } from '@/lib/utils';
 import { useCampaignsText } from '../_i18n';
 
-// Email Campaigns tabs: the campaigns and the subscriber list they go to
-// (the subscriber list was the old Contacts page until 2026-10-22).
-const ITEMS = [
-  { href: '/dashboard/campaigns', key: 'campaigns' as const, icon: Mail },
-  { href: '/dashboard/campaigns/subscribers', key: 'subscribers' as const, icon: Users },
-];
+const CAMPAIGNS = '/dashboard/campaigns';
+const SUBSCRIBERS = '/dashboard/campaigns/subscribers';
+const MAILERLITE = '/dashboard/campaigns/mailerlite';
 
+// Email Campaigns tabs: the campaigns and the subscriber list they go to
+// (the subscriber list was the old Contacts page until 2026-10-22), and the
+// client's own MailerLite account (managers: agents can't change it).
 export function CampaignsNav() {
   const pathname = usePathname();
   const t = useCampaignsText();
+  const { data: session } = useSession();
+  const items = [
+    { href: CAMPAIGNS, label: t.nav.campaigns, icon: Mail },
+    { href: SUBSCRIBERS, label: t.nav.subscribers, icon: Users },
+    ...(session?.user?.role === AGENT_ROLE ? [] : [{ href: MAILERLITE, label: 'MailerLite', icon: RefreshCw }]),
+  ];
   return (
     <nav className="flex flex-wrap items-center gap-1 border-b">
-      {ITEMS.map(({ href, key, icon: Icon }) => {
-        const active = href === '/dashboard/campaigns' ? !pathname.startsWith('/dashboard/campaigns/subscribers') : pathname.startsWith(href);
+      {items.map(({ href, label, icon: Icon }) => {
+        const active = href === CAMPAIGNS ? !pathname.startsWith(SUBSCRIBERS) && !pathname.startsWith(MAILERLITE) : pathname.startsWith(href);
         return (
           <Link
             key={href}
@@ -30,7 +38,7 @@ export function CampaignsNav() {
             )}
           >
             <Icon className="h-4 w-4" />
-            {t.nav[key]}
+            {label}
           </Link>
         );
       })}

@@ -27,7 +27,10 @@ import {
   CampaignController,
 } from './email-campaign.controller';
 import { TemplateVersionService } from './designer/template-version.service';
-import { EmailTemplateDesignController, EmailImageController, EmailDesignerController } from './designer/email-designer.controller';
+import { EmailTemplateDesignController, EmailImageController, EmailDesignerController, BrandLogoController } from './designer/email-designer.controller';
+import { BrandLogoService } from './designer/brand-logo.service';
+import { DesignDirectionsService } from './designer/design-directions.service';
+import { TenantModule } from '../tenant/tenant.module';
 import { EmailDesignerService } from './designer/email-designer.service';
 import { BrandMemoryService } from './designer/brand-memory.service';
 import { AiModule } from '../ai/ai.module';
@@ -40,6 +43,7 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
   imports: [
     UploadModule,
     AiModule,
+    TenantModule,
     TypeOrmModule.forFeature([
       TenantEmailConfig,
       TenantEmailDomain,
@@ -72,6 +76,7 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
     EmailTemplateDesignController,
     EmailImageController,
     EmailDesignerController,
+    BrandLogoController,
   ],
   providers: [
     EmailCampaignService,
@@ -84,6 +89,8 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
     DesignerCleanupService,
     BrandMemoryService,
     EmailDesignerService,
+    BrandLogoService,
+    DesignDirectionsService,
     DashboardAddonGuard,
   ],
   exports: [EmailCampaignService, EmailSenderService],

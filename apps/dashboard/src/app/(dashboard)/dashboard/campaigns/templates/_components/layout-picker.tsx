@@ -57,7 +57,7 @@ export function LayoutPicker({ open, onOpenChange, onPick }: {
               <div key={l.name} className="w-[258px] space-y-2 rounded-md border p-2" data-testid={`layout-${l.name}`}>
                 <div className="relative h-[304px] w-[240px] overflow-hidden rounded bg-white">
                   {typeof html === 'string'
-                    ? <iframe title={label} sandbox="" srcDoc={html} tabIndex={-1} className="pointer-events-none" style={{ width: 600, height: 760, transform: 'scale(0.4)', transformOrigin: 'top left', border: 0 }} />
+                    ? <iframe title={label} sandbox="" srcDoc={html} tabIndex={-1} className="pointer-events-none" style={{ width: 660, height: 840, transform: 'scale(0.3636)', transformOrigin: 'top left', border: 0 }} />
                     : html === false
                       ? <p className="p-3 text-xs text-muted-foreground">{l.subject}</p>
                       : <Loader2 className="absolute left-1/2 top-1/2 h-4 w-4 animate-spin" />}

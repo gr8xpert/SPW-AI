@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileJson, FileCode, Loader2 } from 'lucide-react';
+import { FileJson, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApi } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +10,7 @@ import { RightmoveCard } from '@/components/feed-export/rightmove-card';
 import { API_URL } from '@/components/feed-export/idealista-api';
 import { StatusDot, type ExportStatus } from '@/components/feed-export/export-status';
 import { ExportLogCard } from '@/components/feed-export/export-log-card';
+import { ExportFeedsTab } from '@/components/feed-export/export-feeds-tab';
 import { FeedRunButton, FeedRunNote } from '@/components/feed-export/feed-run-button';
 import {
   FeedKeyCard,
@@ -22,19 +23,10 @@ import { useFeedExportText } from '@/components/feed-export/_i18n';
 
 type ListingScope = UrlFeedSettings['listingScope'];
 
-// GET /api/dashboard/feed-export: the top-level fields are the Kyero XML
-// feed's; `json` is the JSON feed's own settings and key.
+// GET /api/dashboard/feed-export: `json` is the JSON feed's own settings and
+// key. Kyero XML lives in the Feeds tab (one row per feed).
 interface ExportConfig {
-  isEnabled: boolean;
-  includeUnpublished: boolean;
-  listingScope?: ListingScope;
-  propertyIds?: number[] | null;
-  cacheTtl: number;
-  apiKey: string;
   tenantSlug?: string;
-  propertyCount?: number;
-  skippedCount?: number;
-  skipped?: Array<{ reference: string; reason: string }>;
   json: {
     enabled: boolean;
     includeUnpublished: boolean;
@@ -46,28 +38,16 @@ interface ExportConfig {
   };
 }
 
-type UrlFeed = 'kyero' | 'json';
-
-const TABS = ['idealista', 'rightmove', 'kyero', 'json'] as const;
+// The old "kyero" tab moved into Feeds; a saved ?tab=kyero link lands there.
+const TABS = ['feeds', 'idealista', 'rightmove', 'json'] as const;
 type Tab = (typeof TABS)[number];
 
 // The open tab lives in ?tab= so a refresh or a shared link lands on it.
 // Read from window rather than useSearchParams (no Suspense boundary needed).
 function tabFromUrl(): Tab {
-  if (typeof window === 'undefined') return 'idealista';
+  if (typeof window === 'undefined') return 'feeds';
   const t = new URLSearchParams(window.location.search).get('tab');
-  return (TABS as readonly string[]).includes(t || '') ? (t as Tab) : 'idealista';
-}
-
-function kyeroSettings(c: ExportConfig): UrlFeedSettings {
-  return {
-    enabled: !!c.isEnabled,
-    includeUnpublished: !!c.includeUnpublished,
-    includeSold: false,
-    listingScope: c.listingScope || 'all',
-    propertyIds: c.propertyIds || [],
-    cacheTtl: c.cacheTtl || 3600,
-  };
+  return (TABS as readonly string[]).includes(t || '') ? (t as Tab) : 'feeds';
 }
 
 function jsonSettings(c: ExportConfig): UrlFeedSettings {
@@ -81,13 +61,13 @@ function jsonSettings(c: ExportConfig): UrlFeedSettings {
 }
 
 function FeedExportPageInner() {
-  const [tab, setTab] = useState<Tab>('idealista');
+  const [tab, setTab] = useState<Tab>('feeds');
   const [config, setConfig] = useState<ExportConfig | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState<UrlFeed | null>(null);
-  const [saving, setSaving] = useState<UrlFeed | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Partial<Record<Tab, ExportStatus>>>({});
-  const [edits, setEdits] = useState<Record<UrlFeed, UrlFeedSettings> | null>(null);
+  const [edits, setEdits] = useState<UrlFeedSettings | null>(null);
 
   const api = useApi();
   const { toast } = useToast();
@@ -102,21 +82,13 @@ function FeedExportPageInner() {
     window.history.replaceState(null, '', url.toString());
   };
 
-  // `only` refreshes one feed's form and leaves unsaved edits on the other;
-  // 'counts' refreshes the numbers and leaves every form alone.
-  const fetchConfig = async (only?: UrlFeed | 'counts') => {
+  // 'counts' refreshes the numbers and leaves the form alone.
+  const fetchConfig = async (only?: 'counts') => {
     try {
       const res = await api.get('/api/dashboard/feed-export');
       const body: ExportConfig | null = res?.data || res;
       setConfig(body);
-      if (body) {
-        setEdits((prev) => {
-          const fresh = { kyero: kyeroSettings(body), json: jsonSettings(body) };
-          if (!prev || !only) return fresh;
-          if (only === 'counts') return prev;
-          return { ...prev, [only]: fresh[only] };
-        });
-      }
+      if (body && only !== 'counts') setEdits(jsonSettings(body));
     } catch {
       setConfig(null);
     }
@@ -131,43 +103,31 @@ function FeedExportPageInner() {
     fetchConfig();
   }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = async (feed: UrlFeed) => {
+  const save = async () => {
     if (!edits) return;
-    const s = edits[feed];
-    setSaving(feed);
+    setSaving(true);
     try {
-      if (feed === 'kyero') {
-        await api.put('/api/dashboard/feed-export', {
-          isEnabled: s.enabled,
-          includeUnpublished: s.includeUnpublished,
-          listingScope: s.listingScope,
-          propertyIds: s.propertyIds,
-          cacheTtl: s.cacheTtl,
-        });
-      } else {
-        await api.put('/api/dashboard/feed-export/json', {
-          enabled: s.enabled,
-          includeUnpublished: s.includeUnpublished,
-          includeSold: s.includeSold,
-          listingScope: s.listingScope,
-          propertyIds: s.propertyIds,
-        });
-      }
-      toast({ title: t.page.settingsSaved(feed === 'kyero' ? 'Kyero XML' : 'JSON') });
-      fetchConfig(feed);
+      await api.put('/api/dashboard/feed-export/json', {
+        enabled: edits.enabled,
+        includeUnpublished: edits.includeUnpublished,
+        includeSold: edits.includeSold,
+        listingScope: edits.listingScope,
+        propertyIds: edits.propertyIds,
+      });
+      toast({ title: t.page.settingsSaved('JSON') });
+      fetchConfig();
     } catch (e: any) {
       toast({ title: t.page.saveFailed, description: e.message, variant: 'destructive' });
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
   };
 
-  const regenerateKey = async (feed: UrlFeed) => {
-    const name = feed === 'kyero' ? 'Kyero XML' : 'JSON';
+  const regenerateKey = async () => {
     try {
-      await api.post(feed === 'kyero' ? '/api/dashboard/feed-export/regenerate-key' : '/api/dashboard/feed-export/json/regenerate-key');
-      toast({ title: t.page.keyRegenerated(name), description: t.page.oldUrlDead(name) });
-      fetchConfig(feed);
+      await api.post('/api/dashboard/feed-export/json/regenerate-key');
+      toast({ title: t.page.keyRegenerated('JSON'), description: t.page.oldUrlDead('JSON') });
+      fetchConfig();
     } catch (e: any) {
       toast({ title: t.page.regenerateFailed, description: e.message, variant: 'destructive' });
     }
@@ -184,81 +144,14 @@ function FeedExportPageInner() {
     setStatus((prev) => (prev[which] === s ? prev : { ...prev, [which]: s }));
 
   const tenantSlug = config?.tenantSlug || 'my-agency';
-  // Portals (Kyero etc.) can only fetch a URL, so the key goes in it.
-  const feedUrl = (file: string, key: string) =>
-    `${API_URL}/api/feed/${tenantSlug}/${file}${key ? `?key=${encodeURIComponent(key)}` : ''}`;
+  // Integrations may only be able to fetch a URL, so the key goes in it.
+  const feedUrl = (key: string) =>
+    `${API_URL}/api/feed/${tenantSlug}/properties.json${key ? `?key=${encodeURIComponent(key)}` : ''}`;
 
   // Dots follow the saved config, not unsaved switch flips.
-  const kyeroOn = !!config?.isEnabled;
   const jsonOn = !!config?.json?.enabled;
-  const dots: Partial<Record<Tab, ExportStatus>> = config
-    ? { ...status, kyero: !kyeroOn ? 'off' : config.skippedCount ? 'warn' : 'on', json: jsonOn ? 'on' : 'off' }
-    : status;
-
-  const urlFeedTab = (feed: UrlFeed) => {
-    const isKyero = feed === 'kyero';
-    const name = isKyero ? 'Kyero XML' : 'JSON';
-    const file = isKyero ? 'properties.xml' : 'properties.json';
-    const key = (isKyero ? config?.apiKey : config?.json?.apiKey) || '';
-    const shownKey = showKey === feed ? key : key ? '***' : '';
-    return (
-      <>
-        <FeedUrlCard
-          icon={isKyero ? <FileCode className="h-5 w-5" /> : <FileJson className="h-5 w-5" />}
-          title={isKyero ? 'Kyero XML' : t.page.jsonFeed}
-          description={isKyero
-            ? t.page.kyeroDescription
-            : t.page.jsonDescription}
-          shownUrl={feedUrl(file, shownKey)}
-          url={feedUrl(file, key)}
-          propertyCount={(isKyero ? config?.propertyCount : config?.json?.propertyCount) ?? 0}
-          enabled={isKyero ? kyeroOn : jsonOn}
-          note={<FeedRunNote portal={isKyero ? 'Kyero' : undefined} enabled={isKyero ? kyeroOn : jsonOn} />}
-          action={
-            <FeedRunButton
-              url={isKyero ? '/api/dashboard/feed-export/run' : '/api/dashboard/feed-export/json/run'}
-              portal={isKyero ? 'Kyero' : undefined}
-              enabled={isKyero ? kyeroOn : jsonOn}
-              onDone={() => fetchConfig('counts')}
-            />
-          }
-          copied={copied === `${name} URL`}
-          onCopy={() => copyToClipboard(feedUrl(file, key), `${name} URL`, t.page.urlCopied(name))}
-        >
-          {isKyero && !!config?.skippedCount && (
-            <details className="rounded-md border p-3 text-sm">
-              <summary className="cursor-pointer">{t.page.leftOutOfKyero(config.skippedCount)}</summary>
-              <ul className="mt-2 space-y-1 text-muted-foreground">
-                {(config.skipped || []).map((s) => (
-                  <li key={s.reference}><span className="font-mono">{s.reference}</span> — {s.reason}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </FeedUrlCard>
-        {edits && (
-          <FeedSettingsCard
-            feedName={name}
-            settings={edits[feed]}
-            onChange={(s) => setEdits({ ...edits, [feed]: s })}
-            onSave={() => save(feed)}
-            saving={saving === feed}
-          />
-        )}
-        <FeedKeyCard
-          feedName={name}
-          apiKey={key}
-          plainUrl={feedUrl(file, '')}
-          showKey={showKey === feed}
-          onToggleShow={() => setShowKey(showKey === feed ? null : feed)}
-          copied={copied === `${name} key`}
-          onCopy={() => copyToClipboard(key, `${name} key`, t.page.keyCopied(name))}
-          onRegenerate={() => regenerateKey(feed)}
-        />
-        <ExportLogCard feedName={name} format={isKyero ? 'xml' : 'json'} />
-      </>
-    );
-  };
+  const dots: Partial<Record<Tab, ExportStatus>> = config ? { ...status, json: jsonOn ? 'on' : 'off' } : status;
+  const key = config?.json?.apiKey || '';
 
   // Inactive tabs stay mounted (hidden) so each card loads once, reports its
   // dot, and keeps unsaved edits when the user switches tabs.
@@ -280,11 +173,15 @@ function FeedExportPageInner() {
       ) : (
         <Tabs value={tab} onValueChange={changeTab}>
           <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="feeds"><StatusDot status={dots.feeds} />{t.feeds.title}</TabsTrigger>
             <TabsTrigger value="idealista"><StatusDot status={dots.idealista} />idealista</TabsTrigger>
             <TabsTrigger value="rightmove"><StatusDot status={dots.rightmove} />Rightmove</TabsTrigger>
-            <TabsTrigger value="kyero"><StatusDot status={dots.kyero} />Kyero XML</TabsTrigger>
             <TabsTrigger value="json"><StatusDot status={dots.json} />JSON</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="feeds" forceMount className={contentCls}>
+            <ExportFeedsTab ready={api.isReady} onStatus={reportStatus('feeds')} />
+          </TabsContent>
 
           <TabsContent value="idealista" forceMount className={contentCls}>
             <IdealistaCard onStatus={reportStatus('idealista')} />
@@ -295,12 +192,42 @@ function FeedExportPageInner() {
             <RightmoveCard onStatus={reportStatus('rightmove')} />
           </TabsContent>
 
-          <TabsContent value="kyero" forceMount className={contentCls}>
-            {urlFeedTab('kyero')}
-          </TabsContent>
-
           <TabsContent value="json" forceMount className={contentCls}>
-            {urlFeedTab('json')}
+            <FeedUrlCard
+              icon={<FileJson className="h-5 w-5" />}
+              title={t.page.jsonFeed}
+              description={t.page.jsonDescription}
+              shownUrl={feedUrl(showKey ? key : key ? '***' : '')}
+              url={feedUrl(key)}
+              propertyCount={config?.json?.propertyCount ?? 0}
+              enabled={jsonOn}
+              note={<FeedRunNote enabled={jsonOn} />}
+              action={
+                <FeedRunButton url="/api/dashboard/feed-export/json/run" enabled={jsonOn} onDone={() => fetchConfig('counts')} />
+              }
+              copied={copied === 'JSON URL'}
+              onCopy={() => copyToClipboard(feedUrl(key), 'JSON URL', t.page.urlCopied('JSON'))}
+            />
+            {edits && (
+              <FeedSettingsCard
+                feedName="JSON"
+                settings={edits}
+                onChange={setEdits}
+                onSave={save}
+                saving={saving}
+              />
+            )}
+            <FeedKeyCard
+              feedName="JSON"
+              apiKey={key}
+              plainUrl={feedUrl('')}
+              showKey={showKey}
+              onToggleShow={() => setShowKey(!showKey)}
+              copied={copied === 'JSON key'}
+              onCopy={() => copyToClipboard(key, 'JSON key', t.page.keyCopied('JSON'))}
+              onRegenerate={regenerateKey}
+            />
+            <ExportLogCard feedName="JSON" format="json" />
           </TabsContent>
         </Tabs>
       )}

@@ -33,7 +33,7 @@ describe('runDesignerTool', () => {
   it('use_layout, set_subject and save_brand_note', () => {
     const s = state();
     expect(runDesignerTool(s, 'use_layout', JSON.stringify({ name: 'luxury' }))).toMatch(/^OK/);
-    expect(s.html).toContain('{{#properties}}');
+    expect(s.html).toContain('{{#lead_property}}');
     expect(s.layoutApplied).toBe(true);
     runDesignerTool(s, 'set_subject', JSON.stringify({ subject: 'New villas for {{contact.first_name}}' }));
     expect(s.subject).toBe('New villas for {{contact.first_name}}');

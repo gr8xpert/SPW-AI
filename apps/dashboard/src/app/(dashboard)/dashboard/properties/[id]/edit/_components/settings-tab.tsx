@@ -19,10 +19,8 @@ type Flags = PropertiesText['form']['flags'];
 const FLAG_FIELDS: Array<[FormField, keyof Flags, keyof Flags | null]> = [
   ['isFeatured', 'isFeatured', 'isFeaturedHint'],
   ['isPublished', 'isPublished', 'isPublishedHint'],
+  ['isArchived', 'isArchived', 'isArchivedHint'],
   ['isOwnProperty', 'isOwnProperty', null],
-  ['villaSelection', 'villaSelection', null],
-  ['luxurySelection', 'luxurySelection', null],
-  ['apartmentSelection', 'apartmentSelection', null],
 ];
 
 export function SettingsTab({ formData, onChange, propertySource }: FormSectionProps & { propertySource: string }) {
@@ -38,7 +36,15 @@ export function SettingsTab({ formData, onChange, propertySource }: FormSectionP
                 <Label>{t.form.flags[label]}</Label>
                 {desc && <p className="text-xs text-muted-foreground">{t.form.flags[desc]}</p>}
               </div>
-              <Switch checked={formData[field] as boolean} onCheckedChange={(c) => onChange(field, c)} />
+              <Switch
+                checked={formData[field] as boolean}
+                onCheckedChange={(c) => {
+                  onChange(field, c);
+                  // Archived and Published never go together.
+                  if (c && field === 'isArchived') onChange('isPublished', false);
+                  if (c && field === 'isPublished') onChange('isArchived', false);
+                }}
+              />
             </div>
           ))}
         </CardContent>

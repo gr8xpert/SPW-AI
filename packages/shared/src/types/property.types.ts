@@ -213,6 +213,8 @@ export interface Property {
   isFeatured: boolean;
   featuredByFeedId: number | null;
   isPublished: boolean;
+  /** Kept for later, never public; always paired with isPublished=false. */
+  isArchived?: boolean;
   syncEnabled: boolean;
   brochureVariant: BrochureVariant;
 
@@ -268,6 +270,8 @@ export interface PropertyListQuery {
   isFeatured?: boolean;
   isOwnProperty?: boolean;
   isPublished?: boolean;
+  /** published / unpublished (not archived) / archived. */
+  visibility?: 'published' | 'unpublished' | 'archived';
   minPrice?: number;
   maxPrice?: number;
   minBedrooms?: number;

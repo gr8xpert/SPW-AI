@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Brain, ImagePlus, LayoutTemplate, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Brain, ImagePlus, LayoutTemplate, Loader2, Save, Sparkles, Stamp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +18,8 @@ import { DesignerChat } from './designer-chat';
 import type { CodeEditorApi } from './code-editor-impl';
 import { LayoutPicker } from './layout-picker';
 import { BrandMemoryDialog } from './brand-memory-dialog';
+import { LogoDialog, logoError } from './logo-dialog';
+import { DirectionsDialog } from './directions-dialog';
 import { useEditorText } from '../_i18n';
 
 function useWide(): boolean {
@@ -47,7 +49,33 @@ export function TemplateEditor({ id }: { id: number }) {
   const [chatImages, setChatImages] = useState<string[]>([]); // attach to the next chat message
   const [layoutsOpen, setLayoutsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [logoOpen, setLogoOpen] = useState(false);
+  const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null); // null until known: no notice before that
   const [designing, setDesigning] = useState(false); // an AI turn is running: manual edits are locked
+
+  useEffect(() => {
+    if (!api.isReady) return;
+    let live = true;
+    api.get('/api/dashboard/tenant')
+      .then((r) => { if (live) setLogoUrl(unwrap<{ settings?: { logoUrl?: string } }>(r).settings?.logoUrl ?? ''); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [api.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const logoChanged = (url: string) => {
+    setLogoUrl(url);
+    ed.refreshPreview();
+  };
+
+  const applyImageAsLogo = async (imageId: number) => {
+    try {
+      logoChanged(unwrap<{ logoUrl: string }>(await api.put('/api/dashboard/brand-logo', { imageId })).logoUrl);
+      toast({ title: t.logo.saved });
+    } catch (err) {
+      toast({ title: logoError(err, t), variant: 'destructive' });
+    }
+  };
 
   const dirty = ed.dirty;
   // App-router links don't fire beforeunload: ask before any in-app link leaves unsaved changes.
@@ -106,6 +134,7 @@ export function TemplateEditor({ id }: { id: number }) {
     if (ed.dirty && !confirm(t.chat.layoutConfirm)) return;
     ed.setDraft({ bodyHtml: l.html, subject: ed.draft.subject || l.subject });
     setLayoutsOpen(false);
+    setDirectionsOpen(false);
   };
 
   if (ed.loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -124,6 +153,7 @@ export function TemplateEditor({ id }: { id: number }) {
       <div className="flex flex-wrap items-center gap-2">
         <InsertMenu onInsert={insert} disabled={designing} />
         <Button type="button" variant="outline" size="sm" onClick={() => setImages('code')} disabled={designing} data-testid="images-open"><ImagePlus className="mr-1 h-4 w-4" />{t.images.button}</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setLogoOpen(true)} data-testid="open-logo-code"><Stamp className="mr-1 h-4 w-4" />{t.logo.button}</Button>
       </div>
       <CodePane value={ed.draft.bodyHtml} onChange={(v) => ed.setDraft({ bodyHtml: v })} onReady={onEditorReady} readOnly={designing} />
     </div>
@@ -131,7 +161,9 @@ export function TemplateEditor({ id }: { id: number }) {
   const chat = (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => setDirectionsOpen(true)} disabled={designing} data-testid="open-directions"><Sparkles className="mr-1 h-4 w-4" />{t.directions.button}</Button>
         <Button type="button" size="sm" variant="outline" onClick={() => setLayoutsOpen(true)} disabled={designing} data-testid="open-layouts"><LayoutTemplate className="mr-1 h-4 w-4" />{t.chat.layouts}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => setLogoOpen(true)} data-testid="open-logo"><Stamp className="mr-1 h-4 w-4" />{t.logo.button}</Button>
         <Button type="button" size="sm" variant="outline" onClick={() => setMemoryOpen(true)} data-testid="open-memory"><Brain className="mr-1 h-4 w-4" />{t.chat.memory}</Button>
       </div>
       <DesignerChat
@@ -166,7 +198,16 @@ export function TemplateEditor({ id }: { id: number }) {
         open={images !== null}
         onOpenChange={(o) => { if (!o) setImages(null); }}
         onPick={(url) => { if (images === 'chat') setChatImages((l) => (l.includes(url) ? l : [...l, url].slice(0, 5))); else { insert(imageTag(url)); toast({ title: t.images.inserted }); } }}
+        onUseAsLogo={(imageId) => void applyImageAsLogo(imageId)}
       />
+      <LogoDialog open={logoOpen} onOpenChange={setLogoOpen} logoUrl={logoUrl ?? ''} onChange={logoChanged} />
+      <DirectionsDialog open={directionsOpen} onOpenChange={setDirectionsOpen} onPick={pickLayout} />
+      {logoUrl === '' && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200" data-testid="logo-missing">
+          <span>{t.logo.missing}</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => setLogoOpen(true)} data-testid="logo-missing-add">{t.logo.upload}</Button>
+        </div>
+      )}
       <LayoutPicker open={layoutsOpen} onOpenChange={setLayoutsOpen} onPick={pickLayout} />
       <BrandMemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />
 

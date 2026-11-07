@@ -18,7 +18,7 @@ interface Notice { text: string; detail?: string }
 
 // The API's error code (or HTTP status when there is none, e.g. a proxy
 // timeout) → the wording in the dashboard language.
-function errorNotice(err: unknown, t: EditorText): Notice {
+export function errorNotice(err: unknown, t: EditorText): Notice {
   const { code, status, message } = (err ?? {}) as { code?: string; status?: number; message?: string };
   const key = code && t.chat.errors[code] ? code
     : status === 409 ? 'DESIGNER_BUSY'

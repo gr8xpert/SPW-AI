@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
 
 export class RenderPreviewDto {
   @IsString()
@@ -9,6 +9,20 @@ export class RenderPreviewDto {
   @IsString()
   @MaxLength(300_000)
   bodyHtml: string;
+}
+
+export class DesignDirectionsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1000)
+  @Matches(/\S/, { message: 'brief must not be empty' })
+  brief: string;
+}
+
+export class BrandLogoImageDto {
+  @IsInt()
+  @Min(1)
+  imageId: number;
 }
 
 export class DesignerMessageDto {

@@ -1,5 +1,6 @@
 'use client';
 
+import { LogoUploadButton } from './logo-upload-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -214,6 +215,7 @@ export function GeneralTab({ general }: { general: GeneralSettings }) {
               value={brochureLogoUrl}
               onChange={(e) => setBrochureLogoUrl(e.target.value)}
             />
+            <LogoUploadButton logoUrl={brochureLogoUrl} onChange={setBrochureLogoUrl} />
             <p className="text-xs text-muted-foreground">
               {g.brochure.logoHelp}
             </p>

@@ -58,6 +58,9 @@ export const fi: FeedsText = {
     markFeatured: 'Merkitse tuodut kohteet nostetuiksi',
     markFeaturedHelp:
       'Syötteelle, joka on nostettujen kohteidesi lista (esim. Resales-suodatin nostetuista kohteista). Kohteet merkitään nostetuiksi synkronoinnissa ja merkintä poistetaan, kun ne poistuvat tästä syötteestä. Itse asettamiisi tai poistamiisi merkintöihin ei kosketa.',
+    markArchived: 'Merkitse tuodut kohteet arkistoiduiksi',
+    markArchivedHelp:
+      'Arkistoitujen kohteiden syötteelle (esim. Odoon arkistoidut kohteet Kyero-syötteenä). Kaikki sen tuomat kohteet arkistoidaan eikä niitä julkaista – ne säilytetään myöhempää varten. Arkistoitu voittaa, jos toisessa syötteessä on sama kohde. Itse arkistosta palauttamasi kohde pysyy palautettuna, eikä tämä syöte poista mitään.',
     removeMissing: 'Poista kohteet, jotka poistuvat tästä syötteestä',
     removeMissingHelp:
       'Jokaisen täydellisen synkronoinnin jälkeen kohteet, joita ei enää ole syötteessä (myydyt, vedetyt), poistetaan, jotta sivustosi vastaa lähdettä. Poista tämä käytöstä, jos haluat säilyttää ne. Yksittäinen kohde säilytetään aina, jos sen ”Ota syötteen synkronointi käyttöön” on pois päältä.',
@@ -90,6 +93,7 @@ export const fi: FeedsText = {
     paused: 'Keskeytetty',
     importsAs: 'Tuodaan',
     featured: 'Nostettuina',
+    archived: 'Arkistoituina',
     progress: 'Edistyminen',
     lastSync: 'Viimeisin synkronointi',
     properties: 'Kohteet',

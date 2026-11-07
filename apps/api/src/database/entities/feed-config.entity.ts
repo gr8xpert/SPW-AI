@@ -71,6 +71,12 @@ export class FeedConfig {
   @Column({ default: false })
   markAsFeatured: boolean;
 
+  // Everything this feed imports comes in archived (unpublished). A listing a
+  // user took out of the archive by hand stays out. An archived listing stays
+  // archived when another feed also has it.
+  @Column({ default: false })
+  markAsArchived: boolean;
+
   // After a complete sync, delete properties this feed imported that are no
   // longer in it (sold, withdrawn), so the site mirrors the source. Off keeps
   // them. Properties with syncEnabled=false are always kept.

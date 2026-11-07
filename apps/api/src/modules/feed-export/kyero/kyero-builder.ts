@@ -13,7 +13,7 @@ export interface KyeroLocationRow {
 
 export interface KyeroInput {
   properties: Property[];
-  types: Map<number, { name: Record<string, string> | null }>;
+  types: Map<number, { name: Record<string, string> | null; parentId?: number | null }>;
   locations: Map<number, KyeroLocationRow>;
   features: Map<number, { name: Record<string, string> | null }>;
 }
@@ -30,6 +30,18 @@ const MAX_IMAGES = 50;
 const ENERGY = /^[A-G]$/;
 
 type KyeroLookups = Omit<KyeroInput, 'properties'>;
+
+// Per-feed choices (Feed Export -> Feeds). The built-in Kyero feed uses none.
+export interface KyeroOptions {
+  // Description languages, in order. Empty = every language Kyero takes.
+  languages?: string[];
+  // 'fotocasa' adds what Fotocasa's Kyero import reads: full location block,
+  // "Parent - Type" names, energy consumption/emissions, completion year,
+  // terrace size, video and virtual tour.
+  variant?: 'kyero' | 'fotocasa';
+  // The listing's page on the client's website, or null.
+  urlFor?: (p: Property) => string | null;
+}
 
 // The columns kyeroSkipReason reads. The Feed Export page checks a client's
 // whole list with only these: images and descriptions are most of a listing's
@@ -54,11 +66,14 @@ export class KyeroFeedWriter {
   private readonly skipped: KyeroResult['skipped'] = [];
   private included = 0;
 
-  constructor(private readonly lookups: KyeroLookups) {}
+  constructor(
+    private readonly lookups: KyeroLookups,
+    private readonly options: KyeroOptions = {},
+  ) {}
 
   add(properties: Property[]): void {
     for (const p of properties) {
-      const out = buildProperty(p, this.lookups);
+      const out = buildProperty(p, this.lookups, this.options);
       if (typeof out === 'string') {
         this.skipped.push({ reference: p.reference, reason: out });
         continue;
@@ -111,10 +126,12 @@ function requiredFields(p: KyeroCheckFields, input: KyeroLookups) {
   return { price, freq, type, chain, town, province };
 }
 
-function buildProperty(p: Property, input: KyeroLookups): string[] | string {
+function buildProperty(p: Property, input: KyeroLookups, options: KyeroOptions): string[] | string {
   const required = requiredFields(p, input);
   if (typeof required === 'string') return required;
-  const { price, freq, type, chain, town, province } = required;
+  const { price, freq, chain, town, province } = required;
+  const fotocasa = options.variant === 'fotocasa';
+  const type = fotocasa ? parentAndType(p, input) || required.type : required.type;
 
   const featureNames = [...new Set(
     (p.features || [])
@@ -143,12 +160,33 @@ function buildProperty(p: Property, input: KyeroLookups): string[] | string {
   tag('town', town);
   tag('province', province);
   tag('country', 'Spain');
+  if (fotocasa) {
+    tag('video_url', /^https?:\/\//i.test(p.videoUrl || '') ? p.videoUrl!.trim() : '');
+    tag('virtual_tour_url', /^https?:\/\//i.test(p.virtualTourUrl || '') ? p.virtualTourUrl!.trim() : '');
+  }
+  const url = options.urlFor?.(p);
+  if (url) {
+    x.push('    <url>');
+    tag('en', url, 6);
+    x.push('    </url>');
+  }
   // The urbanisation or area the listing sits in, below the town (never a parent area).
   const townAt = chain.findIndex((l) => l.level === 'town' || l.level === 'municipality');
   const below = townAt === -1 ? [] : chain.slice(0, townAt);
   const detail = p.urbanization || displayName(below.find((l) => l.level === 'urbanization' || l.level === 'area')?.name);
   if (detail && detail !== town) tag('location_detail', detail);
-  if (validCoords(p.lat, p.lng)) {
+  if (fotocasa) {
+    // Fotocasa places the listing by postcode and address; always sent, empty when unknown.
+    const coords = validCoords(p.lat, p.lng);
+    x.push('    <location>');
+    tag('latitude', coords ? Number(p.lat) : '', 6);
+    tag('longitude', coords ? Number(p.lng) : '', 6);
+    tag('postalcode', (p.postcode || '').trim(), 6);
+    tag('address1', [p.street, p.streetNumber].map((v) => (v || '').trim()).filter(Boolean).join(' '), 6);
+    tag('address2', town, 6);
+    tag('address3', province, 6);
+    x.push('    </location>');
+  } else if (validCoords(p.lat, p.lng)) {
     x.push('    <location>');
     tag('latitude', Number(p.lat), 6);
     tag('longitude', Number(p.lng), 6);
@@ -160,21 +198,33 @@ function buildProperty(p: Property, input: KyeroLookups): string[] | string {
 
   const built = toInt(p.buildSize);
   const plot = toInt(p.plotSize);
-  if (built || plot) {
+  const terrace = fotocasa ? toInt(p.terraceSize) : null;
+  if (built || plot || terrace) {
     x.push('    <surface_area>');
     if (built) tag('built', built, 6);
     if (plot) tag('plot', plot, 6);
+    if (terrace) tag('terrace', terrace, 6);
     x.push('    </surface_area>');
   }
 
   const energy = (p.energyRating || '').trim().toUpperCase();
-  if (ENERGY.test(energy)) {
+  if (fotocasa) {
+    const consumption = Number(p.energyConsumption);
+    x.push('    <energy_rating>');
+    x.push('      <consumption>');
+    tag('level', ENERGY.test(energy) ? energy : '', 8);
+    tag('value', Number.isFinite(consumption) && consumption > 0 ? consumption : '', 8);
+    x.push('      </consumption>');
+    x.push('    </energy_rating>');
+    const year = toInt(p.builtYear);
+    if (year && year >= 1000 && year <= 2100) tag('completion_year', year);
+  } else if (ENERGY.test(energy)) {
     x.push('    <energy_rating>');
     tag('consumption', energy, 6);
     x.push('    </energy_rating>');
   }
 
-  const descs = descriptions(p.description);
+  const descs = descriptions(p.description, options.languages);
   if (descs.length) {
     x.push('    <desc>');
     for (const [lang, text] of descs) tag(lang, text, 6);
@@ -207,27 +257,47 @@ function buildProperty(p: Property, input: KyeroLookups): string[] | string {
 }
 
 // sale | week | month. Holiday rents default to weekly, long-term to monthly.
-function priceFreq(p: Pick<Property, 'listingType' | 'rentalPeriod'>): 'sale' | 'week' | 'month' | null {
+export function priceFreq(p: Pick<Property, 'listingType' | 'rentalPeriod'>): 'sale' | 'week' | 'month' | null {
   if (p.listingType === 'sale' || p.listingType === 'development') return 'sale';
   const period = p.rentalPeriod ?? (p.listingType === 'holiday_rent' ? 'week' : 'month');
   if (period === 'night') return null;
   return period;
 }
 
-function descriptions(description: Record<string, string> | null): Array<[string, string]> {
-  const out: Array<[string, string]> = [];
-  const used = new Set<string>();
-  for (const [code, raw] of Object.entries(description || {})) {
+function descriptions(description: Record<string, string> | null, only?: string[]): Array<[string, string]> {
+  return pickLanguages(description, only?.length ? only : LANGUAGES).filter(([lang]) => LANGUAGES.includes(lang));
+}
+
+// [lang, plain text] for each wanted language that has text, in `wanted` order.
+// Keys like "en-GB" count as "en"; the first one with text wins.
+export function pickLanguages(
+  texts: Record<string, string> | null | undefined,
+  wanted: string[],
+): Array<[string, string]> {
+  const byLang = new Map<string, string>();
+  for (const [code, raw] of Object.entries(texts || {})) {
     const lang = code.toLowerCase().slice(0, 2);
     const text = htmlToText(raw || '');
-    if (!LANGUAGES.includes(lang) || !text || used.has(lang)) continue;
-    used.add(lang);
-    out.push([lang, text]);
+    if (text && !byLang.has(lang)) byLang.set(lang, text);
+  }
+  const out: Array<[string, string]> = [];
+  for (const lang of wanted) {
+    const text = byLang.get(lang);
+    if (text && !out.some(([l]) => l === lang)) out.push([lang, text]);
   }
   return out;
 }
 
-function locationChain(id: number | null, locations: Map<number, KyeroLocationRow>): KyeroLocationRow[] {
+// "House - Townhouse": the parent type, then the type (Fotocasa groups by both).
+function parentAndType(p: Pick<Property, 'propertyTypeId'>, input: KyeroLookups): string {
+  const type = input.types.get(p.propertyTypeId ?? -1);
+  if (!type) return '';
+  const name = displayName(type.name);
+  const parent = type.parentId != null ? displayName(input.types.get(type.parentId)?.name) : '';
+  return parent && parent !== name ? `${parent} - ${name}` : name;
+}
+
+export function locationChain(id: number | null, locations: Map<number, KyeroLocationRow>): KyeroLocationRow[] {
   const chain: KyeroLocationRow[] = [];
   const seen = new Set<number>();
   let cur = id != null ? locations.get(id) : undefined;
@@ -240,16 +310,16 @@ function locationChain(id: number | null, locations: Map<number, KyeroLocationRo
 }
 
 // "2026-09-05 17:13:58"
-function kyeroDate(d: Date | null | undefined): string {
+export function kyeroDate(d: Date | null | undefined): string {
   return (d ?? new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function toInt(value: unknown): number | null {
+export function toInt(value: unknown): number | null {
   const n = Math.round(Number(value));
   return Number.isFinite(n) && n >= 1 ? n : null;
 }
 
-function validCoords(lat: unknown, lng: unknown): boolean {
+export function validCoords(lat: unknown, lng: unknown): boolean {
   if (lat == null || lng == null) return false;
   const la = Number(lat);
   const ln = Number(lng);

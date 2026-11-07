@@ -83,8 +83,13 @@ export const sv: SettingsText = {
       description:
         'Kontaktuppgifter i sidhuvud och sidfot på den varumärkta objektbroschyren, samt standardlayouten för broschyrer för nya objekt.',
       logoUrl: 'Logotypens URL',
-      logoHelp:
-        'Offentlig URL till din logotyp (PNG/JPG/SVG). Visas i sidhuvudet på den varumärkta PDF:en. Ladda först upp logotypen till din webbplats eller en bildtjänst och klistra sedan in URL:en här.',
+      logoHelp: 'Ladda upp din logotyp eller klistra in adressen till en som ligger någon annanstans. Den visas på dina PDF:er, e-postmeddelanden och köparsidor. PNG eller JPG fungerar överallt; SVG visas inte i många e-postprogram.',
+      logoUpload: 'Ladda upp logotyp',
+      logoRemove: 'Ta bort logotyp',
+      logoSaved: 'Logotypen sparad',
+      logoRemoved: 'Logotypen borttagen',
+      logoFailed: 'Logotypen kunde inte sparas',
+      logoFileRule: 'Använd en JPEG-, PNG-, GIF- eller WebP-bild (max 10 MB).',
       logoPreview: 'Förhandsvisning av logotyp',
       contactEmail: 'Kontakt-e-post',
       contactPhone: 'Kontakttelefon',

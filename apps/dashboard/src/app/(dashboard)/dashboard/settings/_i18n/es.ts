@@ -83,8 +83,13 @@ export const es: SettingsText = {
       description:
         'Datos de contacto que aparecen en la cabecera y el pie del folleto con tu marca, y el diseño de folleto predeterminado para las propiedades nuevas.',
       logoUrl: 'URL del logo',
-      logoHelp:
-        'URL pública de tu logo (PNG/JPG/SVG). Se muestra en la cabecera del PDF con tu marca. Sube primero tu logo a tu web o a cualquier alojamiento de imágenes y pega aquí la URL.',
+      logoHelp: 'Sube tu logo o pega la dirección de uno alojado en otro sitio. Aparece en tus PDF, correos y páginas de compradores. PNG o JPG funcionan en todas partes; SVG no se ve en muchos programas de correo.',
+      logoUpload: 'Subir logo',
+      logoRemove: 'Quitar logo',
+      logoSaved: 'Logo guardado',
+      logoRemoved: 'Logo quitado',
+      logoFailed: 'No se pudo guardar el logo',
+      logoFileRule: 'Usa una imagen JPEG, PNG, GIF o WebP (máx. 10 MB).',
       logoPreview: 'Vista previa del logo',
       contactEmail: 'Email de contacto',
       contactPhone: 'Teléfono de contacto',

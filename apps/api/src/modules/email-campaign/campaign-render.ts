@@ -9,7 +9,13 @@ import { escapeHtml } from '../../common/security/escape-html';
 //   {{#properties}} … {{/properties}}  repeats its content per featured listing, with
 //     {{property.title}} {{property.price}} {{property.location}} {{property.type}}
 //     {{property.reference}} {{property.beds}} {{property.baths}} {{property.area}}
-//     {{property.image}} {{property.url}}
+//     {{property.image}} {{property.url}} {{property.facts}}
+//   {{#lead_property}} … {{/lead_property}}  the same, only for the first listing
+//   {{#other_properties}} … {{/other_properties}}  the same, for the listings after it
+//   {{#has_other_properties}} … {{/has_other_properties}}  shown only when there are
+//     listings after the first (a "More homes" heading around the loop)
+//   {{agency.on_color}} text colour readable on the brand colour
+//   {{agency.color_soft}} a pale tint of the brand colour for backgrounds
 //   {{unsubscribe_link}}  the contact's unsubscribe address
 // A body without {{properties}} gets the cards after its own content; a body
 // without {{unsubscribe_link}} gets an unsubscribe footer, so every email
@@ -59,19 +65,27 @@ export interface CampaignRendered {
 
 const PLACEHOLDER = /\{\{\s*([a-z_]+(?:\.[a-z_]+)*)\s*\}\}/gi;
 
+// The listing loops: all listings, the first one, or those after the first.
+export const LOOP_NAMES = ['properties', 'lead_property', 'other_properties'] as const;
+const LOOP_SOURCE = `\\{\\{\\s*#(${LOOP_NAMES.join('|')})\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*/\\1\\s*\\}\\}`;
 // Global: for .replace / .match only. Use LOOP_TEST_RE for .test / .exec
 // (a global regex keeps lastIndex between calls).
-export const LOOP_RE = /\{\{\s*#properties\s*\}\}([\s\S]*?)\{\{\s*\/properties\s*\}\}/gi;
-export const LOOP_TEST_RE = /\{\{\s*#properties\s*\}\}([\s\S]*?)\{\{\s*\/properties\s*\}\}/i;
+export const LOOP_RE = new RegExp(LOOP_SOURCE, 'gi');
+export const LOOP_TEST_RE = new RegExp(LOOP_SOURCE, 'i');
+
+// Every block marker, for the balance check and for inlineCss.
+export const BLOCK_NAMES = [...LOOP_NAMES, 'has_other_properties'] as const;
+const HAS_OTHERS_RE = /\{\{\s*#has_other_properties\s*\}\}([\s\S]*?)\{\{\s*\/has_other_properties\s*\}\}/gi;
 
 export const PROPERTY_PLACEHOLDERS = [
   'property.title', 'property.price', 'property.location', 'property.type', 'property.reference',
-  'property.beds', 'property.baths', 'property.area', 'property.image', 'property.url',
+  'property.beds', 'property.baths', 'property.area', 'property.image', 'property.url', 'property.facts',
 ] as const;
 
 export const KNOWN_PLACEHOLDERS = [
   'contact.name', 'contact.first_name', 'contact.email',
   'agency.name', 'agency.logo', 'agency.phone', 'agency.email', 'agency.website', 'agency.color',
+  'agency.on_color', 'agency.color_soft',
   'properties', 'unsubscribe_link',
 ] as const;
 
@@ -93,7 +107,21 @@ function propertyValues(c: CampaignPropertyCard): Record<string, string> {
     'property.area': c.area ?? '',
     'property.image': safeUrl(c.image),
     'property.url': safeUrl(c.url),
+    'property.facts': c.facts.join(' · '),
   };
+}
+
+// Black or white, whichever reads better on a #rrggbb background (WCAG luminance).
+export function readableOn(hex: string): string {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return (lum + 0.05) / 0.05 > 1.05 / (lum + 0.05) ? '#111111' : '#ffffff';
+}
+
+// The colour mixed with white: 90% white by default.
+export function softTint(hex: string, white = 0.9): string {
+  const part = (i: number) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - white) + 255 * white).toString(16).padStart(2, '0');
+  return `#${part(1)}${part(3)}${part(5)}`;
 }
 
 function vars(input: CampaignRenderInput, color: string): Record<string, string> {
@@ -109,6 +137,8 @@ function vars(input: CampaignRenderInput, color: string): Record<string, string>
     'agency.email': (info.email || '').trim(),
     'agency.website': safeUrl(info.website),
     'agency.color': color,
+    'agency.on_color': readableOn(color),
+    'agency.color_soft': softTint(color),
     unsubscribe_link: input.unsubscribeUrl,
   };
 }
@@ -244,6 +274,26 @@ function dropTags(html: string, name: string, drop: (tag: string) => boolean, ta
   return out + html.slice(from);
 }
 
+const LOGO_IMG = /<img\b[^<>]*\ssrc\s*=\s*(?:"\s*\{\{\s*agency\.logo\s*\}\}\s*"|'\s*\{\{\s*agency\.logo\s*\}\}\s*')[^<>]*>/gi;
+const LOGO_LINK = /<a\b[^<>]*\shref\s*=\s*"\s*\{\{\s*agency\.website\s*\}\}\s*"[^<>]*>\s*(<span [^<>]*>\{\{agency\.name\}\}<\/span>)\s*<\/a>/gi;
+const TEXT_STYLE = /(?:^|;)\s*(color|font-family|font-size)\s*:\s*([^;]+)/gi;
+
+// No logo set: the agency name in its place, so the header is never empty.
+// Keeps the text styles the logo image carried; {{...}} in them are filled later.
+function logoAsName(html: string, hasWebsite: boolean): string {
+  const named = html.replace(LOGO_IMG, (tag) => {
+    const style = /\sstyle\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ?? '';
+    const kept = new Map<string, string>([['font-size', '22px']]);
+    for (const m of style.matchAll(TEXT_STYLE)) kept.set(m[1].toLowerCase(), m[2].trim());
+    const css = [...kept].map(([k, v]) => `${k}:${v}`).join(';');
+    return `<span style="${css};font-weight:bold;line-height:1.2">{{agency.name}}</span>`;
+  });
+  // The name should not sit in a link that goes nowhere.
+  return hasWebsite ? named : named.replace(LOGO_LINK, '$1');
+}
+
+const keepIfOthers = (text: string, others: boolean) => text.replace(HAS_OTHERS_RE, (_m, inner: string) => (others ? inner : ''));
+
 export function renderCampaignEmail(input: CampaignRenderInput): CampaignRendered {
   const color = /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color! : '#1e293b';
   const t = {
@@ -258,15 +308,23 @@ export function renderCampaignEmail(input: CampaignRenderInput): CampaignRendere
   const MARK = '\u0000SPM_PROPERTIES\u0000';
   const loopMark = (i: number) => `\u0000SPM_LOOP_${i}\u0000`;
   const loops: string[] = [];
-  const body = input.bodyHtml.replace(LOOP_RE, (_, inner: string) => {
+  const others = input.properties.length > 1;
+  let source = keepIfOthers(input.bodyHtml, others);
+  if (!values['agency.logo']) source = logoAsName(source, !!values['agency.website']);
+  const loopNames: string[] = [];
+  const body = source.replace(LOOP_RE, (_, name: string, inner: string) => {
     loops.push(inner);
+    loopNames.push(name.toLowerCase());
     return loopMark(loops.length - 1);
   });
   const hasCardsSlot = loops.length > 0 || /\{\{\s*properties\s*\}\}/i.test(body);
   let html = fillPlaceholders(body.replace(/\{\{\s*properties\s*\}\}/gi, MARK), values, true);
   html = html.split(MARK).join(cards);
   loops.forEach((inner, i) => {
-    const block = input.properties.map((c) => fillPlaceholders(inner, { ...values, ...propertyValues(c) }, true)).join('');
+    const list = loopNames[i] === 'lead_property' ? input.properties.slice(0, 1)
+      : loopNames[i] === 'other_properties' ? input.properties.slice(1)
+      : input.properties;
+    const block = list.map((c) => fillPlaceholders(inner, { ...values, ...propertyValues(c) }, true)).join('');
     html = html.split(loopMark(i)).join(block);
   });
 
@@ -293,8 +351,8 @@ export function renderCampaignEmail(input: CampaignRenderInput): CampaignRendere
 
   const textBody = input.bodyText?.trim()
     // The listings follow as plain lines below, as for the HTML-derived text, so the loop goes.
-    ? fillPlaceholders(input.bodyText.replace(LOOP_RE, ''), { ...values, properties: '' }, false)
-    : htmlToText(fillPlaceholders(input.bodyHtml.replace(LOOP_RE, '').replace(/\{\{\s*properties\s*\}\}/gi, ''), values, true));
+    ? fillPlaceholders(keepIfOthers(input.bodyText, others).replace(LOOP_RE, ''), { ...values, properties: '' }, false)
+    : htmlToText(fillPlaceholders(source.replace(LOOP_RE, '').replace(/\{\{\s*properties\s*\}\}/gi, ''), values, true));
   const propertyLines = input.properties.map((c) =>
     [c.title, [c.price, ...c.facts].filter(Boolean).join(' · '), c.url].filter(Boolean).join('\n'),
   );

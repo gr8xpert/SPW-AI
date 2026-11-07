@@ -187,6 +187,14 @@ export class PropertyService {
       query.andWhere('p.isPublished = :isPublished', { isPublished: dto.isPublished });
     }
 
+    if (dto.visibility === 'published') {
+      query.andWhere('p.isPublished = 1 AND p.isArchived = 0');
+    } else if (dto.visibility === 'unpublished') {
+      query.andWhere('p.isPublished = 0 AND p.isArchived = 0');
+    } else if (dto.visibility === 'archived') {
+      query.andWhere('p.isArchived = 1');
+    }
+
     if (dto.minPrice !== undefined) query.andWhere('p.price >= :minPrice', { minPrice: dto.minPrice });
     if (dto.maxPrice !== undefined) query.andWhere('p.price <= :maxPrice', { maxPrice: dto.maxPrice });
     if (dto.minBedrooms !== undefined) query.andWhere('p.bedrooms >= :minBeds', { minBeds: dto.minBedrooms });
@@ -232,6 +240,7 @@ export class PropertyService {
     if (existing) throw new ConflictException('Property with this reference already exists');
 
     this.mirrorFloorPlansToLegacyField(dto);
+    if (dto.isArchived) dto.isPublished = false;
     const property = this.propertyRepository.create({ ...dto, tenantId, source: 'manual' });
     const saved = await this.propertyRepository.save(property);
 
@@ -277,6 +286,8 @@ export class PropertyService {
     if (updateData.isFeatured === true && !property.isFeatured) {
       property.featuredByFeedId = null;
     }
+
+    this.applyArchiveRules(property, updateData);
 
     Object.assign(property, updateData);
     if (Object.keys(updateData).length > 0) property.listingUpdatedAt = new Date();
@@ -354,6 +365,24 @@ export class PropertyService {
     if (!Array.isArray(plans)) return;
     const first = plans.find((p) => p && typeof p.url === 'string' && p.url.trim().length > 0);
     dto.floorPlanUrl = first ? first.url : null as any;
+  }
+
+  // Archived and published never go together. Archiving unpublishes; publishing
+  // or unticking Archived takes it out of the archive for good — archive feeds
+  // leave it alone after that (unarchivedByHand). Mutates updateData/property.
+  private applyArchiveRules(property: Property, updateData: Partial<UpdatePropertyDto>): void {
+    if (property.isArchived) {
+      // The full edit form resends isArchived=true, so a Published tick alone counts.
+      if (updateData.isArchived === false || updateData.isPublished === true) {
+        updateData.isArchived = false;
+        property.unarchivedByHand = true;
+      } else if ('isPublished' in updateData) {
+        updateData.isPublished = false;
+      }
+    } else if (updateData.isArchived === true) {
+      updateData.isPublished = false;
+      property.unarchivedByHand = false;
+    }
   }
 
   private filterLockedFields(property: Property, dto: UpdatePropertyDto): Partial<UpdatePropertyDto> {

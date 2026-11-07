@@ -1,3 +1,45 @@
+deployed_at:   2026-11-07T08:09 UTC (deploy 2026-11-07f-kyero-into-feeds, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      live 11-07e + Kyero XML tab folded into Feeds, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, .claude/launch.json, docs/*.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  olTtVK6Jntx-Q5f_c6cYY
+new_deps:      none; migration 1777600000000-KyeroIntoFeeds (export_feeds.propertyFilter; Kyero XML configs in use -> export_feeds rows with the same sk_export_ key; old xml logs moved). Live: 0 feeds / 0 logs to move
+includes:      Feed Export tabs = Feeds, idealista, Rightmove, JSON (Kyero XML tab removed; ?tab=kyero opens Feeds). Old /api/feed/<slug>/properties.xml?key=sk_export_ URL served by ExportFeedsService. POST /api/dashboard/feed-export/run removed (404, expected). Health OK except that route, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107f
+
+deployed_at:   2026-11-07T07:20 UTC (deploy 2026-11-07e-export-feeds, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      7865114 + live 11-05d work + 11-07d archived + extra export feeds, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, .claude/launch.json, docs/*.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  RowN622kLjN_qjxt5qMNa
+new_deps:      none; migration 1777590000000-ExportFeeds (CREATE TABLE export_feeds; feed_export_logs.exportFeedId + index)
+includes:      Feed Export -> Feeds tab (first tab): many feeds per client, each Kyero V3 / Fotocasa / ThinkSpain 1.15 / A Place in the Sun with its own listings, languages, page link and URL /api/feed/<slug>/x/<xf_key>/<name>.xml; pick listings from an old feed file; Push Now + log per feed. Built-in feeds unchanged. Health 40/40, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107e
+
+deployed_at:   2026-11-06T22:33 UTC (deploy 2026-11-07d-archived, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      7865114 + live 11-05d work + archived properties, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/*.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  kUvRA5V7UZyKNwR3Bp8Qo
+new_deps:      none; migration 1777580000000-PropertyArchived (properties.isArchived, properties.unarchivedByHand, feed_configs.markAsArchived, all default 0; index tenantId+isArchived)
+includes:      Archived properties: edit toggle (archiving unpublishes, Published takes it out), Villa/Luxury/Apartment Selection hidden; feed card "Mark imported properties as Archived" (archived wins over other feeds, hand-unarchived stays out, archive feed never removes, no feed removes archived rows); Properties list Visibility filter; archived never in exports. Health 33/33, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107d
+
+deployed_at:   2026-11-06T21:39 UTC (deploy 2026-11-07c-card-no-lift, run from the FullStack session at the owner's request; DASHBOARD ONLY, no migration)
+git_head:      2b2568b + live 11-05d work + globals.css card rule, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/*.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  PaX4r6l_JkJ1SMRp2MByl
+new_deps:      none; no migration
+includes:      Cards holding a textarea/contenteditable no longer lift or change shadow on hover, so Grammarly / spell-check popups stay open (ticket reply, property description). Health 17/17, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107c
+
+deployed_at:   2026-11-06T21:08 UTC (deploy 2026-11-07b-long-text, run from the FullStack session at the owner's request; DASHBOARD ONLY, no migration)
+git_head:      56756a5 + live 11-05d work + long-text layout fix, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/*.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  ZQyS9Fg7GYT1SSqcHYvqC
+new_deps:      none; no migration
+includes:      All dialogs use grid-cols-1 so long nowrap text (Move/Merge location/type paths) can't widen them past the edge; long names wrap. New Leads button column grows to fit longer translated labels (NL "Toevoegen aan Contacten"); lead message wraps anywhere. Health 17/17, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107b
+
+deployed_at:   2026-11-06T20:06 UTC (deploy 2026-11-07a-impersonation-renew, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
+git_head:      3307e68 + live 11-05d work + impersonation renewal, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv, docs/terranova-locations-setup.json left out)
+dashboard_id:  gl0Ls-WvjEm9q-_j4FWs_
+new_deps:      none; no migration
+includes:      View as client no longer freezes after ~1 hour idle: the dashboard renews the 1-hour impersonation token 2 min before expiry and after any 401; API reuses the open audit session (continueSessionId) so no extra start rows. Health 32/32, 0 5xx. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1107a
+
 deployed_at:   2026-11-06T15:57 UTC (deploy 2026-11-06c-terranova, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
 git_head:      f9804e9 + live 11-05d work + location import/feed fix; owner test passed (Terra Nova imported), committed after it
 wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv, docs/terranova-locations-setup.json left out)
@@ -11,6 +53,13 @@ wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.c
 dashboard_id:  wRrmupQDsplkAs9oupEE8
 new_deps:      none; migration 1777570000000-StaggerFeedSchedules (88 feeds moved from 06:00 to 00-05 UTC; old values in /root/spw-1106b-schedules-before.tsv)
 includes:      Feed cards show Queued / Retrying later + place in queue; manual syncs and first imports run before daily runs (BullMQ priority 10 on daily); daily feed runs spread over 00:00-05:00 UTC by listing count; new feeds get the quietest night hour. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1106b
+
+deployed_at:   2026-11-05T18:43 UTC (deploy 2026-11-05d-email-logo-mailerlite, run from the FullStack session at the owner's request; API + DASHBOARD + 1 migration)
+git_head:      66941eb + email logo/designs/MailerLite, uncommitted (commit after the owner's live test)
+wip_files:     none in the build (.claude/settings.json, docs/locations-rosvan.csv left out)
+dashboard_id:  N25nFxQW0HRZ9l6wyzr5h
+new_deps:      none; migration 1777560000000-MailerliteConnections (new table only)
+includes:      Email logo upload (editor + Settings, agency name when no logo, white plate on dark headers); ~25 designed sections, 12 starter designs, AI composes from sections, 3 design ideas; MailerLite contact + tag sync with unsubscribe webhook. Backup /var/www/vhosts/spw-ai.com/backups/code-pre-1105d
 
 deployed_at:   2026-11-04T23:00 UTC (deploy 2026-11-05c-change-password, run from the FullStack session at the owner's request; API + DASHBOARD, no migration)
 git_head:      cc78547 + change password, uncommitted (commit after the owner's live test)

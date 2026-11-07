@@ -83,8 +83,13 @@ export const fi: SettingsText = {
       description:
         'Yhteystiedot, jotka näkyvät brändätyn kohde-esitteen ylä- ja alatunnisteessa, sekä uusien kohteiden esitteen oletusasettelu.',
       logoUrl: 'Logon URL',
-      logoHelp:
-        'Logosi julkinen URL (PNG/JPG/SVG). Näkyy brändätyn PDF:n ylätunnisteessa. Lataa logo ensin verkkosivullesi tai johonkin kuvapalveluun ja liitä URL tähän.',
+      logoHelp: 'Lataa logosi tai liitä muualla olevan logon osoite. Se näkyy PDF-tiedostoissa, sähköposteissa ja ostajasivuilla. PNG ja JPG toimivat kaikkialla; SVG ei näy monissa sähköpostiohjelmissa.',
+      logoUpload: 'Lataa logo',
+      logoRemove: 'Poista logo',
+      logoSaved: 'Logo tallennettu',
+      logoRemoved: 'Logo poistettu',
+      logoFailed: 'Logoa ei voitu tallentaa',
+      logoFileRule: 'Käytä JPEG-, PNG-, GIF- tai WebP-kuvaa (enintään 10 Mt).',
       logoPreview: 'Logon esikatselu',
       contactEmail: 'Yhteyssähköposti',
       contactPhone: 'Yhteyspuhelin',

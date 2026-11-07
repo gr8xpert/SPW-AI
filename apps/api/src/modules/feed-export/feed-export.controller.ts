@@ -16,6 +16,7 @@ import {
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { FeedExportService, KEY_FEED_PREFIX } from './feed-export.service';
+import { ExportFeedsService } from './export-feeds.service';
 import { UpdateFeedExportConfigDto, UpdateJsonFeedDto } from './dto';
 import { CurrentTenant, Public, RequiresAddon } from '../../common/decorators';
 import { ExportFormat, ExportLogFormat } from '../../database/entities';
@@ -62,15 +63,6 @@ export class FeedExportConfigController {
   }
 
   // Generates the feed now and logs it. Readers still fetch the URL themselves.
-  @Post('run')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  @Throttle(MANUAL_RUN_THROTTLE)
-  runKyero(@CurrentTenant() tenantId: number, @Req() req: Request) {
-    return this.service.runNow(tenantId, 'xml', req.ip || '', String(req.headers['user-agent'] || ''));
-  }
-
   @Post('json/run')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -86,19 +78,24 @@ export class FeedExportConfigController {
     @Query('days') days?: string,
     @Query('format') format?: string,
     @Query('apiKeyId') apiKeyId?: string,
+    @Query('exportFeedId') exportFeedId?: string,
   ) {
     const known: ExportLogFormat[] = ['xml', 'json', 'idealista'];
     const f = known.includes(format as ExportLogFormat) ? (format as ExportLogFormat) : undefined;
     const d = Math.min(Math.max(parseInt(days || '') || 7, 1), 90);
     const key = parseInt(apiKeyId || '') || undefined;
-    return this.service.getLogs(tenantId, d, f, key);
+    const feed = parseInt(exportFeedId || '') || undefined;
+    return this.service.getLogs(tenantId, d, f, key, feed);
   }
 }
 
 // Public feed export endpoint
 @Controller('api/feed')
 export class FeedExportController {
-  constructor(private readonly service: FeedExportService) {}
+  constructor(
+    private readonly service: FeedExportService,
+    private readonly exportFeeds: ExportFeedsService,
+  ) {}
 
   @Public()
   @Get(':tenantSlug/properties.xml')
@@ -125,28 +122,16 @@ export class FeedExportController {
       return;
     }
 
-    const { config, tenantId } = await this.service.validateExportKey(
+    // The old Kyero XML tab's URL. That feed is a row in Feed Export -> Feeds
+    // now, under the same key, so the URL portals already have keeps working.
+    const { content } = await this.exportFeeds.publicFeed(
       tenantSlug,
-      // Portals like Kyero can only fetch a URL, so ?key= works too.
       providedKey,
+      req.ip || req.socket.remoteAddress || '',
+      String(req.headers['user-agent'] || ''),
     );
-
-    const ip = req.ip || req.socket.remoteAddress || '';
-    const userAgent = req.headers['user-agent'] || '';
-
-    const { content, contentType } = await this.service.exportProperties(
-      tenantId,
-      config,
-      'xml' as ExportFormat,
-      ip,
-      userAgent,
-    );
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader(
-      'Cache-Control',
-      `private, max-age=${config.cacheTtl}`,
-    );
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, max-age=900');
     res.setHeader('X-Robots-Tag', 'noindex');
     res.send(content);
   }

@@ -130,6 +130,8 @@ export default function PropertiesPage() {
   const [source, setSource] = useState('');
   const [isOwnProperty, setIsOwnProperty] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
+  // published / unpublished / archived — each listing is in exactly one.
+  const [visibility, setVisibility] = useState('');
   // Set from a link on the Locations page (?locationId=…&locationName=…):
   // that place and every place inside it, matching the count shown there.
   const [location, setLocation] = useState<{ id: string; name: string } | null>(null);
@@ -200,10 +202,11 @@ export default function PropertiesPage() {
     dropFromAddress('featureId', 'featureName');
   };
 
-  const hasActiveFilters = !!(status || listingType || propertyTypeId || source || isOwnProperty || isFeatured);
+  const hasActiveFilters = !!(status || visibility || listingType || propertyTypeId || source || isOwnProperty || isFeatured);
 
   const clearFilters = () => {
     setStatus('');
+    setVisibility('');
     setListingType('');
     changePropertyType('');
     setSource('');
@@ -216,6 +219,7 @@ export default function PropertiesPage() {
     const params: Record<string, any> = { page, limit: 50 };
     if (search) params.search = search;
     if (status) params.status = status;
+    if (visibility) params.visibility = visibility;
     if (listingType) params.listingType = listingType;
     if (propertyTypeId) params.propertyTypeId = propertyTypeId;
     if (source) params.source = source;
@@ -493,6 +497,18 @@ export default function PropertiesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">{t.list.visibility}</Label>
+                  <Select value={visibility} onValueChange={(v) => { setVisibility(v === 'all' ? '' : v); setPage(1); }}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allVisibility} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.list.allVisibility}</SelectItem>
+                      <SelectItem value="published">{t.list.visPublished}</SelectItem>
+                      <SelectItem value="unpublished">{t.list.visUnpublished}</SelectItem>
+                      <SelectItem value="archived">{t.list.visArchived}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">{t.list.listingType}</Label>
                   <Select value={listingType} onValueChange={(v) => { setListingType(v === 'all' ? '' : v); setPage(1); }}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={t.list.allTypes} /></SelectTrigger>
@@ -605,7 +621,12 @@ export default function PropertiesPage() {
                 rows={properties.map((property: Property) => ({ ...property, image: property.images?.[0]?.url ?? null, property }))}
                 columns={['image', 'reference', 'title', 'location', 'price', 'bedsBaths']}
                 extra={[
-                  { key: 'status', header: t.list.status, cell: ({ property }) => <Badge variant={statusColors[property.status]}>{labelOf(t.status, property.status)}</Badge> },
+                  { key: 'status', header: t.list.status, cell: ({ property }) => (
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant={statusColors[property.status]}>{labelOf(t.status, property.status)}</Badge>
+                      {property.isArchived && <Badge variant="secondary">{t.list.visArchived}</Badge>}
+                    </div>
+                  ) },
                   { key: 'source', header: t.list.source, cell: ({ property }) => <Badge variant="outline">{propertySourceLabel(property.source, tc.manualSource)}</Badge> },
                 ]}
                 actions={({ property }) => (

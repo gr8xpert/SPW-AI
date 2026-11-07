@@ -58,6 +58,9 @@ export const de: FeedsText = {
     markFeatured: 'Importierte Immobilien als Hervorgehoben markieren',
     markFeaturedHelp:
       'Für einen Feed, der Ihre Liste hervorgehobener Immobilien ist (z. B. ein Resales-Filter mit hervorgehobenen Angeboten). Immobilien werden bei der Synchronisierung als Hervorgehoben markiert und wieder entmarkiert, wenn sie diesen Feed verlassen. Markierungen, die Sie von Hand setzen oder entfernen, bleiben unverändert.',
+    markArchived: 'Importierte Immobilien als Archiviert markieren',
+    markArchivedHelp:
+      'Für einen Feed mit archivierten Angeboten (z. B. die archivierten Odoo-Immobilien als Kyero-Feed). Alles, was er importiert, wird archiviert und nicht veröffentlicht – für später aufbewahrt. Archiviert hat Vorrang, wenn ein anderer Feed dieselbe Immobilie hat. Eine Immobilie, die Sie von Hand aus dem Archiv holen, bleibt draußen, und dieser Feed entfernt nie etwas.',
     removeMissing: 'Immobilien entfernen, die diesen Feed verlassen',
     removeMissingHelp:
       'Nach jeder vollständigen Synchronisierung werden Immobilien, die nicht mehr im Feed sind (verkauft, zurückgezogen), gelöscht, damit Ihre Website der Quelle entspricht. Schalten Sie dies aus, um sie zu behalten. Eine einzelne Immobilie bleibt immer erhalten, wenn bei ihr „Feed-Synchronisierung aktivieren“ ausgeschaltet ist.',
@@ -90,6 +93,7 @@ export const de: FeedsText = {
     paused: 'Pausiert',
     importsAs: 'Importiert als',
     featured: 'Hervorgehoben',
+    archived: 'Archiviert',
     progress: 'Fortschritt',
     lastSync: 'Letzte Synchronisierung',
     properties: 'Immobilien',

@@ -85,8 +85,13 @@ export const en = {
       description:
         'Contact details shown in the branded property brochure header/footer, plus the default brochure layout for new properties.',
       logoUrl: 'Logo URL',
-      logoHelp:
-        'Public URL of your logo (PNG/JPG/SVG). Shown in the branded PDF header. Upload your logo to your website or any image host first, then paste the URL here.',
+      logoHelp: 'Upload your logo, or paste the address of one hosted elsewhere. It appears on your PDFs, emails and buyer pages. PNG or JPG works everywhere; SVG does not show in many mail apps.',
+      logoUpload: 'Upload logo',
+      logoRemove: 'Remove logo',
+      logoSaved: 'Logo saved',
+      logoRemoved: 'Logo removed',
+      logoFailed: 'The logo could not be saved',
+      logoFileRule: 'Use a JPEG, PNG, GIF or WebP image (max 10 MB).',
       logoPreview: 'Logo preview',
       contactEmail: 'Contact Email',
       contactPhone: 'Contact Phone',

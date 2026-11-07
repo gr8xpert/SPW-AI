@@ -49,5 +49,9 @@ export class CreateFeedConfigDto {
 
   @IsBoolean()
   @IsOptional()
+  markAsArchived?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
   removeMissing?: boolean;
 }

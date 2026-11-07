@@ -79,6 +79,7 @@ interface FeedConfig {
   credentials?: Record<string, string>;
   protectedFields?: string[] | null;
   markAsFeatured?: boolean;
+  markAsArchived?: boolean;
   removeMissing?: boolean;
 }
 
@@ -139,6 +140,7 @@ const emptyForm = {
   syncSchedule: '',
   protectedFields: [] as string[],
   markAsFeatured: false,
+  markAsArchived: false,
   removeMissing: true,
 };
 
@@ -243,6 +245,7 @@ export default function FeedsPage() {
         ...(form.syncSchedule.trim() ? { syncSchedule: form.syncSchedule.trim() } : {}),
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
+        markAsArchived: form.markAsArchived,
         removeMissing: form.removeMissing,
         isActive: true,
       });
@@ -272,6 +275,7 @@ export default function FeedsPage() {
         ...(form.syncSchedule.trim() ? { syncSchedule: form.syncSchedule.trim() } : {}),
         protectedFields: form.protectedFields,
         markAsFeatured: form.markAsFeatured,
+        markAsArchived: form.markAsArchived,
         removeMissing: form.removeMissing,
       });
       toast({ title: t.toasts.updated });
@@ -385,6 +389,7 @@ export default function FeedsPage() {
       syncSchedule: feed.syncSchedule || '',
       protectedFields: feed.protectedFields || [],
       markAsFeatured: feed.markAsFeatured === true,
+      markAsArchived: feed.markAsArchived === true,
       removeMissing: feed.removeMissing !== false,
     });
     setIsEditOpen(true);
@@ -488,6 +493,17 @@ export default function FeedsPage() {
           id="feed-mark-featured"
           checked={form.markAsFeatured}
           onCheckedChange={(v) => setForm({ ...form, markAsFeatured: v })}
+        />
+      </div>
+      <div className="flex items-start justify-between gap-4 border-t pt-4">
+        <div className="space-y-1">
+          <Label htmlFor="feed-mark-archived">{t.form.markArchived}</Label>
+          <p className="text-xs text-muted-foreground">{t.form.markArchivedHelp}</p>
+        </div>
+        <Switch
+          id="feed-mark-archived"
+          checked={form.markAsArchived}
+          onCheckedChange={(v) => setForm({ ...form, markAsArchived: v })}
         />
       </div>
       <div className="flex items-start justify-between gap-4 border-t pt-4">
@@ -698,6 +714,13 @@ export default function FeedsPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">{t.card.importsAs}</span>
                       <Badge variant="outline">{t.card.featured}</Badge>
+                    </div>
+                  )}
+
+                  {feed.markAsArchived && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">{t.card.importsAs}</span>
+                      <Badge variant="outline">{t.card.archived}</Badge>
                     </div>
                   )}
 

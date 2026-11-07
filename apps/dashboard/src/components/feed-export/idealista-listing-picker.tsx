@@ -30,9 +30,16 @@ export function IdealistaListingPicker({ ids, onChange, portal, allTypes }: {
   useEffect(() => {
     const missing = ids.filter((id) => !picked.some((p) => p.id === id));
     if (!missing.length) return;
-    apiGet(`/api/dashboard/feed-export/idealista/listings?ids=${ids.join(',')}${types}`)
-      .then((res) => setPicked(unwrap<IdealistaListing[]>(res) || []))
-      .catch(() => {});
+    // 300 ids a request: a feed can hold hundreds, and a long URL is refused.
+    const chunks: number[][] = [];
+    for (let i = 0; i < ids.length; i += 300) chunks.push(ids.slice(i, i + 300));
+    Promise.all(
+      chunks.map((chunk) =>
+        apiGet(`/api/dashboard/feed-export/idealista/listings?ids=${chunk.join(',')}${types}`)
+          .then((res) => unwrap<IdealistaListing[]>(res) || [])
+          .catch(() => [] as IdealistaListing[]),
+      ),
+    ).then((parts) => setPicked(parts.flat()));
   }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

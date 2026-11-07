@@ -58,6 +58,9 @@ export const nl: FeedsText = {
     markFeatured: 'Geïmporteerde woningen markeren als Uitgelicht',
     markFeaturedHelp:
       'Voor een feed die je lijst met uitgelichte woningen is (bijv. een Resales-filter met uitgelichte woningen). Woningen worden bij de sync als Uitgelicht gemarkeerd en weer ontmarkeerd als ze uit deze feed verdwijnen. Markeringen die je zelf hebt gezet of verwijderd, blijven ongewijzigd.',
+    markArchived: 'Geïmporteerde woningen als Gearchiveerd markeren',
+    markArchivedHelp:
+      'Voor een feed met gearchiveerde woningen (bijv. de gearchiveerde woningen uit Odoo als Kyero-feed). Alles wat hij importeert wordt gearchiveerd en niet gepubliceerd, bewaard voor later. Gearchiveerd wint als een andere feed dezelfde woning heeft. Een woning die je zelf uit het archief haalt, blijft eruit, en deze feed verwijdert nooit iets.',
     removeMissing: 'Woningen verwijderen die uit deze feed verdwijnen',
     removeMissingHelp:
       'Na elke volledige sync worden woningen die niet meer in de feed staan (verkocht, ingetrokken) verwijderd, zodat je site overeenkomt met de bron. Zet dit uit om ze te bewaren. Een woning blijft altijd bewaard als ‘Feedsync inschakelen’ bij die woning uit staat.',
@@ -90,6 +93,7 @@ export const nl: FeedsText = {
     paused: 'Gepauzeerd',
     importsAs: 'Importeert als',
     featured: 'Uitgelicht',
+    archived: 'Gearchiveerd',
     progress: 'Voortgang',
     lastSync: 'Laatste sync',
     properties: 'Woningen',

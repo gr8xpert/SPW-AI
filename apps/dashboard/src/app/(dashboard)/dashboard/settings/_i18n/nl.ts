@@ -83,8 +83,13 @@ export const nl: SettingsText = {
       description:
         'Contactgegevens in de kop- en voettekst van de huisstijlbrochure, plus de standaardopmaak van de brochure voor nieuwe woningen.',
       logoUrl: 'Logo-URL',
-      logoHelp:
-        'Openbare URL van je logo (PNG/JPG/SVG). Wordt getoond in de kop van de huisstijl-PDF. Upload je logo eerst naar je website of een andere afbeeldingenhost en plak de URL hier.',
+      logoHelp: 'Upload je logo of plak het adres van een logo dat elders staat. Het verschijnt op je pdf’s, e-mails en kopersoverzichten. PNG of JPG werkt overal; SVG wordt in veel e-mailprogramma’s niet getoond.',
+      logoUpload: 'Logo uploaden',
+      logoRemove: 'Logo verwijderen',
+      logoSaved: 'Logo opgeslagen',
+      logoRemoved: 'Logo verwijderd',
+      logoFailed: 'Het logo kon niet worden opgeslagen',
+      logoFileRule: 'Gebruik een JPEG-, PNG-, GIF- of WebP-afbeelding (max. 10 MB).',
       logoPreview: 'Voorbeeld van logo',
       contactEmail: 'Contact-e-mail',
       contactPhone: 'Contacttelefoon',

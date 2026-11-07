@@ -73,6 +73,7 @@ export interface PropertyFormData {
   geoLocationLabel: string;
   isFeatured: boolean;
   isPublished: boolean;
+  isArchived: boolean;
   floor: string;
   street: string;
   streetNumber: string;

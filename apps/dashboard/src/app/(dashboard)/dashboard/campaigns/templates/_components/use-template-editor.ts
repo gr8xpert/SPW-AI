@@ -30,6 +30,7 @@ export function useTemplateEditor(id: number) {
   const [previewFailed, setPreviewFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const previewSeq = useRef(0);
+  const [previewNonce, setPreviewNonce] = useState(0); // the logo changed: same draft, new preview
 
   useEffect(() => {
     if (!api.isReady) return;
@@ -62,7 +63,7 @@ export function useTemplateEditor(id: number) {
     }, 400);
     // A newer change (or leaving) supersedes this request: its spinner must not stick.
     return () => { clearTimeout(timer); setPreviewLoading(false); };
-  }, [api.isReady, loading, loadFailed, draft.subject, draft.bodyHtml]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api.isReady, loading, loadFailed, draft.subject, draft.bodyHtml, previewNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dirty = !!saved && (saved.name !== draft.name || saved.subject !== draft.subject || saved.bodyHtml !== draft.bodyHtml);
   // Subject / body differ from the saved copy (what undo / redo / versions replace; the name is kept).
@@ -102,6 +103,6 @@ export function useTemplateEditor(id: number) {
 
   return {
     draft, setDraft, loading, loadFailed, saving, dirty, contentDirty, save, applyServer,
-    preview, previewLoading, previewFailed, reloadKey, bumpReload: () => setReloadKey((k) => k + 1),
+    preview, previewLoading, previewFailed, refreshPreview: () => setPreviewNonce((n) => n + 1), reloadKey, bumpReload: () => setReloadKey((k) => k + 1),
   };
 }

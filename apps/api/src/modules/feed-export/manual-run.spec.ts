@@ -1,3 +1,4 @@
+import { ExportFeedsController } from './export-feeds.controller';
 import { BadRequestException, ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import { FeedExportConfigController } from './feed-export.controller';
 import { FeedExportService } from './feed-export.service';
@@ -202,7 +203,7 @@ describe('Rightmove Push Now', () => {
 
 describe('Push Now routes', () => {
   const handlers: Array<[string, unknown]> = [
-    ['Kyero', FeedExportConfigController.prototype.runKyero],
+    ['Feeds', ExportFeedsController.prototype.run],
     ['JSON', FeedExportConfigController.prototype.runJson],
     ['idealista', IdealistaConfigController.prototype.run],
     ['Rightmove', RightmoveConfigController.prototype.push],

@@ -371,6 +371,17 @@ export class Property {
   @Column({ default: false })
   isPublished: boolean;
 
+  // Kept for later but never public: always paired with isPublished=false, so
+  // every public query (website, widget, exports) already leaves it out. Set by
+  // hand or by a feed with markAsArchived.
+  @Column({ default: false })
+  isArchived: boolean;
+
+  // A user took it out of the archive by hand: archive feeds leave it alone
+  // from then on. Cleared again when someone archives it by hand.
+  @Column({ default: false })
+  unarchivedByHand: boolean;
+
   @Column({ default: true })
   syncEnabled: boolean;
 

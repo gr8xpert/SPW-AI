@@ -1139,9 +1139,6 @@ function CreatePropertyPageInner() {
                 ['isFeatured', t.form.flags.isFeatured, t.form.flags.isFeaturedHint],
                 ['isPublished', t.form.flags.isPublished, t.form.flags.isPublishedHint],
                 ['isOwnProperty', t.form.flags.isOwnProperty, ''],
-                ['villaSelection', t.form.flags.villaSelection, ''],
-                ['luxurySelection', t.form.flags.luxurySelection, ''],
-                ['apartmentSelection', t.form.flags.apartmentSelection, ''],
               ].map(([field, label, desc]) => (
                 <div key={field} className="flex items-center justify-between">
                   <div className="space-y-0.5">

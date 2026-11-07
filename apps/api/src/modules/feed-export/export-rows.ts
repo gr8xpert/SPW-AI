@@ -6,7 +6,7 @@ import type { KyeroLocationRow } from './kyero/kyero-builder';
 
 export interface ExportLookups {
   locations: Map<number, KyeroLocationRow>;
-  types: Map<number, { name: Record<string, string> | null }>;
+  types: Map<number, { name: Record<string, string> | null; parentId?: number | null }>;
   features: Map<number, { name: Record<string, string> | null }>;
 }
 

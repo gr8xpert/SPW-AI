@@ -94,7 +94,7 @@ export function useGeneralSettings() {
       await apiPut('/api/dashboard/tenant/settings', {
         contactEmail: brochureContactEmail.trim() || undefined,
         contactPhone: brochureContactPhone.trim() || undefined,
-        logoUrl: brochureLogoUrl.trim() || undefined,
+        logoUrl: brochureLogoUrl.trim(),
         defaultBrochureVariant,
       });
       toast({ title: t.general.brochure.saved });

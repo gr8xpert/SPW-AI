@@ -56,6 +56,11 @@ export class ListPropertyDto {
   @IsBoolean()
   isPublished?: boolean;
 
+  // Published / unpublished (and not archived) / archived — each listing is in one.
+  @IsOptional()
+  @IsIn(['published', 'unpublished', 'archived'])
+  visibility?: 'published' | 'unpublished' | 'archived';
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   ApiKey,
+  ExportFeed,
   FeedExportConfig,
   FeedExportLog,
   Property,
@@ -32,12 +33,15 @@ import {
   RightmoveConfigController,
   RightmovePlacesAdminController,
 } from './rightmove/rightmove.controller';
+import { ExportFeedsService } from './export-feeds.service';
+import { ExportFeedsController, ExportFeedsPublicController } from './export-feeds.controller';
 import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       ApiKey,
+      ExportFeed,
       FeedExportConfig,
       FeedExportLog,
       Property,
@@ -55,14 +59,17 @@ import { DashboardAddonGuard } from '../../common/guards/dashboard-addon.guard';
   ],
   controllers: [
     FeedExportConfigController,
+    ExportFeedsController,
     IdealistaConfigController,
     RightmoveConfigController,
     RightmovePlacesAdminController,
     FeedExportController,
     IdealistaFeedController,
+    ExportFeedsPublicController,
   ],
   providers: [
     FeedExportService,
+    ExportFeedsService,
     IdealistaFeedService,
     RightmoveClient,
     RightmoveSyncService,

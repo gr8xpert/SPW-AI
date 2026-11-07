@@ -59,6 +59,7 @@ export * from './media-blob.entity';
 
 // Feed export entities
 export * from './feed-export.entity';
+export * from './export-feed.entity';
 export * from './rightmove.entity';
 
 // Migration entities
@@ -111,3 +112,4 @@ export * from './email-designer.entity';
 export * from './plugin-license.entity';
 export * from './plugin-activation.entity';
 export * from './plugin-credit-usage.entity';
+export * from './mailerlite-connection.entity';

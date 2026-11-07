@@ -158,6 +158,10 @@ export class FeedExportLog {
   @Column({ type: 'int', nullable: true })
   apiKeyId: number | null;
 
+  // The extra export feed (export_feeds) this was; null = not one of those.
+  @Column({ type: 'int', nullable: true })
+  exportFeedId: number | null;
+
   @Column({ default: 0 })
   propertiesCount: number;
 

@@ -39,6 +39,7 @@ import { ContactModule } from './modules/contact/contact.module';
 import { LeadModule } from './modules/lead/lead.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { EmailCampaignModule } from './modules/email-campaign/email-campaign.module';
+import { MailerLiteModule } from './modules/mailerlite/mailerlite.module';
 
 // Phase 4: Additional Feature Modules
 import { UploadModule } from './modules/upload/upload.module';
@@ -163,6 +164,7 @@ import { BrochureModule } from './modules/brochure/brochure.module';
     LeadModule,
     AnalyticsModule,
     EmailCampaignModule,
+    MailerLiteModule,
 
     // ============ Phase 4: Additional Features ============
     UploadModule,

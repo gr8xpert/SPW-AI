@@ -154,7 +154,7 @@ export class EmailDesignerService {
     return wanted;
   }
 
-  private async countTurn(tenantId: number): Promise<void> {
+  async countTurn(tenantId: number): Promise<void> {
     if (!this.redis) {
       if (!this.warnedNoRedis) this.logger.warn('No Redis client: the email designer hourly limit is not enforced.');
       this.warnedNoRedis = true;

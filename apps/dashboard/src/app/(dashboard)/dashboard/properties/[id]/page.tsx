@@ -236,6 +236,7 @@ export default function PropertyDetailPage() {
               <Badge variant={statusVariant[property.status]}>{labelOf(t.status, property.status)}</Badge>
               {property.isFeatured && <Badge variant="warning">{t.detail.badges.featured}</Badge>}
               {property.isPublished && <Badge variant="success">{t.detail.badges.published}</Badge>}
+              {property.isArchived && <Badge variant="secondary">{t.detail.badges.archived}</Badge>}
               {property.isOwnProperty && <Badge variant="outline">{t.detail.badges.own}</Badge>}
               {property.villaSelection && <Badge variant="outline">{t.detail.badges.villaSelection}</Badge>}
               {property.luxurySelection && <Badge variant="outline">{t.detail.badges.luxury}</Badge>}

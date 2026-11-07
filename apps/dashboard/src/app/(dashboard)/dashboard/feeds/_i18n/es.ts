@@ -58,6 +58,9 @@ export const es: FeedsText = {
     markFeatured: 'Marcar las propiedades importadas como Destacadas',
     markFeaturedHelp:
       'Para un feed que es tu lista de destacadas (p. ej. un filtro de Resales con propiedades destacadas). Las propiedades se marcan como Destacadas al sincronizar y se desmarcan cuando salen de este feed. Las marcas que pongas o quites a mano no se tocan.',
+    markArchived: 'Marcar las propiedades importadas como Archivadas',
+    markArchivedHelp:
+      'Para un feed de propiedades archivadas (p. ej. las archivadas de Odoo como feed Kyero). Todo lo que importa queda archivado y sin publicar, guardado para más adelante. Archivada tiene prioridad si otro feed tiene la misma propiedad. Una propiedad que saques del archivo a mano se queda fuera, y este feed nunca elimina nada.',
     removeMissing: 'Eliminar las propiedades que salen de este feed',
     removeMissingHelp:
       'Tras cada sincronización completa, las propiedades que ya no están en el feed (vendidas, retiradas) se eliminan, para que tu web coincida con la fuente. Desactívalo para conservarlas. Una propiedad siempre se conserva si tiene desactivado «Activar sincronización del feed».',
@@ -90,6 +93,7 @@ export const es: FeedsText = {
     paused: 'En pausa',
     importsAs: 'Importa como',
     featured: 'Destacada',
+    archived: 'Archivada',
     progress: 'Progreso',
     lastSync: 'Última sincronización',
     properties: 'Propiedades',

@@ -113,7 +113,7 @@ describe('listing loop and agency placeholders', () => {
     expect(mail.html).not.toContain('{{');
   });
 
-  it('drops the logo link left empty when there is no logo, keeps other links', () => {
+  it('shows the agency name, without an empty link, when there is no logo or website; keeps other links', () => {
     const out = renderCampaignEmail(base({
       bodyHtml: '<a href="{{agency.website}}" style="text-decoration:none"><img src="{{agency.logo}}" alt="x"></a><a href="">keep</a><a href="https://x.test">  </a>{{unsubscribe_link}}',
       pixelUrl: null,
